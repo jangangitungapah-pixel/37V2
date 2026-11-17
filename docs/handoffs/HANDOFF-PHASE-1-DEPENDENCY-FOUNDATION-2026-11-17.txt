@@ -1,0 +1,260 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 1: MODERN DEPENDENCY FOUNDATION
+Date: 2026-11-17
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: C:\Users\hazel\source\repos\37V2
+Branch: main
+
+============================================================
+1. REPOSITORY START STATE
+============================================================
+
+The repository was created from scratch. At the beginning of Phase 1,
+main contained only the empty initial commit:
+
+f4eaa6d624b4bd7f079d3740a2306510686c439b
+Message: chore: initialize empty repository
+
+No legacy application source or dependency setup was carried over.
+
+============================================================
+2. USER-DEFINED WORKFLOW RULES
+============================================================
+
+- Work exactly one phase per chat session.
+- User specifies the next phase and what it should implement.
+- Do not independently choose or start the next phase.
+- Develop 37 Music Studio page by page, following the user's requested
+  functionality and visual direction for each page.
+- At the end of every phase, create a detailed handoff for the next chat.
+- This phase is dependency/tooling groundwork only.
+- Do not create pages, workflows, or business rules before the user asks.
+- Do not merge pull requests without explicit user permission.
+
+============================================================
+3. PHASE 1 OBJECTIVE AND IMPLEMENTED SCOPE
+============================================================
+
+Objective:
+Prepare a modern, pinned dependency foundation for a smooth, premium,
+modern, minimalist, spatial-capable UI and the supporting application
+logic. Use JavaScript/JSX.
+
+Implemented:
+- React + Vite JavaScript/JSX application bootstrap.
+- Tailwind CSS v4 using the first-party Vite plugin.
+- Base UI as the headless accessible primitive foundation.
+- shadcn CLI configuration for locally owned, editable components.
+- Motion for selective interaction and layout animation.
+- Lucide React icons and Sonner notifications.
+- React Compiler stable integration through the Vite/Rolldown Babel
+  preset path.
+- React Router foundation.
+- Zustand for future shared client state, only when needed.
+- TanStack Query for conventional asynchronous request state.
+- TanStack Table and TanStack Virtual for future data-heavy pages.
+- React Hook Form + Zod + resolvers for forms and validation.
+- date-fns and @date-fns/tz for explicit date/time-zone handling.
+- ECharts and echarts-for-react for future analytics, lazy-loaded by use.
+- Firebase Web SDK dependency and lazy initializer only.
+- ESLint flat config, Prettier, Vitest, jsdom, and Testing Library.
+- Neutral CSS-variable slots for light/dark modes.
+- Accessible focus baseline and reduced-motion CSS behavior.
+- Timestamped PowerShell verification script with transcript and
+  per-command exit codes.
+- Dependency rationale and usage boundaries documentation.
+
+The root app shell is deliberately empty. No user-facing screen or
+operational workflow has been implemented.
+
+============================================================
+4. PHASE 1 GIT COMMITS
+============================================================
+
+Foundation commit:
+d6b413ece9a6472126f2e5e7a059d01c2f2fc258
+
+Message:
+chore: establish modern application dependency foundation
+
+Parent:
+f4eaa6d624b4bd7f079d3740a2306510686c439b
+
+Branch:
+main
+
+This handoff is committed in the repository separately after the
+foundation commit. Inspect git log -2 to see both commits.
+
+============================================================
+5. DIRECT DEPENDENCY VERSIONS
+============================================================
+
+Runtime dependencies (exact versions in package.json):
+
+- @base-ui/react 1.9.0
+- @date-fns/tz 1.5.0
+- @hookform/resolvers 7.0.7
+- @tanstack/react-query 5.107.1
+- @tanstack/react-table 9.3.1
+- @tanstack/react-virtual 3.14.24
+- class-variance-authority 0.7.1
+- clsx 2.1.1
+- date-fns 4.4.0
+- echarts 6.1.0
+- echarts-for-react 3.0.6
+- firebase 13.3.0
+- lucide-react 1.74.0
+- motion 14.14.0
+- react 19.3.1
+- react-dom 19.3.1
+- react-hook-form 7.92.0
+- react-router 8.5.1
+- sonner 2.0.8
+- tailwind-merge 3.7.0
+- zustand 5.1.0
+- zod 4.6.7
+
+Development dependencies (exact versions in package.json):
+
+- @babel/core 8.1.2
+- @eslint/js 10.0.1
+- @rolldown/plugin-babel 0.3.1
+- @tailwindcss/vite 4.3.5
+- @tanstack/react-query-devtools 5.107.1
+- @testing-library/react 16.3.3
+- @testing-library/user-event 14.6.12
+- @vitejs/plugin-react 6.3.0
+- babel-plugin-react-compiler 1.0.0
+- eslint 10.15.0
+- eslint-plugin-react-hooks 7.1.1
+- eslint-plugin-react-refresh 0.5.8
+- globals 17.14.0
+- jsdom 31.0.1
+- prettier 3.10.1
+- prettier-plugin-tailwindcss 0.8.1
+- shadcn 4.23.0
+- tailwindcss 4.3.5
+- vite 8.3.8
+- vitest 5.1.0
+
+The direct versions are pinned (no caret ranges). Review
+docs/architecture/DEPENDENCY-FOUNDATION.md for the intent and boundaries.
+
+============================================================
+6. KEY ARCHITECTURE / USAGE BOUNDARIES
+============================================================
+
+- Keep JavaScript/JSX. No TypeScript migration has been requested.
+- Build UI with Tailwind v4 + Base UI primitives + shadcn local source
+  components. Add only the components needed for a user-approved page;
+  do not install the full component catalogue pre-emptively.
+- Use Motion selectively. Respect prefers-reduced-motion and avoid
+  expensive always-on animation.
+- Prefer component-local React state. Use Zustand only for state that is
+  genuinely shared across views.
+- Use TanStack Query for conventional async request state. Do not mirror
+  Firestore real-time subscriptions into a duplicate cache without a
+  specific reason.
+- Use modular Firebase SDK functions and Firestore listeners only when
+  a user-approved phase defines the flow.
+- Load ECharts and other heavy feature modules lazily, where required.
+- Store timestamps canonically and handle the studio/business timezone
+  explicitly; do not assume the browser's timezone is authoritative.
+- Only Firebase Web SDK is present. There is no provisioned Firebase
+  project, auth flow, Firestore schema, security rules, hosting config,
+  or deployment from this phase.
+- No .env.local or credentials should ever be committed.
+
+============================================================
+7. CREATED FILES
+============================================================
+
+- .editorconfig
+- .env.example
+- .gitignore
+- .npmrc
+- .nvmrc
+- README.md
+- components.json
+- eslint.config.js
+- index.html
+- jsconfig.json
+- package.json
+- prettier.config.js
+- vite.config.js
+- scripts/verify-phase-1.ps1
+- src/App.jsx
+- src/main.jsx
+- src/app/providers/AppProviders.jsx
+- src/lib/firebase/client.js
+- src/lib/query-client.js
+- src/lib/utils.js
+- src/lib/utils.test.js
+- src/styles/index.css
+- docs/architecture/DEPENDENCY-FOUNDATION.md
+
+This handoff:
+- docs/handoffs/HANDOFF-PHASE-1-DEPENDENCY-FOUNDATION-2026-11-17.txt
+
+============================================================
+8. LOCAL VERIFICATION REQUIRED — NOT YET RUN
+============================================================
+
+Important:
+The GitHub changes have been committed. This chat did NOT run a clean
+npm install, build, lint, test, or npm audit inside the user's Windows
+workstation. Do not report Phase 1 as locally verified until the user
+runs the verification script and shares its output.
+
+Preferred Node runtime:
+- Node.js 24.15.0 (stored in .nvmrc)
+- package.json engines: ^22.22.2 || ^24.15.0 || >=26.0.0
+- .npmrc enables engine-strict=true
+
+The package-lock.json has NOT been generated yet. The user must run
+npm install locally so npm resolves and locks the transitive tree.
+Do not fabricate a lockfile.
+
+Run in PowerShell:
+
+cd C:\Users\hazel\source\repos\37V2
+git pull origin main
+.\scripts\verify-phase-1.ps1
+
+The script performs:
+1. node --version
+2. npm --version
+3. npm install (creates package-lock.json)
+4. npm run format:check
+5. npm run lint
+6. npm run test:run
+7. npm run build
+8. npm audit
+
+Full stdout/stderr transcript and each step's exit code are written to:
+.logs/phase-1-verification-<timestamp>.txt
+
+If the package lock is created and verification passes, the user can
+review it and commit it with:
+
+git add package-lock.json
+git commit -m "chore: lock phase 1 dependencies"
+git push
+
+Do not bypass engine-strict if Node is unsupported. First check node
+--version and switch to the preferred Node release.
+
+Send the generated .logs verification text back for review. If any step
+fails, resolve Phase 1 dependency/configuration problems only; do not
+begin unrelated product implementation.
+
+============================================================
+9. NEXT-PHASE AUTHORITY
+============================================================
+
+Phase 1 does not nominate or decide Phase 2.
+
+After local verification and review, wait for the user's explicit
+instruction about what to implement next. Do not start a dashboard,
+login, booking calendar, or any other product page on your own.
