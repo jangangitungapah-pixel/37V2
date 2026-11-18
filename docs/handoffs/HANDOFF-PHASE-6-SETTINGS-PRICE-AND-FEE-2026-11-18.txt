@@ -1,0 +1,240 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 6: ADMIN SETTINGS & PRICE AND FEE CONFIGURATION
+Date: 2026-11-18
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: C:\Users\hazel\source\repos\37V2
+Branch: main
+
+============================================================
+1. STARTING HEAD & IMPLEMENTATION COMMIT
+============================================================
+
+- Starting baseline HEAD:
+  5fc45dd65aed48bfa274b38ca2f8f56338316a59
+  (feat: add verification script for phase 5a calendar refinement)
+- Phase 6 Implementation Commit:
+  a78b20968098088cdc3bcd9ff7428efca27befeb
+  (feat(settings): implement price and fee settings and calendar integration)
+- Phase 6 Handoff Commit:
+  Recorded on `main` immediately following `a78b209`
+  (`docs: add phase 6 settings price and fee handoff`).
+
+============================================================
+2. FILES CREATED & MODIFIED
+============================================================
+
+Created:
+- `src/features/admin/settings/pages/AdminSettingsPage.jsx`
+- `src/features/admin/settings/pages/PriceAndFeeSettingsPage.jsx`
+- `src/features/admin/settings/hooks/usePricingSettings.js`
+- `src/features/admin/settings/pricing/config/default-pricing-settings.js`
+- `src/features/admin/settings/pricing/schemas/pricing-settings-schema.js`
+- `src/features/admin/settings/pricing/repositories/pricing-settings-repository.js`
+- `src/features/admin/settings/pricing/services/pricing-settings-service.js`
+- `src/features/admin/settings/pricing/utils/normalize-pricing-settings.js`
+- `src/features/admin/settings/pricing/utils/calculate-pricing-settings.js`
+- `src/features/admin/settings/components/SettingsModuleCard.jsx`
+- `src/features/admin/settings/components/SettingsSectionCard.jsx`
+- `src/features/admin/settings/components/SettingsSaveBar.jsx`
+- `src/features/admin/settings/components/SettingsConfirmDialog.jsx`
+- `src/features/admin/settings/components/SessionTypeList.jsx`
+- `src/features/admin/settings/components/SessionTypeDialog.jsx`
+- `src/features/admin/settings/components/RecordingOptionList.jsx`
+- `src/features/admin/settings/components/RecordingOptionDialog.jsx`
+- `src/features/admin/settings/components/StudioPackageList.jsx`
+- `src/features/admin/settings/components/StudioPackageDialog.jsx`
+- `src/features/admin/settings/components/DiscountPresetList.jsx`
+- `src/features/admin/settings/components/DiscountPresetDialog.jsx`
+- `src/features/admin/settings/components/OperationalFeesForm.jsx`
+- `src/features/admin/settings/settings.test.jsx`
+- `scripts/verify-phase-6-settings.ps1`
+- `docs/architecture/ADMIN-PRICE-AND-FEE-SETTINGS.md`
+- `docs/handoffs/HANDOFF-PHASE-6-SETTINGS-PRICE-AND-FEE-2026-11-18.txt`
+
+Modified:
+- `src/App.jsx`
+- `src/features/admin/navigation/admin-navigation.js`
+- `src/features/admin/admin-shell.test.jsx`
+- `src/features/admin/calendar/utils/booking-pricing.js`
+- `src/features/admin/calendar/schemas/booking-schema.js`
+- `src/features/admin/calendar/repositories/calendar-booking-repository.js`
+- `src/features/admin/calendar/services/calendar-booking-service.js`
+- `src/features/admin/calendar/components/BookingFormDialog.jsx`
+- `src/features/admin/calendar/components/BookingDetailDrawer.jsx`
+- `src/features/admin/calendar/components/CalendarTimelineGrid.jsx` (Prettier formatting alignment)
+- `src/features/admin/calendar/pages/AdminCalendarPage.jsx`
+- `src/features/admin/calendar/calendar.test.jsx`
+- `firestore.rules`
+
+Note: Original `HANDOFF-PHASE-5-ADMIN-CALENDAR-2026-11-18.txt` and
+`HANDOFF-PHASE-5A-CALENDAR-TIMELINE-REFINEMENT-2026-11-18.txt` remain completely
+intact.
+
+============================================================
+3. SETTINGS ROUTES & NAVIGATION COMPATIBILITY
+============================================================
+
+- `/admin/settings`: Renders `AdminSettingsPage` (Overview heading `Settings`,
+  subtitle `Studio configuration and operational presets`, module card `Price and Fee Settings`).
+- `/admin/settings/price-and-fee`: Renders `PriceAndFeeSettingsPage` (Heading
+  `Price and Fee Settings`, breadcrumb `Admin > Settings > Price and Fee Settings`).
+- Global Admin Sidebar retains the locked 8 items (`01 Dashboard` .. `08 Settings`).
+- `getAdminNavItemByPath()` in `src/features/admin/navigation/admin-navigation.js`
+  supports nested child routes (`normalized === item.href || normalized.startsWith(item.href + '/')`),
+  so navigating to `/admin/settings/price-and-fee` keeps `Settings` highlighted
+  and renders `Settings` in `AdminTopbar`.
+
+============================================================
+4. SETTINGS FEATURES
+============================================================
+
+1. Section 01 — Session Types:
+   - Existing V2 defaults: Rehearsal (Rp 100.000/jam), Recording (Rp 150.000/jam),
+     Mixing (Rp 250.000/jam), Mastering (Rp 300.000/jam).
+   - Supports Add/Edit modal, unique `crypto.randomUUID()` IDs, Active/Inactive
+     toggle, and safe delete confirmation (blocked when referenced by any active
+     Studio Package).
+2. Section 02 — Recording Options:
+   - Existing V2 defaults: Tracking Reguler (`hourly`, Rp 150.000/jam), Live
+     Recording Session (`fixed`, 3h, Rp 420.000), Multitrack Shift (`fixed`,
+     6h, Rp 800.000).
+   - Supports Hourly vs Fixed mode, duration locking on Fixed, Add/Edit/Toggle/Delete.
+3. Section 03 — Studio Packages:
+   - Existing V2 defaults: Paket Rehearsal 3 Jam (Rp 300.000 - Rp 30.000 = Rp 270.000)
+     and Paket Rehearsal 5 Jam (Rp 500.000 - Rp 50.000 = Rp 450.000), default
+     commissions = Rp 0.
+   - Live customer price preview (`finalPrice = max(0, basePrice - discountAmount)`),
+     discount <= basePrice validation, internal `staffCommissionAmount` and
+     `recordingOperatorCommissionAmount`, Add/Edit/Toggle/Delete confirmation.
+4. Section 04 — Discount Presets:
+   - Empty by default (`discounts: []`).
+   - Supports Add/Edit/Toggle/Delete for regular non-package session discounts.
+   - Automatic selection chooses the single highest `discountAmount` active
+     preset matching `sessionTypeId` and `durationMinutes >= minimumDurationMinutes`,
+     capped at subtotal, never stacked with package or multiple discounts.
+5. Section 05 — Staff and Operational Fees:
+   - `rehearsalStaffCommissionPerHour` (default `0`): hourly studio guard fee
+     applied only to regular (non-package) Rehearsal sessions.
+   - `dailyMealAllowancePerStaff` (default `0`): operational daily preset only;
+     never charged on bookings and never generates payroll/attendance/bookkeeping
+     entries.
+6. Centralized Save & Dirty Guard:
+   - Single `Save Changes` transactional write with Zod validation, unsaved
+     changes indicator, draft preservation on save failure, remote version
+     conflict detection, `beforeunload` browser guard, and guarded back-navigation
+     confirmation dialog.
+
+============================================================
+5. FIRESTORE SCHEMA (`settings/pricing`)
+============================================================
+
+Single centralized Firestore document at `settings/pricing`:
+- `schemaVersion`: `1`
+- `sessionTypes`: `[{ id, name, description, hourlyRate, isActive, sortOrder }]`
+- `recordingTypes`: `[{ id, name, description, priceMode, durationMinutes, price, isActive, sortOrder }]`
+- `packages`: `[{ id, name, detail, sessionTypeId, durationMinutes, basePrice, discountAmount, staffCommissionAmount, recordingOperatorCommissionAmount, isActive, sortOrder }]`
+- `discounts`: `[{ id, name, sessionTypeId, minimumDurationMinutes, discountAmount, isActive, sortOrder }]`
+- `fees`: `{ rehearsalStaffCommissionPerHour, dailyMealAllowancePerStaff }`
+- `version`: integer incremented transactionally on each save (`1`, `2`, ...)
+- `updatedAt`: Firestore `serverTimestamp()`
+- `updatedByUid`: `request.auth.uid`
+
+Zero `localStorage` fallback is used as source of truth; shared realtime hook
+`usePricingSettings()` uses `onSnapshot` and cleans up cleanly on unmount without
+writing default documents during render.
+
+============================================================
+6. FIRESTORE SECURITY RULES UPDATES (`firestore.rules`)
+============================================================
+
+- Added `match /settings/pricing`:
+  - `allow get: if isActiveStaff();`
+  - `allow list: if false;`
+  - `allow create`: `isActiveStaff() && isValidPricingSettings(request.resource.data) && request.resource.data.version == 1;`
+  - `allow update`: `isActiveStaff() && isValidPricingSettings(request.resource.data) && request.resource.data.version == resource.data.version + 1;`
+  - `allow delete: if false;`
+  - Enforces top-level keys allow-list, list/map types, non-negative `fees`,
+    `updatedAt is timestamp`, `updatedByUid == request.auth.uid`, and denies
+    access to any sibling document under `settings/`.
+- Updated `match /bookings/{bookingId}`:
+  - Added `'commissionSnapshot'` to `isValidBookingKeys` and validated optional
+    map structure (`staffBasis`, `staffRate`, `staffAmount`,
+    `recordingOperatorAmount`, `settingsVersion`) via `isValidBookingCommissionSnapshot`.
+  - Locked `unitRate`, `subtotal`, `discountAmount`, `totalAmount`, and
+    `commissionSnapshot` whenever `isServiceScopeUnchanged(request.resource.data, resource.data)`
+    is true, while keeping full backward compatibility with Phase 5 bookings
+    that omit `commissionSnapshot`.
+
+============================================================
+7. CALENDAR INTEGRATION & BOOKING SNAPSHOT COMPATIBILITY
+============================================================
+
+- `AdminCalendarPage` subscribes via `usePricingSettings()` and passes live
+  settings into `BookingFormDialog`, `createBooking`, and `updateOrRescheduleBooking`.
+- `BookingFormDialog` dynamically renders active Session Types, Recording Options,
+  and Studio Packages, applies fixed Recording Option durations dynamically,
+  computes automatic non-stacking regular discounts, and displays:
+  - `CUSTOMER CHARGE` (`Subtotal`, `Discount`, `TOTAL`, `Pembayaran Awal`, `Sisa Tagihan`)
+  - `INTERNAL FEE ESTIMATE` (`Staff Commission`, `Recording Operator`)
+- New bookings persist `commissionSnapshot` alongside existing `unitRate`,
+  `subtotal`, `discountAmount`, and `totalAmount`. Internal commissions and daily
+  meal allowance never alter customer totals, DP, or remaining balance.
+- Historical Protection:
+  - Changing Settings never mutates historical bookings.
+  - Editing customer details/notes or rescheduling date/time/room on an existing
+    booking preserves its original price & commission snapshot.
+  - Changing service/package/duration during edit requires explicit checkbox
+    confirmation (`Terapkan harga & fee preset terbaru`) before recalculating snapshots.
+  - `normalizeBookingRecord` defaults missing `commissionSnapshot` to `null` and
+    `BookingDetailDrawer` displays historical Phase 5 bookings safely without migration.
+
+============================================================
+8. TEST, BUILD & EMULATOR VERIFICATION RESULTS
+============================================================
+
+- `npm run format:check`: PASSED (`EXIT_CODE=0`)
+- `npm run lint`: PASSED (`EXIT_CODE=0`, 0 errors, 0 warnings)
+- `npm run test:run`: PASSED (`EXIT_CODE=0`, 6 test files, 46/46 tests passed:
+  - `src/features/admin/settings/settings.test.jsx`: 7/7 tests passed
+  - `src/features/admin/calendar/calendar.test.jsx`: 10/10 tests passed
+  - `src/features/admin/admin-shell.test.jsx`: 5/5 tests passed
+  - `src/features/auth/auth.test.jsx`: 12/12 tests passed
+  - `src/pages/LandingPage.test.jsx`: 10/10 tests passed
+  - `src/lib/utils.test.js`: 2/2 tests passed)
+- `npm run build`: PASSED (`EXIT_CODE=0`, Vite production build succeeded in 5.80s)
+- Live Firebase Firestore Emulator Rules Verification (`firebase emulators:exec --only firestore --project studio37classic`):
+  PASSED 23/23 checks covering anonymous deny, unauthorized/inactive/invalid-role deny,
+  collection list & sibling doc deny, active owner/staff CRUD, invalid payload/version/uid
+  rejection, delete denial, booking `commissionSnapshot` creation, snapshot tamper
+  denial, and legacy Phase 5 booking compatibility.
+
+============================================================
+9. RESPONSIVE QA RESULTS
+============================================================
+
+Verified in headless Chromium (`chrome.exe`) against authenticated `/admin/settings`,
+`/admin/settings/price-and-fee`, and `/admin/calendar` (`BookingFormDialog`):
+- `320x740`: `scrollWidth=320`, `innerWidth=320`, `noOverflow=true`, Sidebar `Settings` active (`aria-current="page"`)
+- `375x812`: `scrollWidth=375`, `innerWidth=375`, `noOverflow=true`, Calendar Booking Form displays `CUSTOMER CHARGE` and `INTERNAL FEE ESTIMATE` cleanly
+- `768x1024`: `scrollWidth=768`, `innerWidth=768`, `noOverflow=true`
+- `1440x900`: `scrollWidth=1425`, `innerWidth=1440`, `noOverflow=true`, Calendar Booking Form verified (`PHASE_6_BROWSER_QA_PASSED`)
+
+============================================================
+10. VERIFICATION LOG LOCATION
+============================================================
+
+- `.logs/phase-6-settings-verification-20261118-230137.txt`
+
+============================================================
+11. KNOWN LIMITATIONS & NOTES FOR FUTURE PHASE
+============================================================
+
+- Per Phase 6 scope (`no deployment`), updated `firestore.rules` was tested locally
+  on the Firebase Firestore Emulator and NOT deployed to production Firebase
+  `studio37classic`. Live reads/writes to `settings/pricing` in production will
+  return `permission-denied` (with safe fallback to `DEFAULT_PRICING_SETTINGS`)
+  until the user manually runs `firebase deploy --only firestore:rules`.
+- Internal commissions (`commissionSnapshot`) and `fees.dailyMealAllowancePerStaff`
+  serve strictly as configuration presets and booking snapshots in Phase 6;
+  staff attendance tracking, commission payout settlement, and bookkeeping ledgers
+  remain deferred to their dedicated future phases (`Commission and Fee` / `Pembukuan`).
