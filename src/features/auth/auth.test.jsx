@@ -160,9 +160,11 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
       'SecretPass!37',
     );
 
-    expect(await screen.findByRole('heading', { name: /welcome to 37 studio\./i })).toBeTruthy();
-    expect(screen.getByText('Raka Pratama (Owner)')).toBeTruthy();
-    expect(screen.getByText('owner@37musicstudio.com')).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: /welcome back, raka pratama \(owner\)\./i }),
+    ).toBeTruthy();
+    expect(screen.getAllByText('Raka Pratama (Owner)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('owner@37musicstudio.com').length).toBeGreaterThan(0);
     expect(screen.getByText('ROLE: OWNER')).toBeTruthy();
 
     // Ensure no fake operational dashboard metrics appear
@@ -195,8 +197,10 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
     await user.type(screen.getByLabelText(/^password/i), 'StaffPass!37');
     await user.click(screen.getByRole('button', { name: /^sign in$/i }));
 
-    expect(await screen.findByRole('heading', { name: /welcome to 37 studio\./i })).toBeTruthy();
-    expect(screen.getByText('Dina Audio Engineer')).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: /welcome back, dina audio engineer\./i }),
+    ).toBeTruthy();
+    expect(screen.getAllByText('Dina Audio Engineer').length).toBeGreaterThan(0);
     expect(screen.getByText('ROLE: STAFF')).toBeTruthy();
   });
 
@@ -354,11 +358,13 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
       }),
     );
 
-    // Opening /staff/login while already authenticated redirects to /admin
+    // Opening /staff/login while already authenticated redirects to /admin/dashboard
     renderWithRouter(['/staff/login']);
 
-    expect(await screen.findByRole('heading', { name: /welcome to 37 studio\./i })).toBeTruthy();
-    expect(screen.getByText('Studio Owner Persisted')).toBeTruthy();
+    expect(
+      await screen.findByRole('heading', { name: /welcome back, studio owner persisted\./i }),
+    ).toBeTruthy();
+    expect(screen.getAllByText('Studio Owner Persisted').length).toBeGreaterThan(0);
 
     // Clicking Sign Out calls Firebase signOut and redirects back to /staff/login
     const signOutButtons = screen.getAllByRole('button', { name: /sign out/i });

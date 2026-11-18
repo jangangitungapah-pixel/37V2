@@ -1,8 +1,10 @@
-import { BrowserRouter, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { AppProviders } from '@/app/providers/AppProviders';
+import { AdminLayout } from '@/features/admin/layout/AdminLayout';
+import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
+import { AdminModulePlaceholderPage } from '@/features/admin/pages/AdminModulePlaceholderPage';
 import { RequireStaff } from '@/features/auth/RequireStaff';
-import { AdminPortalPage } from '@/pages/AdminPortalPage';
 import { LandingPage } from '@/pages/LandingPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { StaffLoginPage } from '@/pages/StaffLoginPage';
@@ -16,10 +18,26 @@ export function AppRoutes() {
         path="/admin"
         element={
           <RequireStaff>
-            <AdminPortalPage />
+            <AdminLayout />
           </RequireStaff>
         }
-      />
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboardPage />} />
+        <Route path="calendar" element={<AdminModulePlaceholderPage moduleId="calendar" />} />
+        <Route path="customer" element={<AdminModulePlaceholderPage moduleId="customer" />} />
+        <Route
+          path="payment-and-bill"
+          element={<AdminModulePlaceholderPage moduleId="payment-and-bill" />}
+        />
+        <Route
+          path="commission-and-fee"
+          element={<AdminModulePlaceholderPage moduleId="commission-and-fee" />}
+        />
+        <Route path="inventory" element={<AdminModulePlaceholderPage moduleId="inventory" />} />
+        <Route path="pembukuan" element={<AdminModulePlaceholderPage moduleId="pembukuan" />} />
+        <Route path="settings" element={<AdminModulePlaceholderPage moduleId="settings" />} />
+      </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
