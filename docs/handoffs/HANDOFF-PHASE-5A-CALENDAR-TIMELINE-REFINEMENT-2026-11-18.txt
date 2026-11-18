@@ -1,0 +1,172 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 5A: CALENDAR TIMELINE & RESPONSIVE UI REFINEMENT
+Date: 2026-11-18
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: C:\Users\hazel\source\repos\37V2
+Branch: main
+
+============================================================
+1. BASELINE & FINAL COMMITS
+============================================================
+
+- Starting baseline HEAD (Phase 5 Handoff):
+  e5c648deee2e8edb2a026d7af2c4239bff82152b
+  (docs: add phase 5 admin calendar handoff)
+- Previous Phase 5 Implementation Commit:
+  0dc19ee8e74b4746fd73c741d8587edda4db8baf
+- Phase 5A Refinement Implementation Commit:
+  386e8160c3a9d91dcc16c7bc55c44e92f3ea1445
+  (refactor(calendar): unify phase 5a hourly timeline and responsive ui)
+- Phase 5A Handoff Commit:
+  Recorded on `main` immediately following `386e816`
+  (`docs: add phase 5a calendar timeline refinement handoff`).
+
+============================================================
+2. FILES CREATED & MODIFIED
+============================================================
+
+Created:
+- `src/features/admin/calendar/components/CalendarTimelineGrid.jsx`
+- `scripts/verify-phase-5a-calendar-refinement.ps1`
+- `docs/handoffs/HANDOFF-PHASE-5A-CALENDAR-TIMELINE-REFINEMENT-2026-11-18.txt`
+
+Modified:
+- `src/features/admin/calendar/config/calendar-config.js`
+- `src/features/admin/calendar/utils/calendar-date.js`
+- `src/features/admin/calendar/utils/booking-time.js`
+- `src/features/admin/calendar/components/CalendarBookingCard.jsx`
+- `src/features/admin/calendar/components/CalendarDayView.jsx`
+- `src/features/admin/calendar/components/CalendarWeekView.jsx`
+- `src/features/admin/calendar/components/CalendarMonthView.jsx`
+- `src/features/admin/calendar/components/CalendarGrid.jsx`
+- `src/features/admin/calendar/components/CalendarViewSwitcher.jsx`
+- `src/features/admin/calendar/components/CalendarToolbar.jsx`
+- `src/features/admin/calendar/components/CalendarFilters.jsx`
+- `src/features/admin/calendar/components/UpcomingBookings.jsx`
+- `src/features/admin/calendar/components/BookingFormDialog.jsx`
+- `src/features/admin/calendar/components/BookingDetailDrawer.jsx`
+- `src/features/admin/calendar/pages/AdminCalendarPage.jsx`
+- `src/features/admin/calendar/calendar.test.jsx`
+- `src/styles/index.css`
+- `docs/architecture/ADMIN-CALENDAR-BOOKING.md`
+
+Note: Original `docs/handoffs/HANDOFF-PHASE-5-ADMIN-CALENDAR-2026-11-18.txt`,
+`firestore.rules`, Admin Shell components, Landing Page, and Auth flows remain
+intact.
+
+============================================================
+3. UNIFIED DAY / WEEK / MONTH TIMELINE BEHAVIOR
+============================================================
+
+All three calendar views (`Day`, `Week`, `Month`) now render through a single
+shared hourly timeline engine (`CalendarTimelineGrid.jsx`) backed by one CSS Grid
+containing both column headers and body rows so headers and timeline tracks can
+never drift out of alignment:
+
+- Day View (`CalendarDayView.jsx`):
+  Displays a single date with `Room A` and `Room B` side-by-side (or only the
+  selected room when filtered) inside the `10:00 – 22:00 WIB` hourly timeline.
+- Week View (`CalendarWeekView.jsx`):
+  Displays 7 consecutive Monday-to-Sunday columns with sticky left `WIB` clock
+  column (`left-0`), simultaneous Room A & Room B visibility separated into
+  collision lanes by `computeTimelineOverlapLayout`, and clickable date headers
+  to open `Day View`.
+- Month View (`CalendarMonthView.jsx` — Rebuilt):
+  Replaced traditional date-box cells with a unified full-month horizontal
+  timeline showing every actual calendar day of the active month (`28`, `29`,
+  `30`, or `31` columns — zero filler dates from neighboring months and zero
+  `+N booking` truncation). Clicking any day header jumps to `Day View`;
+  horizontal scrolling glides across the entire month while keeping `WIB` sticky
+  on the left.
+
+============================================================
+4. DISPLAY TIME INTERVAL REFINEMENT (1-HOUR, 10:00–22:00)
+============================================================
+
+- Separated UI display interval config in `calendar-config.js`:
+  - `CALENDAR_DISPLAY_INTERVAL_MINUTES = 60`
+  - `CALENDAR_DISPLAY_START_MINUTE = 600` (`10:00 WIB`)
+  - `CALENDAR_DISPLAY_END_MINUTE = 1320` (`22:00 WIB` visual end boundary)
+  - `CALENDAR_TIMELINE_ROW_HEIGHT_PX = 60` (`1px = 1 minute` linear scale)
+  - `TIMELINE_HOURLY_SLOTS`: `10:00` through `21:00` (12 hourly slots).
+- `22:00` renders exclusively as the read-only bottom timeline boundary label
+  and is NOT a clickable slot start row. Zero `10:30` / `11:30` timeline rows
+  exist.
+- Proportional booking coordinates (`computeHourlyTimelineBlockMetrics`):
+  - Existing `HH:30` start times and custom 30-minute bookings render at their
+    exact fractional offset and proportional height (e.g., `10:30–11:00` = `30px`
+    half-row; never rounded up to 1 full hour).
+  - Editing an existing `HH:30` or post-`22:00` booking preserves its original
+    start time in `BookingFormDialog` as a `(Jadwal Eksisting)` option.
+  - Any session extending past or starting at/after `22:00 WIB` triggers explicit
+    interactive overflow badges (`Sesi lewat 22:00 WIB`) so no late booking is
+    hidden.
+
+============================================================
+5. INTERNAL FIRESTORE SLOT LOCKING & TRANSACTION PRESERVATION
+============================================================
+
+- Internal Firestore locking remains unchanged at `SLOT_INTERVAL_MINUTES = 30`
+  (`bookingSlots/{date__studioId__slotStartMinute}`, operating bounds `600..1380`).
+- All transactional invariants (`createBooking`, `updateOrRescheduleBooking`,
+  `cancelBooking`, `transitionBookingSession`, atomic `bookingSlots` locking,
+  UUID idempotency, stale `version` detection, immutable initial payment snapshot,
+  append-only `bookingEvents`, and `firestore.rules`) remain 100% preserved.
+
+============================================================
+6. RESPONSIVE LAYOUT & ~15% VISUAL SCALE REFINEMENT
+============================================================
+
+- Lowered root viewport minimum in `src/styles/index.css` from `320px` to
+  `280px` and scoped global `font: inherit` away from `[data-calendar-scoped]`
+  so Tailwind v4 `@layer utilities` typography classes apply accurately to all
+  Calendar controls while leaving all other pages visually untouched.
+- Added compact `.cal-card` and `.cal-control` styles in `src/styles/index.css`,
+  trimmed redundant vertical spacing (~15% smaller overall footprint, timeline
+  height reduced from `1196–1352px` to `720px`) while keeping `44px` minimum CSS
+  touch targets.
+- Toolbar & Filter refinements:
+  - Fixed `+ + New Booking` label duplication to `+ New Booking`.
+  - Standardized `[Prev | Today | Next]` and full-width mobile Date Picker.
+  - Enforced symmetric 3-column `grid-cols-3` `Day | Week | Month` switcher with
+    identical segment widths at every breakpoint.
+  - Enforced symmetric 3-column Room filter (`All Rooms | Room A | Room B`),
+    100% full-width mobile Search + aligned `Show Cancelled`, balanced 2×2 mobile
+    Payment filter grid (and single-row desktop layout without orphan `Lunas` at
+    `1024px`), and aligned Result Count badge.
+
+============================================================
+7. TEST, BUILD & RESPONSIVE QA RESULTS
+============================================================
+
+- `npm run format:check`: PASSED (`EXIT_CODE=0`)
+- `npm run lint`: PASSED (`EXIT_CODE=0`, 0 errors, 0 warnings)
+- `npm run test:run`: PASSED (`EXIT_CODE=0`, 5 test files, 39/39 tests passed,
+  including Phase 5A hourly interval, proportional 30m positioning, legacy
+  HH:30 edit preservation, 28/29/30/31-day Month timeline, and zero `+N`
+  truncation checks)
+- `npm run build`: PASSED (`EXIT_CODE=0`, Vite production build succeeded)
+- Responsive Headless Chromium QA: Verified `/admin/calendar` across `286`, `320`,
+  `360`, `375`, `390`, `430`, `768`, `1024`, `1280`, and `1440` px viewports —
+  zero page horizontal overflow (`noOverflow=true` at all 10 viewports including
+  `286x740`), equal switcher/room widths, single-row `1024px` payment filters,
+  30-day Month horizontal timeline scroll (`stickyLeftDelta=0`), and visual
+  screenshot review.
+
+============================================================
+8. VERIFICATION LOG LOCATION
+============================================================
+
+- `.logs/phase-5a-calendar-refinement-20261118-163942.txt`
+
+============================================================
+9. KNOWN LIMITATIONS
+============================================================
+
+- No operational data migration was performed (nor required).
+- `firestore.rules` remains unchanged since Phase 5 and still awaits manual
+  `firebase deploy --only firestore:rules` by the user before testing live
+  writes against the `studio37classic` Firebase project.
+- Unrelated modules (`Customer`, `Payment and Bill`, `Commission and Fee`,
+  `Inventory`, `Pembukuan`, `Settings`) remain unchanged on their placeholder
+  routes.
