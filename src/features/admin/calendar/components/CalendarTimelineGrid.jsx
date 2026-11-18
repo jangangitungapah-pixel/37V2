@@ -44,7 +44,10 @@ export function CalendarTimelineGrid({
   );
 
   return (
-    <div aria-label={ariaLabel} className="cal-card bg-studio-white overflow-hidden">
+    <div
+      aria-label={ariaLabel}
+      className="cal-card bg-studio-white relative isolate z-0 overflow-hidden"
+    >
       {/* Top Info & Room Color Legend Strip */}
       <div className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-2 border-b-2 px-3 py-2 sm:px-4">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -118,7 +121,7 @@ export function CalendarTimelineGrid({
           }}
         >
           {/* ROW 1: Sticky Top-Left WIB Corner + Column Headers */}
-          <div className="border-studio-ink bg-studio-ink sticky left-0 z-20 flex items-center justify-center border-r-2 border-b-2 px-1.5 py-2 font-mono text-[10px] font-extrabold tracking-wider text-neutral-300 uppercase shadow-[2px_0px_0px_rgba(21,21,21,0.18)]">
+          <div className="border-studio-ink bg-studio-ink sticky left-0 z-10 flex items-center justify-center border-r-2 border-b-2 px-1.5 py-2 font-mono text-[10px] font-extrabold tracking-wider text-neutral-300 uppercase shadow-[2px_0px_0px_rgba(21,21,21,0.18)]">
             WIB
           </div>
 
