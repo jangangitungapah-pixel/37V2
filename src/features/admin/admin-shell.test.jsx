@@ -23,6 +23,15 @@ vi.mock('firebase/firestore', () => ({
   getFirestore: vi.fn(() => ({ app: { name: '[DEFAULT]' } })),
   doc: (...args) => mockDoc(...args),
   getDoc: (...args) => mockGetDoc(...args),
+  collection: vi.fn(),
+  query: vi.fn(),
+  where: vi.fn(),
+  orderBy: vi.fn(),
+  limit: vi.fn(),
+  onSnapshot: vi.fn((_q, onNext) => {
+    queueMicrotask(() => onNext({ docs: [] }));
+    return () => {};
+  }),
 }));
 
 vi.mock('@/lib/firebase/client', () => ({
@@ -139,12 +148,17 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
 
       expect(link.getAttribute('aria-current')).toBe('page');
       expect(screen.getByRole('heading', { level: 1, name: mod.label })).toBeTruthy();
-      expect(screen.getByText(`ROUTE: ${mod.path}`)).toBeTruthy();
-      expect(
-        screen.getByText(
-          /this workspace is ready\. the module's operational features will be implemented in its dedicated development phase\./i,
-        ),
-      ).toBeTruthy();
+
+      if (mod.label === 'Calendar') {
+        expect(screen.getByText(/studio booking schedule/i)).toBeTruthy();
+      } else {
+        expect(screen.getByText(`ROUTE: ${mod.path}`)).toBeTruthy();
+        expect(
+          screen.getByText(
+            /this workspace is ready\. the module's operational features will be implemented in its dedicated development phase\./i,
+          ),
+        ).toBeTruthy();
+      }
     }
   });
 

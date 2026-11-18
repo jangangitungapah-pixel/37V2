@@ -3,9 +3,183 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isActiveStaff() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/staffProfiles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.active == true
+        && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.role in ['owner', 'staff'];
+    }
+
+    function isValidBookingKeys(data) {
+      return data.keys().hasOnly([
+        'customerName',
+        'phone',
+        'bandName',
+        'studioId',
+        'serviceId',
+        'serviceLabel',
+        'packageId',
+        'packageLabel',
+        'recordingTypeId',
+        'recordingTypeLabel',
+        'date',
+        'startMinute',
+        'durationMinutes',
+        'endMinute',
+        'timeZone',
+        'unitRate',
+        'subtotal',
+        'discountAmount',
+        'totalAmount',
+        'initialPaymentStatus',
+        'initialPaidAmount',
+        'paymentMethod',
+        'sessionStatus',
+        'checkedInAt',
+        'checkedInByUid',
+        'actualStartedAt',
+        'actualCompletedAt',
+        'notes',
+        'createdAt',
+        'createdByUid',
+        'updatedAt',
+        'updatedByUid',
+        'version'
+      ]);
+    }
+
+    function isValidBookingShape(data) {
+      return data.customerName is string
+        && data.customerName.size() > 0
+        && data.phone is string
+        && data.phone.size() > 0
+        && data.bandName is string
+        && data.studioId in ['room-a', 'room-b']
+        && data.serviceId is string
+        && data.serviceLabel is string
+        && data.packageId is string
+        && data.packageLabel is string
+        && data.recordingTypeId is string
+        && data.recordingTypeLabel is string
+        && data.date is string
+        && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.startMinute is int
+        && data.startMinute >= 600
+        && data.startMinute < 1380
+        && data.startMinute % 30 == 0
+        && data.durationMinutes is int
+        && data.durationMinutes > 0
+        && data.durationMinutes % 30 == 0
+        && data.endMinute is int
+        && data.endMinute == data.startMinute + data.durationMinutes
+        && data.endMinute <= 1380
+        && data.timeZone == 'Asia/Jakarta'
+        && data.unitRate is number
+        && data.unitRate >= 0
+        && data.subtotal is number
+        && data.subtotal >= 0
+        && data.discountAmount is number
+        && data.discountAmount >= 0
+        && data.totalAmount is number
+        && data.totalAmount >= 0
+        && data.initialPaymentStatus in ['unpaid', 'partial', 'paid']
+        && data.initialPaidAmount is number
+        && data.initialPaidAmount >= 0
+        && data.initialPaidAmount <= data.totalAmount
+        && data.paymentMethod is string
+        && data.sessionStatus in ['upcoming', 'in_progress', 'completed', 'no_show', 'cancelled']
+        && data.notes is string
+        && data.version is int
+        && data.version >= 1;
+    }
+
     match /staffProfiles/{uid} {
       allow get: if request.auth != null
                  && request.auth.uid == uid;
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidBookingKeys(request.resource.data)
+        && isValidBookingShape(request.resource.data)
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && isValidBookingKeys(request.resource.data)
+        && isValidBookingShape(request.resource.data)
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.initialPaymentStatus == resource.data.initialPaymentStatus
+        && request.resource.data.initialPaidAmount == resource.data.initialPaidAmount
+        && request.resource.data.paymentMethod == resource.data.paymentMethod;
+
+      allow delete: if false;
+    }
+
+    match /bookingSlots/{slotId} {
+      allow read: if isActiveStaff();
+
+      allow create, update: if isActiveStaff()
+        && request.resource.data.keys().hasOnly([
+          'bookingId',
+          'date',
+          'studioId',
+          'slotStartMinute',
+          'createdAt'
+        ])
+        && request.resource.data.bookingId is string
+        && request.resource.data.bookingId.size() > 0
+        && request.resource.data.date is string
+        && request.resource.data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.studioId in ['room-a', 'room-b']
+        && request.resource.data.slotStartMinute is int
+        && request.resource.data.slotStartMinute >= 600
+        && request.resource.data.slotStartMinute < 1380
+        && request.resource.data.slotStartMinute % 30 == 0
+        && existsAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        )
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.date == request.resource.data.date
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.studioId == request.resource.data.studioId
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.sessionStatus != 'cancelled';
+
+      allow delete: if isActiveStaff();
+    }
+
+    match /bookingEvents/{eventId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && request.resource.data.keys().hasOnly([
+          'bookingId',
+          'eventType',
+          'actorUid',
+          'createdAt',
+          'previousValue',
+          'newValue',
+          'note'
+        ])
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.bookingId is string
+        && request.resource.data.bookingId.size() > 0
+        && request.resource.data.eventType is string
+        && request.resource.data.eventType.size() > 0
+        && existsAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        );
+
+      allow update, delete: if false;
     }
 
   }

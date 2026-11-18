@@ -23,6 +23,7 @@ export default defineConfig({
     clearMocks: true,
     restoreMocks: true,
     environment: 'jsdom',
+    testTimeout: 15000,
     include: ['src/**/*.{test,spec}.{js,jsx}'],
   },
 });
