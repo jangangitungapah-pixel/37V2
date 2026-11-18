@@ -197,13 +197,13 @@ export function AdminCalendarPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div data-calendar-scoped="true" className="space-y-3.5 sm:space-y-4">
       {/* Operational Feedback Banner */}
       {statusFeedback ? (
         <div
           role="status"
           aria-live="polite"
-          className="border-studio-ink bg-studio-lime text-studio-ink flex items-center justify-between gap-3 border-2 px-4 py-2.5 text-xs font-extrabold shadow-[2px_2px_0px_#151515]"
+          className="border-studio-ink bg-studio-lime text-studio-ink flex items-center justify-between gap-2.5 border-2 px-3 py-2 text-xs font-extrabold shadow-[2px_2px_0px_#151515]"
         >
           <span className="inline-flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -247,7 +247,7 @@ export function AdminCalendarPage() {
       />
 
       {/* 3. Main Workspace Split: Timeline Grid + Upcoming Bookings Sidebar */}
-      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-12">
+      <div className="grid grid-cols-1 items-start gap-3.5 sm:gap-4 xl:grid-cols-12">
         <div className="min-w-0 xl:col-span-8 2xl:col-span-9">
           <CalendarGrid
             viewMode={viewMode}

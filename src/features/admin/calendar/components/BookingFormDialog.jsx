@@ -24,12 +24,12 @@ import {
   STUDIO_PACKAGES,
   STUDIO_ROOMS,
   STUDIO_SERVICES,
-  TIMELINE_HALF_HOUR_SLOTS,
+  TIMELINE_HOURLY_SLOTS,
 } from '../config/calendar-config';
 import { generateOperationId } from '../repositories/calendar-booking-repository';
 import { resolveFormDurationMinutes, validateBookingFormPayload } from '../schemas/booking-schema';
 import { calculateBookingPricingSnapshot, formatRupiah } from '../utils/booking-pricing';
-import { formatDurationMinutes, formatMinuteRange } from '../utils/booking-time';
+import { formatDurationMinutes, formatMinuteOfDay, formatMinuteRange } from '../utils/booking-time';
 import { formatIndonesianDateFull, getJakartaTodayIso } from '../utils/calendar-date';
 
 const FORM_STEPS = [
@@ -119,6 +119,31 @@ export function BookingFormDialog({
 
   const isEditingOrRescheduling = mode === 'edit' || mode === 'reschedule';
   const editingBookingId = isEditingOrRescheduling ? editingBooking?.id || '' : '';
+
+  // Hourly start options (10:00 – 21:00), plus preserved legacy HH:30 or late-hour option when editing an existing booking
+  const startTimeOptions = useMemo(() => {
+    const baseOptions = TIMELINE_HOURLY_SLOTS.map((slot) => ({
+      startMinute: slot.startMinute,
+      value: String(slot.startMinute),
+      label: `${slot.label} WIB`,
+    }));
+
+    const existingStartMinute = Number(editingBooking?.startMinute);
+    if (
+      isEditingOrRescheduling &&
+      Number.isInteger(existingStartMinute) &&
+      !baseOptions.some((opt) => opt.startMinute === existingStartMinute)
+    ) {
+      baseOptions.push({
+        startMinute: existingStartMinute,
+        value: String(existingStartMinute),
+        label: `${formatMinuteOfDay(existingStartMinute)} WIB (Jadwal Eksisting)`,
+      });
+      baseOptions.sort((a, b) => a.startMinute - b.startMinute);
+    }
+
+    return baseOptions;
+  }, [isEditingOrRescheduling, editingBooking]);
 
   const effectiveDurationMinutes = useMemo(
     () => resolveFormDurationMinutes(formValues),
@@ -288,6 +313,7 @@ export function BookingFormDialog({
 
         <Dialog.Popup
           aria-label={dialogTitle}
+          data-calendar-scoped="true"
           className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-4xl flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-y-4 sm:h-auto sm:max-h-[92dvh] sm:w-[95vw] sm:border-2"
         >
           {/* Sticky Header + 4-Stage Stepper */}
@@ -696,7 +722,7 @@ export function BookingFormDialog({
                       htmlFor="booking-start-minute"
                       className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
                     >
-                      Jam Mulai (10:00 – 22:30 WIB) <span className="text-studio-orange">*</span>
+                      Jam Mulai (10:00 – 21:00 WIB) <span className="text-studio-orange">*</span>
                     </label>
                     <select
                       id="booking-start-minute"
@@ -704,9 +730,9 @@ export function BookingFormDialog({
                       onChange={(e) => handleFieldChange('startMinute', e.target.value)}
                       className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-bold"
                     >
-                      {TIMELINE_HALF_HOUR_SLOTS.map((slot) => (
-                        <option key={slot.startMinute} value={String(slot.startMinute)}>
-                          {slot.label} WIB
+                      {startTimeOptions.map((slot) => (
+                        <option key={slot.startMinute} value={slot.value}>
+                          {slot.label}
                         </option>
                       ))}
                     </select>

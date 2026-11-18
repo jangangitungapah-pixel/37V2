@@ -34,7 +34,11 @@ vi.mock('@/lib/firebase/client', () => ({
 import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
 
-import { BOOKING_SESSION_STATUS, INITIAL_PAYMENT_STATUS } from './config/calendar-config';
+import {
+  BOOKING_SESSION_STATUS,
+  INITIAL_PAYMENT_STATUS,
+  TIMELINE_HOURLY_SLOTS,
+} from './config/calendar-config';
 import {
   resetBookingRepositoryAdapter,
   setBookingRepositoryAdapter,
@@ -49,11 +53,12 @@ import {
 } from './services/calendar-booking-service';
 import {
   buildDeterministicSlotId,
+  computeHourlyTimelineBlockMetrics,
   computeTimelineOverlapLayout,
   doTimeIntervalsOverlap,
   isBookingNoShowEligible,
 } from './utils/booking-time';
-import { getJakartaTodayIso } from './utils/calendar-date';
+import { getCalendarViewDateRange, getJakartaTodayIso } from './utils/calendar-date';
 
 function mockAuthenticatedStaff(role = 'owner', uid = 'owner-uid-1') {
   const displayName = role === 'owner' ? '37 Music Studio Owner' : 'Rina Studio Staff';
@@ -680,31 +685,73 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       expect(within(detailDrawer).getAllByText(/booking dibuat/i).length).toBeGreaterThan(0);
     });
 
-    it('opens Booking Form pre-filled from an empty timeline slot, creates a booking, and preserves inputs on conflict error', async () => {
+    it('opens Booking Form pre-filled from an empty hourly timeline slot (11:00) and preserves legacy HH:30 bookings accurately', async () => {
       const user = userEvent.setup();
       mockAuthenticatedStaff('owner');
+
+      // Seed a legacy 10:30 (630) booking of 90 minutes (until 12:00) and a 30-minute booking
+      await createBooking({
+        bookingId: 'bkg-legacy-halfhour',
+        eventId: 'evt-legacy-halfhour',
+        actorUid: 'owner-uid-1',
+        formValues: {
+          customerName: 'Legacy HalfHour Band',
+          phone: '081311119999',
+          bandName: 'Retro Grooves',
+          serviceId: 'rehearsal',
+          packageId: '',
+          recordingTypeId: '',
+          studioId: 'room-a',
+          date: todayIso,
+          startMinute: 630, // 10:30 WIB
+          durationPreset: 'custom',
+          customDurationMinutes: '90',
+          initialPaymentStatus: INITIAL_PAYMENT_STATUS.PAID,
+          dpAmount: '',
+          paymentMethod: 'cash',
+          notes: '',
+        },
+        adapter: memoryAdapter,
+      });
+
       renderCalendarAt('/admin/calendar');
 
       expect(
         await screen.findByText(/studio booking schedule/i, {}, { timeout: 5000 }),
       ).toBeTruthy();
 
-      // Switch to Day view and click empty 10:30 slot on Room B
+      // Switch to Day view and verify hourly timeline labels 10:00..22:00 and NO 10:30/11:30 rows
       const viewModeGroup = screen.getByRole('group', { name: /mode tampilan kalender/i });
       await user.click(within(viewModeGroup).getByRole('button', { name: 'Day' }));
+      expect(await screen.findByLabelText(/tampilan jadwal harian/i)).toBeTruthy();
 
+      expect(screen.getAllByText('10:00').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('21:00').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('22:00').length).toBeGreaterThan(0);
+      expect(screen.queryByText('10:30')).toBeNull();
+      expect(screen.queryByText('11:30')).toBeNull();
+      expect(screen.queryByRole('button', { name: new RegExp(`jam 22:00`, 'i') })).toBeNull();
+
+      // Legacy 10:30 booking is displayed and editing it preserves 10:30 (630)
+      expect(screen.getAllByText('Legacy HalfHour Band').length).toBeGreaterThan(0);
+      await user.click(screen.getAllByRole('button', { name: /booking legacy halfhour band/i })[0]);
+      const drawer = await screen.findByRole('dialog', { name: /legacy halfhour band/i });
+      await user.click(within(drawer).getByRole('button', { name: /edit booking/i }));
+      const editModal = await screen.findByRole('dialog', { name: /edit booking/i });
+      expect(within(editModal).getByLabelText(/jam mulai/i).value).toBe('630');
+      await user.click(within(editModal).getByRole('button', { name: /batal/i }));
+      await user.click(within(drawer).getByRole('button', { name: /tutup detail booking/i }));
+
+      // Click empty hourly 11:00 slot on Room B -> pre-fills startMinute = 660
       const emptySlotBtn = await screen.findByRole('button', {
-        name: new RegExp(`tambah booking room b tanggal ${todayIso} jam 10:30`, 'i'),
+        name: new RegExp(`tambah booking room b tanggal ${todayIso} jam 11:00`, 'i'),
       });
       await user.click(emptySlotBtn);
 
       const modal = await screen.findByRole('dialog', { name: /tambah booking/i });
-
-      // Verify prefill from clicked slot: Room B + 10:30 (startMinute = 630)
       const startSelect = within(modal).getByLabelText(/jam mulai/i);
-      expect(startSelect.value).toBe('630');
+      expect(startSelect.value).toBe('660');
 
-      // Fill customer fields and save
       fireEvent.change(within(modal).getByLabelText(/nama customer/i), {
         target: { value: 'Gilang Dirga' },
       });
@@ -723,6 +770,121 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       });
 
       expect(screen.getAllByText('Gilang Dirga').length).toBeGreaterThan(0);
+    });
+
+    it('renders Month View as an actual 28/29/30/31-day horizontal timeline without filler dates or +N truncation', async () => {
+      // 1. Verify date range contracts for 28, 29, 30, and 31-day months
+      const febNonLeap = getCalendarViewDateRange('month', '2026-02-15');
+      expect(febNonLeap.days).toHaveLength(28);
+      expect(febNonLeap.days[0]).toBe('2026-02-01');
+      expect(febNonLeap.days[27]).toBe('2026-02-28');
+
+      const febLeap = getCalendarViewDateRange('month', '2024-02-10');
+      expect(febLeap.days).toHaveLength(29);
+      expect(febLeap.days[0]).toBe('2024-02-01');
+      expect(febLeap.days[28]).toBe('2024-02-29');
+
+      const nov30 = getCalendarViewDateRange('month', '2026-11-18');
+      expect(nov30.days).toHaveLength(30);
+      expect(nov30.days[0]).toBe('2026-11-01');
+      expect(nov30.days[29]).toBe('2026-11-30');
+
+      const dec31 = getCalendarViewDateRange('month', '2026-12-01');
+      expect(dec31.days).toHaveLength(31);
+      expect(dec31.days[0]).toBe('2026-12-01');
+      expect(dec31.days[30]).toBe('2026-12-31');
+
+      // 2. Verify hourly interval & proportional block positioning helpers
+      expect(TIMELINE_HOURLY_SLOTS).toHaveLength(12);
+      expect(TIMELINE_HOURLY_SLOTS[0].label).toBe('10:00');
+      expect(TIMELINE_HOURLY_SLOTS[11].label).toBe('21:00');
+
+      const thirtyMinMetrics = computeHourlyTimelineBlockMetrics(
+        { startMinute: 630, durationMinutes: 30, endMinute: 660 },
+        60,
+      );
+      expect(thirtyMinMetrics.topPx).toBe(31);
+      expect(thirtyMinMetrics.heightPx).toBe(28); // proportional 0.5h height, NOT rounded up to 60px
+
+      // 3. Render Month View with bookings on 1st day, last day, and 4 bookings on the same day (zero +N truncation)
+      const monthFirstDate = `${todayIso.slice(0, 7)}-01`;
+      const activeMonthRange = getCalendarViewDateRange('month', todayIso);
+      const monthLastDate = activeMonthRange.endDate;
+
+      const sameDayCustomers = ['Band Satu', 'Band Dua', 'Band Tiga', 'Band Empat'];
+      for (let idx = 0; idx < sameDayCustomers.length; idx++) {
+        await createBooking({
+          bookingId: `bkg-month-${idx + 1}`,
+          eventId: `evt-month-${idx + 1}`,
+          actorUid: 'owner-uid-1',
+          formValues: {
+            customerName: sameDayCustomers[idx],
+            phone: `08120000000${idx}`,
+            bandName: '',
+            serviceId: 'rehearsal',
+            packageId: '',
+            recordingTypeId: '',
+            studioId: idx % 2 === 0 ? 'room-a' : 'room-b',
+            date: monthFirstDate,
+            startMinute: 600 + idx * 60, // 10:00, 11:00, 12:00, 13:00
+            durationPreset: '60',
+            customDurationMinutes: '60',
+            initialPaymentStatus: INITIAL_PAYMENT_STATUS.UNPAID,
+            dpAmount: '',
+            paymentMethod: 'cash',
+            notes: '',
+          },
+          adapter: memoryAdapter,
+        });
+      }
+
+      await createBooking({
+        bookingId: 'bkg-month-last',
+        eventId: 'evt-month-last',
+        actorUid: 'owner-uid-1',
+        formValues: {
+          customerName: 'Band Akhir Bulan',
+          phone: '081299998888',
+          bandName: '',
+          serviceId: 'mixing',
+          packageId: '',
+          recordingTypeId: '',
+          studioId: 'room-b',
+          date: monthLastDate,
+          startMinute: 1200, // 20:00
+          durationPreset: '120',
+          customDurationMinutes: '120',
+          initialPaymentStatus: INITIAL_PAYMENT_STATUS.PAID,
+          dpAmount: '',
+          paymentMethod: 'transfer',
+          notes: '',
+        },
+        adapter: memoryAdapter,
+      });
+
+      const user = userEvent.setup();
+      mockAuthenticatedStaff('owner');
+      renderCalendarAt('/admin/calendar');
+
+      expect(
+        await screen.findByText(/studio booking schedule/i, {}, { timeout: 5000 }),
+      ).toBeTruthy();
+
+      const viewModeGroup = screen.getByRole('group', { name: /mode tampilan kalender/i });
+      await user.click(within(viewModeGroup).getByRole('button', { name: 'Month' }));
+
+      const monthTimeline = await screen.findByLabelText(/tampilan timeline bulanan/i);
+      const dayTracks = monthTimeline.querySelectorAll('[data-track-date]');
+      expect(dayTracks).toHaveLength(activeMonthRange.days.length);
+      expect(dayTracks[0].getAttribute('data-track-date')).toBe(monthFirstDate);
+      expect(dayTracks[dayTracks.length - 1].getAttribute('data-track-date')).toBe(monthLastDate);
+
+      // All 4 bookings on monthFirstDate AND the booking on monthLastDate are visible (no "+1 lainnya")
+      for (const name of sameDayCustomers) {
+        expect(within(monthTimeline).getByText(name)).toBeTruthy();
+      }
+      expect(within(monthTimeline).getByText('Band Akhir Bulan')).toBeTruthy();
+      expect(screen.queryByText(/booking lainnya/i)).toBeNull();
     });
   });
 

@@ -8,6 +8,7 @@
 
 export const STUDIO_TIME_ZONE = 'Asia/Jakarta';
 
+// Internal domain & Firestore 30-minute slot locking contract (preserved for Phase 5 compatibility)
 export const OPERATING_START_HOUR = 10; // 10:00 WIB
 export const OPERATING_END_HOUR = 23; // 23:00 WIB
 export const OPERATING_START_MINUTE = OPERATING_START_HOUR * 60; // 600
@@ -15,6 +16,12 @@ export const OPERATING_END_MINUTE = OPERATING_END_HOUR * 60; // 1380
 export const SLOT_INTERVAL_MINUTES = 30;
 export const NO_SHOW_GRACE_MINUTES = 15;
 export const CALENDAR_BOOKINGS_QUERY_LIMIT = 300;
+
+// Phase 5A Calendar Display Timeline Contract (10:00 – 22:00 WIB in 1-hour intervals)
+export const CALENDAR_DISPLAY_INTERVAL_MINUTES = 60;
+export const CALENDAR_DISPLAY_START_MINUTE = 600; // 10:00 WIB
+export const CALENDAR_DISPLAY_END_MINUTE = 1320; // 22:00 WIB (display end boundary, not a start slot)
+export const CALENDAR_TIMELINE_ROW_HEIGHT_PX = 60; // 1px = 1 minute -> proportional 30-min (30px) & 60-min (60px) blocks
 
 export const STUDIO_ROOMS = [
   {
@@ -199,10 +206,10 @@ export const INITIAL_PAYMENT_STATUS_OPTIONS = [
 ];
 
 export const PAYMENT_FILTER_OPTIONS = [
-  { id: 'all', label: 'All Payment Status' },
-  { id: INITIAL_PAYMENT_STATUS.UNPAID, label: 'Belum Bayar' },
-  { id: INITIAL_PAYMENT_STATUS.PARTIAL, label: 'DP' },
-  { id: INITIAL_PAYMENT_STATUS.PAID, label: 'Lunas' },
+  { id: 'all', label: 'All Payment Status', compactLabel: 'All Status' },
+  { id: INITIAL_PAYMENT_STATUS.UNPAID, label: 'Belum Bayar', compactLabel: 'Belum Bayar' },
+  { id: INITIAL_PAYMENT_STATUS.PARTIAL, label: 'DP', compactLabel: 'DP' },
+  { id: INITIAL_PAYMENT_STATUS.PAID, label: 'Lunas', compactLabel: 'Lunas' },
 ];
 
 export const PAYMENT_METHOD_OPTIONS = [
@@ -281,23 +288,29 @@ export const BOOKING_EVENT_LABELS = {
 };
 
 /**
- * Generates all 30-minute timeline start slots from 10:00 (600) to 22:30 (1350).
+ * Generates all 1-hour display timeline slots from 10:00 (600) to 21:00 (1260),
+ * bounded at 22:00 (1320). Used as the single source of truth for timeline rows,
+ * time labels, empty slot targets, and hourly booking start options.
  */
-export const TIMELINE_HALF_HOUR_SLOTS = Array.from(
-  { length: (OPERATING_END_MINUTE - OPERATING_START_MINUTE) / SLOT_INTERVAL_MINUTES },
+export const TIMELINE_HOURLY_SLOTS = Array.from(
+  {
+    length:
+      (CALENDAR_DISPLAY_END_MINUTE - CALENDAR_DISPLAY_START_MINUTE) /
+      CALENDAR_DISPLAY_INTERVAL_MINUTES,
+  },
   (_, index) => {
-    const startMinute = OPERATING_START_MINUTE + index * SLOT_INTERVAL_MINUTES;
-    const endMinute = startMinute + SLOT_INTERVAL_MINUTES;
+    const startMinute = CALENDAR_DISPLAY_START_MINUTE + index * CALENDAR_DISPLAY_INTERVAL_MINUTES;
+    const endMinute = startMinute + CALENDAR_DISPLAY_INTERVAL_MINUTES;
     const hours = String(Math.floor(startMinute / 60)).padStart(2, '0');
-    const mins = String(startMinute % 60).padStart(2, '0');
     return {
       startMinute,
       endMinute,
-      label: `${hours}:${mins}`,
-      isFullHour: startMinute % 60 === 0,
+      label: `${hours}:00`,
     };
   },
 );
+
+export const TIMELINE_DISPLAY_END_LABEL = '22:00';
 
 export function getStudioRoomById(studioId) {
   return STUDIO_ROOMS.find((room) => room.id === studioId) || STUDIO_ROOMS[0];

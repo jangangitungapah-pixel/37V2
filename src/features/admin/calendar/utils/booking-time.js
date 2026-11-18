@@ -1,5 +1,8 @@
 import {
   BOOKING_SESSION_STATUS,
+  CALENDAR_DISPLAY_END_MINUTE,
+  CALENDAR_DISPLAY_INTERVAL_MINUTES,
+  CALENDAR_DISPLAY_START_MINUTE,
   NO_SHOW_GRACE_MINUTES,
   OPERATING_END_MINUTE,
   OPERATING_START_MINUTE,
@@ -264,6 +267,8 @@ export function computeTimelineOverlapLayout(bookings = []) {
     if (startDiff !== 0) return startDiff;
     const durDiff = Number(b.durationMinutes) - Number(a.durationMinutes);
     if (durDiff !== 0) return durDiff;
+    const roomDiff = String(a.studioId || '').localeCompare(String(b.studioId || ''));
+    if (roomDiff !== 0) return roomDiff;
     return String(a.id || '').localeCompare(String(b.id || ''));
   });
 
@@ -330,6 +335,63 @@ export function computeTimelineOverlapLayout(bookings = []) {
   }
 
   return positioned;
+}
+
+/**
+ * Computes proportional vertical pixel coordinates for a booking on the hourly display
+ * timeline (`10:00` – `22:00`), preserving fractional hours (e.g. 30-min or 90-min sessions)
+ * without rounding durations up to full hours, and reporting boundary overflow past 22:00.
+ */
+export function computeHourlyTimelineBlockMetrics(
+  booking,
+  rowHeightPx = 60,
+  displayStartMinute = CALENDAR_DISPLAY_START_MINUTE,
+  displayEndMinute = CALENDAR_DISPLAY_END_MINUTE,
+) {
+  const startMinute = Number(booking?.startMinute) || displayStartMinute;
+  const durationMinutes = Number(booking?.durationMinutes) || 60;
+  const endMinute = Number.isFinite(Number(booking?.endMinute))
+    ? Number(booking.endMinute)
+    : startMinute + durationMinutes;
+
+  const isCompletelyBeforeDisplay = endMinute <= displayStartMinute;
+  const isCompletelyAfterDisplay = startMinute >= displayEndMinute;
+  const startsBeforeDisplay = startMinute < displayStartMinute;
+  const endsAfterDisplay = endMinute > displayEndMinute;
+
+  if (isCompletelyBeforeDisplay || isCompletelyAfterDisplay) {
+    return {
+      isRenderableInGrid: false,
+      startsBeforeDisplay,
+      endsAfterDisplay,
+      startMinute,
+      endMinute,
+      topPx: 0,
+      heightPx: 0,
+    };
+  }
+
+  const clampedStart = Math.max(displayStartMinute, startMinute);
+  const clampedEnd = Math.min(displayEndMinute, endMinute);
+  const visibleDurationMinutes = Math.max(0, clampedEnd - clampedStart);
+
+  const topPx =
+    ((clampedStart - displayStartMinute) / CALENDAR_DISPLAY_INTERVAL_MINUTES) * rowHeightPx;
+  const rawHeightPx = (visibleDurationMinutes / CALENDAR_DISPLAY_INTERVAL_MINUTES) * rowHeightPx;
+
+  // Keep small 2px vertical breathing gap while preserving true proportional scaling
+  // (e.g., at 60px/hour: 30-min = 28px exact half row, 60-min = 58px, 90-min = 88px)
+  const heightPx = Math.max(22, rawHeightPx - 2);
+
+  return {
+    isRenderableInGrid: true,
+    startsBeforeDisplay,
+    endsAfterDisplay,
+    startMinute,
+    endMinute,
+    topPx: topPx + 1,
+    heightPx,
+  };
 }
 
 /**

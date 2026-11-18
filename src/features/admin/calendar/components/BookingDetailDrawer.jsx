@@ -95,6 +95,7 @@ export function BookingDetailDrawer({
 
         <Dialog.Popup
           aria-label={`Detail booking ${booking.customerName}`}
+          data-calendar-scoped="true"
           className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col border-l-2 shadow-[-6px_0px_0px_#151515]"
         >
           {/* Sticky Drawer Header */}

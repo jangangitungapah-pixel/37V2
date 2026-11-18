@@ -230,26 +230,16 @@ export function getCalendarViewDateRange(viewMode, activeDateIso) {
     };
   }
 
-  // Month view: full Monday-to-Sunday grid covering the entire month
+  // Month view: ONLY actual days of the active month (28, 29, 30, or 31 days — no filler dates)
   const monthStart = formatUtcDateToIso(new Date(Date.UTC(parts.year, parts.month - 1, 1)));
   const monthEnd = formatUtcDateToIso(new Date(Date.UTC(parts.year, parts.month, 0)));
-  const gridStart = getWeekStartIso(monthStart);
-  const monthEndParts = parseIsoDateParts(monthEnd);
-  const monthEndMondayIndex = (monthEndParts.dayOfWeek + 6) % 7;
-  const trailingDays = 6 - monthEndMondayIndex;
-  const gridEnd = addDaysToIsoDate(monthEnd, trailingDays);
-
-  const days = [];
-  let cursor = gridStart;
-  while (cursor <= gridEnd && days.length < 42) {
-    days.push(cursor);
-    cursor = addDaysToIsoDate(cursor, 1);
-  }
+  const totalDays = parseIsoDateParts(monthEnd).day;
+  const days = Array.from({ length: totalDays }, (_, idx) => addDaysToIsoDate(monthStart, idx));
 
   return {
     viewMode: 'month',
-    startDate: gridStart,
-    endDate: gridEnd,
+    startDate: monthStart,
+    endDate: monthEnd,
     monthStart,
     monthEnd,
     days,

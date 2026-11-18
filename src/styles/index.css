@@ -84,7 +84,7 @@
 }
 
 html {
-  min-width: 320px;
+  min-width: 280px;
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
   text-rendering: optimizeLegibility;
@@ -93,7 +93,7 @@ html {
 }
 
 body {
-  min-width: 320px;
+  min-width: 280px;
   min-height: 100vh;
   margin: 0;
   overflow-x: clip;
@@ -102,10 +102,7 @@ body {
   font-family: var(--font-sans);
 }
 
-button,
-input,
-textarea,
-select {
+:where(button, input, textarea, select):not([data-calendar-scoped] *) {
   font: inherit;
 }
 
@@ -155,6 +152,32 @@ select {
   box-shadow: 1px 1px 0px var(--studio-ink);
 }
 
+/* Compact ~15% scaled Calendar operational workspace primitives */
+.cal-card {
+  border: 2px solid var(--studio-ink);
+  box-shadow: var(--shadow-brutal-sm);
+}
+
+.cal-control {
+  border: 2px solid var(--studio-ink);
+  box-shadow: var(--shadow-brutal-xs);
+  transition:
+    transform 120ms cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 120ms cubic-bezier(0.2, 0, 0, 1),
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.cal-control:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-brutal-sm);
+}
+
+.cal-control:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--studio-ink);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -166,7 +189,9 @@ select {
   }
 
   .brutal-btn:hover:not(:disabled),
-  .brutal-btn:active:not(:disabled) {
+  .brutal-btn:active:not(:disabled),
+  .cal-control:hover:not(:disabled),
+  .cal-control:active:not(:disabled) {
     transform: none !important;
   }
 }
