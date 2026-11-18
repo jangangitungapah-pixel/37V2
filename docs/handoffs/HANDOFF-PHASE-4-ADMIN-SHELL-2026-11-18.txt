@@ -1,0 +1,152 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 4: ADMIN SHELL & NAVIGATION FOUNDATION
+Date: 2026-11-18
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: C:\Users\hazel\source\repos\37V2
+Branch: main
+
+============================================================
+1. STARTING & FINAL GIT COMMITS
+============================================================
+
+- Starting baseline HEAD:
+  ecd7162709d19d8b9370b28a98125bfe50d6c7d2
+  (feat: add StaffLoginPage component for internal studio authentication)
+- Phase 4 implementation commit:
+  0b2d908fdcff9861fe7774466cf43ba1f12572e6
+  (feat(admin): implement phase 4 admin shell and navigation foundation)
+- Phase 4 handoff commit:
+  Recorded on `main` immediately following `0b2d908` (`docs: add phase 4 admin shell handoff`).
+
+============================================================
+2. CHANGED & CREATED FILES (PHASE 4)
+============================================================
+
+Created:
+- `src/features/admin/navigation/admin-navigation.js`
+- `src/features/admin/layout/AdminLayout.jsx`
+- `src/features/admin/components/AdminSidebar.jsx`
+- `src/features/admin/components/AdminSidebarNavItem.jsx`
+- `src/features/admin/components/AdminMobileDrawer.jsx`
+- `src/features/admin/components/AdminTopbar.jsx`
+- `src/features/admin/pages/AdminDashboardPage.jsx`
+- `src/features/admin/pages/AdminModulePlaceholderPage.jsx`
+- `src/features/admin/admin-shell.test.jsx`
+- `scripts/verify-phase-4-admin-shell.ps1`
+- `docs/architecture/ADMIN-SHELL-NAVIGATION.md`
+- `docs/handoffs/HANDOFF-PHASE-4-ADMIN-SHELL-2026-11-18.txt`
+
+Modified:
+- `src/App.jsx`
+- `src/features/auth/auth.test.jsx`
+
+Removed (superseded by AdminLayout + AdminDashboardPage):
+- `src/pages/AdminPortalPage.jsx`
+
+============================================================
+3. ADMIN SHELL ARCHITECTURE
+============================================================
+
+The Phase 4 Admin Shell wraps all `/admin/*` routes inside `<RequireStaff>` and
+`<AdminLayout />`:
+- `AdminLayout`: Manages desktop sidebar collapse state (`isSidebarCollapsed`,
+  defaulting to `false` / expanded) and mobile off-canvas drawer state
+  (`isMobileDrawerOpen`), resolves the active navigation item from the current
+  pathname, and renders `<Outlet />` with a restrained Motion entrance
+  transition (`opacity` + `6px` vertical offset, `180ms`, respecting
+  `prefers-reduced-motion: reduce`).
+- `AdminSidebar`: Persistent desktop (`1024px+`) vertical navigation rail in
+  ink-black (`#151515`) with acid-lime (`#C8F13A`) active surface and
+  signal-orange (`#FF4B22`) left accent bar.
+- `AdminTopbar`: Sticky header (`min-h-16 sm:min-h-[72px]`) displaying mobile
+  drawer trigger, desktop sidebar toggle, dynamic breadcrumb
+  (`37 Studio / <Module Label>`), dynamic `<h1>` page title, authenticated user
+  initials avatar + `displayName` + `email` + `OWNER`/`STAFF` role badge,
+  public website shortcut, and functional `Sign Out` button.
+
+============================================================
+4. SIDEBAR EXPAND/COLLAPSE & MOBILE DRAWER BEHAVIOR
+============================================================
+
+- Desktop Expanded State (`272px` wide): Displays square `37` mark,
+  `37 MUSIC STUDIO` wordmark, `STUDIO MANAGEMENT` subtitle, collapse button
+  (`aria-expanded="true"`), all eight navigation items with icons, labels, and
+  order numbers (`01`–`08`), and bottom workspace descriptor.
+- Desktop Collapsed State (`80px` wide): Transitions smoothly via `motion/react`
+  (`220ms`, or `0ms` when reduced-motion is active). Text labels are removed
+  while icons remain stationary and centered. Every icon link retains its
+  accessible `aria-label` and displays a tooltip badge on hover or focus.
+- Mobile & Tablet Drawer (`<1024px`): Uses `@base-ui/react/dialog` to render an
+  accessible off-canvas left drawer (`280px` wide, `max-w-[86vw]`) with dimmed
+  backdrop. Selecting any navigation item, clicking the backdrop, clicking the
+  close button, or pressing `Escape` closes the drawer and returns focus to the
+  topbar menu trigger.
+
+============================================================
+5. EIGHT NAVIGATION ITEMS & NESTED ROUTES (EXACT ORDER)
+============================================================
+
+01. `Dashboard`          -> `/admin/dashboard` (`AdminDashboardPage`)
+02. `Calendar`           -> `/admin/calendar` (`AdminModulePlaceholderPage`)
+03. `Customer`           -> `/admin/customer` (`AdminModulePlaceholderPage`)
+04. `Payment and Bill`   -> `/admin/payment-and-bill` (`AdminModulePlaceholderPage`)
+05. `Commission and Fee` -> `/admin/commission-and-fee` (`AdminModulePlaceholderPage`)
+06. `Inventory`          -> `/admin/inventory` (`AdminModulePlaceholderPage`)
+07. `Pembukuan`          -> `/admin/pembukuan` (`AdminModulePlaceholderPage`)
+08. `Settings`           -> `/admin/settings` (`AdminModulePlaceholderPage`)
+
+- Opening `/admin` redirects automatically to `/admin/dashboard`.
+
+============================================================
+6. DASHBOARD & MODULE PLACEHOLDER IMPLEMENTATION
+============================================================
+
+- `AdminDashboardPage`: Displays `"Welcome back, [Display Name]."`,
+  `"Your 37 Music Studio workspace is ready."`, authenticated account summary
+  card (`displayName`, `email`, `OWNER`/`STAFF` role badge), and an 8-card
+  module shortcut directory. Contains zero fake business statistics, revenue
+  numbers, booking counts, occupancy figures, or charts.
+- `AdminModulePlaceholderPage`: Single reusable component rendering the active
+  module's order number, Lucide icon, route path, `"This workspace is ready.
+  The module's operational features will be implemented in its dedicated
+  development phase."` message, summary, and 3 planned architectural scope
+  notes.
+
+============================================================
+7. AUTHENTICATION, LOGOUT & ROLE PERMISSION SCOPE
+============================================================
+
+- Firebase Authentication, `staffProfiles/{uid}` verification, `firestore.rules`,
+  `AuthProvider`, and `RequireStaff` remain completely intact.
+- Both `owner` and `staff` accounts temporarily see all eight navigation items
+  and can navigate all eight placeholder routes. Role-specific menu and page
+  permissions are explicitly deferred to a future user-directed phase.
+- Clicking `Sign Out` in the topbar calls `logout()` from `useAuth()` and
+  redirects to `/staff/login`.
+
+============================================================
+8. TESTS, BROWSER QA & VERIFICATION RESULTS
+============================================================
+
+- `npm run format:check`: PASSED (`EXIT_CODE=0`)
+- `npm run lint`: PASSED (`EXIT_CODE=0`, 0 errors, 0 warnings)
+- `npm run test:run`: PASSED (`EXIT_CODE=0`, 4 test files, 29/29 tests passed:
+  `src/lib/utils.test.js`, `src/pages/LandingPage.test.jsx`,
+  `src/features/auth/auth.test.jsx`, `src/features/admin/admin-shell.test.jsx`)
+- `npm run build`: PASSED (`EXIT_CODE=0`, Vite production build succeeded)
+- Responsive Chromium QA verified across 320, 360, 375, 390, 430, 768, 1024,
+  1280, and 1440 px viewports (0 horizontal overflow, sidebar expand/collapse
+  verified, mobile drawer verified).
+- `npm audit`: Recorded in `.logs/phase-4-admin-shell-verification-20261118-131750.txt`
+  (`EXIT_CODE=1` due to existing Phase 1 transitive advisories; pinned
+  dependencies preserved without force-downgrade).
+
+============================================================
+9. SCOPE & DEPLOYMENT CONFIRMATION
+============================================================
+
+- Confirmed: No operational module business logic, CRUD, fake metrics, or new
+  Firestore collections were implemented.
+- Confirmed: No deployment (`firebase deploy`), PR merge, or `git push` was
+  performed by the agent.
+- Next-phase authority: The user alone decides what the next phase implements.
