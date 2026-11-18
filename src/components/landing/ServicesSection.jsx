@@ -21,7 +21,7 @@ export function ServicesSection({ services, onSelectService }) {
     <section
       id="services"
       aria-labelledby="services-heading"
-      className="border-studio-ink bg-studio-ivory border-b-2 py-12 sm:py-16 lg:py-20"
+      className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-12 sm:py-16 lg:py-20"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header Row */}
@@ -102,14 +102,13 @@ export function ServicesSection({ services, onSelectService }) {
                 <div className="border-studio-ink mt-6 border-t-2 pt-4">
                   <button
                     type="button"
+                    aria-label={`${service.ctaLabel} — ${service.title}`}
                     onClick={() => onSelectService(service.id, service.defaultRoom)}
                     className="group text-studio-ink hover:bg-studio-lime flex min-h-11 w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-xs font-extrabold tracking-wider uppercase transition-colors sm:text-sm"
                   >
-                    <span>
-                      {service.ctaLabel} — {service.title}
-                    </span>
+                    <span>{service.ctaLabel}</span>
                     <ArrowRight
-                      className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                      className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1"
                       aria-hidden="true"
                     />
                   </button>

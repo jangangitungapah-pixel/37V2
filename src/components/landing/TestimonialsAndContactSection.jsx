@@ -1,5 +1,16 @@
 import { useState } from 'react';
-import { ArrowRight, ArrowUpRight, Clock, MapPin, MessageSquare, Phone, Star } from 'lucide-react';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Clock,
+  MapPin,
+  MessageSquare,
+  Phone,
+  Quote,
+  Star,
+} from 'lucide-react';
+
+import { resolveMapsHref, resolveWhatsAppHref } from '@/lib/external-links';
 
 import { StudioImage } from './StudioImage';
 
@@ -9,17 +20,27 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
 
   const { testimonials, contact } = testimonialsAndContact;
 
-  const handleOpenMaps = () => {
-    if (!contact.isAddressConfirmed) {
-      setMapNoticeVisible(true);
-    }
+  const mapsHref = resolveMapsHref(contact);
+  const whatsappHref = resolveWhatsAppHref(finalCta.secondaryCta);
+
+  const addressDisplay =
+    contact.isAddressConfirmed && contact.addressText
+      ? contact.addressText
+      : contact.addressPendingLabel;
+  const hoursDisplay =
+    contact.isHoursConfirmed && contact.hoursText ? contact.hoursText : contact.hoursPendingLabel;
+  const contactDisplay =
+    contact.isContactConfirmed && contact.contactText
+      ? contact.contactText
+      : contact.contactPendingLabel;
+
+  const handlePendingMaps = () => {
+    setMapNoticeVisible(true);
   };
 
-  const handleSecondaryWhatsApp = () => {
-    if (!finalCta.secondaryCta.isConfirmed) {
-      setWhatsappNotice(finalCta.secondaryCta.pendingNotice);
-      onNavigate('#booking');
-    }
+  const handlePendingWhatsApp = () => {
+    setWhatsappNotice(finalCta.secondaryCta.pendingNotice);
+    onNavigate('#booking');
   };
 
   return (
@@ -28,84 +49,106 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
       <section
         id="contact"
         aria-labelledby="contact-heading"
-        className="border-studio-ink bg-studio-ivory border-b-2 py-12 sm:py-16 lg:py-20"
+        className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-12 sm:py-16 lg:py-20"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-7 lg:grid-cols-12">
             {/* Left Panel: Acid-Lime Testimonials Surface */}
-            <div className="brutal-card-lg bg-studio-lime text-studio-ink flex flex-col justify-between p-6 sm:p-8 lg:col-span-7">
+            <div className="brutal-card-lg bg-studio-lime text-studio-ink flex flex-col justify-between p-5 sm:p-8 lg:col-span-7">
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-mono text-[11px] font-extrabold tracking-wider uppercase">
                     {testimonials.eyebrow}
                   </span>
                   <span className="border-studio-ink bg-studio-white border px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
-                    DEMO PREVIEW
+                    {testimonials.isVerified ? 'VERIFIED QUOTES' : 'DEMO PREVIEW'}
                   </span>
                 </div>
 
                 <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-                  {testimonials.items.map((item) => (
-                    <article
-                      key={item.id}
-                      className="brutal-card bg-studio-white flex flex-col justify-between p-5"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2">
-                          <div
-                            className="text-studio-ink flex items-center gap-0.5"
-                            aria-label="5 out of 5 stars sample layout"
-                          >
-                            {Array.from({ length: 5 }).map((_, starIndex) => (
-                              <Star
-                                key={starIndex}
-                                className="h-3.5 w-3.5 fill-current"
-                                aria-hidden="true"
-                              />
-                            ))}
-                          </div>
-                          <span className="border-studio-ink bg-studio-ivory border px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase">
-                            {item.badge}
-                          </span>
-                        </div>
+                  {testimonials.items.map((item) => {
+                    const showVerifiedRating =
+                      testimonials.isVerified &&
+                      typeof item.rating === 'number' &&
+                      item.rating >= 1 &&
+                      item.rating <= 5;
 
-                        <p className="text-studio-ink mt-3.5 text-sm leading-relaxed font-medium">
-                          {item.quote}
-                        </p>
-                      </div>
-
-                      <div className="mt-4 flex items-center gap-2.5 border-t border-neutral-200 pt-3">
-                        <span
-                          className="border-studio-ink bg-studio-ivory flex h-8 w-8 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-extrabold"
-                          aria-hidden="true"
-                        >
-                          37
-                        </span>
+                    return (
+                      <article
+                        key={item.id}
+                        className="brutal-card bg-studio-white flex flex-col justify-between p-5"
+                      >
                         <div>
-                          <p className="text-xs font-extrabold">{item.author}</p>
-                          <p className="text-studio-muted-ink font-mono text-[10px]">{item.role}</p>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            {showVerifiedRating ? (
+                              <div
+                                className="text-studio-ink flex items-center gap-0.5"
+                                aria-label={`Rated ${item.rating} out of 5`}
+                              >
+                                {Array.from({ length: item.rating }).map((_, starIndex) => (
+                                  <Star
+                                    key={starIndex}
+                                    className="h-3.5 w-3.5 fill-current"
+                                    aria-hidden="true"
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-studio-muted-ink inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase">
+                                <Quote className="h-3.5 w-3.5" aria-hidden="true" />
+                                <span>UNVERIFIED</span>
+                              </span>
+                            )}
+                            <span className="border-studio-ink bg-studio-ivory border px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase">
+                              {item.badge}
+                            </span>
+                          </div>
+
+                          <p className="text-studio-ink mt-3.5 text-sm leading-relaxed font-medium">
+                            {item.quote}
+                          </p>
                         </div>
-                      </div>
-                    </article>
-                  ))}
+
+                        <div className="mt-4 flex items-center gap-2.5 border-t border-neutral-200 pt-3">
+                          <span
+                            className="border-studio-ink bg-studio-ivory flex h-8 w-8 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-extrabold"
+                            aria-hidden="true"
+                          >
+                            37
+                          </span>
+                          <div>
+                            <p className="text-xs font-extrabold">{item.author}</p>
+                            <p className="text-studio-muted-ink font-mono text-[10px]">
+                              {item.role}
+                            </p>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               </div>
 
-              <p className="border-studio-ink bg-studio-white/85 mt-6 border px-3.5 py-2.5 font-mono text-[11px] font-semibold">
-                Note: Quotes above are clearly labeled layout placeholders. Real artist endorsements
-                will be published only after studio owner confirmation.
-              </p>
+              {!testimonials.isVerified && testimonials.demoNotice ? (
+                <p className="border-studio-ink bg-studio-white/85 mt-6 border px-3.5 py-2.5 font-mono text-[11px] font-semibold">
+                  {testimonials.demoNotice}
+                </p>
+              ) : null}
             </div>
 
             {/* Right Panel: White Location & Contact Card */}
-            <div className="brutal-card-lg bg-studio-white text-studio-ink flex flex-col justify-between p-6 sm:p-8 lg:col-span-5">
+            <div className="brutal-card-lg bg-studio-white text-studio-ink flex flex-col justify-between p-5 sm:p-8 lg:col-span-5">
               <div>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-studio-muted-ink font-mono text-[11px] font-bold tracking-wider uppercase">
                     {contact.eyebrow}
                   </span>
                   <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
-                    {contact.statusBadge}
+                    {contact.isAddressConfirmed &&
+                    contact.isHoursConfirmed &&
+                    contact.isContactConfirmed
+                      ? 'VERIFIED INFO'
+                      : contact.statusBadge}
                   </span>
                 </div>
 
@@ -119,29 +162,34 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
                 <ul className="mt-4 space-y-2.5 text-xs sm:text-sm">
                   <li className="flex items-start gap-2.5">
                     <MapPin
-                      className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
+                      className="text-studio-error-ink mt-0.5 h-4 w-4 shrink-0"
                       aria-hidden="true"
                     />
-                    <span className="font-medium">{contact.addressLabel}</span>
+                    <span className="font-medium">{addressDisplay}</span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <Clock
-                      className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
+                      className="text-studio-error-ink mt-0.5 h-4 w-4 shrink-0"
                       aria-hidden="true"
                     />
-                    <span className="font-medium">{contact.hoursLabel}</span>
+                    <span className="font-medium">{hoursDisplay}</span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <Phone
-                      className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
+                      className="text-studio-error-ink mt-0.5 h-4 w-4 shrink-0"
                       aria-hidden="true"
                     />
-                    <span className="font-medium">{contact.contactLabel}</span>
+                    <span className="font-medium">{contactDisplay}</span>
                   </li>
                 </ul>
 
                 {/* Architectural Preview Image */}
-                <div className="border-studio-ink mt-5 overflow-hidden border-2">
+                <div className="border-studio-ink relative mt-5 overflow-hidden border-2">
+                  {contact.image.isDemoAsset ? (
+                    <span className="border-studio-ink bg-studio-white/95 text-studio-ink absolute top-2.5 right-2.5 z-10 border px-2 py-0.5 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0px_#151515]">
+                      DEMO ASSET
+                    </span>
+                  ) : null}
                   <StudioImage
                     src={contact.image.src}
                     alt={contact.image.alt}
@@ -153,16 +201,28 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
               </div>
 
               <div className="mt-5">
-                <button
-                  type="button"
-                  onClick={handleOpenMaps}
-                  className="brutal-btn bg-studio-ivory text-studio-ink flex min-h-11 w-full cursor-pointer items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-extrabold tracking-wider uppercase"
-                >
-                  <span>{contact.mapCtaLabel}</span>
-                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                </button>
+                {mapsHref ? (
+                  <a
+                    href={mapsHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="brutal-btn bg-studio-ivory text-studio-ink flex min-h-11 w-full items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-extrabold tracking-wider uppercase"
+                  >
+                    <span>{contact.mapCtaLabel}</span>
+                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handlePendingMaps}
+                    className="brutal-btn bg-studio-ivory text-studio-ink flex min-h-11 w-full cursor-pointer items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-extrabold tracking-wider uppercase"
+                  >
+                    <span>{contact.mapCtaLabel}</span>
+                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
 
-                {mapNoticeVisible ? (
+                {!mapsHref && mapNoticeVisible ? (
                   <p
                     role="status"
                     aria-live="polite"
@@ -212,17 +272,29 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </a>
 
-              <button
-                type="button"
-                onClick={handleSecondaryWhatsApp}
-                className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 px-6 py-3 text-xs font-extrabold tracking-wider uppercase sm:w-auto sm:text-sm"
-              >
-                <MessageSquare className="h-4 w-4" aria-hidden="true" />
-                <span>{finalCta.secondaryCta.label}</span>
-              </button>
+              {whatsappHref ? (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-12 w-full items-center justify-center gap-2 px-6 py-3 text-xs font-extrabold tracking-wider uppercase sm:w-auto sm:text-sm"
+                >
+                  <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                  <span>{finalCta.secondaryCta.label}</span>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handlePendingWhatsApp}
+                  className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 px-6 py-3 text-xs font-extrabold tracking-wider uppercase sm:w-auto sm:text-sm"
+                >
+                  <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                  <span>{finalCta.secondaryCta.label}</span>
+                </button>
+              )}
             </div>
 
-            {whatsappNotice ? (
+            {!whatsappHref && whatsappNotice ? (
               <p
                 role="status"
                 aria-live="polite"

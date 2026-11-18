@@ -14,7 +14,7 @@ export function HeroSection({ hero, ticker, onNavigate }) {
       <section
         id="top"
         aria-labelledby="hero-heading"
-        className="border-studio-ink bg-studio-ivory relative border-b-2 py-8 sm:py-12 lg:py-16"
+        className="border-studio-ink bg-studio-ivory relative scroll-mt-20 border-b-2 py-8 sm:py-12 lg:py-16"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-10">
@@ -45,7 +45,7 @@ export function HeroSection({ hero, ticker, onNavigate }) {
               {/* Poster-Scale Condensed Display Headline */}
               <h1
                 id="hero-heading"
-                className="font-display text-studio-ink flex flex-col items-start text-[3.1rem] leading-[0.92] font-black tracking-tight uppercase sm:text-6xl md:text-7xl lg:text-[5.25rem]"
+                className="font-display text-studio-ink flex flex-col items-start text-[2.75rem] leading-[0.92] font-black tracking-tight uppercase min-[375px]:text-[3.1rem] sm:text-6xl md:text-7xl lg:text-[5.25rem]"
               >
                 <span>{hero.headline.lineOne}</span>
                 <span className="bg-studio-ink text-studio-ivory mt-1 inline-block px-3 py-0.5 sm:px-4 sm:py-1">
@@ -81,7 +81,7 @@ export function HeroSection({ hero, ticker, onNavigate }) {
               </div>
             </div>
 
-            {/* Right Column on Desktop / Middle on Mobile: Framed Studio Photo Card */}
+            {/* Right Column on Desktop / Middle on Mobile: Framed Studio Asset Card */}
             <div className="relative lg:col-span-5 lg:row-span-2 lg:row-start-1">
               {/* Overlapping Top-Left Sticker */}
               <div className="border-studio-ink bg-studio-orange text-studio-white absolute -top-3 left-3 z-10 -rotate-3 border-2 px-3 py-1 font-mono text-[11px] font-bold tracking-wider uppercase shadow-[3px_3px_0px_#151515] sm:-left-3">
@@ -89,32 +89,32 @@ export function HeroSection({ hero, ticker, onNavigate }) {
               </div>
 
               <div className="brutal-card-lg bg-studio-white overflow-hidden">
-                <StudioImage
-                  src={hero.featuredPhoto.src}
-                  alt={hero.featuredPhoto.alt}
-                  width={hero.featuredPhoto.width}
-                  height={hero.featuredPhoto.height}
-                  priority
-                  className="aspect-[16/11] w-full"
-                />
-
-                <div className="border-studio-ink bg-studio-white flex items-center justify-between gap-3 border-t-2 px-4 py-3.5 sm:px-5">
-                  <div>
-                    <p className="font-display text-lg leading-none font-black tracking-wide uppercase sm:text-xl">
-                      {hero.featuredPhoto.captionTitle}
-                    </p>
-                    <p className="text-studio-muted-ink mt-1 text-xs font-medium">
-                      {hero.featuredPhoto.captionSubtitle}
-                    </p>
-                  </div>
-                  <span className="border-studio-ink bg-studio-ivory shrink-0 border px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
-                    DEMO PHOTO
+                <div className="relative">
+                  <span className="border-studio-ink bg-studio-white/95 text-studio-ink absolute top-3 right-3 z-10 border px-2 py-0.5 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0px_#151515]">
+                    {hero.featuredPhoto.demoTagLabel}
                   </span>
+                  <StudioImage
+                    src={hero.featuredPhoto.src}
+                    alt={hero.featuredPhoto.alt}
+                    width={hero.featuredPhoto.width}
+                    height={hero.featuredPhoto.height}
+                    priority
+                    className="aspect-[16/11] w-full"
+                  />
+                </div>
+
+                <div className="border-studio-ink bg-studio-white border-t-2 px-4 py-3.5 sm:px-5 sm:pr-60">
+                  <p className="font-display text-lg leading-none font-black tracking-wide uppercase sm:text-xl">
+                    {hero.featuredPhoto.captionTitle}
+                  </p>
+                  <p className="text-studio-muted-ink mt-1 text-xs font-medium">
+                    {hero.featuredPhoto.captionSubtitle}
+                  </p>
                 </div>
               </div>
 
-              {/* Overlapping Bottom-Right Acoustic Badge */}
-              <div className="border-studio-ink bg-studio-white mt-3 inline-flex items-center gap-2.5 border-2 px-3.5 py-2 shadow-[3px_3px_0px_#151515] sm:absolute sm:-right-2 sm:-bottom-4 sm:mt-0 sm:rotate-1">
+              {/* Overlapping Bottom-Right Demo Note Badge */}
+              <div className="border-studio-ink bg-studio-white mt-3 inline-flex items-center gap-2.5 border-2 px-3 py-2 shadow-[3px_3px_0px_#151515] sm:absolute sm:right-2 sm:-bottom-6 sm:mt-0 sm:rotate-1">
                 <span className="border-studio-ink bg-studio-lime flex h-8 w-8 shrink-0 items-center justify-center border">
                   <AudioWaveform className="h-4 w-4" aria-hidden="true" />
                 </span>
@@ -129,10 +129,10 @@ export function HeroSection({ hero, ticker, onNavigate }) {
               </div>
             </div>
 
-            {/* Left Bottom on Desktop / Bottom on Mobile: 3-Part Fact Strip */}
+            {/* Left Bottom on Desktop / Bottom on Mobile: 3-Part Preview Strip */}
             <div className="lg:col-span-7 lg:row-start-2">
               <dl
-                aria-label="Draft studio highlights"
+                aria-label="Studio preview highlights"
                 className="brutal-card bg-studio-white grid grid-cols-1 divide-y-2 divide-[#151515] sm:grid-cols-3 sm:divide-x-2 sm:divide-y-0"
               >
                 {hero.facts.map((fact) => (
@@ -160,7 +160,7 @@ export function HeroSection({ hero, ticker, onNavigate }) {
 
       {/* Section 04 — Acid-Lime Service Ticker / Divider */}
       <div
-        aria-label="Studio capabilities summary"
+        aria-label="Studio session categories summary"
         className="border-studio-ink bg-studio-lime text-studio-ink border-b-2 py-2.5"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

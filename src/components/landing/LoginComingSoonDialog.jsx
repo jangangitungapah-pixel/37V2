@@ -1,13 +1,28 @@
 import { Dialog } from '@base-ui/react/dialog';
 import { ArrowRight, Lock, X } from 'lucide-react';
 
-export function LoginComingSoonDialog({ open, onOpenChange, content, onGoToBooking }) {
+export function LoginComingSoonDialog({
+  open,
+  onOpenChange,
+  content,
+  onGoToBooking,
+  returnFocusToMenuTrigger,
+  mobileMenuTriggerRef,
+}) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/70 backdrop-blur-[1px]" />
         <Dialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <Dialog.Popup className="brutal-card-lg bg-studio-ivory text-studio-ink relative w-full max-w-md p-6 sm:p-7">
+          <Dialog.Popup
+            finalFocus={() => {
+              if (returnFocusToMenuTrigger && mobileMenuTriggerRef?.current?.isConnected) {
+                return mobileMenuTriggerRef.current;
+              }
+              return true;
+            }}
+            className="brutal-card-lg bg-studio-ivory text-studio-ink relative w-full max-w-md p-6 sm:p-7"
+          >
             <div className="mb-4 flex items-start justify-between gap-4">
               <span className="border-studio-ink bg-studio-lime inline-flex items-center gap-1.5 border-[1.5px] px-2.5 py-1 font-mono text-[11px] font-bold tracking-wider uppercase">
                 <Lock className="h-3.5 w-3.5" aria-hidden="true" />

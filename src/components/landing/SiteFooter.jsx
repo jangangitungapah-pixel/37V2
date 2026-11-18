@@ -1,8 +1,21 @@
 import { useState } from 'react';
-import { ArrowRight, KeyRound } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, KeyRound } from 'lucide-react';
 
-export function SiteFooter({ footer, navLinks, onNavigate, onOpenLogin }) {
+import { resolveSocialHref } from '@/lib/external-links';
+
+export function SiteFooter({ footer, contact, navLinks, onNavigate, onOpenLogin }) {
   const [socialPendingMessage, setSocialPendingMessage] = useState('');
+
+  const visitAddress =
+    contact?.isAddressConfirmed && contact?.addressText
+      ? contact.addressText
+      : footer.visitAddressPendingNote;
+  const hoursNote =
+    contact?.isHoursConfirmed && contact?.hoursText ? contact.hoursText : footer.hoursPendingNote;
+  const contactNote =
+    contact?.isContactConfirmed && contact?.contactText
+      ? contact.contactText
+      : footer.contactPendingNote;
 
   const handleAnchorClick = (event, href) => {
     event.preventDefault();
@@ -29,21 +42,41 @@ export function SiteFooter({ footer, navLinks, onNavigate, onOpenLogin }) {
             </p>
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              {footer.socialLinks.map((social) => (
-                <button
-                  key={social.id}
-                  type="button"
-                  aria-label={`${social.label} (official URL pending owner confirmation)`}
-                  onClick={() =>
-                    setSocialPendingMessage(
-                      `Official 37 Music Studio ${social.label} profile URL is pending owner confirmation.`,
-                    )
-                  }
-                  className="hover:border-studio-lime hover:text-studio-lime min-h-11 cursor-pointer border border-neutral-700 bg-neutral-900 px-3 py-2 font-mono text-[11px] font-bold uppercase transition-colors"
-                >
-                  {social.label}
-                </button>
-              ))}
+              {footer.socialLinks.map((social) => {
+                const confirmedHref = resolveSocialHref(social);
+
+                if (confirmedHref) {
+                  return (
+                    <a
+                      key={social.id}
+                      href={confirmedHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${social.label} (opens in a new tab)`}
+                      className="hover:border-studio-lime hover:text-studio-lime inline-flex min-h-11 items-center gap-1 border border-neutral-700 bg-neutral-900 px-3 py-2 font-mono text-[11px] font-bold uppercase transition-colors"
+                    >
+                      <span>{social.label}</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </a>
+                  );
+                }
+
+                return (
+                  <button
+                    key={social.id}
+                    type="button"
+                    aria-label={`${social.label} (official URL pending owner confirmation)`}
+                    onClick={() =>
+                      setSocialPendingMessage(
+                        `Official 37 Music Studio ${social.label} profile URL is pending owner confirmation.`,
+                      )
+                    }
+                    className="hover:border-studio-lime hover:text-studio-lime inline-flex min-h-11 cursor-pointer items-center border border-neutral-700 bg-neutral-900 px-3 py-2 font-mono text-[11px] font-bold uppercase transition-colors"
+                  >
+                    {social.label}
+                  </button>
+                );
+              })}
             </div>
 
             {socialPendingMessage ? (
@@ -62,17 +95,15 @@ export function SiteFooter({ footer, navLinks, onNavigate, onOpenLogin }) {
             <h2 className="font-mono text-xs font-extrabold tracking-wider text-neutral-400 uppercase">
               {footer.visitHeading}
             </h2>
-            <p className="mt-3 text-xs leading-relaxed text-neutral-300">
-              {footer.visitAddressNote}
-            </p>
+            <p className="mt-3 text-xs leading-relaxed text-neutral-300">{visitAddress}</p>
 
-            <ul className="mt-4 space-y-2 text-xs font-semibold">
+            <ul className="mt-3 space-y-0 text-xs font-semibold">
               {navLinks.map((link) => (
                 <li key={link.href}>
                   <a
                     href={link.href}
                     onClick={(event) => handleAnchorClick(event, link.href)}
-                    className="hover:text-studio-lime inline-flex py-1 text-neutral-200 transition-colors"
+                    className="hover:text-studio-lime inline-flex min-h-11 min-w-11 items-center py-2 text-neutral-200 transition-colors"
                   >
                     {link.label}
                   </a>
@@ -86,8 +117,8 @@ export function SiteFooter({ footer, navLinks, onNavigate, onOpenLogin }) {
             <h2 className="font-mono text-xs font-extrabold tracking-wider text-neutral-400 uppercase">
               {footer.hoursHeading}
             </h2>
-            <p className="mt-3 text-xs leading-relaxed text-neutral-200">{footer.hoursNote}</p>
-            <p className="mt-2 text-xs leading-relaxed text-neutral-400">{footer.contactNote}</p>
+            <p className="mt-3 text-xs leading-relaxed text-neutral-200">{hoursNote}</p>
+            <p className="mt-2 text-xs leading-relaxed text-neutral-400">{contactNote}</p>
           </div>
 
           {/* Column 4: Quick Booking CTA + Staff Login */}

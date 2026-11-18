@@ -28,7 +28,7 @@ export function GallerySection({ gallery }) {
     <section
       id="gallery"
       aria-labelledby="gallery-heading"
-      className="border-studio-ink bg-studio-ivory border-b-2 py-12 sm:py-16 lg:py-20"
+      className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-12 sm:py-16 lg:py-20"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header Row */}
@@ -55,8 +55,8 @@ export function GallerySection({ gallery }) {
           </button>
         </div>
 
-        {/* Four-Photo Grid */}
-        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:mt-10 lg:grid-cols-4">
+        {/* Responsive Photo Grid: 1 col (320-359px), 2 cols (360-1023px), 4 cols (1024px+) */}
+        <div className="mt-8 grid grid-cols-1 gap-3.5 min-[360px]:grid-cols-2 sm:gap-5 lg:mt-10 lg:grid-cols-4">
           {gallery.items.map((item, index) => (
             <figure
               key={item.id}
@@ -75,17 +75,17 @@ export function GallerySection({ gallery }) {
                   height={item.height}
                   className="aspect-[4/4.3] w-full"
                 />
-                <span className="border-studio-ink bg-studio-white/95 text-studio-ink absolute right-2.5 bottom-2.5 inline-flex items-center gap-1 border px-2 py-1 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0px_#151515]">
+                <span className="border-studio-ink bg-studio-white/95 text-studio-ink absolute right-2 bottom-2 inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase shadow-[2px_2px_0px_#151515] sm:right-2.5 sm:bottom-2.5 sm:px-2 sm:py-1 sm:text-[10px]">
                   <Expand className="h-3 w-3" aria-hidden="true" />
                   <span>Inspect</span>
                 </span>
               </button>
 
-              <figcaption className="border-studio-ink bg-studio-white border-t-2 px-3.5 py-3">
-                <p className="text-studio-muted-ink font-mono text-[10px] font-bold tracking-wider uppercase">
+              <figcaption className="border-studio-ink bg-studio-white border-t-2 px-2.5 py-2.5 sm:px-3.5 sm:py-3">
+                <p className="text-studio-muted-ink font-mono text-[9px] font-bold tracking-wider uppercase sm:text-[10px]">
                   {item.category}
                 </p>
-                <p className="text-studio-ink mt-0.5 text-xs font-extrabold sm:text-sm">
+                <p className="text-studio-ink mt-0.5 text-xs leading-snug font-extrabold sm:text-sm">
                   {item.title}
                 </p>
               </figcaption>

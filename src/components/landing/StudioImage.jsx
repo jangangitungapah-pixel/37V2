@@ -13,7 +13,8 @@ export function StudioImage({
   imgClassName,
   fallbackLabel = 'Studio visual preview',
 }) {
-  const [hasError, setHasError] = useState(false);
+  const [failedSrc, setFailedSrc] = useState(null);
+  const hasError = Boolean(src) && failedSrc === src;
 
   if (hasError || !src) {
     return (
@@ -30,7 +31,7 @@ export function StudioImage({
         </div>
         <p className="font-mono text-xs font-bold tracking-wider uppercase">{fallbackLabel}</p>
         <p className="text-studio-muted-ink max-w-xs text-xs">
-          {alt || 'Studio photograph placeholder — awaiting approved 37 Music Studio asset.'}
+          {alt || 'Studio visual placeholder — awaiting approved 37 Music Studio asset.'}
         </p>
       </div>
     );
@@ -46,7 +47,7 @@ export function StudioImage({
         loading={priority ? 'eager' : 'lazy'}
         fetchPriority={priority ? 'high' : 'auto'}
         decoding={priority ? 'sync' : 'async'}
-        onError={() => setHasError(true)}
+        onError={() => setFailedSrc(src)}
         className={cn('block h-full w-full object-cover', imgClassName)}
       />
     </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { BookingSection } from '@/components/landing/BookingSection';
 import { GallerySection } from '@/components/landing/GallerySection';
@@ -41,15 +41,23 @@ function scrollToSection(hash) {
   }
 }
 
-export function LandingPage() {
+export function LandingPage({ content = landingPageContent }) {
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [returnFocusToMenuTrigger, setReturnFocusToMenuTrigger] = useState(false);
   const [selectedService, setSelectedService] = useState('rehearsal');
   const [selectedRoom, setSelectedRoom] = useState('room-a');
   const [selectionVersion, setSelectionVersion] = useState(0);
   const [preselectionNotice, setPreselectionNotice] = useState('');
 
+  const mobileMenuTriggerRef = useRef(null);
+
   const handleNavigate = (hash) => {
     scrollToSection(hash);
+  };
+
+  const handleOpenLogin = (fromMobileMenu = false) => {
+    setReturnFocusToMenuTrigger(Boolean(fromMobileMenu));
+    setLoginDialogOpen(true);
   };
 
   const handleSelectService = (serviceId, defaultRoomId) => {
@@ -94,38 +102,32 @@ export function LandingPage() {
         Skip to main content
       </a>
 
-      {/* Sections 01 & 02 — Utility Strip & Main Header */}
+      {/* Sections 01 & 02 — Non-Sticky Utility Strip & Sticky Main Header */}
       <SiteHeader
-        utilityStrip={landingPageContent.utilityStrip}
-        header={landingPageContent.header}
+        utilityStrip={content.utilityStrip}
+        header={content.header}
         onNavigate={handleNavigate}
-        onOpenLogin={() => setLoginDialogOpen(true)}
+        onOpenLogin={handleOpenLogin}
+        mobileMenuTriggerRef={mobileMenuTriggerRef}
       />
 
       {/* Main Content Landmark */}
       <main id="main-content">
         {/* Sections 03 & 04 — Hero & Acid-Lime Ticker */}
-        <HeroSection
-          hero={landingPageContent.hero}
-          ticker={landingPageContent.ticker}
-          onNavigate={handleNavigate}
-        />
+        <HeroSection hero={content.hero} ticker={content.ticker} onNavigate={handleNavigate} />
 
         {/* Section 05 — Services ("Pick your session") */}
-        <ServicesSection
-          services={landingPageContent.services}
-          onSelectService={handleSelectService}
-        />
+        <ServicesSection services={content.services} onSelectService={handleSelectService} />
 
         {/* Section 06 — Rooms ("Two rooms, zero guesswork") */}
-        <RoomsSection rooms={landingPageContent.rooms} onSelectRoom={handleSelectRoom} />
+        <RoomsSection rooms={content.rooms} onSelectRoom={handleSelectRoom} />
 
         {/* Section 07 — Gallery ("Proof, not renders.") */}
-        <GallerySection gallery={landingPageContent.gallery} />
+        <GallerySection gallery={content.gallery} />
 
         {/* Section 08 — Booking Process + Booking Inquiry Form */}
         <BookingSection
-          bookingSection={landingPageContent.bookingSection}
+          bookingSection={content.bookingSection}
           selectedService={selectedService}
           selectedRoom={selectedRoom}
           selectionVersion={selectionVersion}
@@ -135,26 +137,29 @@ export function LandingPage() {
 
         {/* Sections 09 & 10 — Testimonials + Location Card & Final CTA */}
         <TestimonialsAndContactSection
-          testimonialsAndContact={landingPageContent.testimonialsAndContact}
-          finalCta={landingPageContent.finalCta}
+          testimonialsAndContact={content.testimonialsAndContact}
+          finalCta={content.finalCta}
           onNavigate={handleNavigate}
         />
       </main>
 
       {/* Section 11 — Black Footer */}
       <SiteFooter
-        footer={landingPageContent.footer}
-        navLinks={landingPageContent.header.navLinks}
+        footer={content.footer}
+        contact={content.testimonialsAndContact.contact}
+        navLinks={content.header.navLinks}
         onNavigate={handleNavigate}
-        onOpenLogin={() => setLoginDialogOpen(true)}
+        onOpenLogin={() => handleOpenLogin(false)}
       />
 
       {/* Dummy Login Accessible Dialog */}
       <LoginComingSoonDialog
         open={loginDialogOpen}
         onOpenChange={setLoginDialogOpen}
-        content={landingPageContent.loginDialog}
+        content={content.loginDialog}
         onGoToBooking={() => handleNavigate('#booking')}
+        returnFocusToMenuTrigger={returnFocusToMenuTrigger}
+        mobileMenuTriggerRef={mobileMenuTriggerRef}
       />
     </div>
   );

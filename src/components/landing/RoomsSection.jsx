@@ -7,7 +7,7 @@ export function RoomsSection({ rooms, onSelectRoom }) {
     <section
       id="rooms"
       aria-labelledby="rooms-heading"
-      className="border-studio-ink bg-studio-ivory border-b-2 py-12 sm:py-16 lg:py-20"
+      className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-12 sm:py-16 lg:py-20"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header Row */}
@@ -90,13 +90,12 @@ export function RoomsSection({ rooms, onSelectRoom }) {
               <div className="px-5 pb-5 sm:px-6 sm:pb-6">
                 <button
                   type="button"
+                  aria-label={`${room.ctaLabel} (${room.name.split('—')[0].trim()})`}
                   onClick={() => onSelectRoom(room.id, room.defaultService)}
                   className="brutal-btn bg-studio-ink text-studio-white hover:bg-studio-orange flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 px-5 py-3 text-xs font-extrabold tracking-wider uppercase sm:text-sm"
                 >
-                  <span>
-                    {room.ctaLabel} ({room.name.split('—')[0].trim()})
-                  </span>
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  <span>{room.ctaLabel}</span>
+                  <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
                 </button>
               </div>
             </article>

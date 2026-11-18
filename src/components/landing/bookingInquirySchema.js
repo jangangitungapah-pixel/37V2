@@ -1,6 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
+import { isDateNotInPast, isValidBookingCalendarDate } from '@/lib/booking-date';
+
 export const bookingInquirySchema = z.object({
   clientName: z
     .string()
@@ -19,7 +21,17 @@ export const bookingInquirySchema = z.object({
   room: z.enum(['room-a', 'room-b', 'any'], {
     error: 'Please choose a room preference.',
   }),
-  preferredDate: z.string().trim().min(1, 'Please select a preferred session date.'),
+  preferredDate: z
+    .string()
+    .trim()
+    .min(1, 'Please select a preferred session date.')
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a valid YYYY-MM-DD calendar date.')
+    .refine((value) => isValidBookingCalendarDate(value), {
+      message: 'Please enter a valid calendar date.',
+    })
+    .refine((value) => isDateNotInPast(value), {
+      message: 'Preferred date cannot be in the past.',
+    }),
   preferredTime: z.string().trim().min(1, 'Please select a preferred start time.'),
   duration: z.string().trim().min(1, 'Please select an estimated session duration.'),
   notes: z.string().trim().max(400, 'Notes must be 400 characters or fewer.').optional(),

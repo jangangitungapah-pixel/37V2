@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, CheckCircle2, Info, RotateCcw, Sparkles } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 
+import { getTodayLocalDateString } from '@/lib/booking-date';
+
 const lazyBookingResolver = async (values, context, options) => {
   const { bookingInquiryResolver } = await import('./bookingInquirySchema');
   return bookingInquiryResolver(values, context, options);
@@ -27,6 +29,7 @@ export function BookingSection({
   preselectionNotice,
   onClearPreselectionNotice,
 }) {
+  const [todayDate, setTodayDate] = useState(() => getTodayLocalDateString());
   const [submissionRecord, setSubmissionRecord] = useState(null);
   const submittedData =
     submissionRecord && submissionRecord.version === selectionVersion
@@ -47,7 +50,7 @@ export function BookingSection({
       contactNumber: '',
       service: selectedService || 'rehearsal',
       room: selectedRoom || 'room-a',
-      preferredDate: '2026-11-21',
+      preferredDate: todayDate,
       preferredTime: '19:00',
       duration: '2 hours',
       notes: '',
@@ -59,17 +62,30 @@ export function BookingSection({
     name: 'service',
   });
 
-  useEffect(() => {
-    if (selectedService) {
-      setValue('service', selectedService, { shouldValidate: true });
-    }
-  }, [selectedService, setValue]);
+  const notesValue = useWatch({
+    control,
+    name: 'notes',
+  });
+  const notesLength = (notesValue || '').length;
 
   useEffect(() => {
-    if (selectedRoom) {
-      setValue('room', selectedRoom, { shouldValidate: true });
+    if (selectionVersion > 0) {
+      if (selectedService) {
+        setValue('service', selectedService, { shouldValidate: true });
+      }
+      if (selectedRoom) {
+        setValue('room', selectedRoom, { shouldValidate: true });
+      }
     }
-  }, [selectedRoom, setValue]);
+  }, [selectedService, selectedRoom, selectionVersion, setValue]);
+
+  const refreshTodayDate = () => {
+    const currentToday = getTodayLocalDateString();
+    if (currentToday !== todayDate) {
+      setTodayDate(currentToday);
+    }
+    return currentToday;
+  };
 
   const onSubmit = (values) => {
     setSubmissionRecord({
@@ -79,6 +95,7 @@ export function BookingSection({
   };
 
   const handleResetNew = () => {
+    const currentToday = refreshTodayDate();
     setSubmissionRecord(null);
     onClearPreselectionNotice?.();
     reset({
@@ -86,7 +103,7 @@ export function BookingSection({
       contactNumber: '',
       service: 'rehearsal',
       room: 'room-a',
-      preferredDate: '2026-11-21',
+      preferredDate: currentToday,
       preferredTime: '19:00',
       duration: '2 hours',
       notes: '',
@@ -104,12 +121,12 @@ export function BookingSection({
     <section
       id="how-to-book"
       aria-labelledby="booking-process-heading"
-      className="border-studio-ink bg-studio-ivory border-b-2 py-12 sm:py-16 lg:py-20"
+      className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-12 sm:py-16 lg:py-20"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="brutal-card-lg bg-studio-white grid grid-cols-1 overflow-hidden lg:grid-cols-12">
           {/* Left Panel: Black 3-Step Process */}
-          <div className="border-studio-ink bg-studio-ink text-studio-white flex flex-col justify-between border-b-2 p-6 sm:p-8 lg:col-span-5 lg:border-r-2 lg:border-b-0 lg:p-10">
+          <div className="border-studio-ink bg-studio-ink text-studio-white flex flex-col justify-between border-b-2 p-5 sm:p-8 lg:col-span-5 lg:border-r-2 lg:border-b-0 lg:p-10">
             <div>
               <span className="bg-studio-lime text-studio-ink inline-block px-2.5 py-1 font-mono text-[11px] font-extrabold tracking-wider uppercase">
                 {bookingSection.process.eyebrow}
@@ -164,7 +181,7 @@ export function BookingSection({
           {/* Right Panel: Frontend-Only Booking Inquiry Form */}
           <div
             id="booking"
-            className="bg-studio-white text-studio-ink p-6 sm:p-8 lg:col-span-7 lg:p-10"
+            className="bg-studio-white text-studio-ink scroll-mt-20 p-5 sm:p-8 lg:col-span-7 lg:p-10"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
@@ -184,7 +201,7 @@ export function BookingSection({
               <div
                 role="status"
                 aria-live="polite"
-                className="border-studio-ink bg-studio-lime text-studio-ink mt-4 flex items-center justify-between gap-2 border-2 px-3.5 py-2 text-xs font-bold"
+                className="border-studio-ink bg-studio-lime text-studio-ink mt-4 flex items-center justify-between gap-2 border-2 px-3.5 py-1.5 text-xs font-bold"
               >
                 <span className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -193,7 +210,7 @@ export function BookingSection({
                 <button
                   type="button"
                   onClick={onClearPreselectionNotice}
-                  className="cursor-pointer underline"
+                  className="inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center px-2 underline"
                 >
                   Dismiss
                 </button>
@@ -259,7 +276,9 @@ export function BookingSection({
                       <dt className="text-studio-muted-ink font-mono text-[10px] uppercase">
                         Session Notes
                       </dt>
-                      <dd className="font-medium">{submittedData.notes}</dd>
+                      <dd className="font-medium break-words whitespace-pre-wrap">
+                        {submittedData.notes}
+                      </dd>
                     </div>
                   ) : null}
                 </dl>
@@ -291,7 +310,7 @@ export function BookingSection({
                       htmlFor="inquiry-client-name"
                       className="block font-mono text-[11px] font-bold tracking-wider uppercase"
                     >
-                      Name / Band Name <span className="text-studio-orange">*</span>
+                      Name / Band Name <span className="text-studio-error-ink">*</span>
                     </label>
                     <input
                       id="inquiry-client-name"
@@ -303,7 +322,7 @@ export function BookingSection({
                       className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500"
                     />
                     {errors.clientName ? (
-                      <p role="alert" className="text-studio-orange mt-1 text-xs font-bold">
+                      <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
                         {errors.clientName.message}
                       </p>
                     ) : null}
@@ -314,7 +333,7 @@ export function BookingSection({
                       htmlFor="inquiry-contact-number"
                       className="block font-mono text-[11px] font-bold tracking-wider uppercase"
                     >
-                      WhatsApp / Contact Number <span className="text-studio-orange">*</span>
+                      WhatsApp / Contact Number <span className="text-studio-error-ink">*</span>
                     </label>
                     <input
                       id="inquiry-contact-number"
@@ -327,7 +346,7 @@ export function BookingSection({
                       className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500"
                     />
                     {errors.contactNumber ? (
-                      <p role="alert" className="text-studio-orange mt-1 text-xs font-bold">
+                      <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
                         {errors.contactNumber.message}
                       </p>
                     ) : null}
@@ -337,7 +356,7 @@ export function BookingSection({
                 {/* Row 2: Requested Service (3 tactile buttons matching reference screenshot) */}
                 <fieldset>
                   <legend className="font-mono text-[11px] font-bold tracking-wider uppercase">
-                    Requested Service <span className="text-studio-orange">*</span>
+                    Requested Service <span className="text-studio-error-ink">*</span>
                   </legend>
                   <input type="hidden" {...register('service')} />
                   <div className="mt-1.5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
@@ -366,7 +385,7 @@ export function BookingSection({
                     })}
                   </div>
                   {errors.service ? (
-                    <p role="alert" className="text-studio-orange mt-1 text-xs font-bold">
+                    <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
                       {errors.service.message}
                     </p>
                   ) : null}
@@ -379,7 +398,7 @@ export function BookingSection({
                       htmlFor="inquiry-room"
                       className="block font-mono text-[11px] font-bold tracking-wider uppercase"
                     >
-                      Room Preference <span className="text-studio-orange">*</span>
+                      Room Preference <span className="text-studio-error-ink">*</span>
                     </label>
                     <select
                       id="inquiry-room"
@@ -400,7 +419,7 @@ export function BookingSection({
                       htmlFor="inquiry-duration"
                       className="block font-mono text-[11px] font-bold tracking-wider uppercase"
                     >
-                      Estimated Duration <span className="text-studio-orange">*</span>
+                      Estimated Duration <span className="text-studio-error-ink">*</span>
                     </label>
                     <select
                       id="inquiry-duration"
@@ -424,17 +443,19 @@ export function BookingSection({
                       htmlFor="inquiry-date"
                       className="block font-mono text-[11px] font-bold tracking-wider uppercase"
                     >
-                      Preferred Date <span className="text-studio-orange">*</span>
+                      Preferred Date <span className="text-studio-error-ink">*</span>
                     </label>
                     <input
                       id="inquiry-date"
                       type="date"
+                      min={todayDate}
+                      onFocus={refreshTodayDate}
                       aria-invalid={Boolean(errors.preferredDate)}
                       {...register('preferredDate')}
                       className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
                     />
                     {errors.preferredDate ? (
-                      <p role="alert" className="text-studio-orange mt-1 text-xs font-bold">
+                      <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
                         {errors.preferredDate.message}
                       </p>
                     ) : null}
@@ -445,7 +466,7 @@ export function BookingSection({
                       htmlFor="inquiry-time"
                       className="block font-mono text-[11px] font-bold tracking-wider uppercase"
                     >
-                      Preferred Start Time <span className="text-studio-orange">*</span>
+                      Preferred Start Time <span className="text-studio-error-ink">*</span>
                     </label>
                     <select
                       id="inquiry-time"
@@ -455,37 +476,50 @@ export function BookingSection({
                     >
                       {bookingSection.form.timeSlots.map((slot) => (
                         <option key={slot} value={slot}>
-                          {slot} WIB
+                          {slot}
                         </option>
                       ))}
                     </select>
                     {errors.preferredTime ? (
-                      <p role="alert" className="text-studio-orange mt-1 text-xs font-bold">
+                      <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
                         {errors.preferredTime.message}
                       </p>
                     ) : null}
                   </div>
                 </div>
 
-                {/* Row 5: Notes / Additional Requirements */}
+                {/* Row 5: Multiline Notes / Additional Requirements */}
                 <div>
-                  <label
-                    htmlFor="inquiry-notes"
-                    className="block font-mono text-[11px] font-bold tracking-wider uppercase"
-                  >
-                    Notes / Setup Requirements{' '}
-                    <span className="text-studio-muted-ink font-normal">(Optional)</span>
-                  </label>
-                  <input
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <label
+                      htmlFor="inquiry-notes"
+                      className="block font-mono text-[11px] font-bold tracking-wider uppercase"
+                    >
+                      Notes / Setup Requirements{' '}
+                      <span className="text-studio-muted-ink font-normal">(Optional)</span>
+                    </label>
+                    <span
+                      id="inquiry-notes-counter"
+                      className={
+                        notesLength > 400
+                          ? 'text-studio-error-ink font-mono text-[11px] font-bold'
+                          : 'text-studio-muted-ink font-mono text-[11px] font-medium'
+                      }
+                    >
+                      {notesLength} / 400
+                    </span>
+                  </div>
+                  <textarea
                     id="inquiry-notes"
-                    type="text"
-                    placeholder="e.g. 5-piece rock band, need 3 vocal mics & double kick pedal..."
+                    rows={3}
+                    placeholder="Optional: describe your group size, session goals, or questions..."
                     aria-invalid={Boolean(errors.notes)}
+                    aria-describedby="inquiry-notes-counter"
                     {...register('notes')}
-                    className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500"
+                    className="border-studio-ink bg-studio-ivory mt-1.5 min-h-24 w-full resize-y border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500"
                   />
                   {errors.notes ? (
-                    <p role="alert" className="text-studio-orange mt-1 text-xs font-bold">
+                    <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
                       {errors.notes.message}
                     </p>
                   ) : null}
