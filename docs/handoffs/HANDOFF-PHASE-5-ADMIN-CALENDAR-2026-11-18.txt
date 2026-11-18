@@ -1,0 +1,132 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 5: ADMIN CALENDAR & BOOKING MANAGEMENT
+Date: 2026-11-18
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: C:\Users\hazel\source\repos\37V2
+Branch: main
+
+============================================================
+1. STARTING HEAD & FINAL COMMITS
+============================================================
+
+- Starting baseline HEAD (Phase 4 Handoff):
+  fd8e2f7c5cc531e81bb9e0865a35bd6c7878e048
+  (docs: add phase 4 admin shell handoff)
+- Phase 5 implementation commit:
+  0dc19ee8e74b4746fd73c741d8587edda4db8baf
+  (feat(calendar): implement phase 5 admin calendar and booking management)
+- Phase 5 handoff commit:
+  Recorded on `main` immediately following `0dc19ee`
+  (`docs: add phase 5 admin calendar handoff`).
+
+============================================================
+2. FILES CREATED & MODIFIED
+============================================================
+
+Created:
+- `src/features/admin/calendar/config/calendar-config.js`
+- `src/features/admin/calendar/utils/calendar-date.js`
+- `src/features/admin/calendar/utils/booking-time.js`
+- `src/features/admin/calendar/utils/booking-pricing.js`
+- `src/features/admin/calendar/schemas/booking-schema.js`
+- `src/features/admin/calendar/repositories/calendar-booking-repository.js`
+- `src/features/admin/calendar/services/calendar-booking-service.js`
+- `src/features/admin/calendar/hooks/useCalendarBookings.js`
+- `src/features/admin/calendar/components/CalendarViewSwitcher.jsx`
+- `src/features/admin/calendar/components/CalendarToolbar.jsx`
+- `src/features/admin/calendar/components/CalendarFilters.jsx`
+- `src/features/admin/calendar/components/CalendarBookingCard.jsx`
+- `src/features/admin/calendar/components/CalendarDayView.jsx`
+- `src/features/admin/calendar/components/CalendarWeekView.jsx`
+- `src/features/admin/calendar/components/CalendarMonthView.jsx`
+- `src/features/admin/calendar/components/CalendarGrid.jsx`
+- `src/features/admin/calendar/components/UpcomingBookings.jsx`
+- `src/features/admin/calendar/components/BookingFormDialog.jsx`
+- `src/features/admin/calendar/components/BookingDetailDrawer.jsx`
+- `src/features/admin/calendar/pages/AdminCalendarPage.jsx`
+- `src/features/admin/calendar/calendar.test.jsx`
+- `docs/architecture/ADMIN-CALENDAR-BOOKING.md`
+- `scripts/verify-phase-5-calendar.ps1`
+- `docs/handoffs/HANDOFF-PHASE-5-ADMIN-CALENDAR-2026-11-18.txt`
+
+Modified:
+- `src/App.jsx` (connected `/admin/calendar` to `AdminCalendarPage`)
+- `firestore.rules` (added `isActiveStaff()`, `bookings`, `bookingSlots`, `bookingEvents` rules)
+- `src/features/admin/admin-shell.test.jsx` (updated `/admin/calendar` route assertion)
+- `vite.config.js` (configured `testTimeout: 15000` for parallel worker stability)
+
+============================================================
+3. COMPLETED FEATURES (PHASE 5)
+============================================================
+
+1. Calendar Day View (30-minute interval timeline from 10:00 to 23:00 WIB across Room A & Room B).
+2. Calendar Week View (7-day Monday-to-Sunday timeline with sticky time column & Today highlight).
+3. Calendar Month View (monthly overview grid with Indonesian day/month labels & Day View jump).
+4. Period Navigation (`Previous Period`, `Today`, `Next Period`, and direct date picker).
+5. Studio Room Filtering (`All Rooms`, `Room A`, `Room B`).
+6. Payment Status Filtering (`All Payment Status`, `Belum Bayar`, `DP`, `Lunas`) & Cancelled visibility toggle.
+7. Realtime Search across customer name, band/project name, phone, and service label.
+8. Upcoming Bookings panel linked directly to `BookingDetailDrawer`.
+9. Adaptive 4-Step `BookingFormDialog` (`Customer`, `Layanan`, `Jadwal`, `Pembayaran`) supporting Create, Edit, and Reschedule with live slot conflict detection and live pricing calculation.
+10. `BookingDetailDrawer` with overview, Edit/Reschedule/Cancel actions, Session Lifecycle controls (`Check-in`, `Start Session`, `Complete Session`, `Mark No Show` with 15-minute grace period), and live Firestore Activity History (`bookingEvents`).
+
+============================================================
+4. FIRESTORE DATA MODEL
+============================================================
+
+1. `bookings/{bookingId}`:
+   Canonical booking record storing customer snapshot (`customerName`, `phone`, `bandName`), schedule (`studioId`, `date`, `startMinute`, `durationMinutes`, `endMinute`, `timeZone: 'Asia/Jakarta'`), service & pricing snapshot (`serviceId`, `serviceLabel`, `packageId`, `packageLabel`, `recordingTypeId`, `recordingTypeLabel`, `unitRate`, `subtotal`, `discountAmount`, `totalAmount`), initial payment snapshot (`initialPaymentStatus`, `initialPaidAmount`, `paymentMethod`), session lifecycle (`sessionStatus`, `checkedInAt`, `checkedInByUid`, `actualStartedAt`, `actualCompletedAt`), and audit/concurrency metadata (`createdAt`, `createdByUid`, `updatedAt`, `updatedByUid`, `version`).
+2. `bookingSlots/{date__studioId__slotStartMinute}`:
+   Deterministic 30-minute slot lock document containing only `{ bookingId, date, studioId, slotStartMinute, createdAt }` (no customer PII).
+3. `bookingEvents/{eventId}`:
+   Immutable append-only activity log containing `{ bookingId, eventType, actorUid, createdAt, previousValue, newValue, note }`.
+
+============================================================
+5. FIRESTORE SECURITY RULES UPDATES
+============================================================
+
+- Preserved `match /staffProfiles/{uid}` self-read rule.
+- Added `isActiveStaff()` verifying authenticated user has an active `staffProfiles/{uid}` document with `role in ['owner', 'staff']`.
+- `bookings`: Restricted to active staff; permanent delete denied (`allow delete: if false;`); validates schema types, room enum, 30-minute schedule math, non-negative pricing, and locks initial payment snapshot fields (`initialPaymentStatus`, `initialPaidAmount`, `paymentMethod`) on generic update.
+- `bookingSlots`: Restricted to active staff; uses `existsAfter()` and `getAfter()` to verify each lock references a valid, non-cancelled booking with matching `date` and `studioId`.
+- `bookingEvents`: Restricted to active staff for read/create; `allow update, delete: if false;` enforces append-only audit history.
+
+============================================================
+6. TRANSACTION & SLOT LOCKING BEHAVIOR
+============================================================
+
+- All write operations (`createBooking`, `updateOrRescheduleBooking`, `cancelBooking`, `transitionBookingSession`) run inside `runTransaction` with all reads executed before any writes.
+- Every booking acquires deterministic 30-minute locks (`bookingSlots/{date__studioId__slotStartMinute}`).
+- Rescheduling reads both old and target slot locks, aborts atomically if any target slot is locked by another booking, releases unused old locks, and acquires new locks.
+- Cancelling or marking No Show releases all owned `bookingSlots` locks while preserving the `bookings/{bookingId}` document.
+- Pre-generated `bookingId` and `eventId` (UUID) guarantee idempotency across retries, and `version` checks reject stale updates (`booking/stale-update`).
+
+============================================================
+7. TEST, BUILD & RESPONSIVE QA RESULTS
+============================================================
+
+- `npm run format:check`: PASSED (`EXIT_CODE=0`)
+- `npm run lint`: PASSED (`EXIT_CODE=0`, 0 errors, 0 warnings)
+- `npm run test:run`: PASSED (`EXIT_CODE=0`, 5 test files, 38/38 tests passed)
+- `npm run build`: PASSED (`EXIT_CODE=0`, Vite production build succeeded)
+- Responsive Headless Chromium QA: Verified `/admin/calendar` and `BookingFormDialog` across 320, 360, 375, 390, 430, 768, 1024, 1280, and 1440 px viewports with zero horizontal overflow (`noOverflow=true`).
+
+============================================================
+8. VERIFICATION LOG LOCATION
+============================================================
+
+- `.logs/phase-5-calendar-verification-20261118-155746.txt`
+
+============================================================
+9. KNOWN LIMITATIONS
+============================================================
+
+- Firestore Security Rules in `firestore.rules` have been updated locally in the repository and verified by automated contract tests; per project rules, `firebase deploy` was NOT executed automatically. Note: before testing live Firestore writes against the cloud project (`studio37classic`), deploy the updated `firestore.rules` when ready.
+- Bounded calendar range queries use `limit(300)` per view range and surface a truncation notice if exceeded.
+
+============================================================
+10. IMPORTANT NOTES FOR FUTURE PHASES
+============================================================
+
+- Customer Management, Payment and Bill, Commission and Fee, Inventory, Pembukuan, and Settings remain on their Phase 4 placeholder routes until directed by the user.
+- Initial payment fields on `bookings` (`initialPaymentStatus`, `initialPaidAmount`, `paymentMethod`) represent the creation-time snapshot; subsequent billing/settlement ledger workflows belong to the future Payment and Bill module.
