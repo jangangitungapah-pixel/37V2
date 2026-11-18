@@ -347,6 +347,41 @@ export function BookingDetailDrawer({
                 </dl>
               </div>
 
+              {/* Internal Operational Fee Snapshot Subcard (Safe Phase 5 fallback) */}
+              <div className="border-studio-ink bg-studio-white mt-3 border p-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[11px] font-extrabold uppercase">
+                    Internal Fee Snapshot
+                  </span>
+                  {booking.commissionSnapshot ? (
+                    <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
+                      Settings v{booking.commissionSnapshot.settingsVersion}
+                    </span>
+                  ) : null}
+                </div>
+
+                {booking.commissionSnapshot ? (
+                  <dl className="mt-2 space-y-1 font-mono text-xs">
+                    <div className="flex justify-between">
+                      <dt className="text-studio-muted-ink">Staff Commission</dt>
+                      <dd className="font-bold">
+                        {formatRupiah(booking.commissionSnapshot.staffAmount)}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-studio-muted-ink">Recording Operator</dt>
+                      <dd className="font-bold">
+                        {formatRupiah(booking.commissionSnapshot.recordingOperatorAmount)}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="text-studio-muted-ink mt-1.5 font-mono text-[11px]">
+                    Tidak ada snapshot komisi internal (booking sebelum konfigurasi Phase 6).
+                  </p>
+                )}
+              </div>
+
               {booking.notes ? (
                 <div className="mt-3 border-t border-neutral-200 pt-3">
                   <p className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">

@@ -1,0 +1,66 @@
+import {
+  createPricingSettingsRepositoryError,
+  getPricingSettingsRepositoryAdapter,
+} from '../repositories/pricing-settings-repository';
+import { validatePricingSettingsPayload } from '../schemas/pricing-settings-schema';
+import { normalizePricingSettings } from '../utils/normalize-pricing-settings';
+
+export function mapPricingSettingsErrorToMessage(error) {
+  const code = String(error?.code || '').toLowerCase();
+
+  if (code.includes('permission-denied') || code.includes('unauthenticated')) {
+    return 'Akses ditolak oleh Firestore. Pastikan Anda login dengan profil Staff atau Owner yang aktif.';
+  }
+
+  if (code.includes('unavailable') || code.includes('network-request-failed')) {
+    return 'Koneksi ke Firestore terputus. Perubahan lokal Anda tetap dipertahankan—coba simpan ulang.';
+  }
+
+  if (code === 'pricing/stale-version') {
+    return (
+      error.message ||
+      'Konfigurasi telah diperbarui di sesi lain. Muat versi terbaru sebelum menyimpan.'
+    );
+  }
+
+  if (code.startsWith('pricing/') && error?.message) {
+    return error.message;
+  }
+
+  return 'Gagal menyimpan Price and Fee Settings. Perubahan lokal Anda tetap dipertahankan.';
+}
+
+/**
+ * Validates and atomically saves the unified `settings/pricing` document to Cloud Firestore.
+ */
+export async function savePricingSettings({
+  actorUid,
+  settings,
+  expectedVersion,
+  adapter = getPricingSettingsRepositoryAdapter(),
+}) {
+  const cleanActorUid = String(actorUid || '').trim();
+  if (!cleanActorUid) {
+    throw createPricingSettingsRepositoryError(
+      'pricing/missing-actor',
+      'Sesi autentikasi tidak ditemukan. Silakan login kembali sebelum menyimpan.',
+    );
+  }
+
+  const normalizedInput = normalizePricingSettings(settings);
+  const validation = validatePricingSettingsPayload(normalizedInput);
+
+  if (!validation.isValid) {
+    throw createPricingSettingsRepositoryError(
+      'pricing/validation-error',
+      validation.message || 'Data Price and Fee Settings belum valid.',
+      validation.errors,
+    );
+  }
+
+  return adapter.savePricingSettingsTransaction({
+    actorUid: cleanActorUid,
+    payload: validation.data,
+    expectedVersion,
+  });
+}

@@ -151,6 +151,8 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
 
       if (mod.label === 'Calendar') {
         expect(screen.getByText(/studio booking schedule/i)).toBeTruthy();
+      } else if (mod.label === 'Settings') {
+        expect(screen.getByRole('heading', { name: /price and fee settings/i })).toBeTruthy();
       } else {
         expect(screen.getByText(`ROUTE: ${mod.path}`)).toBeTruthy();
         expect(

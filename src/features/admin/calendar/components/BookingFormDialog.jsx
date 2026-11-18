@@ -13,6 +13,9 @@ import {
   X,
 } from 'lucide-react';
 
+import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
+import { calculatePackageFinalPrice } from '@/features/admin/settings/pricing/utils/calculate-pricing-settings';
+
 import {
   DURATION_PRESET_OPTIONS,
   getInitialPaymentStatusMeta,
@@ -20,10 +23,7 @@ import {
   INITIAL_PAYMENT_STATUS,
   INITIAL_PAYMENT_STATUS_OPTIONS,
   PAYMENT_METHOD_OPTIONS,
-  RECORDING_TYPE_OPTIONS,
-  STUDIO_PACKAGES,
   STUDIO_ROOMS,
-  STUDIO_SERVICES,
   TIMELINE_HOURLY_SLOTS,
 } from '../config/calendar-config';
 import { generateOperationId } from '../repositories/calendar-booking-repository';
@@ -63,6 +63,7 @@ function buildInitialFormValues({ mode, initialSlot, editingBooking }) {
         editingBooking.initialPaidAmount > 0 ? String(editingBooking.initialPaidAmount) : '',
       paymentMethod: editingBooking.paymentMethod || 'cash',
       notes: editingBooking.notes || '',
+      applyUpdatedPricing: false,
     };
   }
 
@@ -70,7 +71,7 @@ function buildInitialFormValues({ mode, initialSlot, editingBooking }) {
     customerName: '',
     bandName: '',
     phone: '',
-    serviceId: 'rehearsal',
+    serviceId: initialSlot?.defaultServiceId || 'rehearsal',
     packageId: '',
     recordingTypeId: '',
     studioId: initialSlot?.studioId || 'room-a',
@@ -82,6 +83,7 @@ function buildInitialFormValues({ mode, initialSlot, editingBooking }) {
     dpAmount: '',
     paymentMethod: 'cash',
     notes: '',
+    applyUpdatedPricing: true,
   };
 }
 
@@ -91,6 +93,7 @@ export function BookingFormDialog({
   initialSlot = null,
   editingBooking = null,
   existingBookings = [],
+  pricingSettings = DEFAULT_PRICING_SETTINGS,
   onOpenChange,
   onSubmitBooking,
   returnFocusRef = null,
@@ -120,6 +123,92 @@ export function BookingFormDialog({
   const isEditingOrRescheduling = mode === 'edit' || mode === 'reschedule';
   const editingBookingId = isEditingOrRescheduling ? editingBooking?.id || '' : '';
 
+  const serviceOptions = useMemo(() => {
+    const active = (pricingSettings?.sessionTypes || []).filter((item) => item.isActive !== false);
+    if (
+      isEditingOrRescheduling &&
+      editingBooking?.serviceId &&
+      !active.some((item) => item.id === editingBooking.serviceId)
+    ) {
+      return [
+        ...active,
+        {
+          id: editingBooking.serviceId,
+          name: `${editingBooking.serviceLabel || editingBooking.serviceId} (Snapshot Eksisting)`,
+          description: 'Layanan non-aktif dari booking lama',
+          hourlyRate: Number(editingBooking.unitRate) || 0,
+          isHistoricalFallback: true,
+        },
+      ];
+    }
+    return active;
+  }, [pricingSettings?.sessionTypes, isEditingOrRescheduling, editingBooking]);
+
+  const recordingTypeOptions = useMemo(() => {
+    const active = (pricingSettings?.recordingTypes || []).filter(
+      (item) => item.isActive !== false,
+    );
+    if (
+      isEditingOrRescheduling &&
+      editingBooking?.recordingTypeId &&
+      !active.some((item) => item.id === editingBooking.recordingTypeId)
+    ) {
+      return [
+        ...active,
+        {
+          id: editingBooking.recordingTypeId,
+          name: `${editingBooking.recordingTypeLabel || editingBooking.recordingTypeId} (Snapshot Eksisting)`,
+          description: 'Opsi recording non-aktif dari booking lama',
+          priceMode: 'hourly',
+          durationMinutes: 0,
+          price: Number(editingBooking.unitRate) || 0,
+          isHistoricalFallback: true,
+        },
+      ];
+    }
+    return active;
+  }, [pricingSettings?.recordingTypes, isEditingOrRescheduling, editingBooking]);
+
+  const packageOptions = useMemo(() => {
+    const baseNone = {
+      id: '',
+      name: 'Tanpa Paket (Reguler)',
+      detail: 'Pilih layanan dan durasi sesuai kebutuhan',
+      sessionTypeId: '',
+      durationMinutes: 0,
+      basePrice: 0,
+      discountAmount: 0,
+      finalPrice: 0,
+    };
+
+    const active = (pricingSettings?.packages || [])
+      .filter((item) => item.isActive !== false)
+      .map((item) => ({
+        ...item,
+        finalPrice: calculatePackageFinalPrice(item.basePrice, item.discountAmount).finalPrice,
+      }));
+
+    if (
+      isEditingOrRescheduling &&
+      editingBooking?.packageId &&
+      !active.some((item) => item.id === editingBooking.packageId)
+    ) {
+      active.push({
+        id: editingBooking.packageId,
+        name: `${editingBooking.packageLabel || editingBooking.packageId} (Snapshot Eksisting)`,
+        detail: 'Paket non-aktif dari booking lama',
+        sessionTypeId: editingBooking.serviceId,
+        durationMinutes: editingBooking.durationMinutes,
+        basePrice: editingBooking.subtotal,
+        discountAmount: editingBooking.discountAmount,
+        finalPrice: editingBooking.totalAmount,
+        isHistoricalFallback: true,
+      });
+    }
+
+    return [baseNone, ...active];
+  }, [pricingSettings?.packages, isEditingOrRescheduling, editingBooking]);
+
   // Hourly start options (10:00 – 21:00), plus preserved legacy HH:30 or late-hour option when editing an existing booking
   const startTimeOptions = useMemo(() => {
     const baseOptions = TIMELINE_HOURLY_SLOTS.map((slot) => ({
@@ -146,8 +235,23 @@ export function BookingFormDialog({
   }, [isEditingOrRescheduling, editingBooking]);
 
   const effectiveDurationMinutes = useMemo(
-    () => resolveFormDurationMinutes(formValues),
-    [formValues],
+    () => resolveFormDurationMinutes(formValues, pricingSettings),
+    [formValues, pricingSettings],
+  );
+
+  const isServiceScopeChanged = Boolean(
+    isEditingOrRescheduling &&
+    editingBooking &&
+    (formValues.serviceId !== (editingBooking.serviceId || '') ||
+      formValues.packageId !== (editingBooking.packageId || '') ||
+      formValues.recordingTypeId !== (editingBooking.recordingTypeId || '') ||
+      effectiveDurationMinutes !== Number(editingBooking.durationMinutes || 0)),
+  );
+
+  const shouldUsePreservedSnapshot = Boolean(
+    isEditingOrRescheduling &&
+    editingBooking &&
+    (!isServiceScopeChanged || !formValues.applyUpdatedPricing),
   );
 
   const livePricing = useMemo(
@@ -164,13 +268,55 @@ export function BookingFormDialog({
         paymentMethod: isEditingOrRescheduling
           ? editingBooking?.paymentMethod
           : formValues.paymentMethod,
+        pricingSettings,
       }),
-    [formValues, effectiveDurationMinutes, isEditingOrRescheduling, editingBooking],
+    [
+      formValues,
+      effectiveDurationMinutes,
+      isEditingOrRescheduling,
+      editingBooking,
+      pricingSettings,
+    ],
   );
 
+  const displayedPricing = useMemo(() => {
+    if (!shouldUsePreservedSnapshot || !editingBooking) {
+      return livePricing;
+    }
+
+    const totalAmount = Math.max(0, Number(editingBooking.totalAmount) || 0);
+    const initialPaidAmount = Math.max(0, Number(editingBooking.initialPaidAmount) || 0);
+    return {
+      ...livePricing,
+      unitRate: Number(editingBooking.unitRate) || 0,
+      subtotal: Number(editingBooking.subtotal) || 0,
+      discountAmount: Number(editingBooking.discountAmount) || 0,
+      appliedDiscountName: editingBooking.packageId
+        ? 'Diskon Paket (Snapshot)'
+        : Number(editingBooking.discountAmount) > 0
+          ? 'Diskon (Snapshot)'
+          : '',
+      totalAmount,
+      initialPaidAmount,
+      remainingBalance: Math.max(0, totalAmount - initialPaidAmount),
+      commissionSnapshot: editingBooking.commissionSnapshot ?? null,
+    };
+  }, [shouldUsePreservedSnapshot, editingBooking, livePricing]);
+
   const liveValidation = useMemo(
-    () => validateBookingFormPayload(formValues, existingBookings, editingBookingId),
-    [formValues, existingBookings, editingBookingId],
+    () =>
+      validateBookingFormPayload(formValues, existingBookings, editingBookingId, pricingSettings, {
+        allowedHistoricalServiceIds: editingBooking?.serviceId ? [editingBooking.serviceId] : [],
+        paymentTotalOverride: shouldUsePreservedSnapshot ? editingBooking?.totalAmount : undefined,
+      }),
+    [
+      formValues,
+      existingBookings,
+      editingBookingId,
+      pricingSettings,
+      editingBooking,
+      shouldUsePreservedSnapshot,
+    ],
   );
 
   const handleFieldChange = (field, value) => {
@@ -187,12 +333,27 @@ export function BookingFormDialog({
     }
   };
 
+  const handleSelectService = (nextServiceId) => {
+    setFormValues((prev) => ({
+      ...prev,
+      serviceId: nextServiceId,
+      recordingTypeId:
+        nextServiceId === 'recording'
+          ? prev.recordingTypeId ||
+            recordingTypeOptions.find((item) => item.priceMode === 'hourly')?.id ||
+            recordingTypeOptions[0]?.id ||
+            ''
+          : '',
+    }));
+    if (submitError) setSubmitError('');
+  };
+
   const handleSelectPackage = (nextPackageId) => {
-    const selectedPkg = STUDIO_PACKAGES.find((item) => item.id === nextPackageId);
+    const selectedPkg = packageOptions.find((item) => item.id === nextPackageId);
     setFormValues((prev) => ({
       ...prev,
       packageId: nextPackageId,
-      serviceId: selectedPkg?.serviceId || prev.serviceId,
+      serviceId: selectedPkg?.sessionTypeId || prev.serviceId,
       recordingTypeId: '',
       durationPreset: selectedPkg?.durationMinutes
         ? String(selectedPkg.durationMinutes)
@@ -202,13 +363,13 @@ export function BookingFormDialog({
   };
 
   const handleSelectRecordingType = (nextRecordingTypeId) => {
-    const recType = RECORDING_TYPE_OPTIONS.find((item) => item.id === nextRecordingTypeId);
+    const recType = recordingTypeOptions.find((item) => item.id === nextRecordingTypeId);
     setFormValues((prev) => ({
       ...prev,
       recordingTypeId: nextRecordingTypeId,
       durationPreset:
-        recType?.lockedDurationMinutes > 0
-          ? String(recType.lockedDurationMinutes)
+        recType?.priceMode === 'fixed' && recType?.durationMinutes > 0
+          ? String(recType.durationMinutes)
           : prev.durationPreset,
     }));
     if (submitError) setSubmitError('');
@@ -294,13 +455,14 @@ export function BookingFormDialog({
         : 'Tambah Booking';
 
   const isDurationLockedByPackage = Boolean(formValues.packageId);
-  const selectedRecType = RECORDING_TYPE_OPTIONS.find(
+  const selectedRecType = recordingTypeOptions.find(
     (item) => item.id === formValues.recordingTypeId,
   );
   const isDurationLockedByRecordingType = Boolean(
     !formValues.packageId &&
     formValues.serviceId === 'recording' &&
-    selectedRecType?.lockedDurationMinutes > 0,
+    selectedRecType?.priceMode === 'fixed' &&
+    selectedRecType?.durationMinutes > 0,
   );
 
   const computedStartMinute = Number(formValues.startMinute) || 600;
@@ -525,7 +687,7 @@ export function BookingFormDialog({
                   </div>
 
                   <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase">
-                    Tarif: {formatRupiah(livePricing.unitRate)}/jam
+                    Tarif: {formatRupiah(displayedPricing.unitRate)}/jam
                   </span>
                 </div>
 
@@ -543,10 +705,10 @@ export function BookingFormDialog({
                     onChange={(e) => handleSelectPackage(e.target.value)}
                     className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-bold"
                   >
-                    {STUDIO_PACKAGES.map((pkg) => (
+                    {packageOptions.map((pkg) => (
                       <option key={pkg.id || 'none'} value={pkg.id}>
-                        {pkg.label}
-                        {pkg.totalAmount > 0 ? ` — ${formatRupiah(pkg.totalAmount)}` : ''}
+                        {pkg.name}
+                        {pkg.finalPrice > 0 ? ` — ${formatRupiah(pkg.finalPrice)}` : ''}
                       </option>
                     ))}
                   </select>
@@ -563,14 +725,14 @@ export function BookingFormDialog({
                     aria-label="Pilih layanan studio"
                     className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2"
                   >
-                    {STUDIO_SERVICES.map((service) => {
+                    {serviceOptions.map((service) => {
                       const isSelected = formValues.serviceId === service.id;
                       return (
                         <button
                           key={service.id}
                           type="button"
                           disabled={Boolean(formValues.packageId)}
-                          onClick={() => handleFieldChange('serviceId', service.id)}
+                          onClick={() => handleSelectService(service.id)}
                           aria-pressed={isSelected}
                           className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                             isSelected
@@ -580,10 +742,10 @@ export function BookingFormDialog({
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-display text-lg leading-none font-black uppercase">
-                              {service.label}
+                              {service.name}
                             </span>
                             <span className="font-mono text-xs font-extrabold">
-                              {formatRupiah(service.unitRate)}/jam
+                              {formatRupiah(service.hourlyRate)}/jam
                             </span>
                           </div>
                           <span className="text-studio-muted-ink mt-1 text-xs font-medium">
@@ -610,9 +772,12 @@ export function BookingFormDialog({
                       onChange={(e) => handleSelectRecordingType(e.target.value)}
                       className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-bold"
                     >
-                      {RECORDING_TYPE_OPTIONS.map((recType) => (
-                        <option key={recType.id || 'reguler'} value={recType.id}>
-                          {recType.label} — {recType.description}
+                      {recordingTypeOptions.map((recType) => (
+                        <option key={recType.id} value={recType.id}>
+                          {recType.name} —{' '}
+                          {recType.priceMode === 'fixed'
+                            ? `${formatDurationMinutes(recType.durationMinutes)} (${formatRupiah(recType.price)})`
+                            : `${formatRupiah(recType.price)}/jam`}
                         </option>
                       ))}
                     </select>
@@ -1016,38 +1181,106 @@ export function BookingFormDialog({
                   />
                 </div>
 
-                {/* Live Pricing Breakdown Summary Card */}
-                <div className="border-studio-ink bg-studio-ivory mt-4 border-2 p-4">
-                  <p className="font-mono text-xs font-extrabold tracking-wider uppercase">
-                    Ringkasan Estimasi &amp; Pembayaran Awal
-                  </p>
+                {/* Historical Price Protection Banner when Service/Package/Duration changed on Edit */}
+                {isEditingOrRescheduling && isServiceScopeChanged ? (
+                  <div className="border-studio-ink mt-4 border-2 bg-amber-100 p-3.5">
+                    <p className="font-mono text-xs font-extrabold uppercase">
+                      Konfirmasi Perubahan Harga &amp; Fee Snapshot
+                    </p>
+                    <p className="text-studio-ink mt-1 text-xs leading-relaxed font-medium">
+                      Anda mengubah layanan, paket, atau durasi pada booking lama. Secara default
+                      snapshot harga &amp; komisi sebelumnya tetap dipertahankan (
+                      <strong>{formatRupiah(editingBooking?.totalAmount)}</strong>). Centang opsi di
+                      bawah hanya jika Anda ingin menerapkan preset harga &amp; fee terbaru (
+                      <strong>{formatRupiah(livePricing.totalAmount)}</strong>).
+                    </p>
+                    <label className="mt-2.5 flex cursor-pointer items-center gap-2 font-mono text-xs font-extrabold">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(formValues.applyUpdatedPricing)}
+                        onChange={(e) => handleFieldChange('applyUpdatedPricing', e.target.checked)}
+                        className="accent-studio-ink h-4 w-4 cursor-pointer"
+                      />
+                      <span>Terapkan harga &amp; fee preset terbaru</span>
+                    </label>
+                  </div>
+                ) : null}
 
-                  <dl className="mt-2.5 space-y-1.5 font-mono text-xs">
-                    <div className="flex items-center justify-between">
-                      <dt className="text-studio-muted-ink">Subtotal Sesi</dt>
-                      <dd className="font-bold">{formatRupiah(livePricing.subtotal)}</dd>
-                    </div>
-                    {livePricing.discountAmount > 0 ? (
-                      <div className="flex items-center justify-between text-emerald-800">
-                        <dt>Diskon Paket</dt>
-                        <dd className="font-bold">- {formatRupiah(livePricing.discountAmount)}</dd>
+                {/* Live Pricing Breakdown Summary Card: CUSTOMER CHARGE + INTERNAL FEE ESTIMATE */}
+                <div className="border-studio-ink bg-studio-ivory mt-4 grid grid-cols-1 gap-4 border-2 p-4 md:grid-cols-2">
+                  <div>
+                    <p className="font-mono text-xs font-extrabold tracking-wider uppercase">
+                      CUSTOMER CHARGE
+                    </p>
+
+                    <dl className="mt-2.5 space-y-1.5 font-mono text-xs">
+                      <div className="flex items-center justify-between">
+                        <dt className="text-studio-muted-ink">Subtotal</dt>
+                        <dd className="font-bold">{formatRupiah(displayedPricing.subtotal)}</dd>
                       </div>
-                    ) : null}
-                    <div className="border-studio-ink flex items-center justify-between border-t pt-1.5 text-sm font-extrabold">
-                      <dt>Total Tagihan</dt>
-                      <dd>{formatRupiah(livePricing.totalAmount)}</dd>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <dt className="text-studio-muted-ink">Pembayaran Awal</dt>
-                      <dd className="font-bold">{formatRupiah(livePricing.initialPaidAmount)}</dd>
-                    </div>
-                    <div className="flex items-center justify-between font-extrabold">
-                      <dt className="text-studio-orange">Sisa Tagihan</dt>
-                      <dd className="text-studio-orange">
-                        {formatRupiah(livePricing.remainingBalance)}
-                      </dd>
-                    </div>
-                  </dl>
+                      {displayedPricing.discountAmount > 0 ? (
+                        <div className="flex items-center justify-between text-emerald-800">
+                          <dt>{displayedPricing.appliedDiscountName || 'Discount'}</dt>
+                          <dd className="font-bold">
+                            - {formatRupiah(displayedPricing.discountAmount)}
+                          </dd>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between text-neutral-600">
+                          <dt>Discount</dt>
+                          <dd className="font-bold">{formatRupiah(0)}</dd>
+                        </div>
+                      )}
+                      <div className="border-studio-ink flex items-center justify-between border-t pt-1.5 text-sm font-extrabold">
+                        <dt>TOTAL</dt>
+                        <dd>{formatRupiah(displayedPricing.totalAmount)}</dd>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <dt className="text-studio-muted-ink">Pembayaran Awal</dt>
+                        <dd className="font-bold">
+                          {formatRupiah(displayedPricing.initialPaidAmount)}
+                        </dd>
+                      </div>
+                      <div className="flex items-center justify-between font-extrabold">
+                        <dt className="text-studio-orange">Sisa Tagihan</dt>
+                        <dd className="text-studio-orange">
+                          {formatRupiah(displayedPricing.remainingBalance)}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  <div className="border-studio-ink border-t pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-4">
+                    <p className="font-mono text-xs font-extrabold tracking-wider uppercase">
+                      INTERNAL FEE ESTIMATE
+                    </p>
+                    <p className="text-studio-muted-ink mt-0.5 text-[11px] font-medium">
+                      Estimasi operasional internal studio (tidak memengaruhi tagihan customer).
+                    </p>
+
+                    {displayedPricing.commissionSnapshot ? (
+                      <dl className="mt-2.5 space-y-1.5 font-mono text-xs">
+                        <div className="flex items-center justify-between">
+                          <dt className="text-studio-muted-ink">Staff Commission</dt>
+                          <dd className="font-bold">
+                            {formatRupiah(displayedPricing.commissionSnapshot.staffAmount)}
+                          </dd>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <dt className="text-studio-muted-ink">Recording Operator</dt>
+                          <dd className="font-bold">
+                            {formatRupiah(
+                              displayedPricing.commissionSnapshot.recordingOperatorAmount,
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p className="text-studio-muted-ink mt-2.5 font-mono text-[11px]">
+                        Booking historis Phase 5 (tidak memiliki snapshot komisi internal).
+                      </p>
+                    )}
+                  </div>
                 </div>
               </section>
             </div>
@@ -1062,7 +1295,7 @@ export function BookingFormDialog({
                     ESTIMASI TOTAL
                   </span>
                   <span className="font-display text-studio-ink text-2xl leading-none font-black">
-                    {formatRupiah(livePricing.totalAmount)}
+                    {formatRupiah(displayedPricing.totalAmount)}
                   </span>
                 </div>
 
@@ -1071,7 +1304,7 @@ export function BookingFormDialog({
                     <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{formatDurationMinutes(effectiveDurationMinutes)}</span>
                   </span>
-                  <span> • Sisa: {formatRupiah(livePricing.remainingBalance)}</span>
+                  <span> • Sisa: {formatRupiah(displayedPricing.remainingBalance)}</span>
                 </div>
               </div>
 

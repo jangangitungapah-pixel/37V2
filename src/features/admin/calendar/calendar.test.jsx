@@ -33,6 +33,11 @@ vi.mock('@/lib/firebase/client', () => ({
 
 import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
+import {
+  createInMemoryPricingSettingsAdapter,
+  resetPricingSettingsRepositoryAdapter,
+  setPricingSettingsRepositoryAdapter,
+} from '@/features/admin/settings/pricing/repositories/pricing-settings-repository';
 
 import {
   BOOKING_SESSION_STATUS,
@@ -93,6 +98,7 @@ function renderCalendarAt(initialEntry = '/admin/calendar') {
 
 describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
   let memoryAdapter;
+  let pricingAdapter;
   const todayIso = getJakartaTodayIso();
 
   beforeEach(() => {
@@ -100,12 +106,15 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
     mockGetDoc.mockReset();
     mockOnAuthStateChanged.mockReset();
     memoryAdapter = createInMemoryBookingRepositoryAdapter();
+    pricingAdapter = createInMemoryPricingSettingsAdapter();
     setBookingRepositoryAdapter(memoryAdapter);
+    setPricingSettingsRepositoryAdapter(pricingAdapter);
   });
 
   afterEach(() => {
     cleanup();
     resetBookingRepositoryAdapter();
+    resetPricingSettingsRepositoryAdapter();
   });
 
   describe('1. Domain Logic, Overlap Rules, Pricing & Transaction Integrity', () => {

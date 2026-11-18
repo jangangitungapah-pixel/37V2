@@ -3,6 +3,7 @@ import { CheckCircle2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/features/auth/AuthContext';
+import { usePricingSettings } from '@/features/admin/settings/hooks/usePricingSettings';
 
 import { BookingDetailDrawer } from '../components/BookingDetailDrawer';
 import { BookingFormDialog } from '../components/BookingFormDialog';
@@ -32,6 +33,7 @@ function getInitialCalendarViewMode() {
 
 export function AdminCalendarPage() {
   const { user, profile } = useAuth();
+  const { settings: pricingSettings } = usePricingSettings();
   const actorUid = user?.uid || profile?.uid || '';
 
   const [viewMode, setViewMode] = useState(getInitialCalendarViewMode);
@@ -100,6 +102,9 @@ export function AdminCalendarPage() {
   };
 
   const handleOpenNewBooking = (slotOverride = null) => {
+    const defaultActiveServiceId =
+      pricingSettings.sessionTypes?.find((s) => s.isActive !== false)?.id || 'rehearsal';
+
     setBookingDialogState((prev) => ({
       sessionKey: prev.sessionKey + 1,
       open: true,
@@ -108,6 +113,7 @@ export function AdminCalendarPage() {
         date: slotOverride?.date || activeDate,
         studioId: slotOverride?.studioId || (roomFilter === 'all' ? 'room-a' : roomFilter),
         startMinute: slotOverride?.startMinute ?? 600,
+        defaultServiceId: defaultActiveServiceId,
       },
       editingBooking: null,
     }));
@@ -143,6 +149,7 @@ export function AdminCalendarPage() {
           actorUid,
           formValues,
           mode,
+          pricingSettings,
         });
         const message =
           mode === 'reschedule'
@@ -159,6 +166,7 @@ export function AdminCalendarPage() {
         eventId,
         actorUid,
         formValues,
+        pricingSettings,
       });
       const message = `Booking baru untuk "${created.customerName}" berhasil disimpan.`;
       setStatusFeedback(message);
@@ -197,116 +205,117 @@ export function AdminCalendarPage() {
   };
 
   return (
-      <div data-calendar-scoped="true" className="relative isolate z-0 space-y-3.5 sm:space-y-4">
-        {/* Operational Feedback Banner */}
-        {statusFeedback ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="border-studio-ink bg-studio-lime text-studio-ink flex items-center justify-between gap-2.5 border-2 px-3 py-2 text-xs font-extrabold shadow-[2px_2px_0px_#151515]"
+    <div data-calendar-scoped="true" className="relative isolate z-0 space-y-3.5 sm:space-y-4">
+      {/* Operational Feedback Banner */}
+      {statusFeedback ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="border-studio-ink bg-studio-lime text-studio-ink flex items-center justify-between gap-2.5 border-2 px-3 py-2 text-xs font-extrabold shadow-[2px_2px_0px_#151515]"
+        >
+          <span className="inline-flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{statusFeedback}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setStatusFeedback('')}
+            aria-label="Tutup notifikasi status"
+            className="inline-flex h-7 w-7 cursor-pointer items-center justify-center"
           >
-            <span className="inline-flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{statusFeedback}</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setStatusFeedback('')}
-              aria-label="Tutup notifikasi status"
-              className="inline-flex h-7 w-7 cursor-pointer items-center justify-center"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-        ) : null}
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
 
-        {/* 1. Calendar Control Toolbar */}
-        <CalendarToolbar
-          viewMode={viewMode}
-          activeDate={activeDate}
-          onViewModeChange={setViewMode}
-          onPreviousPeriod={handlePreviousPeriod}
-          onNextPeriod={handleNextPeriod}
-          onSelectToday={handleSelectToday}
-          onSelectDate={setActiveDate}
-          onOpenNewBooking={() => handleOpenNewBooking()}
-          newBookingButtonRef={newBookingButtonRef}
-        />
+      {/* 1. Calendar Control Toolbar */}
+      <CalendarToolbar
+        viewMode={viewMode}
+        activeDate={activeDate}
+        onViewModeChange={setViewMode}
+        onPreviousPeriod={handlePreviousPeriod}
+        onNextPeriod={handleNextPeriod}
+        onSelectToday={handleSelectToday}
+        onSelectDate={setActiveDate}
+        onOpenNewBooking={() => handleOpenNewBooking()}
+        newBookingButtonRef={newBookingButtonRef}
+      />
 
-        {/* 2. Room, Payment Status & Search Filters */}
-        <CalendarFilters
-          roomFilter={roomFilter}
-          onRoomFilterChange={setRoomFilter}
-          paymentFilter={paymentFilter}
-          onPaymentFilterChange={setPaymentFilter}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          showCancelled={showCancelled}
-          onToggleShowCancelled={() => setShowCancelled((prev) => !prev)}
-          totalVisibleCount={filteredBookings.length}
-        />
+      {/* 2. Room, Payment Status & Search Filters */}
+      <CalendarFilters
+        roomFilter={roomFilter}
+        onRoomFilterChange={setRoomFilter}
+        paymentFilter={paymentFilter}
+        onPaymentFilterChange={setPaymentFilter}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        showCancelled={showCancelled}
+        onToggleShowCancelled={() => setShowCancelled((prev) => !prev)}
+        totalVisibleCount={filteredBookings.length}
+      />
 
-        {/* 3. Main Workspace Split: Timeline Grid + Upcoming Bookings Sidebar */}
-        <div className="grid grid-cols-1 items-start gap-3.5 sm:gap-4 xl:grid-cols-12">
-          <div className="min-w-0 xl:col-span-8 2xl:col-span-9">
-            <CalendarGrid
-              viewMode={viewMode}
-              activeDate={activeDate}
-              roomFilter={roomFilter}
-              bookings={filteredBookings}
-              isLoading={isLoading}
-              error={error}
-              isTruncated={isTruncated}
-              maxLimit={maxLimit}
-              onSelectEmptySlot={(slot) => handleOpenNewBooking(slot)}
-              onSelectBooking={(booking) => setSelectedBookingId(booking.id)}
-              onOpenDayView={handleOpenDayView}
-            />
-          </div>
-
-          <aside className="min-w-0 xl:col-span-4 2xl:col-span-3">
-            <UpcomingBookings
-              bookings={upcomingBookings}
-              onSelectBooking={(booking) => setSelectedBookingId(booking.id)}
-              onOpenNewBooking={() => handleOpenNewBooking()}
-            />
-          </aside>
+      {/* 3. Main Workspace Split: Timeline Grid + Upcoming Bookings Sidebar */}
+      <div className="grid grid-cols-1 items-start gap-3.5 sm:gap-4 xl:grid-cols-12">
+        <div className="min-w-0 xl:col-span-8 2xl:col-span-9">
+          <CalendarGrid
+            viewMode={viewMode}
+            activeDate={activeDate}
+            roomFilter={roomFilter}
+            bookings={filteredBookings}
+            isLoading={isLoading}
+            error={error}
+            isTruncated={isTruncated}
+            maxLimit={maxLimit}
+            onSelectEmptySlot={(slot) => handleOpenNewBooking(slot)}
+            onSelectBooking={(booking) => setSelectedBookingId(booking.id)}
+            onOpenDayView={handleOpenDayView}
+          />
         </div>
 
-        {/* 4. Adaptive 4-Step Booking Form Modal */}
-        <BookingFormDialog
-          key={bookingDialogState.sessionKey}
-          open={bookingDialogState.open}
-          mode={bookingDialogState.mode}
-          initialSlot={bookingDialogState.initialSlot}
-          editingBooking={bookingDialogState.editingBooking}
-          existingBookings={activeSlotBookings}
-          onOpenChange={(nextOpen) =>
-            setBookingDialogState((prev) => ({
-              ...prev,
-              open: nextOpen,
-            }))
-          }
-          onSubmitBooking={handleSubmitBooking}
-          returnFocusRef={newBookingButtonRef}
-        />
-
-        {/* 5. Slide-Over Booking Detail Drawer */}
-        <BookingDetailDrawer
-          key={selectedBooking?.id || 'closed'}
-          booking={selectedBooking}
-          open={Boolean(selectedBooking)}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              setSelectedBookingId('');
-            }
-          }}
-          onEditBooking={(booking) => handleOpenEditBooking(booking)}
-          onRescheduleBooking={(booking) => handleOpenRescheduleBooking(booking)}
-          onLifecycleAction={handleLifecycleAction}
-        />
+        <aside className="min-w-0 xl:col-span-4 2xl:col-span-3">
+          <UpcomingBookings
+            bookings={upcomingBookings}
+            onSelectBooking={(booking) => setSelectedBookingId(booking.id)}
+            onOpenNewBooking={() => handleOpenNewBooking()}
+          />
+        </aside>
       </div>
-      );
+
+      {/* 4. Adaptive 4-Step Booking Form Modal */}
+      <BookingFormDialog
+        key={bookingDialogState.sessionKey}
+        open={bookingDialogState.open}
+        mode={bookingDialogState.mode}
+        initialSlot={bookingDialogState.initialSlot}
+        editingBooking={bookingDialogState.editingBooking}
+        existingBookings={activeSlotBookings}
+        pricingSettings={pricingSettings}
+        onOpenChange={(nextOpen) =>
+          setBookingDialogState((prev) => ({
+            ...prev,
+            open: nextOpen,
+          }))
+        }
+        onSubmitBooking={handleSubmitBooking}
+        returnFocusRef={newBookingButtonRef}
+      />
+
+      {/* 5. Slide-Over Booking Detail Drawer */}
+      <BookingDetailDrawer
+        key={selectedBooking?.id || 'closed'}
+        booking={selectedBooking}
+        open={Boolean(selectedBooking)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setSelectedBookingId('');
+          }
+        }}
+        onEditBooking={(booking) => handleOpenEditBooking(booking)}
+        onRescheduleBooking={(booking) => handleOpenRescheduleBooking(booking)}
+        onLifecycleAction={handleLifecycleAction}
+      />
+    </div>
+  );
 }
 
-      export default AdminCalendarPage;
+export default AdminCalendarPage;

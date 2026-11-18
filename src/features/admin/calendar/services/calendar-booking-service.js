@@ -1,3 +1,5 @@
+import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
+
 import {
   BOOKING_EVENT_TYPES,
   BOOKING_SESSION_STATUS,
@@ -97,13 +99,14 @@ export async function createBooking({
   eventId = generateOperationId('evt'),
   actorUid,
   formValues,
+  pricingSettings = DEFAULT_PRICING_SETTINGS,
   adapter = getBookingRepositoryAdapter(),
 }) {
   const cleanActorUid = assertAuthenticatedStaffActor(actorUid);
   const cleanBookingId = String(bookingId || '').trim() || generateOperationId('bkg');
   const cleanEventId = String(eventId || '').trim() || generateOperationId('evt');
 
-  const validation = validateBookingFormPayload(formValues, [], '');
+  const validation = validateBookingFormPayload(formValues, [], '', pricingSettings);
   if (!validation.isValid) {
     const firstErrorMessage =
       Object.values(validation.errors)[0] || 'Data form booking belum lengkap atau tidak valid.';
@@ -191,6 +194,7 @@ export async function createBooking({
       subtotal: payload.subtotal,
       discountAmount: payload.discountAmount,
       totalAmount: payload.totalAmount,
+      commissionSnapshot: payload.commissionSnapshot,
       initialPaymentStatus: payload.initialPaymentStatus,
       initialPaidAmount: payload.initialPaidAmount,
       paymentMethod: payload.paymentMethod,
@@ -257,6 +261,7 @@ export async function updateOrRescheduleBooking({
   actorUid,
   formValues,
   mode = 'edit',
+  pricingSettings = DEFAULT_PRICING_SETTINGS,
   adapter = getBookingRepositoryAdapter(),
 }) {
   const cleanActorUid = assertAuthenticatedStaffActor(actorUid);
@@ -309,7 +314,18 @@ export async function updateOrRescheduleBooking({
       paymentMethod: existingBooking.paymentMethod || 'cash',
     };
 
-    const validation = validateBookingFormPayload(mergedFormValues, [], cleanBookingId);
+    const validation = validateBookingFormPayload(
+      mergedFormValues,
+      [],
+      cleanBookingId,
+      pricingSettings,
+      {
+        allowedHistoricalServiceIds: [existingBooking.serviceId],
+        paymentTotalOverride: formValues?.applyUpdatedPricing
+          ? undefined
+          : existingBooking.totalAmount,
+      },
+    );
     if (!validation.isValid) {
       const firstErrorMessage =
         Object.values(validation.errors)[0] || 'Data perubahan booking tidak valid.';
@@ -407,29 +423,46 @@ export async function updateOrRescheduleBooking({
       existingBooking.startMinute !== payload.startMinute ||
       existingBooking.durationMinutes !== payload.durationMinutes;
 
+    const isServiceScopeChanged =
+      existingBooking.serviceId !== payload.serviceId ||
+      existingBooking.packageId !== payload.packageId ||
+      existingBooking.recordingTypeId !== payload.recordingTypeId ||
+      existingBooking.durationMinutes !== payload.durationMinutes;
+
+    const shouldApplyNewSnapshot =
+      isServiceScopeChanged && Boolean(formValues?.applyUpdatedPricing);
+
     const nextVersion = (Number(existingBooking.version) || 1) + 1;
 
-    // Preserve immutable initial payment snapshot fields from existingBooking
+    // Preserve immutable initial payment snapshot fields AND historical price/commission snapshots
+    // unless service/package/duration changed and user explicitly confirmed applying current pricing.
     const updatedFields = {
       customerName: payload.customerName,
       phone: payload.phone,
       bandName: payload.bandName,
       studioId: payload.studioId,
       serviceId: payload.serviceId,
-      serviceLabel: payload.serviceLabel,
+      serviceLabel: shouldApplyNewSnapshot ? payload.serviceLabel : existingBooking.serviceLabel,
       packageId: payload.packageId,
-      packageLabel: payload.packageLabel,
+      packageLabel: shouldApplyNewSnapshot ? payload.packageLabel : existingBooking.packageLabel,
       recordingTypeId: payload.recordingTypeId,
-      recordingTypeLabel: payload.recordingTypeLabel,
+      recordingTypeLabel: shouldApplyNewSnapshot
+        ? payload.recordingTypeLabel
+        : existingBooking.recordingTypeLabel,
       date: payload.date,
       startMinute: payload.startMinute,
       durationMinutes: payload.durationMinutes,
       endMinute: payload.endMinute,
       timeZone: STUDIO_TIME_ZONE,
-      unitRate: payload.unitRate,
-      subtotal: payload.subtotal,
-      discountAmount: payload.discountAmount,
-      totalAmount: payload.totalAmount,
+      unitRate: shouldApplyNewSnapshot ? payload.unitRate : existingBooking.unitRate,
+      subtotal: shouldApplyNewSnapshot ? payload.subtotal : existingBooking.subtotal,
+      discountAmount: shouldApplyNewSnapshot
+        ? payload.discountAmount
+        : existingBooking.discountAmount,
+      totalAmount: shouldApplyNewSnapshot ? payload.totalAmount : existingBooking.totalAmount,
+      commissionSnapshot: shouldApplyNewSnapshot
+        ? payload.commissionSnapshot
+        : (existingBooking.commissionSnapshot ?? null),
       initialPaymentStatus: existingBooking.initialPaymentStatus,
       initialPaidAmount: existingBooking.initialPaidAmount,
       paymentMethod: existingBooking.paymentMethod,

@@ -1,40 +1,33 @@
+import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
 import {
-  getPackageById,
-  getRecordingTypeById,
-  getServiceById,
-  INITIAL_PAYMENT_STATUS,
-  SLOT_INTERVAL_MINUTES,
-} from '../config/calendar-config';
+  calculateBookingCommissionSnapshot,
+  formatRupiah,
+  parseMoneyInput,
+  selectBestSessionDiscount,
+} from '@/features/admin/settings/pricing/utils/calculate-pricing-settings';
 
-/**
- * Formats a numeric value in Indonesian Rupiah (`Rp 100.000`).
- */
-export function formatRupiah(value) {
-  const safeNumber = Math.max(0, Math.round(Number(value) || 0));
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(safeNumber);
-}
+import { INITIAL_PAYMENT_STATUS, SLOT_INTERVAL_MINUTES } from '../config/calendar-config';
 
-/**
- * Parses a numeric/string Rupiah input into a non-negative integer.
- */
-export function parseMoneyInput(value) {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+export { formatRupiah, parseMoneyInput };
+
+function resolveRecordingOption(recordingTypes = [], recordingTypeId = '') {
+  const cleanId = String(recordingTypeId || '').trim();
+  if (!cleanId) {
+    return (
+      recordingTypes.find((item) => item.priceMode === 'hourly' && item.isActive !== false) ||
+      recordingTypes.find((item) => item.priceMode === 'hourly') ||
+      recordingTypes[0] ||
+      null
+    );
   }
 
-  const digits = String(value ?? '').replace(/\D/g, '');
-  if (!digits) return 0;
-  const parsed = Number(digits);
-  return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : 0;
+  return recordingTypes.find((item) => item.id === cleanId) || recordingTypes[0] || null;
 }
 
 /**
- * Calculates the canonical pricing snapshot for a booking based on selected service,
- * package, recording type, duration, and initial payment status.
+ * Calculates the canonical pricing & internal commission snapshot for a booking based on
+ * live Firestore `pricingSettings` (`settings/pricing`), selected service, package,
+ * recording option, duration, and initial payment status.
  */
 export function calculateBookingPricingSnapshot({
   serviceId = 'rehearsal',
@@ -44,44 +37,105 @@ export function calculateBookingPricingSnapshot({
   initialPaymentStatus = INITIAL_PAYMENT_STATUS.UNPAID,
   dpAmount = 0,
   paymentMethod = 'cash',
+  pricingSettings = DEFAULT_PRICING_SETTINGS,
 } = {}) {
-  const pkg = getPackageById(packageId);
+  const safeSettings = pricingSettings || DEFAULT_PRICING_SETTINGS;
+  const sessionTypes = Array.isArray(safeSettings.sessionTypes)
+    ? safeSettings.sessionTypes
+    : DEFAULT_PRICING_SETTINGS.sessionTypes;
+  const recordingTypes = Array.isArray(safeSettings.recordingTypes)
+    ? safeSettings.recordingTypes
+    : DEFAULT_PRICING_SETTINGS.recordingTypes;
+  const packages = Array.isArray(safeSettings.packages)
+    ? safeSettings.packages
+    : DEFAULT_PRICING_SETTINGS.packages;
+  const discounts = Array.isArray(safeSettings.discounts)
+    ? safeSettings.discounts
+    : DEFAULT_PRICING_SETTINGS.discounts;
+  const fees = safeSettings.fees || DEFAULT_PRICING_SETTINGS.fees;
+  const settingsVersion = Math.max(1, Number(safeSettings.version) || 1);
+
+  const pkg = packageId ? packages.find((item) => item.id === packageId) || null : null;
   const hasPackage = Boolean(pkg && pkg.id);
 
-  let resolvedService = getServiceById(hasPackage ? pkg.serviceId : serviceId);
+  const targetServiceId = hasPackage ? pkg.sessionTypeId : serviceId;
+  const matchedService = sessionTypes.find((item) => item.id === targetServiceId) ||
+    sessionTypes.find((item) => item.isActive !== false) ||
+    sessionTypes[0] || {
+      id: targetServiceId || 'rehearsal',
+      name: 'Rehearsal',
+      hourlyRate: 100000,
+    };
+
+  const resolvedServiceId = matchedService.id;
+  const resolvedServiceLabel = matchedService.name || matchedService.label || resolvedServiceId;
+
   let resolvedRecordingType = null;
   let resolvedDurationMinutes = Math.max(
     SLOT_INTERVAL_MINUTES,
     Math.round(Number(durationMinutes) || 60),
   );
-  let unitRate = Number(resolvedService.unitRate) || 0;
+  let unitRate = Number(matchedService.hourlyRate ?? matchedService.unitRate) || 0;
   let subtotal;
-  let discountAmount = 0;
+  let discountAmount;
+  let appliedDiscountName;
 
   if (hasPackage) {
     resolvedDurationMinutes = Number(pkg.durationMinutes) || resolvedDurationMinutes;
-    unitRate = Number(pkg.unitRate) || unitRate;
-    subtotal = Number(pkg.subtotal) || Math.round((unitRate * resolvedDurationMinutes) / 60);
+    subtotal = Number(pkg.basePrice ?? pkg.subtotal) || 0;
+    unitRate =
+      resolvedDurationMinutes > 0
+        ? Math.round((subtotal * 60) / resolvedDurationMinutes)
+        : unitRate;
+    // Packages use only their own configured package discount (never stack regular discounts)
     discountAmount = Math.min(subtotal, Math.max(0, Number(pkg.discountAmount) || 0));
-  } else if (resolvedService.id === 'recording') {
-    resolvedRecordingType = getRecordingTypeById(recordingTypeId);
-    if (resolvedRecordingType.priceMode === 'fixed' && resolvedRecordingType.fixedPrice > 0) {
-      if (resolvedRecordingType.lockedDurationMinutes > 0) {
-        resolvedDurationMinutes = resolvedRecordingType.lockedDurationMinutes;
+    appliedDiscountName = discountAmount > 0 ? 'Diskon Paket' : '';
+  } else if (resolvedServiceId === 'recording') {
+    resolvedRecordingType = resolveRecordingOption(recordingTypes, recordingTypeId);
+    if (
+      resolvedRecordingType &&
+      resolvedRecordingType.priceMode === 'fixed' &&
+      Number(resolvedRecordingType.price) > 0
+    ) {
+      if (Number(resolvedRecordingType.durationMinutes) > 0) {
+        resolvedDurationMinutes = Number(resolvedRecordingType.durationMinutes);
       }
-      unitRate = Number(resolvedRecordingType.unitRate) || unitRate;
-      subtotal = Number(resolvedRecordingType.fixedPrice) || 0;
+      subtotal = Math.max(0, Number(resolvedRecordingType.price) || 0);
+      unitRate =
+        resolvedDurationMinutes > 0
+          ? Math.round((subtotal * 60) / resolvedDurationMinutes)
+          : subtotal;
     } else {
-      unitRate = Number(resolvedRecordingType.unitRate) || unitRate;
+      const recordingHourlyPrice = Number(resolvedRecordingType?.price);
+      if (Number.isFinite(recordingHourlyPrice) && recordingHourlyPrice > 0) {
+        unitRate = recordingHourlyPrice;
+      }
       subtotal = Math.round((unitRate * resolvedDurationMinutes) / 60);
     }
+
+    const bestDiscount = selectBestSessionDiscount({
+      discounts,
+      sessionTypeId: resolvedServiceId,
+      durationMinutes: resolvedDurationMinutes,
+      subtotal,
+    });
+    discountAmount = bestDiscount.discountAmount;
+    appliedDiscountName = bestDiscount.discountName;
   } else {
     subtotal = Math.round((unitRate * resolvedDurationMinutes) / 60);
+    const bestDiscount = selectBestSessionDiscount({
+      discounts,
+      sessionTypeId: resolvedServiceId,
+      durationMinutes: resolvedDurationMinutes,
+      subtotal,
+    });
+    discountAmount = bestDiscount.discountAmount;
+    appliedDiscountName = bestDiscount.discountName;
   }
 
+  // Customer total NEVER includes internal staff commissions or daily meal allowance
   const totalAmount = Math.max(0, subtotal - discountAmount);
 
-  // Payment breakdown
   const normalizedStatus = Object.values(INITIAL_PAYMENT_STATUS).includes(initialPaymentStatus)
     ? initialPaymentStatus
     : INITIAL_PAYMENT_STATUS.UNPAID;
@@ -110,27 +164,41 @@ export function calculateBookingPricingSnapshot({
 
   const remainingBalance = Math.max(0, totalAmount - initialPaidAmount);
 
+  const commissionSnapshot = calculateBookingCommissionSnapshot({
+    hasPackage,
+    pkg,
+    serviceId: resolvedServiceId,
+    durationMinutes: resolvedDurationMinutes,
+    fees,
+    settingsVersion,
+  });
+
+  const cleanRecordingTypeId = String(recordingTypeId || '').trim();
+  const resolvedRecordingId =
+    !hasPackage && resolvedServiceId === 'recording' ? cleanRecordingTypeId : '';
+
+  const resolvedRecordingLabel =
+    !hasPackage && resolvedServiceId === 'recording' && resolvedRecordingId
+      ? resolvedRecordingType?.name || ''
+      : '';
+
   return {
-    serviceId: resolvedService.id,
-    serviceLabel: resolvedService.label,
+    serviceId: resolvedServiceId,
+    serviceLabel: resolvedServiceLabel,
     packageId: hasPackage ? pkg.id : '',
-    packageLabel: hasPackage ? pkg.label : '',
-    recordingTypeId:
-      !hasPackage && resolvedService.id === 'recording' && resolvedRecordingType
-        ? resolvedRecordingType.id
-        : '',
-    recordingTypeLabel:
-      !hasPackage && resolvedService.id === 'recording' && resolvedRecordingType?.id
-        ? resolvedRecordingType.label
-        : '',
+    packageLabel: hasPackage ? pkg.name || pkg.label || '' : '',
+    recordingTypeId: resolvedRecordingId,
+    recordingTypeLabel: resolvedRecordingLabel,
     durationMinutes: resolvedDurationMinutes,
     unitRate,
     subtotal,
     discountAmount,
+    appliedDiscountName,
     totalAmount,
     initialPaymentStatus: normalizedStatus,
     initialPaidAmount,
     remainingBalance,
     paymentMethod: normalizedPaymentMethod,
+    commissionSnapshot,
   };
 }

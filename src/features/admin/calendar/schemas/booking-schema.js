@@ -1,8 +1,9 @@
+import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
+
 import {
   INITIAL_PAYMENT_STATUS,
   PAYMENT_METHOD_OPTIONS,
   STUDIO_ROOMS,
-  STUDIO_SERVICES,
 } from '../config/calendar-config';
 import { calculateBookingPricingSnapshot, parseMoneyInput } from '../utils/booking-pricing';
 import {
@@ -13,7 +14,6 @@ import {
 import { isValidIsoDateString } from '../utils/calendar-date';
 
 const VALID_ROOM_IDS = new Set(STUDIO_ROOMS.map((room) => room.id));
-const VALID_SERVICE_IDS = new Set(STUDIO_SERVICES.map((service) => service.id));
 const VALID_PAYMENT_METHODS = new Set(PAYMENT_METHOD_OPTIONS.map((m) => m.id));
 
 /**
@@ -72,14 +72,31 @@ export function validateCustomerStep(formValues = {}) {
 }
 
 /**
- * Validates Step 2 — Layanan (Service) section.
+ * Validates Step 2 — Layanan (Service) section against active `pricingSettings`
+ * (plus any historical service/package ID already stored on an existing booking).
  */
-export function validateServiceStep(formValues = {}) {
+export function validateServiceStep(
+  formValues = {},
+  pricingSettings = DEFAULT_PRICING_SETTINGS,
+  options = {},
+) {
   const errors = {};
   const serviceId = String(formValues.serviceId ?? '').trim();
 
-  if (!serviceId || !VALID_SERVICE_IDS.has(serviceId)) {
-    errors.serviceId = 'Pilih layanan studio yang valid.';
+  const sessionTypes = Array.isArray(pricingSettings?.sessionTypes)
+    ? pricingSettings.sessionTypes
+    : DEFAULT_PRICING_SETTINGS.sessionTypes;
+
+  const validServiceIds = new Set(
+    sessionTypes.filter((item) => item.isActive !== false).map((item) => item.id),
+  );
+
+  for (const historicalId of options.allowedHistoricalServiceIds || []) {
+    if (historicalId) validServiceIds.add(historicalId);
+  }
+
+  if (!serviceId || !validServiceIds.has(serviceId)) {
+    errors.serviceId = 'Pilih layanan studio yang valid dan aktif.';
   }
 
   return {
@@ -90,31 +107,33 @@ export function validateServiceStep(formValues = {}) {
 
 /**
  * Resolves the effective duration in minutes from form state (taking into account
- * package or fixed recordingType locks, preset duration, or custom duration).
+ * package or fixed recording option locks from Firestore pricingSettings, preset
+ * duration, or custom duration).
  */
-export function resolveFormDurationMinutes(formValues = {}) {
-  const pricing = calculateBookingPricingSnapshot({
-    serviceId: formValues.serviceId,
-    packageId: formValues.packageId,
-    recordingTypeId: formValues.recordingTypeId,
-    durationMinutes:
-      formValues.durationPreset === 'custom'
-        ? Number(formValues.customDurationMinutes)
-        : Number(formValues.durationPreset),
-  });
+export function resolveFormDurationMinutes(
+  formValues = {},
+  pricingSettings = DEFAULT_PRICING_SETTINGS,
+) {
+  const safeSettings = pricingSettings || DEFAULT_PRICING_SETTINGS;
+  const packages = Array.isArray(safeSettings.packages)
+    ? safeSettings.packages
+    : DEFAULT_PRICING_SETTINGS.packages;
+  const recordingTypes = Array.isArray(safeSettings.recordingTypes)
+    ? safeSettings.recordingTypes
+    : DEFAULT_PRICING_SETTINGS.recordingTypes;
 
   if (formValues.packageId) {
-    return pricing.durationMinutes;
+    const matchedPkg = packages.find((pkg) => pkg.id === formValues.packageId);
+    if (matchedPkg && Number(matchedPkg.durationMinutes) > 0) {
+      return Number(matchedPkg.durationMinutes);
+    }
   }
 
-  if (
-    formValues.serviceId === 'recording' &&
-    formValues.recordingTypeId &&
-    pricing.durationMinutes > 0 &&
-    (formValues.recordingTypeId === 'live-recording-3h' ||
-      formValues.recordingTypeId === 'multitrack-shift-6h')
-  ) {
-    return pricing.durationMinutes;
+  if (formValues.serviceId === 'recording' && formValues.recordingTypeId) {
+    const matchedRec = recordingTypes.find((rec) => rec.id === formValues.recordingTypeId);
+    if (matchedRec && matchedRec.priceMode === 'fixed' && Number(matchedRec.durationMinutes) > 0) {
+      return Number(matchedRec.durationMinutes);
+    }
   }
 
   if (formValues.durationPreset === 'custom') {
@@ -132,12 +151,13 @@ export function validateScheduleStep(
   formValues = {},
   existingBookings = [],
   editingBookingId = '',
+  pricingSettings = DEFAULT_PRICING_SETTINGS,
 ) {
   const errors = {};
   const studioId = String(formValues.studioId ?? '').trim();
   const date = String(formValues.date ?? '').trim();
   const startMinute = Number(formValues.startMinute);
-  const durationMinutes = resolveFormDurationMinutes(formValues);
+  const durationMinutes = resolveFormDurationMinutes(formValues, pricingSettings);
 
   if (!VALID_ROOM_IDS.has(studioId)) {
     errors.studioId = 'Pilih ruangan studio (Room A atau Room B).';
@@ -227,15 +247,18 @@ export function validatePaymentStep(formValues = {}, totalAmount = 0) {
 }
 
 /**
- * Validates the entire Booking Form and builds the normalized payload ready for
- * the transactional booking service.
+ * Validates the entire Booking Form against live `pricingSettings` and builds the
+ * normalized payload ready for the transactional booking service.
  */
 export function validateBookingFormPayload(
   formValues = {},
   existingBookings = [],
   editingBookingId = '',
+  pricingSettings = DEFAULT_PRICING_SETTINGS,
+  options = {},
 ) {
-  const durationMinutes = resolveFormDurationMinutes(formValues);
+  const safeSettings = pricingSettings || DEFAULT_PRICING_SETTINGS;
+  const durationMinutes = resolveFormDurationMinutes(formValues, safeSettings);
   const pricing = calculateBookingPricingSnapshot({
     serviceId: formValues.serviceId,
     packageId: formValues.packageId,
@@ -244,12 +267,21 @@ export function validateBookingFormPayload(
     initialPaymentStatus: formValues.initialPaymentStatus,
     dpAmount: formValues.dpAmount,
     paymentMethod: formValues.paymentMethod,
+    pricingSettings: safeSettings,
   });
 
   const customerValidation = validateCustomerStep(formValues);
-  const serviceValidation = validateServiceStep(formValues);
-  const scheduleValidation = validateScheduleStep(formValues, existingBookings, editingBookingId);
-  const paymentValidation = validatePaymentStep(formValues, pricing.totalAmount);
+  const serviceValidation = validateServiceStep(formValues, safeSettings, options);
+  const scheduleValidation = validateScheduleStep(
+    formValues,
+    existingBookings,
+    editingBookingId,
+    safeSettings,
+  );
+  const paymentValidation = validatePaymentStep(
+    formValues,
+    options.paymentTotalOverride ?? pricing.totalAmount,
+  );
 
   const errors = {
     ...customerValidation.errors,
@@ -312,6 +344,7 @@ export function validateBookingFormPayload(
       subtotal: pricing.subtotal,
       discountAmount: pricing.discountAmount,
       totalAmount: pricing.totalAmount,
+      commissionSnapshot: pricing.commissionSnapshot,
       initialPaymentStatus: pricing.initialPaymentStatus,
       initialPaidAmount: pricing.initialPaidAmount,
       paymentMethod: pricing.paymentMethod,

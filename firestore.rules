@@ -31,6 +31,7 @@ service cloud.firestore {
         'subtotal',
         'discountAmount',
         'totalAmount',
+        'commissionSnapshot',
         'initialPaymentStatus',
         'initialPaidAmount',
         'paymentMethod',
@@ -46,6 +47,98 @@ service cloud.firestore {
         'updatedByUid',
         'version'
       ]);
+    }
+
+    function isValidBookingCommissionSnapshot(data) {
+      return !('commissionSnapshot' in data)
+        || data.commissionSnapshot == null
+        || (
+          data.commissionSnapshot is map
+          && data.commissionSnapshot.keys().hasAll([
+            'staffBasis',
+            'staffRate',
+            'staffAmount',
+            'recordingOperatorAmount',
+            'settingsVersion'
+          ])
+          && data.commissionSnapshot.keys().hasOnly([
+            'staffBasis',
+            'staffRate',
+            'staffAmount',
+            'recordingOperatorAmount',
+            'settingsVersion'
+          ])
+          && data.commissionSnapshot.staffBasis in ['package', 'rehearsal_hourly', 'none']
+          && data.commissionSnapshot.staffRate is number
+          && data.commissionSnapshot.staffRate >= 0
+          && data.commissionSnapshot.staffAmount is number
+          && data.commissionSnapshot.staffAmount >= 0
+          && data.commissionSnapshot.recordingOperatorAmount is number
+          && data.commissionSnapshot.recordingOperatorAmount >= 0
+          && data.commissionSnapshot.settingsVersion is int
+          && data.commissionSnapshot.settingsVersion >= 1
+        );
+    }
+
+    function isServiceScopeUnchanged(reqData, resData) {
+      return reqData.serviceId == resData.serviceId
+        && reqData.packageId == resData.packageId
+        && reqData.recordingTypeId == resData.recordingTypeId
+        && reqData.durationMinutes == resData.durationMinutes;
+    }
+
+    function isBookingSnapshotsUnchanged(reqData, resData) {
+      return reqData.unitRate == resData.unitRate
+        && reqData.subtotal == resData.subtotal
+        && reqData.discountAmount == resData.discountAmount
+        && reqData.totalAmount == resData.totalAmount
+        && reqData.get('commissionSnapshot', null) == resData.get('commissionSnapshot', null);
+    }
+
+    function isValidPricingFees(fees) {
+      return fees is map
+        && fees.keys().hasAll(['rehearsalStaffCommissionPerHour', 'dailyMealAllowancePerStaff'])
+        && fees.keys().hasOnly(['rehearsalStaffCommissionPerHour', 'dailyMealAllowancePerStaff'])
+        && fees.rehearsalStaffCommissionPerHour is number
+        && fees.rehearsalStaffCommissionPerHour >= 0
+        && fees.dailyMealAllowancePerStaff is number
+        && fees.dailyMealAllowancePerStaff >= 0;
+    }
+
+    function isValidPricingSettings(data) {
+      return data.keys().hasAll([
+          'schemaVersion',
+          'sessionTypes',
+          'recordingTypes',
+          'packages',
+          'discounts',
+          'fees',
+          'version',
+          'updatedAt',
+          'updatedByUid'
+        ])
+        && data.keys().hasOnly([
+          'schemaVersion',
+          'sessionTypes',
+          'recordingTypes',
+          'packages',
+          'discounts',
+          'fees',
+          'version',
+          'updatedAt',
+          'updatedByUid'
+        ])
+        && data.schemaVersion == 1
+        && data.sessionTypes is list
+        && data.sessionTypes.size() >= 1
+        && data.recordingTypes is list
+        && data.packages is list
+        && data.discounts is list
+        && isValidPricingFees(data.fees)
+        && data.version is int
+        && data.version >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
     }
 
     function isValidBookingShape(data) {
@@ -82,6 +175,7 @@ service cloud.firestore {
         && data.discountAmount >= 0
         && data.totalAmount is number
         && data.totalAmount >= 0
+        && isValidBookingCommissionSnapshot(data)
         && data.initialPaymentStatus in ['unpaid', 'partial', 'paid']
         && data.initialPaidAmount is number
         && data.initialPaidAmount >= 0
@@ -96,6 +190,21 @@ service cloud.firestore {
     match /staffProfiles/{uid} {
       allow get: if request.auth != null
                  && request.auth.uid == uid;
+    }
+
+    match /settings/pricing {
+      allow get: if isActiveStaff();
+      allow list: if false;
+
+      allow create: if isActiveStaff()
+        && isValidPricingSettings(request.resource.data)
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && isValidPricingSettings(request.resource.data)
+        && request.resource.data.version == resource.data.version + 1;
+
+      allow delete: if false;
     }
 
     match /bookings/{bookingId} {
@@ -116,7 +225,9 @@ service cloud.firestore {
         && request.resource.data.updatedByUid == request.auth.uid
         && request.resource.data.initialPaymentStatus == resource.data.initialPaymentStatus
         && request.resource.data.initialPaidAmount == resource.data.initialPaidAmount
-        && request.resource.data.paymentMethod == resource.data.paymentMethod;
+        && request.resource.data.paymentMethod == resource.data.paymentMethod
+        && (!isServiceScopeUnchanged(request.resource.data, resource.data)
+            || isBookingSnapshotsUnchanged(request.resource.data, resource.data));
 
       allow delete: if false;
     }

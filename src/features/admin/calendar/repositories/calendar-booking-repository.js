@@ -25,6 +25,26 @@ export function generateOperationId(prefix = '') {
 }
 
 /**
+ * Normalizes the internal commission snapshot with safe fallback for Phase 5 bookings
+ * that predate Phase 6 commission tracking.
+ */
+export function normalizeCommissionSnapshot(raw = null) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const validBasis = ['package', 'rehearsal_hourly', 'none'];
+  const staffBasis = validBasis.includes(raw.staffBasis) ? raw.staffBasis : 'none';
+  return {
+    staffBasis,
+    staffRate: Math.max(0, Math.round(Number(raw.staffRate) || 0)),
+    staffAmount: Math.max(0, Math.round(Number(raw.staffAmount) || 0)),
+    recordingOperatorAmount: Math.max(0, Math.round(Number(raw.recordingOperatorAmount) || 0)),
+    settingsVersion: Math.max(1, Math.round(Number(raw.settingsVersion) || 1)),
+  };
+}
+
+/**
  * Normalizes a raw Firestore booking document into a consistent domain record.
  */
 export function normalizeBookingRecord(id, data = {}) {
@@ -57,6 +77,7 @@ export function normalizeBookingRecord(id, data = {}) {
     subtotal: Math.max(0, Number(data.subtotal) || 0),
     discountAmount: Math.max(0, Number(data.discountAmount) || 0),
     totalAmount: Math.max(0, Number(data.totalAmount) || 0),
+    commissionSnapshot: normalizeCommissionSnapshot(data.commissionSnapshot),
     initialPaymentStatus: data.initialPaymentStatus || INITIAL_PAYMENT_STATUS.UNPAID,
     initialPaidAmount: Math.max(0, Number(data.initialPaidAmount) || 0),
     paymentMethod: String(data.paymentMethod || '').trim(),

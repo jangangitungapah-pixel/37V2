@@ -163,6 +163,8 @@ export function getAdminModuleById(moduleId) {
 
 export function getAdminNavItemByPath(pathname = '') {
   const normalized = String(pathname || '').replace(/\/+$/, '');
-  const matched = ADMIN_NAVIGATION_ITEMS.find((item) => normalized === item.href);
+  const matched = ADMIN_NAVIGATION_ITEMS.find(
+    (item) => normalized === item.href || normalized.startsWith(`${item.href}/`),
+  );
   return matched || ADMIN_NAVIGATION_ITEMS[0];
 }

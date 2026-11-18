@@ -5,6 +5,8 @@ import { AdminCalendarPage } from '@/features/admin/calendar/pages/AdminCalendar
 import { AdminLayout } from '@/features/admin/layout/AdminLayout';
 import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
 import { AdminModulePlaceholderPage } from '@/features/admin/pages/AdminModulePlaceholderPage';
+import { AdminSettingsPage } from '@/features/admin/settings/pages/AdminSettingsPage';
+import { PriceAndFeeSettingsPage } from '@/features/admin/settings/pages/PriceAndFeeSettingsPage';
 import { RequireStaff } from '@/features/auth/RequireStaff';
 import { LandingPage } from '@/pages/LandingPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -37,7 +39,8 @@ export function AppRoutes() {
         />
         <Route path="inventory" element={<AdminModulePlaceholderPage moduleId="inventory" />} />
         <Route path="pembukuan" element={<AdminModulePlaceholderPage moduleId="pembukuan" />} />
-        <Route path="settings" element={<AdminModulePlaceholderPage moduleId="settings" />} />
+        <Route path="settings" element={<AdminSettingsPage />} />
+        <Route path="settings/price-and-fee" element={<PriceAndFeeSettingsPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
