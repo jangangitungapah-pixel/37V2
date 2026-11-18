@@ -1,0 +1,206 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 3: STAFF & OWNER AUTHENTICATION (FIREBASE AUTH + CLOUD FIRESTORE)
+Date: 2026-11-18
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: C:\Users\hazel\source\repos\37V2
+Branch: main
+
+============================================================
+1. STARTING & FINAL GIT COMMITS
+============================================================
+
+- Starting baseline HEAD (Phase 2B handoff commit):
+  b1dee42f2621e5e091e242a9a3ab7b1f1ae40340
+- Phase 2B code commit:
+  045421e15e0be66ae2f2dd9625910641c364837c
+- Phase 3 implementation commit SHA:
+  a186dc240e691479d1ae4ece6f3ed1eb248d9407
+  (feat(auth): implement phase 3 staff and owner firebase authentication and admin portal)
+- Phase 3 handoff commit:
+  Committed immediately after `a186dc2` on `main` (run `git log -3` to see both commits).
+
+============================================================
+2. FIREBASE PROJECT CONFIGURATION
+============================================================
+
+- Firebase Project ID: `studio37classic`
+- Firebase Auth Domain: `studio37classic.firebaseapp.com`
+- Firebase Hosting Site ID: `studio37-os`
+- Local Web App Configuration (`.env.local`, gitignored and untracked):
+  - `VITE_FIREBASE_API_KEY`
+  - `VITE_FIREBASE_AUTH_DOMAIN=studio37classic.firebaseapp.com`
+  - `VITE_FIREBASE_PROJECT_ID=studio37classic`
+  - `VITE_FIREBASE_MESSAGING_SENDER_ID=968069260344`
+  - `VITE_FIREBASE_APP_ID=1:968069260344:web:791256b48afe558c5932cd`
+- `.env.example` retains empty placeholder keys.
+- `firebase.json` configures `firestore.rules` and Hosting site `studio37-os`
+  with SPA rewrite to `/index.html`.
+- `.firebaserc` maps `default` project to `studio37classic`.
+- Firebase Analytics and Storage are not initialized in Phase 3.
+
+============================================================
+3. AUTHENTICATION ARCHITECTURE
+============================================================
+
+- `src/lib/firebase/client.js`: Single default Firebase App lazy initializer
+  (`getFirebaseApp()`) and configuration validator (`isFirebaseConfigured()`).
+- `src/lib/firebase/auth.js`: Shared lazy Firebase Auth instance (`getFirebaseAuth()`).
+- `src/lib/firebase/firestore.js`: Shared lazy Cloud Firestore instance (`getFirebaseDb()`).
+- `src/features/auth/auth-helpers.js`: Allowed role validation (`owner`, `staff`)
+  and centralized error mapping (`mapAuthErrorToMessage`, `mapPasswordResetErrorToMessage`).
+- `src/features/auth/staff-profile-service.js`: Reads and validates
+  `staffProfiles/{authenticatedUser.uid}` (document exists, ID matches UID,
+  `active === true`, `role` is `owner` or `staff`).
+- `src/features/auth/auth-service.js`: Modular Email/Password sign-in
+  (`signInWithEmailAndPassword`), profile verification with immediate `signOut`
+  on unauthorized profiles, password reset (`sendPasswordResetEmail`), and
+  session listener (`onAuthStateChanged`).
+- `src/features/auth/AuthProvider.jsx` & `AuthContext.js`: Central React context
+  managing session restoration, race-safe profile verification, and `login`,
+  `logout`, and `resetPassword` actions.
+- `src/features/auth/RequireStaff.jsx`: Route guard protecting `/admin` with a
+  branded loading screen while authentication is being verified.
+
+============================================================
+4. FIRESTORE DATA MODEL (`staffProfiles`)
+============================================================
+
+Collection: `staffProfiles`
+Document ID: `{FIREBASE_AUTH_UID}`
+
+Required fields:
+- `displayName` (string): Staff or owner display name
+- `email` (string): Account email reference
+- `role` (string): `"owner"` or `"staff"`
+- `active` (boolean): `true` for active access, `false` to revoke access
+- `createdAt` (timestamp): Firestore Timestamp of profile creation
+
+No public registration or client-side profile creation/editing exists.
+
+============================================================
+5. FIRESTORE SECURITY RULES (`firestore.rules`)
+============================================================
+
+```javascript
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /staffProfiles/{uid} {
+      allow get: if request.auth != null
+                 && request.auth.uid == uid;
+    }
+
+  }
+}
+```
+
+- Authenticated users can only `get` their own `staffProfiles/{uid}` document.
+- Unauthenticated reads, reading other users' profiles, listing `staffProfiles`,
+  client-side profile writes (`create`, `update`, `delete`), and access to any
+  other collection are denied.
+
+============================================================
+6. CREATED & MODIFIED FILES
+============================================================
+
+Created:
+- `.env.local` (untracked, gitignored)
+- `.firebaserc`
+- `firebase.json`
+- `firestore.rules`
+- `src/lib/firebase/auth.js`
+- `src/lib/firebase/firestore.js`
+- `src/features/auth/auth-helpers.js`
+- `src/features/auth/staff-profile-service.js`
+- `src/features/auth/auth-service.js`
+- `src/features/auth/AuthContext.js`
+- `src/features/auth/AuthProvider.jsx`
+- `src/features/auth/RequireStaff.jsx`
+- `src/features/auth/auth.test.jsx`
+- `src/pages/StaffLoginPage.jsx`
+- `src/pages/AdminPortalPage.jsx`
+- `src/pages/NotFoundPage.jsx`
+- `docs/architecture/FIREBASE-AUTH-FIRESTORE.md`
+- `docs/setup/FIREBASE-STAFF-OWNER-PROVISIONING.md`
+- `docs/handoffs/HANDOFF-PHASE-3-STAFF-OWNER-AUTH-2026-11-18.txt`
+
+Modified:
+- `src/lib/firebase/client.js`
+- `src/app/providers/AppProviders.jsx`
+- `src/App.jsx`
+- `src/data/landing-page-content.js`
+- `src/components/landing/SiteHeader.jsx`
+- `src/components/landing/SiteFooter.jsx`
+- `src/pages/LandingPage.jsx`
+- `src/pages/LandingPage.test.jsx`
+
+============================================================
+7. LOGIN PAGE (`/staff/login`), CLIENT VS STAFF SPLIT & ADMIN PORTAL (`/admin`)
+============================================================
+
+- Header `Client Login` button (desktop & mobile drawer) opens the
+  `Client Login Coming Soon` dialog (`"The client portal is not available yet..."`)
+  and never routes to `/staff/login` or `/admin`.
+- Footer `Staff / Owner Login` button uses React Router `<Link to="/staff/login">`
+  to navigate to the real Firebase-backed Staff & Owner Login page.
+- `/staff/login` provides:
+  - Neo-Brutalist Editorial split layout (mobile-first single column expanding
+    to a desktop 5/7 split with `"BEHIND THE SOUND."` identity panel).
+  - Email and Password inputs with show/hide password toggle, email trimming,
+    loading state, and accessible error alerts.
+  - Functional Forgot Password flow calling `sendPasswordResetEmail` with
+    generic confirmation copy (`"If an account matches this email address,
+    password reset instructions will be sent."`).
+  - Automatic redirect to `/admin` when an active Owner or Staff session is
+    already authenticated.
+- `/admin` (Protected Temporary Admin Portal):
+  - Guarded by `<RequireStaff>`. Unauthenticated visitors are redirected to
+    `/staff/login`.
+  - Displays real authenticated `displayName`, `email`, and `ROLE: OWNER` or
+    `ROLE: STAFF` badge from Firebase Auth + `staffProfiles/{uid}`.
+  - Includes functional `Sign Out` button and `Return to public website` link.
+  - Contains no fake revenue, booking counts, customer counts, occupancy figures,
+    or chart widgets.
+
+============================================================
+8. TESTS & VERIFICATION RESULTS
+============================================================
+
+- `npm run format:check`: PASSED (`EXIT_CODE=0`)
+- `npm run lint`: PASSED (`EXIT_CODE=0`, 0 errors, 0 warnings)
+- `npm run test:run`: PASSED (`EXIT_CODE=0`, 3 test files, 24/24 tests passed:
+  `src/lib/utils.test.js`, `src/pages/LandingPage.test.jsx`,
+  `src/features/auth/auth.test.jsx`)
+- `npm run build`: PASSED (`EXIT_CODE=0`, Vite production build succeeded)
+- `npm audit`: Recorded in `.logs/phase-3-auth-verification-*.txt` (`EXIT_CODE=1`
+  due to existing Phase 1 transitive advisories in `@grpc/grpc-js`, `minimatch`,
+  and `picomatch`; pinned Phase 1 dependency versions were preserved).
+
+============================================================
+9. FIREBASE CONSOLE PREREQUISITES & ACCOUNT PROVISIONING
+============================================================
+
+Detailed step-by-step instructions are documented in:
+- `docs/setup/FIREBASE-STAFF-OWNER-PROVISIONING.md`
+- `docs/architecture/FIREBASE-AUTH-FIRESTORE.md`
+
+Summary of manual steps for the Studio Owner in Firebase Console (`studio37classic`):
+1. Enable Authentication -> Sign-in method -> **Email/Password**.
+2. Create the default Cloud Firestore database (if not yet created).
+3. Publish `firestore.rules` in Firestore Database -> Rules.
+4. In Authentication -> Users, add the Owner user and copy the generated UID.
+5. In Firestore Database -> Data, create collection `staffProfiles` and document
+   `{UID}` with `displayName`, `email`, `role: "owner"`, `active: true`, and
+   `createdAt` (Timestamp).
+6. Repeat for each Staff member using `role: "staff"`.
+
+============================================================
+10. SCOPE & DEPLOYMENT CONFIRMATION
+============================================================
+
+- Confirmed: No real operational dashboard modules, fake metrics, public client
+  authentication route, or in-app staff management tables were implemented.
+- Confirmed: No Firebase deployment (`firebase deploy`) or PR merge was performed.
+- Next-phase authority: The Studio Owner decides what the next phase implements.
