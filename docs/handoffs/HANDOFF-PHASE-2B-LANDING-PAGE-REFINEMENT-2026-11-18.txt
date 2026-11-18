@@ -1,0 +1,219 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 2B: PUBLIC LANDING PAGE REFINEMENT & QUALITY IMPROVEMENT
+Date: 2026-11-18
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: C:\Users\hazel\source\repos\37V2
+Branch: main
+
+============================================================
+1. GIT COMMIT REFERENCES
+============================================================
+
+- Starting baseline commit SHA (Phase 2):
+  a0830e697f4563999ca9ebed87d318f3da192534
+  (feat: implement phase 2 landing page with core UI components and design system)
+
+- Phase 2B refinement commit SHA (code, content, styles, tests):
+  045421e15e0be66ae2f2dd9625910641c364837c
+  (fix(landing): refine phase 2b metadata, booking form, claims, links, and mobile UX)
+
+- This handoff file is committed immediately after `045421e` on `main`.
+  Run `git log -3` to see the full commit sequence.
+
+============================================================
+2. CHANGED & CREATED FILES (PHASE 2B)
+============================================================
+
+Modified:
+- index.html
+- src/styles/index.css
+- src/data/landing-page-content.js
+- src/pages/LandingPage.jsx
+- src/pages/LandingPage.test.jsx
+- src/components/landing/BookingSection.jsx
+- src/components/landing/bookingInquirySchema.js
+- src/components/landing/GallerySection.jsx
+- src/components/landing/HeroSection.jsx
+- src/components/landing/LoginComingSoonDialog.jsx
+- src/components/landing/RoomsSection.jsx
+- src/components/landing/ServicesSection.jsx
+- src/components/landing/SiteFooter.jsx
+- src/components/landing/SiteHeader.jsx
+- src/components/landing/StudioImage.jsx
+- src/components/landing/TestimonialsAndContactSection.jsx
+
+Created:
+- src/lib/booking-date.js
+- src/lib/external-links.js
+- docs/handoffs/HANDOFF-PHASE-2B-LANDING-PAGE-REFINEMENT-2026-11-18.txt
+
+Local Verification Log (gitignored in .logs/):
+- .logs/phase-2b-refinement-20261118-113709.txt
+
+============================================================
+3. COMPLETED REPAIRS (PRIORITIES 1–10)
+============================================================
+
+Priority 1 & Priority 10 — HTML Metadata & SEO (`index.html`):
+- Fixed broken `<meta name="description" ... />` element where the tag name
+  was missing, leaving a standalone `content` attribute in `<head>`.
+- Removed `<meta property="og:image" content="/images/demo/room-a-live.svg" />`
+  so an illustrative demo SVG is not advertised as production studio photography.
+- Preserved valid `<html lang="en">`, `<meta name="theme-color" content="#F1EEE4" />`,
+  `<title>`, Open Graph `og:type`, `og:title`, `og:description`, and ensured
+  copy makes no unverified facility claims, canonical domain, or fake
+  LocalBusiness structured data.
+
+Priority 2 — Booking Form Improvements (`BookingSection.jsx`, `bookingInquirySchema.js`, `src/lib/booking-date.js`):
+- Replaced the hardcoded `'2026-11-21'` default date with `getTodayLocalDateString()`
+  powered by `date-fns` (`format(now, 'yyyy-MM-dd')`) without UTC `.toISOString()` drift.
+- Set HTML `<input type="date" min={todayDate}>` from the same helper and
+  refreshed `todayDate` on date focus and inquiry reset.
+- Extended Zod validation in `bookingInquirySchema.js` to validate:
+  required date, `YYYY-MM-DD` format, strict calendar validity (e.g., rejects
+  `2026-02-30`), and not-in-past check evaluated dynamically against `new Date()`
+  at submission time (catching midnight rollovers when the tab stays open).
+- Replaced single-line `<input>` for Notes with a multiline `<textarea rows={3}>`
+  (`min-h-24`), live `{notesLength} / 400` character counter (`aria-describedby`),
+  and preserved Zod max-400 validation.
+- Fixed service/room preselection synchronization using `selectionVersion` so
+  re-selecting a service or room after manual toggles always updates form state.
+- Removed unconfirmed `"WIB"` timezone suffix from time options and improved
+  error message contrast (`--studio-error-ink: #b92b0c`).
+
+Priority 3 — Business Claims & Demo Content Audit (`src/data/landing-page-content.js`, `HeroSection.jsx`, `TestimonialsAndContactSection.jsx`):
+- Audited and removed/neutralized unverified factual claims across all sections:
+  - Removed invented specs (`42m²`, `24ch`, `15min setup turnaround`, room
+    capacities `6–7 musicians` / `1–4 people`, invented equipment/amenities
+    lists, unconfirmed `10:00 – 23:00` schedule, and `"2 min from the mainline"`).
+  - Replaced `"BAND FAVORITE"` with neutral `"GROUP SESSION"`.
+  - Replaced `"SOUNDPROOFED & ACOUSTICALLY TREATED"`, `"BACKLINE INCLUDED"`,
+    `"TREATED ROOMS"`, and `"ON-SITE CREW SUPPORT"` with neutral preview labels.
+  - Replaced 5-star rating icons and fabricated review copy with explicitly
+    labeled `UNVERIFIED` / `DEMO PLACEHOLDER` layout slots.
+  - Changed hero photo tag from `"DEMO PHOTO"` to `"DEMO ASSET"` and clarified
+    all demo SVG illustrations as illustrative placeholders awaiting real photos.
+
+Priority 4 — Contact & External Link Behavior (`src/lib/external-links.js`, `TestimonialsAndContactSection.jsx`, `SiteFooter.jsx`, `landing-page-content.js`):
+- Added explicit configurable destination fields: `mapsUrl`, `whatsappUrl`,
+  `whatsappNumber`, `prefilledMessage`, and `socialLinks[].href`.
+- Added defensive validators (`isValidHttpUrl`, `resolveMapsHref`,
+  `resolveWhatsAppHref`, `resolveSocialHref`) so external anchors render ONLY
+  when BOTH the confirmation flag (`isAddressConfirmed` / `isConfirmed`) AND a
+  valid `http(s)` URL are present (blocking empty strings, pending tokens, or
+  invalid protocols like `javascript:`).
+- Confirmed links open safely with `target="_blank" rel="noopener noreferrer"`;
+  unconfirmed items preserve honest pending notices and inquiry-form fallback.
+
+Priority 5 — Mobile-First Header Refinement (`SiteHeader.jsx`, `LoginComingSoonDialog.jsx`, `LandingPage.jsx`, `src/styles/index.css`):
+- Moved the slim black Top Utility Strip outside the sticky `<header>` into
+  normal document flow so it scrolls away cleanly and frees mobile vertical space.
+- Kept `<header>` sticky (`top-0 z-40`), 62px tall on mobile / 66px on desktop,
+  preserving the square `37` brand lockup, prominent orange `Book now` CTA,
+  Base UI mobile menu drawer, Escape-to-close, and clean `320px` wordmark fit.
+- Added `scroll-mt-20` on anchor sections (`#top`, `#services`, `#rooms`,
+  `#gallery`, `#how-to-book`, `#booking`, `#contact`) so sticky `<header>`
+  never covers headings or targets.
+- Added `mobileMenuTriggerRef` focus-return wiring on `LoginComingSoonDialog`
+  when opened from inside the mobile menu.
+
+Priority 6 — Mobile Gallery Improvement (`GallerySection.jsx`):
+- Updated gallery grid to `grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4`:
+  - `320–359 px`: single-column layout to keep captions spacious.
+  - `360–1023 px`: readable 2-column grid with concise titles/categories.
+  - `1024 px+`: 4-column desktop grid matching the Banani reference.
+- Preserved lazy-loaded `@base-ui/react/dialog` lightbox, keyboard controls,
+  descriptive button labels, and stable aspect ratios.
+
+Priority 7 — Demo Photography & Image Handling (`StudioImage.jsx`, `HeroSection.jsx`, `TestimonialsAndContactSection.jsx`):
+- Audited all 7 SVG demo assets in `public/images/demo/`. No real studio
+  photographs exist in the repository yet, so existing SVG placeholders remain
+  clearly marked as demo assets (`DEMO ASSET` / `DEMO ILLUSTRATION`) with
+  reserved `width`/`height`/`aspect-*` dimensions, eager/high-priority hero
+  loading, lazy-loading below the fold, and `failedSrc`-keyed fallback handling.
+
+Priority 8 — Responsive & Accessibility QA (Chromium Inspection):
+- Inspected the built app in headless Chromium across all 8 required viewports:
+  320×720, 375×812, 390×844, 430×932, 768×1024, 1024×768, 1280×800, 1440×900.
+- Verified `document.documentElement.scrollWidth <= window.innerWidth` AND
+  tested with `overflow-x: visible` (0 overflowing elements across all 8 widths).
+- Resolved hero floating-badge overlap against caption text on tablet/desktop.
+- Resolved footer `"Rooms"` / `"Gallery"` touch-target widths (`min-w-11` added)
+  so all interactive controls across all 8 viewports meet `>= 44×44` CSS px.
+- Verified sticky header behavior, anchor scroll clearance, mobile menu -> Login
+  dialog -> Escape focus return, gallery lightbox cycling, service preselection,
+  and `prefers-reduced-motion: reduce`.
+- Inspected rendered screenshots at 320px, 390px, 768px, and 1440px side by
+  side against the Banani visual reference.
+
+Priority 9 — Extended Vitest Coverage (`src/pages/LandingPage.test.jsx`):
+- 10 landing-page tests + 2 utility tests (12 tests total across 2 files) verifying
+  honest rendering without raw tokens/unverified claims, utility strip placement,
+  dynamic default date + `min`, invalid calendar/past date rejection, midnight
+  rollover validation, multiline Notes textarea + 400-char counter/limit,
+  confirmed vs pending Maps/WhatsApp/social links (including defensive invalid-URL
+  fallbacks), service/room preselection, gallery lightbox, and non-auth Login dialog.
+
+============================================================
+4. VERIFICATION COMMAND OUTCOMES
+============================================================
+
+Recorded in `.logs/phase-2b-refinement-20261118-113709.txt`:
+- `npm run format:check`: EXIT_CODE=0 (All matched files use Prettier code style)
+- `npm run lint`: EXIT_CODE=0 (0 errors, 0 warnings)
+- `npm run test:run`: EXIT_CODE=0 (2 test files passed, 12/12 tests passed)
+- `npm run build`: EXIT_CODE=0 (Vite production build succeeded in 3.56s:
+  `dist/index.html` 1.38 kB, CSS 35.59 kB, main JS 483.98 kB,
+  `bookingInquirySchema` lazy chunk 82.97 kB, `GalleryLightboxDialog` lazy chunk 3.02 kB)
+- `npm audit`: EXIT_CODE=1 (19 transitive advisories — 2 moderate, 17 high — all
+  from pinned Phase 1 dependencies and none imported in the landing page bundle):
+  1. `@grpc/grpc-js <=1.13.5` (High) via `@firebase/firestore` -> `@firebase/firestore-compat` -> `firebase@13.3.0`
+     (Not imported by the Phase 2B landing page; `npm audit fix --force` would
+     break-downgrade to `firebase@9.14.0`, so pinned Phase 1 version was preserved).
+  2. `minimatch 7.0.0 - 11.0.0` (Moderate) via `@ts-morph/common` -> `ts-morph` -> `shadcn@4.23.0`
+     (Dev-only CLI tool, not bundled; `npm audit fix --force` would downgrade `shadcn`).
+  3. `picomatch *` (High) via `tinyglobby` / `fdir` / `micromatch` / `@dotenvx/dotenvx` -> `vite@8.3.8`, `vitest@5.1.0`, `@rolldown/plugin-babel`, `@vitejs/plugin-react`, `shadcn@4.23.0`
+     (Dev/build toolchain only, not shipped in `dist/`; `npm audit fix --force`
+     would break-downgrade to `vite@6.2.7` / `vitest@3.1.4`, so pinned Phase 1
+     versions were preserved).
+
+============================================================
+5. ASSETS & DATA STILL REQUIRED FROM STUDIO OWNER
+============================================================
+
+All pending items remain centralized in `src/data/landing-page-content.js`
+and `index.html`:
+1. Real studio photographs (AVIF/WebP/JPG) for Hero, Room A, Room B, Gallery,
+   Studio Exterior, and an approved Open Graph social-sharing image (`og:image`).
+2. Official 37 Music Studio logo/wordmark rules (if replacing the `37` mark).
+3. Verified service categories, descriptions, included gear/backline, and pricing policy.
+4. Verified Room A and Room B capacities, dimensions, and equipment lists.
+5. Confirmed street address and verified Google Maps URL (`mapsUrl`).
+6. Confirmed WhatsApp number, `whatsappUrl`, approved prefilled message, and phone/email.
+7. Confirmed operating hours and studio time zone.
+8. Confirmed social profile URLs (`instagram`, `tiktok`, `youtube`, streaming).
+9. Owner-approved client testimonials, names/attributions, and optional ratings.
+10. Canonical production domain (for canonical URL and verified LocalBusiness schema).
+
+============================================================
+6. KNOWN LIMITATIONS & SCOPE CONFIRMATION
+============================================================
+
+- Confirmed: NO authentication flow, `/login` or `/auth` routes, Firebase Auth,
+  Firestore calls, backend API, real booking creation, availability checks,
+  payment processing, dashboard screens, or deployment were implemented.
+- Client-side inquiry submissions validate locally and show an honest demo
+  confirmation without transmitting or persisting personal data.
+- `Login` opens a coming-soon informational dialog only.
+- Responsive screenshots and Core Web Vitals targets (LCP <= 2.5s, INP <= 200ms,
+  CLS <= 0.1) remain acceptance targets for real-asset/production measurement;
+  external Google Fonts requests are referenced in `index.html` and require
+  network access or local font self-hosting in production.
+
+============================================================
+7. NEXT-PHASE AUTHORITY
+============================================================
+
+Phase 2B landing-page refinement is complete. The user decides what happens next;
+do not start Phase 3 (authentication, management dashboard, or booking backend)
+or merge/deploy without explicit user instruction.
