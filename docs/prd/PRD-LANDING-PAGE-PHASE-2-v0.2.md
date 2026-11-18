@@ -26,6 +26,7 @@ The design must closely follow the user-provided Banani reference screenshot. Th
 **Neo-Brutalist Editorial × Premium Music Studio**
 
 It combines:
+
 - warm ivory / off-white canvas;
 - heavy black typography and outlines;
 - acid-lime highlight bands;
@@ -58,6 +59,7 @@ The Banani URL is a reference, not an instruction to embed or depend on Banani a
 The implementation must reproduce the visual language and content hierarchy closely, not merely borrow its colors.
 
 Preserve:
+
 - page section order and the overall long-form composition;
 - two-tier header and compact utility strip;
 - dramatic typographic hero with an adjacent large room photograph;
@@ -120,13 +122,13 @@ Exact pixel-for-pixel reproduction is not a realistic requirement from one scree
 
 ## 5. Target Visitors and Main Journey
 
-| Visitor | Need | Desired action |
-|---|---|---|
-| Band / rehearsal group | Find a good rehearsal room and understand what is included | Start a rehearsal inquiry |
-| Recording artist | Evaluate recording setup and production support | Start a recording inquiry |
-| Producer / creator | Understand mixing/mastering services | Start a mix/master inquiry |
-| Returning customer | Quickly find rooms, contact, and booking route | Open booking inquiry |
-| Studio Owner / Operator | See an entry point for a future internal system | Tap Login and see a clear “coming later” message |
+| Visitor                 | Need                                                       | Desired action                                   |
+| ----------------------- | ---------------------------------------------------------- | ------------------------------------------------ |
+| Band / rehearsal group  | Find a good rehearsal room and understand what is included | Start a rehearsal inquiry                        |
+| Recording artist        | Evaluate recording setup and production support            | Start a recording inquiry                        |
+| Producer / creator      | Understand mixing/mastering services                       | Start a mix/master inquiry                       |
+| Returning customer      | Quickly find rooms, contact, and booking route             | Open booking inquiry                             |
+| Studio Owner / Operator | See an entry point for a future internal system            | Tap Login and see a clear “coming later” message |
 
 ### Primary journey
 
@@ -146,17 +148,20 @@ Build one long-form landing page. On desktop, use an editorial grid with intenti
 ### Section 01 — Top Utility Strip
 
 **Reference treatment**
+
 - A very slim black strip at the absolute top of the page.
 - Tiny uppercase service descriptor on the left.
 - Operating-hours copy on the right.
 - A compact orange action near the right edge on wide screens.
 
 **Content**
+
 - Service descriptor: rehearsal / recording / mixing / mastering.
 - Operating-hours text: use a configurable demo placeholder until verified.
 - Optional shortcut to the booking section.
 
 **Responsive**
+
 - Keep the strip short on mobile.
 - Remove or condense non-essential text at very narrow widths.
 - Do not use an uncontrolled marquee that continuously moves important information.
@@ -165,6 +170,7 @@ Build one long-form landing page. On desktop, use an editorial grid with intenti
 ### Section 02 — Main Header / Navigation
 
 **Reference treatment**
+
 - Warm ivory background.
 - Compact square 37 mark at left, followed by wordmark and micro tagline.
 - Desktop navigation links in the center/right.
@@ -172,6 +178,7 @@ Build one long-form landing page. On desktop, use an editorial grid with intenti
 - Strong black bottom border.
 
 **Navigation anchors**
+
 - Services
 - Rooms
 - Gallery
@@ -179,12 +186,14 @@ Build one long-form landing page. On desktop, use an editorial grid with intenti
 - Contact
 
 **Login dummy**
+
 - Add a visible `Login` button in the header.
 - Make it visually secondary to the orange `Book now` CTA.
 - On mobile, keep Login reachable without hiding the primary booking action. If space is limited, retain the Login action in the mobile menu while keeping Book now visible in the header.
 - Login is not a route and must not look like a working sign-in page.
 
 **Mobile**
+
 - Brand mark/wordmark on the left.
 - Compact menu trigger.
 - Book now primary button visible where practical.
@@ -195,6 +204,7 @@ Build one long-form landing page. On desktop, use an editorial grid with intenti
 ### Section 03 — Hero
 
 **Reference treatment**
+
 - Warm ivory background.
 - Desktop: two-column, asymmetric composition; text on the left and a large studio image on the right.
 - Small pill-shaped information badges above the headline.
@@ -207,19 +217,23 @@ Build one long-form landing page. On desktop, use an editorial grid with intenti
 - A three-part fact strip sits under the hero content with one lime cell.
 
 **Suggested headline direction**
+
 - “LOUD ROOMS FOR LOUD IDEAS.”
 - This is sample copy for layout direction, not immutable brand copy. Keep the headline in a content config so the user can revise it.
 
 **CTA behavior**
+
 - Primary: `Book a session` / `Book now` → scroll to `#booking`.
 - Secondary: `See the rooms` → scroll to `#rooms`.
 - Hero badges may display short brand descriptors, but must not make unverified availability or rating claims.
 
 **Hero image**
+
 - Use the real approved room/studio image when supplied.
 - If none is supplied, use an obvious development placeholder with an isolated replaceable asset path. Do not imply an AI-generated room is the actual 37 Music Studio facility.
 
 **Mobile**
+
 - Stack content in this order: badges, headline, paragraph, CTAs, image, fact strip.
 - The headline must fit the viewport without clipping or horizontal overflow.
 - Primary CTA must be visible without requiring the user to scroll past a large decorative image.
@@ -229,11 +243,13 @@ Build one long-form landing page. On desktop, use an editorial grid with intenti
 ### Section 04 — Lime Service Ticker / Divider
 
 **Reference treatment**
+
 - Full-width bright acid-lime strip.
 - Very small black uppercase type repeating service categories.
 - Functions as a strong visual transition between hero and services.
 
 **Rules**
+
 - Use CSS animation only if it adds value.
 - Respect `prefers-reduced-motion`.
 - Do not let moving text become the only place where services are communicated.
@@ -242,6 +258,7 @@ Build one long-form landing page. On desktop, use an editorial grid with intenti
 ### Section 05 — Services (“Pick your session”)
 
 **Reference treatment**
+
 - Warm ivory section.
 - Small black uppercase eyebrow label.
 - Large bold section heading.
@@ -250,6 +267,7 @@ Build one long-form landing page. On desktop, use an editorial grid with intenti
 - Each card includes a number, short status/category label, icon tile, title, description, concise feature list, and bottom action row.
 
 **Default demo categories**
+
 1. Rehearsal
 2. Recording
 3. Mix & Master
@@ -257,11 +275,13 @@ Build one long-form landing page. On desktop, use an editorial grid with intenti
 These are draft categories from the existing product concept. The user must confirm final service availability and content before production.
 
 **Card behavior**
+
 - `Check availability` scrolls to `#booking` and preselects the corresponding inquiry service.
 - Do not display real-time availability or imply a slot is open.
 - Category status chips are descriptive labels only, not real inventory/availability statuses unless confirmed.
 
 **Mobile**
+
 - Single-column stack by default.
 - Do not force horizontal carousel behavior for core service information.
 - Keep card CTAs full-width or easy to tap.
@@ -270,6 +290,7 @@ These are draft categories from the existing product concept. The user must conf
 ### Section 06 — Rooms / Studio Spaces (“Two rooms, zero guesswork”)
 
 **Reference treatment**
+
 - Strong section divider.
 - Small dark eyebrow and large heading.
 - Two large image-led room cards side-by-side on desktop.
@@ -279,16 +300,19 @@ These are draft categories from the existing product concept. The user must conf
 - Small capability chips may appear under the cards.
 
 **Default demo room labels**
+
 - Room A — Live Room
 - Room B — Control + Booth
 
 Room names, capacity, facilities, equipment, amenities, and claims are configurable draft content only. Do not present these as confirmed facts until the user verifies them.
 
 **Card behavior**
+
 - `Book this room` scrolls to `#booking` and preselects that room in the demo form.
 - Do not show a real availability badge or real-time status.
 
 **Mobile**
+
 - Stack room cards vertically.
 - Keep photographs prominent with consistent image aspect ratios.
 - Place card actions immediately after card details.
@@ -297,6 +321,7 @@ Room names, capacity, facilities, equipment, amenities, and claims are configura
 ### Section 07 — Gallery (“Proof, not renders.”)
 
 **Reference treatment**
+
 - Bold editorial heading.
 - Optional `View all photos` link/button.
 - Desktop: four-photo horizontal grid with varying but aligned card proportions.
@@ -304,6 +329,7 @@ Room names, capacity, facilities, equipment, amenities, and claims are configura
 - Photo subjects may include instruments, artists, recording microphones, consoles, and the room atmosphere.
 
 **Image policy**
+
 - Prefer real photos supplied/approved by the user.
 - Do not synthesize fake customers, fake artists, fake equipment, or fake 37 Music Studio rooms.
 - Use clearly marked placeholders during development if assets are unavailable.
@@ -311,6 +337,7 @@ Room names, capacity, facilities, equipment, amenities, and claims are configura
 - Add useful alt text for informative photos.
 
 **Mobile**
+
 - Use a well-balanced two-column grid if readable; otherwise a one-column or carefully controlled two-column composition.
 - Never require horizontal scrolling to discover essential content.
 - Do not autoplay a carousel.
@@ -318,6 +345,7 @@ Room names, capacity, facilities, equipment, amenities, and claims are configura
 ### Section 08 — Booking Process + Booking Inquiry
 
 **Reference treatment**
+
 - A bold split panel.
 - Left: black background, lime eyebrow, large white editorial heading (e.g. “Three taps to loud.”), three numbered process steps, small reassurance/social-proof line.
 - Right: warm/white panel with booking inquiry heading and concise helper copy.
@@ -326,6 +354,7 @@ Room names, capacity, facilities, equipment, amenities, and claims are configura
 
 **Process copy**
 Use simple draft steps such as:
+
 1. Pick room + time.
 2. We confirm availability.
 3. Show up and play.
@@ -333,6 +362,7 @@ Use simple draft steps such as:
 Because this phase has no backend or real calendar availability, label the section as an inquiry/demo flow and do not claim an actual confirmation will occur.
 
 **Frontend-only demo form fields**
+
 - Name / band name.
 - WhatsApp / contact number.
 - Requested service.
@@ -344,6 +374,7 @@ Because this phase has no backend or real calendar availability, label the secti
 - Submit button.
 
 **Form implementation**
+
 - Use React Hook Form + Zod only if useful for this client-side validation.
 - Provide clear required/optional labeling and inline error messages.
 - Input types and mobile keyboard hints must match the data.
@@ -354,6 +385,7 @@ Because this phase has no backend or real calendar availability, label the secti
 - Avoid collecting sensitive information.
 
 **Mobile**
+
 - Stack process panel above the form panel.
 - Inputs are full-width, vertically arranged, and at least 44 CSS px in height.
 - Use native date/time inputs unless a strong accessibility reason requires a custom control.
@@ -363,18 +395,21 @@ Because this phase has no backend or real calendar availability, label the secti
 ### Section 09 — Testimonials + Location / Contact
 
 **Reference treatment**
+
 - Desktop: lime testimonial panel on the left and a white/ivory location/contact card on the right.
 - Testimonials are displayed in crisp white cards with black outlines.
 - Contact card has a dark eyebrow, strong heading, address/hours/phone rows, location image/map preview, and a directions action.
 - Cards use the same hard shadow geometry as earlier sections.
 
 **Content constraints**
+
 - Testimonials, names, avatars, star ratings, customer counts, address, hours, phone number, and map pin are all unverified until supplied.
 - Use explicitly labelled demo content during UI development. Never publish invented ratings, quotes, visitor/session counts, business details, or coordinates as real.
 - Map preview may use a neutral placeholder until an approved location is provided.
 - `Open in Maps` must not point to an invented address.
 
 **Mobile**
+
 - Stack testimonial and contact panels.
 - Testimonials must remain readable; no tiny carousel-only text.
 - Contact details must use tappable phone/map links when configured.
@@ -382,6 +417,7 @@ Because this phase has no backend or real calendar availability, label the secti
 ### Section 10 — Final CTA
 
 **Reference treatment**
+
 - Full-width vivid signal-orange panel.
 - Thick black outline and hard offset shadow.
 - Small dark eyebrow label.
@@ -390,10 +426,12 @@ Because this phase has no backend or real calendar availability, label the secti
 - Dark primary booking button and contrasting secondary contact button.
 
 **Behavior**
+
 - Primary CTA scrolls to `#booking`.
 - Secondary CTA can open an approved WhatsApp contact target only after the user supplies it. Until then, use a clearly marked non-production placeholder that does not launch a fabricated URL.
 
 **Mobile**
+
 - Strong stacked headline with controlled line breaks.
 - Buttons stack or wrap with comfortable tap targets.
 - Avoid clipping and excessively tall empty banner space.
@@ -401,6 +439,7 @@ Because this phase has no backend or real calendar availability, label the secti
 ### Section 11 — Footer
 
 **Reference treatment**
+
 - Full-width black background.
 - Brand lockup and short brand descriptor.
 - Compact address/directions block.
@@ -410,6 +449,7 @@ Because this phase has no backend or real calendar availability, label the secti
 - Thin lower divider and small copyright/legal row.
 
 **Content**
+
 - Use approved social links and business details only.
 - Omit unprovided legal links or display neutral development placeholders; do not invent a legal policy.
 - Keep footer content readable on mobile.
@@ -420,14 +460,14 @@ Because this phase has no backend or real calendar availability, label the secti
 
 Approximate values sampled by visual judgment from the supplied screenshot. They are initial design tokens, not guaranteed extracted brand specifications.
 
-| Token | Approx. value | Usage |
-|---|---|---|
-| Warm ivory | `#F1EEE4` | Main page canvas and light surfaces |
-| Ink black | `#151515` | Text, outlines, dark panels, footer |
-| Acid lime | `#C8F13A` | Ticker, feature highlights, eyebrow chips, testimonial panel |
-| Signal orange | `#FF4B22` | Primary CTA and headline emphasis |
-| Clean white | `#FFFFFF` | Card interiors and contrast surfaces |
-| Muted gray | `#DAD6CB` | Secondary borders / restrained surfaces |
+| Token         | Approx. value | Usage                                                        |
+| ------------- | ------------- | ------------------------------------------------------------ |
+| Warm ivory    | `#F1EEE4`     | Main page canvas and light surfaces                          |
+| Ink black     | `#151515`     | Text, outlines, dark panels, footer                          |
+| Acid lime     | `#C8F13A`     | Ticker, feature highlights, eyebrow chips, testimonial panel |
+| Signal orange | `#FF4B22`     | Primary CTA and headline emphasis                            |
+| Clean white   | `#FFFFFF`     | Card interiors and contrast surfaces                         |
+| Muted gray    | `#DAD6CB`     | Secondary borders / restrained surfaces                      |
 
 Centralize these as CSS custom properties. Do not scatter raw color values throughout component markup.
 
@@ -460,16 +500,17 @@ Centralize these as CSS custom properties. Do not scatter raw color values throu
 
 Mobile is the primary design target. Implement mobile structure first, then enhance it for larger screens.
 
-| Viewport | Required behavior |
-|---|---|
-| 320–374 px | No horizontal overflow; single-column sections; compact header; readable display type |
-| 375–430 px | Primary mobile review target; balanced spacing, prominent hero CTAs, comfortable touch controls |
-| 431–767 px | Fluid mobile/tablet transition; preserve vertical hierarchy |
-| 768–1023 px | Introduce two-column layouts where they improve clarity |
-| 1024 px+ | Restore the reference's asymmetric editorial grid and expanded navigation |
-| Wide desktop | Restrained maximum content width; do not stretch text lines or cards excessively |
+| Viewport     | Required behavior                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------------- |
+| 320–374 px   | No horizontal overflow; single-column sections; compact header; readable display type           |
+| 375–430 px   | Primary mobile review target; balanced spacing, prominent hero CTAs, comfortable touch controls |
+| 431–767 px   | Fluid mobile/tablet transition; preserve vertical hierarchy                                     |
+| 768–1023 px  | Introduce two-column layouts where they improve clarity                                         |
+| 1024 px+     | Restore the reference's asymmetric editorial grid and expanded navigation                       |
+| Wide desktop | Restrained maximum content width; do not stretch text lines or cards excessively                |
 
 Mandatory mobile rules:
+
 - Design and test at 375–430 px before desktop tuning.
 - Do not simply scale down the desktop design.
 - No horizontal document scrolling at supported widths.
@@ -511,22 +552,22 @@ This is a deliberately temporary UI affordance for the future internal applicati
 
 ## 10. Functional Interaction Matrix
 
-| Element | Expected behavior in Phase 2 |
-|---|---|
-| Logo | Scroll to top / route to `/` |
-| Services nav | Scroll to `#services` |
-| Rooms nav | Scroll to `#rooms` |
-| Gallery nav | Scroll to `#gallery` |
-| How to book nav | Scroll to `#how-to-book` |
-| Contact nav | Scroll to `#contact` |
-| Book now / Book a session | Scroll to `#booking` |
-| See the rooms | Scroll to `#rooms` |
-| Check availability on a service card | Scroll to `#booking` and preselect that service |
-| Book this room | Scroll to `#booking` and preselect that room |
-| Inquiry form submit | Client-side validation and honest demo confirmation only |
-| Login | Accessible “coming soon” dialog; no authentication |
-| Open in Maps | Only works when the actual destination is supplied |
-| WhatsApp / phone / social links | Only use verified owner-provided destinations |
+| Element                              | Expected behavior in Phase 2                             |
+| ------------------------------------ | -------------------------------------------------------- |
+| Logo                                 | Scroll to top / route to `/`                             |
+| Services nav                         | Scroll to `#services`                                    |
+| Rooms nav                            | Scroll to `#rooms`                                       |
+| Gallery nav                          | Scroll to `#gallery`                                     |
+| How to book nav                      | Scroll to `#how-to-book`                                 |
+| Contact nav                          | Scroll to `#contact`                                     |
+| Book now / Book a session            | Scroll to `#booking`                                     |
+| See the rooms                        | Scroll to `#rooms`                                       |
+| Check availability on a service card | Scroll to `#booking` and preselect that service          |
+| Book this room                       | Scroll to `#booking` and preselect that room             |
+| Inquiry form submit                  | Client-side validation and honest demo confirmation only |
+| Login                                | Accessible “coming soon” dialog; no authentication       |
+| Open in Maps                         | Only works when the actual destination is supplied       |
+| WhatsApp / phone / social links      | Only use verified owner-provided destinations            |
 
 All interactive elements must have a real and clear behavior. If a destination is not supplied, do not pretend a placeholder link works.
 
@@ -534,26 +575,26 @@ All interactive elements must have a real and clear behavior. If a destination i
 
 Use the dependency foundation already committed in Phase 1. Do not introduce another UI system or replace pinned packages without an explicit reason and approval.
 
-| Need | Existing dependency | Phase 2 guidance |
-|---|---|---|
-| UI runtime | React 19.3.1 + React DOM | JavaScript / JSX only |
-| Build tool | Vite 8.3.8 | Use existing config |
-| Styling | Tailwind CSS 4.3.5 | Mobile-first layout and tokens |
-| Accessible primitives | `@base-ui/react` 1.9.0 | Menu and dialog interactions |
-| Local components | shadcn CLI 4.23.0 | Add only required component source |
-| Animation | `motion` 14.14.0 | Optional, limited interaction/reveal motion |
-| Icons | `lucide-react` 1.74.0 | Consistent icons |
-| Class helpers | CVA 0.7.1, clsx 2.1.1, tailwind-merge 3.7.0 | Component variants and class merging |
-| Form | React Hook Form 7.92.0 | Client-side inquiry form |
-| Validation | Zod 4.6.7 + resolvers 7.0.7 | Client-side validation |
-| Feedback | Sonner 2.0.8 | Use only for meaningful feedback |
-| Routing | React Router 8.5.1 | Only if current app routing requires it; no login route |
-| Backend SDK | Firebase 13.3.0 | Do not import/use in this phase |
-| Global state | Zustand 5.1.0 | Not needed; use local state |
-| Server state | TanStack Query 5.107.1 | Not needed for static/demo content |
-| Charts | ECharts 6.1.0 | Not used |
-| Data table/virtualization | TanStack Table / Virtual | Not used |
-| Date/time utilities | date-fns / @date-fns/tz | Use only if needed for demo date input; no real availability logic |
+| Need                      | Existing dependency                         | Phase 2 guidance                                                   |
+| ------------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
+| UI runtime                | React 19.3.1 + React DOM                    | JavaScript / JSX only                                              |
+| Build tool                | Vite 8.3.8                                  | Use existing config                                                |
+| Styling                   | Tailwind CSS 4.3.5                          | Mobile-first layout and tokens                                     |
+| Accessible primitives     | `@base-ui/react` 1.9.0                      | Menu and dialog interactions                                       |
+| Local components          | shadcn CLI 4.23.0                           | Add only required component source                                 |
+| Animation                 | `motion` 14.14.0                            | Optional, limited interaction/reveal motion                        |
+| Icons                     | `lucide-react` 1.74.0                       | Consistent icons                                                   |
+| Class helpers             | CVA 0.7.1, clsx 2.1.1, tailwind-merge 3.7.0 | Component variants and class merging                               |
+| Form                      | React Hook Form 7.92.0                      | Client-side inquiry form                                           |
+| Validation                | Zod 4.6.7 + resolvers 7.0.7                 | Client-side validation                                             |
+| Feedback                  | Sonner 2.0.8                                | Use only for meaningful feedback                                   |
+| Routing                   | React Router 8.5.1                          | Only if current app routing requires it; no login route            |
+| Backend SDK               | Firebase 13.3.0                             | Do not import/use in this phase                                    |
+| Global state              | Zustand 5.1.0                               | Not needed; use local state                                        |
+| Server state              | TanStack Query 5.107.1                      | Not needed for static/demo content                                 |
+| Charts                    | ECharts 6.1.0                               | Not used                                                           |
+| Data table/virtualization | TanStack Table / Virtual                    | Not used                                                           |
+| Date/time utilities       | date-fns / @date-fns/tz                     | Use only if needed for demo date input; no real availability logic |
 
 ### Bundle policy
 
@@ -571,12 +612,14 @@ Use the dependency foundation already committed in Phase 1. Do not introduce ano
 All business content must live in a centralized, easy-to-replace source module (for example, `src/data/landing-page-content.js`).
 
 The content module should clearly separate:
+
 - confirmed content supplied by the owner;
 - draft copy awaiting approval;
 - demonstration placeholders;
 - link destinations requiring real values.
 
 Use explicit placeholder strings such as:
+
 - `[STUDIO_ADDRESS_PENDING]`
 - `[WHATSAPP_NUMBER_PENDING]`
 - `[OPERATING_HOURS_PENDING]`
@@ -585,6 +628,7 @@ Use explicit placeholder strings such as:
 Do not display these raw tokens to public visitors. For missing production data, hide the corresponding row or show a development-only visual placeholder with an obvious label.
 
 The following are unconfirmed and must not be fabricated:
+
 - address and map coordinates;
 - operating hours;
 - phone, WhatsApp, and email;
@@ -600,6 +644,7 @@ Demo values may exist for local design preview only. Mark them as demo in code/c
 ## 13. Accessibility, Performance, SEO, and Quality
 
 ### Accessibility
+
 - Target WCAG 2.2 AA.
 - Use semantic header, nav, main, section, form, and footer landmarks.
 - Maintain a logical H1/H2/H3 structure.
@@ -611,6 +656,7 @@ Demo values may exist for local design preview only. Mark them as demo in code/c
 - Respect `prefers-reduced-motion`.
 
 ### Performance
+
 - Prioritize mobile rendering and real image optimization.
 - The hero image should have intrinsic dimensions and loading priority appropriate to its LCP role.
 - Below-the-fold gallery images should lazy-load.
@@ -624,6 +670,7 @@ Demo values may exist for local design preview only. Mark them as demo in code/c
 - These are targets, not claims about unmeasured results.
 
 ### SEO and sharing
+
 - Descriptive title and meta description.
 - Approved Open Graph/social preview image.
 - Canonical URL only after the public domain is confirmed.
@@ -632,6 +679,7 @@ Demo values may exist for local design preview only. Mark them as demo in code/c
 - Do not publish fake business claims, ratings, or offers.
 
 ### Quality
+
 - ESLint clean.
 - Prettier check clean.
 - Vitest passes.
@@ -644,6 +692,7 @@ Demo values may exist for local design preview only. Mark them as demo in code/c
 ## 14. Acceptance Criteria
 
 ### Visual fidelity
+
 - [ ] Overall page closely resembles the supplied reference's neo-brutalist editorial identity.
 - [ ] Warm ivory, black, acid lime, and signal orange are used consistently.
 - [ ] Strong black outlines and hard offset shadows are present on the appropriate cards and CTA panels.
@@ -653,6 +702,7 @@ Demo values may exist for local design preview only. Mark them as demo in code/c
 - [ ] No generic SaaS dashboard or glassmorphism visual language has replaced the reference style.
 
 ### Mobile-first
+
 - [ ] Mobile composition is designed first and reviewed at 375–430 px.
 - [ ] No horizontal overflow down to 320 px.
 - [ ] Header navigation and Login are reachable.
@@ -663,6 +713,7 @@ Demo values may exist for local design preview only. Mark them as demo in code/c
 - [ ] The visual hierarchy remains recognizable at all tested sizes.
 
 ### Function
+
 - [ ] All section navigation and scroll CTAs work.
 - [ ] Service/room CTAs preselect the correct demo form option.
 - [ ] Inquiry form validates inputs and shows the explicitly labelled demo response.
@@ -672,6 +723,7 @@ Demo values may exist for local design preview only. Mark them as demo in code/c
 - [ ] Missing link targets do not lead to fake destinations.
 
 ### Engineering
+
 - [ ] Only existing dependencies are used unless an addition is approved.
 - [ ] No unused heavy dependency is imported.
 - [ ] Static content is centralized and replaceable.
@@ -682,20 +734,20 @@ Demo values may exist for local design preview only. Mark them as demo in code/c
 
 The following can be supplied during implementation or left as clearly identified local-only placeholders until available:
 
-| Item | Needed for production? | Current status |
-|---|---|---|
-| Banani screenshot (primary visual reference) | Yes, for visual comparison | Supplied in this conversation; not currently committed in repository |
-| 37 Music Studio logo/mark | Yes | To provide/confirm |
-| Actual room photos | Yes for factual studio representation | To provide |
-| Gallery photos | Strongly recommended | To provide |
-| Actual services and descriptions | Yes | To confirm |
-| Room details/capacities/features | Yes if displayed | To confirm |
-| WhatsApp / phone / email | Yes if contact CTAs are enabled | To confirm |
-| Address / map destination | Yes if location card is enabled | To confirm |
-| Opening hours | If displayed | To confirm |
-| Pricing | Optional; owner decision | To confirm |
-| Testimonials and rating source | Optional | To confirm |
-| Production domain | Before canonical SEO / launch | To confirm |
+| Item                                         | Needed for production?                | Current status                                                       |
+| -------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------- |
+| Banani screenshot (primary visual reference) | Yes, for visual comparison            | Supplied in this conversation; not currently committed in repository |
+| 37 Music Studio logo/mark                    | Yes                                   | To provide/confirm                                                   |
+| Actual room photos                           | Yes for factual studio representation | To provide                                                           |
+| Gallery photos                               | Strongly recommended                  | To provide                                                           |
+| Actual services and descriptions             | Yes                                   | To confirm                                                           |
+| Room details/capacities/features             | Yes if displayed                      | To confirm                                                           |
+| WhatsApp / phone / email                     | Yes if contact CTAs are enabled       | To confirm                                                           |
+| Address / map destination                    | Yes if location card is enabled       | To confirm                                                           |
+| Opening hours                                | If displayed                          | To confirm                                                           |
+| Pricing                                      | Optional; owner decision              | To confirm                                                           |
+| Testimonials and rating source               | Optional                              | To confirm                                                           |
+| Production domain                            | Before canonical SEO / launch         | To confirm                                                           |
 
 ---
 
@@ -948,6 +1000,7 @@ PROCESS RULES
 ## 17. Phase 2 Definition of Done
 
 Phase 2 is complete only when:
+
 - the public landing page is implemented at `/`;
 - all eleven page sections are present in the correct order;
 - visual comparison against the supplied Banani screenshot has been reviewed;

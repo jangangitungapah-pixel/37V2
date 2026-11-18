@@ -1,0 +1,175 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 2: PUBLIC LANDING PAGE (NEO-BRUTALIST EDITORIAL × PREMIUM MUSIC STUDIO)
+Date: 2026-11-17
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: C:\Users\hazel\source\repos\37V2
+Branch: main
+
+============================================================
+1. PRODUCT BOUNDARY & USER CONFIRMATION
+============================================================
+
+- This public landing page at route "/" is built specifically for prospective
+  37 Music Studio clients (bands, musicians, recording artists, and producers/
+  creators) so they can explore the studio's services, inspect room setups,
+  and submit a session inquiry.
+- It is NOT a SaaS marketing page for other studio owners.
+- The application is built exclusively for 37 Music Studio's internal
+  management. The header and footer include a secondary "Login" button for
+  future Owner/Operator access, which opens an accessible Base UI dialog
+  explaining that internal staff login is coming in a future update.
+
+============================================================
+2. IMPLEMENTED PHASE 2 SCOPE (ALL 11 SECTIONS IN ORDER)
+============================================================
+
+1. Section 01 — Slim Black Top Utility Strip (`src/components/landing/SiteHeader.jsx`)
+   - Displays service descriptor (`37 MUSIC STUDIO • REHEARSAL / RECORDING / MIXING`),
+     demo operating-hours notice, and quick `#booking` shortcut.
+
+2. Section 02 — Warm Ivory Main Header & Accessible Mobile Menu (`src/components/landing/SiteHeader.jsx`)
+   - Square `37` brand mark, `37 MUSIC STUDIO` wordmark, and tagline.
+   - Section anchor navigation (`Services`, `Rooms`, `Gallery`, `How to book`, `Contact`).
+   - Secondary `Login` button (triggers Coming Soon dialog) and solid signal-orange
+     `Book now` primary CTA.
+   - Mobile (< 1024px): keeps `Book now` visible alongside an accessible
+     `@base-ui/react/dialog` navigation drawer containing all section anchors,
+     `Book now`, and `Login (Staff / Owner)`.
+
+3. Section 03 — Asymmetric Editorial Hero (`src/components/landing/HeroSection.jsx`)
+   - Mobile-first vertical stack (badges -> poster headline -> copy -> CTAs ->
+     framed studio preview card -> 3-cell fact strip) expanding to an asymmetric
+     7/5 editorial grid on desktop (`lg:grid-cols-12`).
+   - Poster display headline (`LOUD ROOMS` / inverted `FOR LOUD` / signal-orange `IDEAS.`).
+   - Framed Room A preview card with top-left tilted orange sticker (`STUDIO PREVIEW`),
+     caption bar, and bottom-right floating acoustic badge.
+   - Three-cell fact strip with acid-lime center highlight cell.
+
+4. Section 04 — Acid-Lime Service Ticker / Divider (`src/components/landing/HeroSection.jsx`)
+   - Full-width `#C8F13A` band listing core capabilities (`BAND REHEARSAL`,
+     `MULTITRACK RECORDING`, `VOCAL TRACKING`, `MIXING & MASTERING`,
+     `BACKLINE INCLUDED`, `TREATED ROOMS`, `ON-SITE CREW SUPPORT`).
+
+5. Section 05 — Services ("Pick your session") (`src/components/landing/ServicesSection.jsx`)
+   - Three numbered neo-brutalist cards (`01 Rehearsal`, `02 Recording`,
+     `03 Mix & Master`) with category badges, bordered icon tiles, descriptions,
+     3 checkmark bullets, and `Check availability` actions.
+   - Clicking `Check availability` scrolls to `#booking` and preselects both the
+     corresponding service and default room in the inquiry form.
+
+6. Section 06 — Rooms ("Two rooms, zero guesswork") (`src/components/landing/RoomsSection.jsx`)
+   - Two photo-led room cards (`Room A — Live Room` and `Room B — Control + Booth`)
+     with acid-lime top-left stickers, draft capacity/setup lines, capability
+     chips, and full-width black `Book this room` buttons that scroll to
+     `#booking` and preselect that room.
+   - Shared capability pill strip underneath (`All sessions include (draft):`).
+
+7. Section 07 — Gallery ("Proof, not renders.") (`src/components/landing/GallerySection.jsx` & `GalleryLightboxDialog.jsx`)
+   - Four-card studio detail grid with thick black borders, hard shadows, and
+     bottom captions.
+   - Lazy-loaded `@base-ui/react/dialog` lightbox viewer with keyboard-operable
+     Prev/Next navigation.
+
+8. Section 08 — Split Booking Process + Frontend-Only Booking Inquiry (`src/components/landing/BookingSection.jsx`)
+   - Left panel (`#how-to-book`): Ink-black surface with acid-lime eyebrow,
+     `Three taps to loud.` heading, 3 numbered process steps, and demo notice.
+   - Right panel (`#booking`): Client-side validated inquiry form using
+     `react-hook-form` + `zod` + `@hookform/resolvers/zod`.
+   - Fields: Name / band name, WhatsApp / contact number, Requested service
+     (tactile 3-button group), Room preference, Estimated duration, Preferred
+     date, Preferred start time, and Notes.
+   - On valid submit: displays the honest demo confirmation message
+     ("Demo inquiry only — your request has not been sent. The booking
+     integration will be added later.") with a summary and Edit/Reset controls.
+     No data is sent to Firebase, an API, or localStorage.
+
+9. Section 09 — Acid-Lime Testimonials + Location / Contact Card (`src/components/landing/TestimonialsAndContactSection.jsx`)
+   - Acid-lime panel with two white bordered sample quote cards explicitly
+     badged as `DEMO QUOTE` / `DEMO PREVIEW` awaiting owner-verified quotes.
+   - White Location & Contact card (`#contact`) with honest pending notices for
+     address, hours, and WhatsApp/phone, architectural preview image, and
+     `Open in Maps` action that displays a pending-coordinates notice instead of
+     opening a fabricated address.
+
+10. Section 10 — Full-Width Signal-Orange Final CTA (`src/components/landing/TestimonialsAndContactSection.jsx`)
+    - `DON’T REHEARSE IN A GARAGE.` banner with dark `Book a session` CTA and
+      secondary `Ask on WhatsApp` CTA (shows honest pending-number notice and
+      scrolls to `#booking`).
+
+11. Section 11 — Ink-Black Footer (`src/components/landing/SiteFooter.jsx`)
+    - Brand lockup, social buttons (with honest pending-URL notice), Visit
+      section links, Hours & Contact summary, `Start booking inquiry` CTA, and
+      `Staff / Owner Login` trigger.
+
+============================================================
+3. CREATED & MODIFIED FILES
+============================================================
+
+Modified:
+- index.html
+- src/App.jsx
+- src/styles/index.css
+- src/lib/firebase/client.js (removed unused `getApp` import to pass ESLint)
+- src/lib/utils.test.js (resolved ESLint `no-constant-binary-expression`)
+
+Created:
+- src/data/landing-page-content.js
+- src/pages/LandingPage.jsx
+- src/pages/LandingPage.test.jsx
+- src/components/landing/StudioImage.jsx
+- src/components/landing/LoginComingSoonDialog.jsx
+- src/components/landing/SiteHeader.jsx
+- src/components/landing/HeroSection.jsx
+- src/components/landing/ServicesSection.jsx
+- src/components/landing/RoomsSection.jsx
+- src/components/landing/GallerySection.jsx
+- src/components/landing/GalleryLightboxDialog.jsx
+- src/components/landing/BookingSection.jsx
+- src/components/landing/bookingInquirySchema.js
+- src/components/landing/TestimonialsAndContactSection.jsx
+- src/components/landing/SiteFooter.jsx
+- public/images/demo/room-a-live.svg
+- public/images/demo/room-b-control.svg
+- public/images/demo/gallery-guitar.svg
+- public/images/demo/gallery-drums.svg
+- public/images/demo/gallery-mic.svg
+- public/images/demo/gallery-console.svg
+- public/images/demo/location-exterior.svg
+- docs/handoffs/HANDOFF-PHASE-2-LANDING-PAGE-2026-11-17.txt
+
+============================================================
+4. QUALITY & VERIFICATION RESULTS
+============================================================
+
+- `npm run format:check`: PASSED (0 formatting issues across all files)
+- `npm run lint`: PASSED (0 errors, 0 warnings)
+- `npm run test:run`: PASSED (2 test files, 8 tests passed: `src/lib/utils.test.js` + `src/pages/LandingPage.test.jsx`)
+- `npm run build`: PASSED (Vite production build succeeded with lazy-loaded Gallery lightbox chunk)
+- `npm audit`: Reported 2 existing transitive dependency advisories from Phase 1
+  (`@grpc/grpc-js` under `@firebase/firestore`, which is not imported on the
+  landing page, and `minimatch` under the `shadcn` CLI devDependency). Neither
+  was force-downgraded so pinned Phase 1 dependency versions remain intact.
+
+============================================================
+5. OWNER ASSETS & INPUTS STILL PENDING BEFORE PRODUCTION
+============================================================
+
+All pending items are isolated in `src/data/landing-page-content.js`:
+1. Official 37 Music Studio logo/mark (if replacing the typographic `37` badge).
+2. Real studio photographs for Hero, Room A, Room B, Gallery, and Exterior
+   (currently using clearly labeled SVG studio illustrations in `public/images/demo/`).
+3. Final confirmed service names, descriptions, and package/pricing policy.
+4. Verified Room A and Room B capacities and equipment lists.
+5. Official WhatsApp number (`[WHATSAPP_NUMBER_PENDING]`), phone, and email.
+6. Verified street address and Google Maps destination (`[STUDIO_ADDRESS_PENDING]`).
+7. Confirmed operating hours (`[OPERATING_HOURS_PENDING]`).
+8. Real client testimonials and attribution approvals.
+9. Canonical production domain (`[STUDIO_DOMAIN_PENDING]`).
+
+============================================================
+6. NEXT-PHASE AUTHORITY
+============================================================
+
+Phase 2 implements the public landing page only. Do not start Phase 3 (such as
+authentication, internal Owner/Operator dashboard, or backend booking storage)
+until the user explicitly defines and authorizes the next phase.

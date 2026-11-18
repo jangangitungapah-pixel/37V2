@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 680" width="960" height="680" role="img" aria-label="Demo illustration of Room B Control Room and Vocal Booth">
+  <defs>
+    <linearGradient id="ctrlWall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#141210"/>
+      <stop offset="60%" stop-color="#292018"/>
+      <stop offset="100%" stop-color="#0d0b09"/>
+    </linearGradient>
+    <linearGradient id="boothGlass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#451a03"/>
+      <stop offset="50%" stop-color="#78350f"/>
+      <stop offset="100%" stop-color="#1c1917"/>
+    </linearGradient>
+    <linearGradient id="deskMetal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3f3f46"/>
+      <stop offset="50%" stop-color="#27272a"/>
+      <stop offset="100%" stop-color="#18181b"/>
+    </linearGradient>
+    <radialGradient id="amberSpot" cx="0.35" cy="0.25" r="0.55">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.45"/>
+      <stop offset="60%" stop-color="#b45309" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Dark acoustic control room background -->
+  <rect width="960" height="680" fill="url(#ctrlWall)"/>
+
+  <!-- Isolated Vocal Booth window on upper left -->
+  <rect x="45" y="45" width="440" height="230" rx="4" fill="url(#boothGlass)" stroke="#09090b" stroke-width="10"/>
+  <!-- Vocalist mic silhouette inside booth -->
+  <line x1="185" y1="125" x2="185" y2="270" stroke="#18181b" stroke-width="6"/>
+  <rect x="175" y="105" width="20" height="34" rx="10" fill="#fbbf24" stroke="#18181b" stroke-width="4"/>
+  <circle cx="210" cy="122" r="16" fill="none" stroke="#18181b" stroke-width="4"/>
+  <!-- Acoustic slats inside booth -->
+  <g stroke="#92400e" stroke-width="5" opacity="0.45">
+    <line x1="290" y1="55" x2="290" y2="265"/>
+    <line x1="315" y1="55" x2="315" y2="265"/>
+    <line x1="340" y1="55" x2="340" y2="265"/>
+    <line x1="365" y1="55" x2="365" y2="265"/>
+    <line x1="390" y1="55" x2="390" y2="265"/>
+    <line x1="415" y1="55" x2="415" y2="265"/>
+  </g>
+
+  <!-- Studio Monitors on Right Bridge -->
+  <g transform="translate(650, 110)">
+    <rect x="0" y="20" width="90" height="135" rx="6" fill="#18181b" stroke="#09090b" stroke-width="4"/>
+    <circle cx="45" cy="55" r="16" fill="#3f3f46"/>
+    <circle cx="45" cy="110" r="28" fill="#ea580c" opacity="0.8"/>
+
+    <rect x="145" y="0" width="110" height="165" rx="6" fill="#18181b" stroke="#09090b" stroke-width="4"/>
+    <circle cx="200" cy="45" r="18" fill="#3f3f46"/>
+    <circle cx="200" cy="115" r="34" fill="#f59e0b" opacity="0.85"/>
+  </g>
+
+  <!-- Engineer Leather Chair -->
+  <g transform="translate(155, 340)">
+    <rect x="20" y="0" width="135" height="175" rx="22" fill="#18181b" stroke="#27272a" stroke-width="4"/>
+    <rect x="0" y="120" width="175" height="38" rx="12" fill="#27272a" stroke="#09090b" stroke-width="3"/>
+    <rect x="75" y="158" width="24" height="90" fill="#18181b"/>
+  </g>
+
+  <!-- Large Format Analog Mixing Console (Right Foreground) -->
+  <g transform="translate(360, 290)">
+    <!-- Wood side cheeks & meter bridge -->
+    <polygon points="80,0 590,45 590,105 55,48" fill="#18181b" stroke="#78350f" stroke-width="5"/>
+    <!-- Glowing VU meters -->
+    <g fill="#fbbf24">
+      <rect x="105" y="15" width="28" height="16" rx="2"/>
+      <rect x="142" y="18" width="28" height="16" rx="2"/>
+      <rect x="179" y="21" width="28" height="16" rx="2"/>
+      <rect x="216" y="24" width="28" height="16" rx="2"/>
+      <rect x="253" y="27" width="28" height="16" rx="2" fill="#c8f13a"/>
+      <rect x="290" y="30" width="28" height="16" rx="2" fill="#c8f13a"/>
+      <rect x="327" y="33" width="28" height="16" rx="2"/>
+      <rect x="364" y="36" width="28" height="16" rx="2" fill="#ff4b22"/>
+      <rect x="401" y="39" width="28" height="16" rx="2"/>
+      <rect x="438" y="42" width="28" height="16" rx="2"/>
+      <rect x="475" y="45" width="28" height="16" rx="2"/>
+      <rect x="512" y="48" width="28" height="16" rx="2"/>
+    </g>
+
+    <!-- Console surface -->
+    <polygon points="55,48 590,105 590,375 -65,245" fill="url(#deskMetal)" stroke="#09090b" stroke-width="5"/>
+    <!-- Mahogany armrest bolster -->
+    <polygon points="-65,225 590,345 590,385 -80,255" fill="#7c2d12" stroke="#1c1917" stroke-width="4"/>
+
+    <!-- Channel strip faders & EQ rows -->
+    <g stroke="#a1a1aa" stroke-width="2" opacity="0.75">
+      <line x1="20" y1="190" x2="115" y2="85"/>
+      <line x1="55" y1="198" x2="148" y2="90"/>
+      <line x1="90" y1="206" x2="181" y2="95"/>
+      <line x1="125" y1="214" x2="214" y2="100"/>
+      <line x1="160" y1="222" x2="247" y2="105"/>
+      <line x1="195" y1="230" x2="280" y2="110"/>
+      <line x1="230" y1="238" x2="313" y2="115"/>
+      <line x1="265" y1="246" x2="346" y2="120"/>
+      <line x1="300" y1="254" x2="379" y2="125"/>
+      <line x1="335" y1="262" x2="412" y2="130"/>
+      <line x1="370" y1="270" x2="445" y2="135"/>
+      <line x1="405" y1="278" x2="478" y2="140"/>
+      <line x1="440" y1="286" x2="511" y2="145"/>
+      <line x1="475" y1="294" x2="544" y2="150"/>
+    </g>
+
+    <!-- Fader caps -->
+    <g fill="#f8fafc" stroke="#09090b" stroke-width="1.5">
+      <rect x="35" y="160" width="14" height="8" rx="1"/>
+      <rect x="72" y="164" width="14" height="8" rx="1"/>
+      <rect x="110" y="168" width="14" height="8" rx="1" fill="#ff4b22"/>
+      <rect x="145" y="176" width="14" height="8" rx="1"/>
+      <rect x="182" y="180" width="14" height="8" rx="1" fill="#c8f13a"/>
+      <rect x="220" y="192" width="14" height="8" rx="1"/>
+      <rect x="255" y="196" width="14" height="8" rx="1"/>
+      <rect x="292" y="204" width="14" height="8" rx="1" fill="#ff4b22"/>
+      <rect x="330" y="214" width="14" height="8" rx="1"/>
+      <rect x="368" y="222" width="14" height="8" rx="1"/>
+      <rect x="405" y="228" width="14" height="8" rx="1" fill="#38bdf8"/>
+      <rect x="442" y="236" width="14" height="8" rx="1"/>
+    </g>
+  </g>
+
+  <rect width="960" height="680" fill="url(#amberSpot)"/>
+</svg>

@@ -24,6 +24,7 @@ This PRD covers the public landing page only. It does not define or implement th
 ### 2.1 Working assumption
 
 For this draft, “Landing Page” means a **public, customer-facing website for the 37 Music Studio business**, not:
+
 - the internal dashboard shown after staff login;
 - the login or authentication screen;
 - the studio's internal booking calendar;
@@ -69,12 +70,12 @@ Any item above requires a separate product decision and scope.
 
 ## 4. Target Users and Primary Needs
 
-| User segment | Context | Primary need |
-|---|---|---|
-| Band / group | Visiting from a mobile social post or search result | Quickly see rehearsal facilities and how to inquire |
-| Recording artist / musician | Comparing studios before a recording session | Understand recording services, equipment/space highlights, and contact route |
-| Producer / creator | Looking for mixing or mastering support | Understand post-production services and submit an inquiry |
-| Returning customer | Has visited before and needs contact details again | Reach booking/contact details with minimal friction |
+| User segment                | Context                                             | Primary need                                                                 |
+| --------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Band / group                | Visiting from a mobile social post or search result | Quickly see rehearsal facilities and how to inquire                          |
+| Recording artist / musician | Comparing studios before a recording session        | Understand recording services, equipment/space highlights, and contact route |
+| Producer / creator          | Looking for mixing or mastering support             | Understand post-production services and submit an inquiry                    |
+| Returning customer          | Has visited before and needs contact details again  | Reach booking/contact details with minimal friction                          |
 
 These are working user segments for content prioritization. Their exact priorities should be validated with the studio owner before detailed copywriting.
 
@@ -107,18 +108,18 @@ These are working user segments for content prioritization. Their exact prioriti
 
 The page is a single public landing route (`/`) for this scope. Sections should follow a clear narrative from identity to offer, evidence, practical details, and action.
 
-| Order | Section | Purpose | Required content |
-|---:|---|---|---|
-| 1 | Header / Navigation | Establish identity and provide navigation | Brand mark, section links, primary CTA |
-| 2 | Hero | Explain the studio and create a strong first impression | One clear headline, supporting sentence, primary CTA, optional secondary CTA, authentic hero image |
-| 3 | Services | Explain what customers can book or request | Confirmed service categories, concise description, relevant image/icon |
-| 4 | Studio / Facilities | Show the physical spaces and important capabilities | Room names, room photos, facilities/equipment highlights verified by owner |
-| 5 | Gallery | Provide visual proof and atmosphere | Curated, optimized images with useful alt text |
-| 6 | How to Inquire / Book | Reduce uncertainty about the next step | Short, accurate steps based on the actual booking/contact process |
-| 7 | Social Proof | Build trust | Genuine testimonials, ratings, or client/artist references only when permission and source are confirmed |
-| 8 | Location & Contact | Answer practical visit questions | Verified address, map/directions link, opening hours, contact channels |
-| 9 | Final CTA | Re-state the next action after the visitor has reviewed the offer | Primary CTA and concise supporting copy |
-| 10 | Footer | Provide secondary information and close the page | Brand, contact, social links, copyright, optional legal links |
+| Order | Section               | Purpose                                                           | Required content                                                                                         |
+| ----: | --------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+|     1 | Header / Navigation   | Establish identity and provide navigation                         | Brand mark, section links, primary CTA                                                                   |
+|     2 | Hero                  | Explain the studio and create a strong first impression           | One clear headline, supporting sentence, primary CTA, optional secondary CTA, authentic hero image       |
+|     3 | Services              | Explain what customers can book or request                        | Confirmed service categories, concise description, relevant image/icon                                   |
+|     4 | Studio / Facilities   | Show the physical spaces and important capabilities               | Room names, room photos, facilities/equipment highlights verified by owner                               |
+|     5 | Gallery               | Provide visual proof and atmosphere                               | Curated, optimized images with useful alt text                                                           |
+|     6 | How to Inquire / Book | Reduce uncertainty about the next step                            | Short, accurate steps based on the actual booking/contact process                                        |
+|     7 | Social Proof          | Build trust                                                       | Genuine testimonials, ratings, or client/artist references only when permission and source are confirmed |
+|     8 | Location & Contact    | Answer practical visit questions                                  | Verified address, map/directions link, opening hours, contact channels                                   |
+|     9 | Final CTA             | Re-state the next action after the visitor has reviewed the offer | Primary CTA and concise supporting copy                                                                  |
+|    10 | Footer                | Provide secondary information and close the page                  | Brand, contact, social links, copyright, optional legal links                                            |
 
 ### Section priority
 
@@ -202,13 +203,13 @@ Mobile is the primary design target, not a condensed version of the desktop inte
 
 ### Target viewport classes
 
-| Class | Reference width | Layout expectation |
-|---|---:|---|
-| Small phone | 320–374 px | Single-column content, compact header, no horizontal overflow |
-| Standard phone | 375–430 px | Primary target; thumb-friendly actions and readable content |
-| Large phone | 431–767 px | Fluid single-column layout with more breathing room |
-| Tablet | 768–1023 px | Two-column compositions where they improve scanning |
-| Desktop | 1024 px and above | Wider grids, expanded navigation, restrained content width |
+| Class          |   Reference width | Layout expectation                                            |
+| -------------- | ----------------: | ------------------------------------------------------------- |
+| Small phone    |        320–374 px | Single-column content, compact header, no horizontal overflow |
+| Standard phone |        375–430 px | Primary target; thumb-friendly actions and readable content   |
+| Large phone    |        431–767 px | Fluid single-column layout with more breathing room           |
+| Tablet         |       768–1023 px | Two-column compositions where they improve scanning           |
+| Desktop        | 1024 px and above | Wider grids, expanded navigation, restrained content width    |
 
 These are design/test ranges, not a requirement to add a breakpoint for every exact width. Use fluid CSS and a small, purposeful breakpoint set.
 
@@ -261,24 +262,24 @@ The current CSS foundation includes neutral light/dark token slots. This PRD doe
 
 Use the dependency foundation already committed in Phase 1. Do not add another UI framework or replace the established stack without a documented reason and user approval.
 
-| Requirement | Approved dependency / approach | Usage guidance |
-|---|---|---|
-| App runtime | React 19.3.1 + React DOM | JavaScript/JSX components |
-| Dev server/build | Vite 8.3.8 | Existing Vite config and scripts |
-| Styling | Tailwind CSS 4.3.5 | Mobile-first utilities and CSS variables |
-| Accessible UI primitives | `@base-ui/react` 1.9.0 | Menu, dialog, accordion, and other needed primitives |
-| Local component source | `shadcn` 4.23.0 | Generate only approved components; own and customize the source |
-| Animation | `motion` 14.14.0 | Use for purposeful reveal/interaction only; respect reduced motion |
-| Icons | `lucide-react` 1.74.0 | Consistent iconography; do not use emoji as interface icons |
-| Variants/classes | CVA 0.7.1, clsx 2.1.1, tailwind-merge 3.7.0 | Reusable variant and class composition patterns |
-| Routing | `react-router` 8.5.1 | Keep the public landing route isolated from future protected application routes |
-| Form validation | React Hook Form 7.92.0 + Zod 4.6.7 + resolvers 7.0.7 | Only if an inquiry form is approved |
-| Notifications | Sonner 2.0.8 | Only for meaningful form/action feedback |
-| Server state | TanStack Query 5.107.1 | Not needed for static landing-page content; use only if a future approved external data flow requires it |
-| Global state | Zustand 5.1.0 | Not expected for this page; local React state is preferred |
-| Backend | Firebase 13.3.0 SDK | Not required for static content; no Firebase integration unless an approved feature needs it |
-| Date/time | date-fns 4.4.0 + @date-fns/tz 1.5.0 | Not required unless verified dynamic schedules/hours need date calculations |
-| Analytics charts | ECharts 6.1.0 + echarts-for-react 3.0.6 | Not used on the landing page |
+| Requirement              | Approved dependency / approach                       | Usage guidance                                                                                           |
+| ------------------------ | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| App runtime              | React 19.3.1 + React DOM                             | JavaScript/JSX components                                                                                |
+| Dev server/build         | Vite 8.3.8                                           | Existing Vite config and scripts                                                                         |
+| Styling                  | Tailwind CSS 4.3.5                                   | Mobile-first utilities and CSS variables                                                                 |
+| Accessible UI primitives | `@base-ui/react` 1.9.0                               | Menu, dialog, accordion, and other needed primitives                                                     |
+| Local component source   | `shadcn` 4.23.0                                      | Generate only approved components; own and customize the source                                          |
+| Animation                | `motion` 14.14.0                                     | Use for purposeful reveal/interaction only; respect reduced motion                                       |
+| Icons                    | `lucide-react` 1.74.0                                | Consistent iconography; do not use emoji as interface icons                                              |
+| Variants/classes         | CVA 0.7.1, clsx 2.1.1, tailwind-merge 3.7.0          | Reusable variant and class composition patterns                                                          |
+| Routing                  | `react-router` 8.5.1                                 | Keep the public landing route isolated from future protected application routes                          |
+| Form validation          | React Hook Form 7.92.0 + Zod 4.6.7 + resolvers 7.0.7 | Only if an inquiry form is approved                                                                      |
+| Notifications            | Sonner 2.0.8                                         | Only for meaningful form/action feedback                                                                 |
+| Server state             | TanStack Query 5.107.1                               | Not needed for static landing-page content; use only if a future approved external data flow requires it |
+| Global state             | Zustand 5.1.0                                        | Not expected for this page; local React state is preferred                                               |
+| Backend                  | Firebase 13.3.0 SDK                                  | Not required for static content; no Firebase integration unless an approved feature needs it             |
+| Date/time                | date-fns 4.4.0 + @date-fns/tz 1.5.0                  | Not required unless verified dynamic schedules/hours need date calculations                              |
+| Analytics charts         | ECharts 6.1.0 + echarts-for-react 3.0.6              | Not used on the landing page                                                                             |
 
 ### Bundle and loading policy
 
@@ -331,21 +332,21 @@ Use the dependency foundation already committed in Phase 1. Do not add another U
 
 The following items are required from the business owner before final content implementation:
 
-| Asset / data | Required detail | Status |
-|---|---|---|
-| Brand assets | Approved logo/wordmark and usage rules | To confirm |
-| Brand direction | Preferred colors, typography, light/dark preference | To confirm |
-| Hero image | Real, high-quality studio photo with usage approval | To provide |
-| Services | Actual service list and descriptions | To confirm |
-| Facilities | Room names, equipment, amenities, and approved claims | To confirm |
-| Gallery | Curated real images with consent/usage rights | To provide |
-| CTA destination | WhatsApp number, inquiry form, booking link, or another approved target | To confirm |
-| Contact | Phone, email, and social URLs | To confirm |
-| Location | Full address and map/directions destination | To confirm |
-| Operating hours | Exact days and hours, including holiday handling if relevant | To confirm |
-| Pricing | Public prices/packages, or explicit decision not to display prices | To confirm |
-| Testimonials | Authentic text, names/attribution permission, and source | Optional / to confirm |
-| Domain | Canonical production domain | To confirm |
+| Asset / data    | Required detail                                                         | Status                |
+| --------------- | ----------------------------------------------------------------------- | --------------------- |
+| Brand assets    | Approved logo/wordmark and usage rules                                  | To confirm            |
+| Brand direction | Preferred colors, typography, light/dark preference                     | To confirm            |
+| Hero image      | Real, high-quality studio photo with usage approval                     | To provide            |
+| Services        | Actual service list and descriptions                                    | To confirm            |
+| Facilities      | Room names, equipment, amenities, and approved claims                   | To confirm            |
+| Gallery         | Curated real images with consent/usage rights                           | To provide            |
+| CTA destination | WhatsApp number, inquiry form, booking link, or another approved target | To confirm            |
+| Contact         | Phone, email, and social URLs                                           | To confirm            |
+| Location        | Full address and map/directions destination                             | To confirm            |
+| Operating hours | Exact days and hours, including holiday handling if relevant            | To confirm            |
+| Pricing         | Public prices/packages, or explicit decision not to display prices      | To confirm            |
+| Testimonials    | Authentic text, names/attribution permission, and source                | Optional / to confirm |
+| Domain          | Canonical production domain                                             | To confirm            |
 
 No missing data may be fabricated. Use clearly marked development placeholders only during local design review; remove them before production.
 
@@ -353,14 +354,14 @@ No missing data may be fabricated. Use clearly marked development placeholders o
 
 No analytics provider is selected in this PRD. If tracking is later approved, measure only events needed to evaluate the page:
 
-| Metric | Definition |
-|---|---|
-| Primary CTA click-through rate | Primary CTA clicks divided by qualified landing-page visits |
-| Contact intent | Visitor opens an approved contact channel |
-| Section engagement | Visits to Services, Facilities/Gallery, and Contact sections |
-| Mobile conversion | Primary CTA rate on phone viewport classes |
-| Page performance | LCP, INP, CLS, and mobile page weight |
-| Accessibility quality | No critical keyboard, focus, contrast, or semantic failures in release review |
+| Metric                         | Definition                                                                    |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| Primary CTA click-through rate | Primary CTA clicks divided by qualified landing-page visits                   |
+| Contact intent                 | Visitor opens an approved contact channel                                     |
+| Section engagement             | Visits to Services, Facilities/Gallery, and Contact sections                  |
+| Mobile conversion              | Primary CTA rate on phone viewport classes                                    |
+| Page performance               | LCP, INP, CLS, and mobile page weight                                         |
+| Accessibility quality          | No critical keyboard, focus, contrast, or semantic failures in release review |
 
 Do not use invasive tracking or introduce analytics SDKs without an explicit privacy and vendor decision.
 
@@ -369,6 +370,7 @@ Do not use invasive tracking or introduce analytics SDKs without an explicit pri
 The initial release is acceptable only when all applicable criteria below pass:
 
 ### Functional
+
 - [ ] The landing page loads at the approved public route.
 - [ ] Header navigation reaches the correct sections.
 - [ ] Mobile menu opens, closes, and manages focus correctly.
@@ -379,6 +381,7 @@ The initial release is acceptable only when all applicable criteria below pass:
 - [ ] Broken-image fallback preserves layout.
 
 ### Mobile-first and responsive
+
 - [ ] Layout is designed and reviewed first at 375–430 px.
 - [ ] No horizontal overflow at 320 px or wider supported viewports.
 - [ ] Primary CTA is visible in the initial mobile hero composition.
@@ -388,12 +391,14 @@ The initial release is acceptable only when all applicable criteria below pass:
 - [ ] Tablet and desktop compositions preserve hierarchy and content order.
 
 ### Visual and interaction
+
 - [ ] Brand assets, colors, typography, spacing, and imagery have owner approval.
 - [ ] Animation has a clear purpose and reduced-motion behavior is verified.
 - [ ] No autoplay hero video or disruptive motion is present.
 - [ ] All controls have clear hover, focus, active, disabled, and error states where relevant.
 
 ### Quality and release
+
 - [ ] Production build succeeds.
 - [ ] ESLint and formatting checks pass.
 - [ ] Automated tests cover the meaningful interactive behavior added by the page.
@@ -405,15 +410,15 @@ The initial release is acceptable only when all applicable criteria below pass:
 
 ## 15. Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Ambiguous meaning of “Landing Page” | Wrong product surface may be designed | Confirm whether this is a public customer website or an app entry/dashboard before implementation |
-| Missing or poor-quality real photos | Premium visual direction cannot be achieved credibly | Collect approved real images before visual implementation |
-| Unconfirmed contact/booking destination | Primary CTA becomes dead or misleading | Select and test one approved destination before release |
-| Inaccurate service, room, price, or facility claims | Loss of trust and customer confusion | Require owner approval for published content |
-| Overuse of motion and visual effects | Poor mobile performance and accessibility | Motion budget, reduced-motion checks, mobile performance tests |
-| Scope expands into booking workflows | Delays and hidden backend requirements | Keep booking transaction logic out of this PRD |
-| Too many dependencies loaded on initial route | Slower mobile experience | Import only dependencies required by approved page interactions |
+| Risk                                                | Impact                                               | Mitigation                                                                                        |
+| --------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Ambiguous meaning of “Landing Page”                 | Wrong product surface may be designed                | Confirm whether this is a public customer website or an app entry/dashboard before implementation |
+| Missing or poor-quality real photos                 | Premium visual direction cannot be achieved credibly | Collect approved real images before visual implementation                                         |
+| Unconfirmed contact/booking destination             | Primary CTA becomes dead or misleading               | Select and test one approved destination before release                                           |
+| Inaccurate service, room, price, or facility claims | Loss of trust and customer confusion                 | Require owner approval for published content                                                      |
+| Overuse of motion and visual effects                | Poor mobile performance and accessibility            | Motion budget, reduced-motion checks, mobile performance tests                                    |
+| Scope expands into booking workflows                | Delays and hidden backend requirements               | Keep booking transaction logic out of this PRD                                                    |
+| Too many dependencies loaded on initial route       | Slower mobile experience                             | Import only dependencies required by approved page interactions                                   |
 
 ## 16. Open Product Decisions — Required Before Implementation
 

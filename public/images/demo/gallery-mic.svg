@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 680" width="600" height="680" role="img" aria-label="Demo studio illustration of vocal condenser microphone">
+  <defs>
+    <linearGradient id="boothBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#451a03"/>
+      <stop offset="55%" stop-color="#1c1917"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+    <linearGradient id="micBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#94a3b8"/>
+      <stop offset="50%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="680" fill="url(#boothBg)"/>
+
+  <!-- Blurred studio window & monitors in background -->
+  <rect x="65" y="70" width="380" height="240" rx="8" fill="#292524" stroke="#78350f" stroke-width="8"/>
+  <rect x="115" y="120" width="170" height="110" rx="4" fill="#0284c7" opacity="0.55"/>
+  <rect x="15" y="210" width="90" height="145" rx="6" fill="#18181b" stroke="#09090b" stroke-width="4"/>
+  <circle cx="60" cy="295" r="24" fill="#a16207"/>
+
+  <!-- Condenser Microphone & Shockmount -->
+  <g transform="translate(335, 195)">
+    <!-- Capsule grille -->
+    <rect x="30" y="0" width="76" height="110" rx="38" fill="#cbd5e1" stroke="#1e293b" stroke-width="5"/>
+    <g stroke="#475569" stroke-width="2.5">
+      <line x1="35" y1="25" x2="101" y2="25"/>
+      <line x1="32" y1="45" x2="104" y2="45"/>
+      <line x1="32" y1="65" x2="104" y2="65"/>
+      <line x1="35" y1="85" x2="101" y2="85"/>
+    </g>
+    <!-- Mic chassis -->
+    <rect x="26" y="95" width="84" height="165" rx="8" fill="url(#micBody)" stroke="#0f172a" stroke-width="5"/>
+    <!-- Shockmount rings -->
+    <ellipse cx="68" cy="185" rx="68" ry="18" fill="none" stroke="#1e293b" stroke-width="8"/>
+    <ellipse cx="68" cy="225" rx="68" ry="18" fill="none" stroke="#1e293b" stroke-width="8"/>
+    <rect x="54" y="260" width="28" height="225" fill="#1e293b"/>
+  </g>
+
+  <!-- Pop Filter in Foreground -->
+  <g transform="translate(185, 225)">
+    <ellipse cx="75" cy="95" rx="62" ry="82" fill="#09090b" fill-opacity="0.72" stroke="#18181b" stroke-width="14"/>
+    <path d="M75,177 C75,260 140,310 215,355" fill="none" stroke="#18181b" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>

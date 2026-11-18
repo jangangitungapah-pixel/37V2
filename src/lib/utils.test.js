@@ -8,6 +8,7 @@ describe('cn', () => {
   });
 
   it('supports conditional class values', () => {
-    expect(cn('text-sm', false && 'hidden', 'font-medium')).toBe('text-sm font-medium');
+    const isHidden = false;
+    expect(cn('text-sm', isHidden && 'hidden', 'font-medium')).toBe('text-sm font-medium');
   });
 });

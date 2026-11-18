@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 680" width="600" height="680" role="img" aria-label="Demo studio illustration of mixing console faders">
+  <defs>
+    <linearGradient id="mixSurface" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#27272a"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="680" fill="#1c1917"/>
+
+  <!-- Background studio monitor speaker -->
+  <rect x="380" y="30" width="175" height="220" rx="10" fill="#18181b" stroke="#09090b" stroke-width="5"/>
+  <circle cx="468" cy="135" r="56" fill="#ca8a04" stroke="#09090b" stroke-width="8"/>
+  <circle cx="468" cy="135" r="18" fill="#18181b"/>
+
+  <!-- Angled Mixing Board -->
+  <polygon points="0,240 600,155 600,680 0,680" fill="url(#mixSurface)" stroke="#09090b" stroke-width="6"/>
+
+  <!-- Rows of rotary EQ/Aux knobs -->
+  <g fill="#3f3f46" stroke="#09090b" stroke-width="3">
+    <circle cx="140" cy="310" r="16"/><circle cx="215" cy="295" r="16"/><circle cx="290" cy="280" r="16"/><circle cx="365" cy="265" r="16"/><circle cx="440" cy="250" r="16"/><circle cx="515" cy="235" r="16"/>
+    <circle cx="170" cy="365" r="16" fill="#38bdf8"/><circle cx="245" cy="350" r="16"/><circle cx="320" cy="335" r="16" fill="#c8f13a"/><circle cx="395" cy="320" r="16"/><circle cx="470" cy="305" r="16" fill="#ff4b22"/><circle cx="545" cy="290" r="16"/>
+    <circle cx="200" cy="425" r="18"/><circle cx="275" cy="410" r="18"/><circle cx="350" cy="395" r="18"/><circle cx="425" cy="380" r="18"/><circle cx="500" cy="365" r="18"/>
+  </g>
+
+  <!-- Fader tracks -->
+  <g stroke="#52525b" stroke-width="6" stroke-linecap="round">
+    <line x1="120" y1="490" x2="220" y2="650"/>
+    <line x1="205" y1="475" x2="305" y2="635"/>
+    <line x1="290" y1="460" x2="390" y2="620"/>
+    <line x1="375" y1="445" x2="475" y2="605"/>
+    <line x1="460" y1="430" x2="560" y2="590"/>
+  </g>
+
+  <!-- Fader caps -->
+  <g fill="#f8fafc" stroke="#09090b" stroke-width="3">
+    <rect x="145" y="545" width="36" height="18" rx="3" transform="rotate(-12 163 554)"/>
+    <rect x="240" y="540" width="36" height="18" rx="3" fill="#ff4b22" transform="rotate(-12 258 549)"/>
+    <rect x="315" y="510" width="36" height="18" rx="3" fill="#c8f13a" transform="rotate(-12 333 519)"/>
+    <rect x="410" y="510" width="36" height="18" rx="3" transform="rotate(-12 428 519)"/>
+    <rect x="485" y="485" width="36" height="18" rx="3" transform="rotate(-12 503 494)"/>
+  </g>
+
+  <!-- Engineer hand silhouette adjusting EQ -->
+  <path d="M0,260 C55,255 115,275 155,315 C175,335 162,360 135,350 C105,338 80,330 55,340 L85,390 C100,410 80,430 60,415 L0,365 Z" fill="#d97706" stroke="#451a03" stroke-width="4"/>
+</svg>

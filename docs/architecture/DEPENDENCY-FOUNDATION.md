@@ -9,27 +9,27 @@ This foundation deliberately prepares the toolchain without defining product scr
 
 ## Runtime and build foundation
 
-| Area | Package | Pinned version | Responsibility |
-|---|---|---:|---|
-| UI runtime | `react`, `react-dom` | 19.3.1 | React application runtime |
-| Dev server / bundler | `vite` | 8.3.8 | Development server and production build |
-| React integration | `@vitejs/plugin-react` | 6.3.0 | JSX transform and Fast Refresh |
-| React optimization | `babel-plugin-react-compiler` | 1.0.0 | Stable compiler-powered React optimization |
-| Compiler bridge | `@rolldown/plugin-babel`, `@babel/core` | 0.3.1, 8.1.2 | Official Vite/Rolldown Babel preset integration |
-| Styling | `tailwindcss`, `@tailwindcss/vite` | 4.3.5 | Tailwind CSS v4 and first-party Vite integration |
+| Area                 | Package                                 | Pinned version | Responsibility                                   |
+| -------------------- | --------------------------------------- | -------------: | ------------------------------------------------ |
+| UI runtime           | `react`, `react-dom`                    |         19.3.1 | React application runtime                        |
+| Dev server / bundler | `vite`                                  |          8.3.8 | Development server and production build          |
+| React integration    | `@vitejs/plugin-react`                  |          6.3.0 | JSX transform and Fast Refresh                   |
+| React optimization   | `babel-plugin-react-compiler`           |          1.0.0 | Stable compiler-powered React optimization       |
+| Compiler bridge      | `@rolldown/plugin-babel`, `@babel/core` |   0.3.1, 8.1.2 | Official Vite/Rolldown Babel preset integration  |
+| Styling              | `tailwindcss`, `@tailwindcss/vite`      |          4.3.5 | Tailwind CSS v4 and first-party Vite integration |
 
 ## UI and interaction foundation
 
-| Area | Package | Pinned version | Responsibility |
-|---|---|---:|---|
-| Headless primitives | `@base-ui/react` | 1.9.0 | Accessible, unstyled interaction primitives |
-| Component source CLI | `shadcn` | 4.23.0 | Add locally owned, editable UI components |
-| Animation | `motion` | 14.14.0 | Declarative interaction and layout animation |
-| Icons | `lucide-react` | 1.74.0 | Consistent icon system |
-| Toasts | `sonner` | 2.0.8 | Application notifications |
-| Class variants | `class-variance-authority` | 0.7.1 | Reusable component variants |
-| Class composition | `clsx` | 2.1.1 | Conditional class composition |
-| Tailwind conflict resolution | `tailwind-merge` | 3.7.0 | Merge conflicting Tailwind utilities |
+| Area                         | Package                    | Pinned version | Responsibility                               |
+| ---------------------------- | -------------------------- | -------------: | -------------------------------------------- |
+| Headless primitives          | `@base-ui/react`           |          1.9.0 | Accessible, unstyled interaction primitives  |
+| Component source CLI         | `shadcn`                   |         4.23.0 | Add locally owned, editable UI components    |
+| Animation                    | `motion`                   |        14.14.0 | Declarative interaction and layout animation |
+| Icons                        | `lucide-react`             |         1.74.0 | Consistent icon system                       |
+| Toasts                       | `sonner`                   |          2.0.8 | Application notifications                    |
+| Class variants               | `class-variance-authority` |          0.7.1 | Reusable component variants                  |
+| Class composition            | `clsx`                     |          2.1.1 | Conditional class composition                |
+| Tailwind conflict resolution | `tailwind-merge`           |          3.7.0 | Merge conflicting Tailwind utilities         |
 
 **UI direction:** Tailwind v4 + Base UI primitives + shadcn/ui local components. shadcn/ui is treated as a source/CLI workflow, not a large opaque runtime component bundle. The neutral CSS variables and light/dark token slots in `src/styles/index.css` are groundwork only; final brand colors, typography, spatial surfaces, density, navigation, and page layouts remain undecided.
 
@@ -37,21 +37,21 @@ This foundation deliberately prepares the toolchain without defining product scr
 
 ## State, forms, data, and domain utilities
 
-| Area | Package | Pinned version | Responsibility |
-|---|---|---:|---|
-| Routing | `react-router` | 8.5.1 | Client-side route and navigation foundation |
-| Shared client state | `zustand` | 5.1.0 | Small cross-view UI state stores when needed |
-| Async server state | `@tanstack/react-query` | 5.107.1 | Fetch/cache/retry lifecycle for non-Firestore async requests |
-| Query devtools | `@tanstack/react-query-devtools` | 5.107.1 | Development-only cache inspection |
-| Data tables | `@tanstack/react-table` | 9.3.1 | Headless sorting, filtering, grouping, and row models |
-| List virtualization | `@tanstack/react-virtual` | 3.14.24 | Efficient rendering of long lists and tables |
-| Forms | `react-hook-form` | 7.92.0 | Form state and field registration |
-| Schema validation | `zod` | 4.6.7 | Runtime schemas and validation |
-| Form/Zod adapter | `@hookform/resolvers` | 7.0.7 | Connect React Hook Form with Zod |
-| Date/time | `date-fns` | 4.4.0 | Date arithmetic and formatting |
-| Time zones | `@date-fns/tz` | 1.5.0 | Explicit time-zone handling |
-| Charts | `echarts`, `echarts-for-react` | 6.1.0, 3.0.6 | Rich, interactive chart rendering |
-| Backend client SDK | `firebase` | 13.3.0 | Firebase Web SDK foundation |
+| Area                | Package                          | Pinned version | Responsibility                                               |
+| ------------------- | -------------------------------- | -------------: | ------------------------------------------------------------ |
+| Routing             | `react-router`                   |          8.5.1 | Client-side route and navigation foundation                  |
+| Shared client state | `zustand`                        |          5.1.0 | Small cross-view UI state stores when needed                 |
+| Async server state  | `@tanstack/react-query`          |        5.107.1 | Fetch/cache/retry lifecycle for non-Firestore async requests |
+| Query devtools      | `@tanstack/react-query-devtools` |        5.107.1 | Development-only cache inspection                            |
+| Data tables         | `@tanstack/react-table`          |          9.3.1 | Headless sorting, filtering, grouping, and row models        |
+| List virtualization | `@tanstack/react-virtual`        |        3.14.24 | Efficient rendering of long lists and tables                 |
+| Forms               | `react-hook-form`                |         7.92.0 | Form state and field registration                            |
+| Schema validation   | `zod`                            |          4.6.7 | Runtime schemas and validation                               |
+| Form/Zod adapter    | `@hookform/resolvers`            |          7.0.7 | Connect React Hook Form with Zod                             |
+| Date/time           | `date-fns`                       |          4.4.0 | Date arithmetic and formatting                               |
+| Time zones          | `@date-fns/tz`                   |          1.5.0 | Explicit time-zone handling                                  |
+| Charts              | `echarts`, `echarts-for-react`   |   6.1.0, 3.0.6 | Rich, interactive chart rendering                            |
+| Backend client SDK  | `firebase`                       |         13.3.0 | Firebase Web SDK foundation                                  |
 
 **Usage boundaries:**
 
@@ -64,17 +64,17 @@ This foundation deliberately prepares the toolchain without defining product scr
 
 ## Developer experience and verification
 
-| Area | Package | Pinned version |
-|---|---|---:|
-| Lint engine and core rules | `eslint`, `@eslint/js` | 10.15.0, 10.0.1 |
-| React rules | `eslint-plugin-react-hooks` | 7.1.1 |
-| Fast Refresh lint rules | `eslint-plugin-react-refresh` | 0.5.8 |
-| Runtime globals | `globals` | 17.14.0 |
-| Formatting | `prettier` | 3.10.1 |
-| Tailwind class sorting | `prettier-plugin-tailwindcss` | 0.8.1 |
-| Test runner | `vitest` | 5.1.0 |
-| DOM test environment | `jsdom` | 31.0.1 |
-| React test utilities | `@testing-library/react`, `@testing-library/user-event` | 16.3.3, 14.6.12 |
+| Area                       | Package                                                 |  Pinned version |
+| -------------------------- | ------------------------------------------------------- | --------------: |
+| Lint engine and core rules | `eslint`, `@eslint/js`                                  | 10.15.0, 10.0.1 |
+| React rules                | `eslint-plugin-react-hooks`                             |           7.1.1 |
+| Fast Refresh lint rules    | `eslint-plugin-react-refresh`                           |           0.5.8 |
+| Runtime globals            | `globals`                                               |         17.14.0 |
+| Formatting                 | `prettier`                                              |          3.10.1 |
+| Tailwind class sorting     | `prettier-plugin-tailwindcss`                           |           0.8.1 |
+| Test runner                | `vitest`                                                |           5.1.0 |
+| DOM test environment       | `jsdom`                                                 |          31.0.1 |
+| React test utilities       | `@testing-library/react`, `@testing-library/user-event` | 16.3.3, 14.6.12 |
 
 Tests are intentionally limited at this stage. The initial suite checks only the shared class-name utility; feature-level tests should be added with the corresponding implementation, prioritizing critical business rules, authorization boundaries, idempotency, and data integrity.
 

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 680" width="600" height="680" role="img" aria-label="Demo studio illustration of drum session">
+  <defs>
+    <radialGradient id="stageLight" cx="0.5" cy="0.25" r="0.65">
+      <stop offset="0%" stop-color="#f97316" stop-opacity="0.55"/>
+      <stop offset="50%" stop-color="#7c2d12" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#09090b" stop-opacity="1"/>
+    </radialGradient>
+  </defs>
+  <rect width="600" height="680" fill="#09090b"/>
+  <rect width="600" height="680" fill="url(#stageLight)"/>
+
+  <!-- Stage spotlights -->
+  <circle cx="110" cy="85" r="24" fill="#fef3c7" opacity="0.85"/>
+  <circle cx="495" cy="95" r="20" fill="#fdba74" opacity="0.75"/>
+
+  <!-- Drummer silhouette in live room -->
+  <circle cx="285" cy="230" r="46" fill="#d97706"/>
+  <path d="M240,210 C240,175 330,175 330,215 Z" fill="#27272a"/>
+  <path d="M185,430 C190,320 230,285 285,285 C340,285 385,320 395,430 Z" fill="#18181b" stroke="#3f3f46" stroke-width="3"/>
+
+  <!-- Drumsticks in motion -->
+  <line x1="355" y1="315" x2="455" y2="175" stroke="#fde68a" stroke-width="7" stroke-linecap="round"/>
+  <line x1="210" y1="340" x2="315" y2="415" stroke="#fde68a" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- Crash & Ride Cymbals -->
+  <ellipse cx="120" cy="295" rx="95" ry="16" transform="rotate(-12 120 295)" fill="#f59e0b" stroke="#78350f" stroke-width="4"/>
+  <ellipse cx="480" cy="265" rx="105" ry="18" transform="rotate(14 480 265)" fill="#fbbf24" stroke="#78350f" stroke-width="4"/>
+
+  <!-- Rack Tom & Snare Drum Foreground -->
+  <g transform="translate(150, 430)">
+    <ellipse cx="145" cy="45" rx="135" ry="38" fill="#f8fafc" stroke="#27272a" stroke-width="8"/>
+    <path d="M10,45 L10,165 C10,190 280,190 280,165 L280,45" fill="#e2e8f0" stroke="#18181b" stroke-width="6"/>
+    <!-- Drum lugs -->
+    <line x1="55" y1="65" x2="55" y2="170" stroke="#475569" stroke-width="6"/>
+    <line x1="145" y1="78" x2="145" y2="180" stroke="#475569" stroke-width="6"/>
+    <line x1="235" y1="65" x2="235" y2="170" stroke="#475569" stroke-width="6"/>
+  </g>
+</svg>
