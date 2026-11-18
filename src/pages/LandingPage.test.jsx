@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { addDays, format, subDays } from 'date-fns';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '@/App';
@@ -55,23 +56,25 @@ describe('37 Music Studio Public Landing Page (Phase 2B)', () => {
     expect(pageText).not.toMatch(/42m²|24ch|15min|BAND FAVORITE|2 min from the mainline/i);
   });
 
-  it('opens and closes the dummy Login coming-soon dialog without authentication inputs', async () => {
+  it('opens and closes the header Client Login coming-soon dialog without authentication inputs', async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const loginButton = screen.getByRole('button', {
-      name: /studio staff and owner login \(coming soon\)/i,
+    const clientLoginButton = screen.getByRole('button', {
+      name: /client login portal \(coming soon\)/i,
     });
-    await user.click(loginButton);
+    await user.click(clientLoginButton);
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/studio access is coming soon/i)).toBeTruthy();
+    expect(within(dialog).getByText(/client login coming soon/i)).toBeTruthy();
     expect(
-      within(dialog).getByText(/owner and operator login will be available in a future update\./i),
+      within(dialog).getByText(
+        /the client portal is not available yet\. you can still explore our services and submit a booking inquiry from the public website\./i,
+      ),
     ).toBeTruthy();
     expect(within(dialog).queryByLabelText(/password/i)).toBeNull();
 
-    const closeButton = within(dialog).getByRole('button', { name: /got it/i });
+    const closeButton = within(dialog).getByRole('button', { name: /back to website/i });
     await user.click(closeButton);
 
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -345,7 +348,11 @@ describe('37 Music Studio Public Landing Page (Phase 2B)', () => {
       },
     };
 
-    render(<LandingPage content={mixedConfigContent} />);
+    render(
+      <MemoryRouter>
+        <LandingPage content={mixedConfigContent} />
+      </MemoryRouter>,
+    );
 
     // Confirmed Maps renders external anchor with safe rel attributes
     const mapsLink = screen.getByRole('link', { name: /open in maps/i });

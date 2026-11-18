@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { ArrowRight, ArrowUpRight, KeyRound } from 'lucide-react';
+import { Link } from 'react-router';
 
 import { resolveSocialHref } from '@/lib/external-links';
 
-export function SiteFooter({ footer, contact, navLinks, onNavigate, onOpenLogin }) {
+export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
   const [socialPendingMessage, setSocialPendingMessage] = useState('');
 
   const visitAddress =
@@ -136,14 +137,13 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate, onOpenLogin 
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </a>
 
-            <button
-              type="button"
-              onClick={onOpenLogin}
-              className="mt-2.5 flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 border border-neutral-700 bg-neutral-900 px-4 py-2 font-mono text-[11px] font-bold text-neutral-200 uppercase transition-colors hover:border-neutral-400"
+            <Link
+              to={footer.staffLoginHref || '/staff/login'}
+              className="mt-2.5 flex min-h-11 w-full items-center justify-center gap-2 border border-neutral-700 bg-neutral-900 px-4 py-2 font-mono text-[11px] font-bold text-neutral-200 uppercase transition-colors hover:border-neutral-400"
             >
               <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Staff / Owner Login</span>
-            </button>
+              <span>{footer.staffLoginLabel || 'Staff / Owner Login'}</span>
+            </Link>
           </div>
         </div>
 

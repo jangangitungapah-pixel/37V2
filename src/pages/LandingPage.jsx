@@ -149,10 +149,9 @@ export function LandingPage({ content = landingPageContent }) {
         contact={content.testimonialsAndContact.contact}
         navLinks={content.header.navLinks}
         onNavigate={handleNavigate}
-        onOpenLogin={() => handleOpenLogin(false)}
       />
 
-      {/* Dummy Login Accessible Dialog */}
+      {/* Client Login Coming Soon Accessible Dialog */}
       <LoginComingSoonDialog
         open={loginDialogOpen}
         onOpenChange={setLoginDialogOpen}

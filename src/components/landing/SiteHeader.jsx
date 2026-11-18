@@ -199,7 +199,7 @@ export function SiteHeader({
                         className="brutal-btn bg-studio-white text-studio-ink flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 px-4 py-3 text-sm font-bold tracking-wider uppercase"
                       >
                         <KeyRound className="h-4 w-4" aria-hidden="true" />
-                        <span>{header.loginButton.label} (Staff / Owner)</span>
+                        <span>{header.loginButton.label}</span>
                       </button>
                     </div>
                   </Dialog.Popup>

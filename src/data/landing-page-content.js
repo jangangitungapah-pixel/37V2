@@ -49,8 +49,8 @@ export const landingPageContent = {
       { label: 'Contact', href: '#contact' },
     ],
     loginButton: {
-      label: 'Login',
-      ariaLabel: 'Studio staff and owner login (coming soon)',
+      label: 'Client Login',
+      ariaLabel: 'Client login portal (coming soon)',
     },
     primaryCta: {
       label: 'Book now',
@@ -59,13 +59,14 @@ export const landingPageContent = {
   },
 
   loginDialog: {
-    badge: 'INTERNAL 37 STUDIO MANAGEMENT',
-    title: 'Studio access is coming soon',
-    description: 'Owner and operator login will be available in a future update.',
+    badge: 'CLIENT PORTAL PREVIEW',
+    title: 'Client Login Coming Soon',
+    description:
+      'The client portal is not available yet. You can still explore our services and submit a booking inquiry from the public website.',
     detail:
-      'This login portal is exclusively for internal 37 Music Studio staff and studio operations. Prospective studio clients do not need an account to explore services or send a session inquiry.',
-    closeLabel: 'Got it',
-    bookingCtaLabel: 'Start a booking inquiry instead',
+      'Prospective 37 Music Studio clients do not need an account to browse session categories, inspect rooms, or submit a booking inquiry on this page.',
+    closeLabel: 'Back to website',
+    bookingCtaLabel: 'Start a booking inquiry',
   },
 
   hero: {
@@ -438,6 +439,8 @@ export const landingPageContent = {
     ctaHeading: 'READY TO PLAY?',
     ctaLabel: 'Start booking inquiry →',
     ctaHref: '#booking',
+    staffLoginLabel: 'Staff / Owner Login',
+    staffLoginHref: '/staff/login',
     socialLinks: [
       { id: 'instagram', label: 'Instagram', isConfirmed: false, href: '' },
       { id: 'tiktok', label: 'TikTok', isConfirmed: false, href: '' },
@@ -445,6 +448,6 @@ export const landingPageContent = {
       { id: 'music', label: 'Streaming / Audio reels', isConfirmed: false, href: '' },
     ],
     copyright: '© 2026 37 Music Studio. All rights reserved.',
-    phaseNote: 'Phase 2B Public Landing Page • Demo Content Mode',
+    phaseNote: 'Phase 3 Public Landing Page • Staff & Owner Auth Ready',
   },
 };
