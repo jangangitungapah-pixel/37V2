@@ -281,7 +281,7 @@ export function StaffLoginPage() {
                           setEmail(event.target.value);
                           if (localError) setLocalError('');
                         }}
-                        placeholder="staff@37musicstudio.com"
+                        placeholder="owner@37studio.com"
                         className="border-studio-ink bg-studio-ivory min-h-12 w-full border-2 py-2.5 pr-3 pl-10 text-sm font-medium placeholder:text-neutral-500 disabled:opacity-60"
                       />
                       <Mail
@@ -436,7 +436,7 @@ export function StaffLoginPage() {
                           setResetEmail(event.target.value);
                           if (resetError) setResetError('');
                         }}
-                        placeholder="staff@37musicstudio.com"
+                        placeholder="owner@37studio.com"
                         className="border-studio-ink bg-studio-ivory min-h-12 w-full border-2 py-2.5 pr-3 pl-10 text-sm font-medium placeholder:text-neutral-500 disabled:opacity-60"
                       />
                       <Mail
