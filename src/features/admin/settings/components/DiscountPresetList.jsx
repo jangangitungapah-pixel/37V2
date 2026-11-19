@@ -10,6 +10,7 @@ import {
 export function DiscountPresetList({
   discounts = [],
   sessionTypes = [],
+  readOnly = false,
   onAdd,
   onEdit,
   onToggleActive,
@@ -27,6 +28,7 @@ export function DiscountPresetList({
       countLabel={`${activeCount}/${discounts.length} Active`}
       actionLabel="Add Discount"
       onAction={onAdd}
+      readOnly={readOnly}
       headerNote="Diskon reguler tidak ditumpuk (no stacking), dibatasi maksimal subtotal sesi, dan tidak diterapkan ganda ke booking Paket Studio."
     >
       {discounts.length === 0 ? (
@@ -84,6 +86,7 @@ export function DiscountPresetList({
                         <SettingsStatusToggle
                           isActive={disc.isActive}
                           label={disc.name}
+                          disabled={readOnly}
                           onToggle={() => onToggleActive(disc)}
                         />
                       </td>
@@ -91,6 +94,7 @@ export function DiscountPresetList({
                         <div className="flex justify-end">
                           <SettingsItemActions
                             itemName={disc.name}
+                            readOnly={readOnly}
                             onEdit={() => onEdit(disc)}
                             onDelete={() => onRequestDelete(disc)}
                           />
@@ -138,10 +142,12 @@ export function DiscountPresetList({
                     <SettingsStatusToggle
                       isActive={disc.isActive}
                       label={disc.name}
+                      disabled={readOnly}
                       onToggle={() => onToggleActive(disc)}
                     />
                     <SettingsItemActions
                       itemName={disc.name}
+                      readOnly={readOnly}
                       onEdit={() => onEdit(disc)}
                       onDelete={() => onRequestDelete(disc)}
                     />

@@ -5,6 +5,7 @@ export function SettingsSaveBar({
   isPersisted,
   isSaving,
   isLoading,
+  readOnly = false,
   version,
   hasRemoteVersionConflict,
   errorMessage,
@@ -13,7 +14,7 @@ export function SettingsSaveBar({
   onReset,
   onReloadRemote,
 }) {
-  const canSave = (isDirty || !isPersisted) && !isSaving && !isLoading;
+  const canSave = !readOnly && (isDirty || !isPersisted) && !isSaving && !isLoading;
 
   return (
     <div
@@ -83,11 +84,13 @@ export function SettingsSaveBar({
           )}
 
           <p className="text-studio-muted-ink font-mono text-[11px] font-semibold">
-            {isDirty
-              ? 'Perubahan lokal belum tersimpan ke Firestore (settings/pricing).'
-              : !isPersisted
-                ? 'Menampilkan default preset V2. Klik Save Changes untuk menyimpan ke Firestore.'
-                : 'Semua preset sinkron dengan Cloud Firestore dan Calendar.'}
+            {readOnly
+              ? 'Mode Baca Saja (Staff/Operator). Perubahan konfigurasi hanya dapat disimpan oleh Owner.'
+              : isDirty
+                ? 'Perubahan lokal belum tersimpan ke Firestore (settings/pricing).'
+                : !isPersisted
+                  ? 'Menampilkan default preset V2. Klik Save Changes untuk menyimpan ke Firestore.'
+                  : 'Semua preset sinkron dengan Cloud Firestore dan Calendar.'}
           </p>
         </div>
 

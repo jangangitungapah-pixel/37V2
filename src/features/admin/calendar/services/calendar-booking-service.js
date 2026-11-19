@@ -194,6 +194,7 @@ export async function createBooking({
       subtotal: payload.subtotal,
       discountAmount: payload.discountAmount,
       totalAmount: payload.totalAmount,
+      automaticDiscount: payload.automaticDiscount ?? null,
       commissionSnapshot: payload.commissionSnapshot,
       initialPaymentStatus: payload.initialPaymentStatus,
       initialPaidAmount: payload.initialPaidAmount,
@@ -460,6 +461,9 @@ export async function updateOrRescheduleBooking({
         ? payload.discountAmount
         : existingBooking.discountAmount,
       totalAmount: shouldApplyNewSnapshot ? payload.totalAmount : existingBooking.totalAmount,
+      automaticDiscount: shouldApplyNewSnapshot
+        ? (payload.automaticDiscount ?? null)
+        : (existingBooking.automaticDiscount ?? null),
       commissionSnapshot: shouldApplyNewSnapshot
         ? payload.commissionSnapshot
         : (existingBooking.commissionSnapshot ?? null),

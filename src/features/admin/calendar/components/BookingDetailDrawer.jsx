@@ -25,7 +25,7 @@ import {
 } from '../config/calendar-config';
 import { useBookingEvents } from '../hooks/useCalendarBookings';
 import { generateOperationId } from '../repositories/calendar-booking-repository';
-import { formatRupiah } from '../utils/booking-pricing';
+import { extractBookingFinancialSnapshot, formatRupiah } from '../utils/booking-pricing';
 import {
   formatDurationMinutes,
   formatMinuteRange,
@@ -61,10 +61,8 @@ export function BookingDetailDrawer({
   const paymentMeta = getInitialPaymentStatusMeta(booking.initialPaymentStatus);
   const sessionMeta = getSessionStatusMeta(booking.sessionStatus);
   const capabilities = getBookingLifecycleCapabilities(booking, now);
-  const remainingBalance = Math.max(
-    0,
-    Number(booking.totalAmount || 0) - Number(booking.initialPaidAmount || 0),
-  );
+  const financial = extractBookingFinancialSnapshot(booking);
+  const remainingBalance = financial.remainingBalance;
 
   const handleRunAction = async (actionKey, noteValue = '') => {
     if (actionLoading) return;
@@ -327,14 +325,39 @@ export function BookingDetailDrawer({
                 </div>
 
                 <dl className="mt-2.5 space-y-1 font-mono text-xs">
+                  {financial.discountAmount > 0 ? (
+                    <>
+                      <div className="flex justify-between">
+                        <dt className="text-studio-muted-ink">Harga Normal</dt>
+                        <dd className="font-bold">{formatRupiah(financial.subtotal)}</dd>
+                      </div>
+                      <div className="flex justify-between text-emerald-800">
+                        <dt>
+                          {financial.automaticDiscount
+                            ? 'Diskon Durasi'
+                            : booking.packageId
+                              ? 'Diskon Paket'
+                              : 'Diskon'}
+                        </dt>
+                        <dd className="font-bold">-{formatRupiah(financial.discountAmount)}</dd>
+                      </div>
+                      {financial.automaticDiscount ? (
+                        <p className="text-[10px] font-semibold text-emerald-900">
+                          {financial.automaticDiscount.eligibleBlocks}x kelipatan{' '}
+                          {formatDurationMinutes(financial.automaticDiscount.intervalMinutes)} (-
+                          {formatRupiah(financial.automaticDiscount.discountPerBlock)})
+                        </p>
+                      ) : null}
+                    </>
+                  ) : null}
                   <div className="flex justify-between">
                     <dt className="text-studio-muted-ink">Total Tagihan</dt>
-                    <dd className="font-extrabold">{formatRupiah(booking.totalAmount)}</dd>
+                    <dd className="font-extrabold">{formatRupiah(financial.totalAmount)}</dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-studio-muted-ink">Pembayaran Awal</dt>
                     <dd className="font-bold">
-                      {formatRupiah(booking.initialPaidAmount)}
+                      {formatRupiah(financial.initialPaidAmount)}
                       {booking.paymentMethod
                         ? ` (${getPaymentMethodLabel(booking.paymentMethod)})`
                         : ''}
@@ -512,8 +535,8 @@ export function BookingDetailDrawer({
               </div>
 
               {!capabilities.canMarkNoShow &&
-              booking.sessionStatus === 'upcoming' &&
-              capabilities.noShowReason ? (
+                booking.sessionStatus === 'upcoming' &&
+                capabilities.noShowReason ? (
                 <p className="text-studio-muted-ink mt-2.5 font-mono text-[11px]">
                   Info No Show: {capabilities.noShowReason}
                 </p>

@@ -1,6 +1,7 @@
 import {
   DEFAULT_OPERATIONAL_FEES,
   DEFAULT_PRICING_SETTINGS,
+  DURATION_DISCOUNT_TYPE,
 } from '../config/default-pricing-settings';
 import { toNonNegativeInt } from './normalize-pricing-settings';
 
@@ -106,6 +107,93 @@ export function selectBestSessionDiscount({
     discountId: bestPreset.id,
     discountName: bestPreset.name,
     discountAmount: Math.min(safeSubtotal, Math.max(0, bestAmount)),
+  };
+}
+
+/**
+ * Calculates the duration-based automatic multiple discount for a regular service session.
+ *
+ * Business rules:
+ * - Active only when `durationDiscount.enabled === true`.
+ * - `intervalMinutes` must be an integer > 0 (default 180 minutes / 3 hours).
+ * - `discountAmount` must be a valid positive integer Rupiah (default Rp 30.000).
+ * - Every complete interval yields one discount block (`Math.floor(durationMinutes / intervalMinutes)`).
+ * - Remainder minutes below a full interval produce zero additional discount.
+ * - Applied discount is capped at `subtotal` so the final price is never negative.
+ */
+export function calculateDurationAutomaticDiscount({
+  durationMinutes = 0,
+  subtotal = 0,
+  durationDiscount = null,
+} = {}) {
+  const safeDuration = Number(durationMinutes);
+  const safeSubtotal = toNonNegativeInt(subtotal, 0);
+
+  if (
+    !durationDiscount ||
+    durationDiscount.enabled !== true ||
+    !Number.isInteger(safeDuration) ||
+    safeDuration <= 0 ||
+    safeSubtotal <= 0
+  ) {
+    return {
+      applied: false,
+      discountAmount: 0,
+      appliedDiscountName: '',
+      automaticDiscount: null,
+    };
+  }
+
+  const intervalMinutes = Number(durationDiscount.intervalMinutes);
+  const discountPerBlock = Number(durationDiscount.discountAmount);
+
+  if (
+    !Number.isInteger(intervalMinutes) ||
+    intervalMinutes <= 0 ||
+    !Number.isInteger(discountPerBlock) ||
+    discountPerBlock <= 0
+  ) {
+    return {
+      applied: false,
+      discountAmount: 0,
+      appliedDiscountName: '',
+      automaticDiscount: null,
+    };
+  }
+
+  const eligibleBlocks = Math.floor(safeDuration / intervalMinutes);
+  if (eligibleBlocks <= 0) {
+    return {
+      applied: false,
+      discountAmount: 0,
+      appliedDiscountName: '',
+      automaticDiscount: null,
+    };
+  }
+
+  const rawDiscount = eligibleBlocks * discountPerBlock;
+  const totalDiscount = Math.min(safeSubtotal, Math.max(0, rawDiscount));
+
+  if (totalDiscount <= 0) {
+    return {
+      applied: false,
+      discountAmount: 0,
+      appliedDiscountName: '',
+      automaticDiscount: null,
+    };
+  }
+
+  return {
+    applied: true,
+    discountAmount: totalDiscount,
+    appliedDiscountName: 'Diskon Durasi',
+    automaticDiscount: {
+      type: DURATION_DISCOUNT_TYPE,
+      intervalMinutes,
+      eligibleBlocks,
+      discountPerBlock,
+      totalDiscount,
+    },
   };
 }
 

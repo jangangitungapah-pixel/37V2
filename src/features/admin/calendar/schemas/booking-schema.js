@@ -344,6 +344,7 @@ export function validateBookingFormPayload(
       subtotal: pricing.subtotal,
       discountAmount: pricing.discountAmount,
       totalAmount: pricing.totalAmount,
+      automaticDiscount: pricing.automaticDiscount,
       commissionSnapshot: pricing.commissionSnapshot,
       initialPaymentStatus: pricing.initialPaymentStatus,
       initialPaidAmount: pricing.initialPaidAmount,

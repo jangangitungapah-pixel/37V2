@@ -10,6 +10,13 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.role in ['owner', 'staff'];
     }
 
+    function isActiveOwner() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/staffProfiles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.active == true
+        && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.role == 'owner';
+    }
+
     function isValidBookingKeys(data) {
       return data.keys().hasOnly([
         'customerName',
@@ -31,6 +38,7 @@ service cloud.firestore {
         'subtotal',
         'discountAmount',
         'totalAmount',
+        'automaticDiscount',
         'commissionSnapshot',
         'initialPaymentStatus',
         'initialPaidAmount',
@@ -47,6 +55,53 @@ service cloud.firestore {
         'updatedByUid',
         'version'
       ]);
+    }
+
+    function isValidBookingAutomaticDiscountShape(data) {
+      return !('automaticDiscount' in data)
+        || data.automaticDiscount == null
+        || (
+          data.automaticDiscount is map
+          && data.automaticDiscount.keys().hasAll([
+            'type',
+            'intervalMinutes',
+            'eligibleBlocks',
+            'discountPerBlock',
+            'totalDiscount'
+          ])
+          && data.automaticDiscount.keys().hasOnly([
+            'type',
+            'intervalMinutes',
+            'eligibleBlocks',
+            'discountPerBlock',
+            'totalDiscount'
+          ])
+          && data.automaticDiscount.type == 'duration_multiple'
+          && data.automaticDiscount.intervalMinutes is int
+          && data.automaticDiscount.intervalMinutes > 0
+          && data.automaticDiscount.eligibleBlocks is int
+          && data.automaticDiscount.eligibleBlocks > 0
+          && data.automaticDiscount.discountPerBlock is int
+          && data.automaticDiscount.discountPerBlock > 0
+          && data.automaticDiscount.totalDiscount is int
+          && data.automaticDiscount.totalDiscount > 0
+          && data.automaticDiscount.totalDiscount <= data.subtotal
+          && data.automaticDiscount.totalDiscount == (
+            data.automaticDiscount.eligibleBlocks * data.automaticDiscount.discountPerBlock > data.subtotal
+              ? data.subtotal
+              : data.automaticDiscount.eligibleBlocks * data.automaticDiscount.discountPerBlock
+          )
+          && data.discountAmount == data.automaticDiscount.totalDiscount
+        );
+    }
+
+    function isBookingAutomaticDiscountMathMatched(data) {
+      return !('automaticDiscount' in data)
+        || data.automaticDiscount == null
+        || (
+          data.automaticDiscount.eligibleBlocks * data.automaticDiscount.intervalMinutes <= data.durationMinutes
+          && (data.automaticDiscount.eligibleBlocks + 1) * data.automaticDiscount.intervalMinutes > data.durationMinutes
+        );
     }
 
     function isValidBookingCommissionSnapshot(data) {
@@ -92,6 +147,7 @@ service cloud.firestore {
         && reqData.subtotal == resData.subtotal
         && reqData.discountAmount == resData.discountAmount
         && reqData.totalAmount == resData.totalAmount
+        && reqData.get('automaticDiscount', null) == resData.get('automaticDiscount', null)
         && reqData.get('commissionSnapshot', null) == resData.get('commissionSnapshot', null);
     }
 
@@ -167,14 +223,17 @@ service cloud.firestore {
         && data.endMinute == data.startMinute + data.durationMinutes
         && data.endMinute <= 1380
         && data.timeZone == 'Asia/Jakarta'
-        && data.unitRate is number
+        && data.unitRate is int
         && data.unitRate >= 0
-        && data.subtotal is number
+        && data.subtotal is int
         && data.subtotal >= 0
-        && data.discountAmount is number
+        && data.discountAmount is int
         && data.discountAmount >= 0
-        && data.totalAmount is number
+        && data.discountAmount <= data.subtotal
+        && data.totalAmount is int
         && data.totalAmount >= 0
+        && data.totalAmount == data.subtotal - data.discountAmount
+        && isValidBookingAutomaticDiscountShape(data)
         && isValidBookingCommissionSnapshot(data)
         && data.initialPaymentStatus in ['unpaid', 'partial', 'paid']
         && data.initialPaidAmount is number
@@ -196,11 +255,11 @@ service cloud.firestore {
       allow get: if isActiveStaff();
       allow list: if false;
 
-      allow create: if isActiveStaff()
+      allow create: if isActiveOwner()
         && isValidPricingSettings(request.resource.data)
         && request.resource.data.version == 1;
 
-      allow update: if isActiveStaff()
+      allow update: if isActiveOwner()
         && isValidPricingSettings(request.resource.data)
         && request.resource.data.version == resource.data.version + 1;
 
@@ -213,6 +272,7 @@ service cloud.firestore {
       allow create: if isActiveStaff()
         && isValidBookingKeys(request.resource.data)
         && isValidBookingShape(request.resource.data)
+        && isBookingAutomaticDiscountMathMatched(request.resource.data)
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.updatedByUid == request.auth.uid
         && request.resource.data.version == 1;
@@ -220,6 +280,8 @@ service cloud.firestore {
       allow update: if isActiveStaff()
         && isValidBookingKeys(request.resource.data)
         && isValidBookingShape(request.resource.data)
+        && (request.resource.data.get('automaticDiscount', null) == resource.data.get('automaticDiscount', null)
+            || isBookingAutomaticDiscountMathMatched(request.resource.data))
         && request.resource.data.createdByUid == resource.data.createdByUid
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedByUid == request.auth.uid

@@ -10,12 +10,29 @@ export const PRICING_SETTINGS_COLLECTION = 'settings';
 export const PRICING_SETTINGS_DOC_ID = 'pricing';
 export const PRICING_SETTINGS_SCHEMA_VERSION = 1;
 
+export const DURATION_DISCOUNT_TYPE = 'duration_multiple';
+export const DEFAULT_DURATION_DISCOUNT_INTERVAL_MINUTES = 180;
+export const DEFAULT_DURATION_DISCOUNT_AMOUNT = 30000;
+
+export const DEFAULT_ENABLED_DURATION_DISCOUNT = {
+  enabled: true,
+  intervalMinutes: DEFAULT_DURATION_DISCOUNT_INTERVAL_MINUTES,
+  discountAmount: DEFAULT_DURATION_DISCOUNT_AMOUNT,
+};
+
+export const DEFAULT_DISABLED_DURATION_DISCOUNT = {
+  enabled: false,
+  intervalMinutes: DEFAULT_DURATION_DISCOUNT_INTERVAL_MINUTES,
+  discountAmount: DEFAULT_DURATION_DISCOUNT_AMOUNT,
+};
+
 export const DEFAULT_SESSION_TYPES = [
   {
     id: 'rehearsal',
     name: 'Rehearsal',
     description: 'Latihan studio reguler',
     hourlyRate: 100000,
+    durationDiscount: { ...DEFAULT_ENABLED_DURATION_DISCOUNT },
     isActive: true,
     sortOrder: 1,
   },
@@ -24,6 +41,7 @@ export const DEFAULT_SESSION_TYPES = [
     name: 'Recording',
     description: 'Tracking rekaman instrumen & vokal',
     hourlyRate: 150000,
+    durationDiscount: { ...DEFAULT_DISABLED_DURATION_DISCOUNT },
     isActive: true,
     sortOrder: 2,
   },
@@ -32,6 +50,7 @@ export const DEFAULT_SESSION_TYPES = [
     name: 'Mixing',
     description: 'Mixing audio multi-track',
     hourlyRate: 250000,
+    durationDiscount: { ...DEFAULT_DISABLED_DURATION_DISCOUNT },
     isActive: true,
     sortOrder: 3,
   },
@@ -40,6 +59,7 @@ export const DEFAULT_SESSION_TYPES = [
     name: 'Mastering',
     description: 'Final mastering siap rilis',
     hourlyRate: 300000,
+    durationDiscount: { ...DEFAULT_DISABLED_DURATION_DISCOUNT },
     isActive: true,
     sortOrder: 4,
   },

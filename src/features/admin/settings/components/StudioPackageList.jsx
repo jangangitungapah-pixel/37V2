@@ -13,6 +13,7 @@ import {
 export function StudioPackageList({
   packages = [],
   sessionTypes = [],
+  readOnly = false,
   onAdd,
   onEdit,
   onToggleActive,
@@ -30,6 +31,7 @@ export function StudioPackageList({
       countLabel={`${activeCount}/${packages.length} Active`}
       actionLabel="Add Package"
       onAction={onAdd}
+      readOnly={readOnly}
       headerNote="Staff Commission dan Recording Operator Commission hanya menjadi snapshot internal booking—tidak pernah ditambahkan ke tagihan customer."
     >
       {packages.length === 0 ? (
@@ -104,6 +106,7 @@ export function StudioPackageList({
                         <SettingsStatusToggle
                           isActive={pkg.isActive}
                           label={pkg.name}
+                          disabled={readOnly}
                           onToggle={() => onToggleActive(pkg)}
                         />
                       </td>
@@ -111,6 +114,7 @@ export function StudioPackageList({
                         <div className="flex justify-end">
                           <SettingsItemActions
                             itemName={pkg.name}
+                            readOnly={readOnly}
                             onEdit={() => onEdit(pkg)}
                             onDelete={() => onRequestDelete(pkg)}
                           />
@@ -191,10 +195,12 @@ export function StudioPackageList({
                     <SettingsStatusToggle
                       isActive={pkg.isActive}
                       label={pkg.name}
+                      disabled={readOnly}
                       onToggle={() => onToggleActive(pkg)}
                     />
                     <SettingsItemActions
                       itemName={pkg.name}
+                      readOnly={readOnly}
                       onEdit={() => onEdit(pkg)}
                       onDelete={() => onRequestDelete(pkg)}
                     />

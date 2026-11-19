@@ -8,8 +8,15 @@ import { normalizePricingSettings } from '../utils/normalize-pricing-settings';
 export function mapPricingSettingsErrorToMessage(error) {
   const code = String(error?.code || '').toLowerCase();
 
+  if (code === 'pricing/owner-only') {
+    return (
+      error.message ||
+      'Hanya Owner yang berwenang mengubah dan menyimpan konfigurasi harga serta diskon durasi.'
+    );
+  }
+
   if (code.includes('permission-denied') || code.includes('unauthenticated')) {
-    return 'Akses ditolak oleh Firestore. Pastikan Anda login dengan profil Staff atau Owner yang aktif.';
+    return 'Akses ditolak oleh Firestore. Perubahan Price and Fee Settings hanya diizinkan untuk akun Owner yang aktif.';
   }
 
   if (code.includes('unavailable') || code.includes('network-request-failed')) {
@@ -35,6 +42,7 @@ export function mapPricingSettingsErrorToMessage(error) {
  */
 export async function savePricingSettings({
   actorUid,
+  actorRole,
   settings,
   expectedVersion,
   adapter = getPricingSettingsRepositoryAdapter(),
@@ -47,7 +55,14 @@ export async function savePricingSettings({
     );
   }
 
-  const normalizedInput = normalizePricingSettings(settings);
+  if (actorRole !== undefined && String(actorRole).trim().toLowerCase() !== 'owner') {
+    throw createPricingSettingsRepositoryError(
+      'pricing/owner-only',
+      'Hanya Owner yang berwenang mengubah dan menyimpan konfigurasi harga serta diskon durasi.',
+    );
+  }
+
+  const normalizedInput = normalizePricingSettings(settings, { preserveInvalid: true });
   const validation = validatePricingSettingsPayload(normalizedInput);
 
   if (!validation.isValid) {

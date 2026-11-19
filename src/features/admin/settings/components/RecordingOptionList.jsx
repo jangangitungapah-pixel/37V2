@@ -9,6 +9,7 @@ import {
 
 export function RecordingOptionList({
   recordingTypes = [],
+  readOnly = false,
   onAdd,
   onEdit,
   onToggleActive,
@@ -25,6 +26,7 @@ export function RecordingOptionList({
       countLabel={`${activeCount}/${recordingTypes.length} Active`}
       actionLabel="Add Recording Option"
       onAction={onAdd}
+      readOnly={readOnly}
     >
       {recordingTypes.length === 0 ? (
         <div className="border-studio-ink bg-studio-ivory border border-dashed p-5 text-center font-mono text-xs">
@@ -84,6 +86,7 @@ export function RecordingOptionList({
                         <SettingsStatusToggle
                           isActive={item.isActive}
                           label={item.name}
+                          disabled={readOnly}
                           onToggle={() => onToggleActive(item)}
                         />
                       </td>
@@ -91,6 +94,7 @@ export function RecordingOptionList({
                         <div className="flex justify-end">
                           <SettingsItemActions
                             itemName={item.name}
+                            readOnly={readOnly}
                             onEdit={() => onEdit(item)}
                             onDelete={() => onRequestDelete(item)}
                           />
@@ -148,10 +152,12 @@ export function RecordingOptionList({
                     <SettingsStatusToggle
                       isActive={item.isActive}
                       label={item.name}
+                      disabled={readOnly}
                       onToggle={() => onToggleActive(item)}
                     />
                     <SettingsItemActions
                       itemName={item.name}
+                      readOnly={readOnly}
                       onEdit={() => onEdit(item)}
                       onDelete={() => onRequestDelete(item)}
                     />

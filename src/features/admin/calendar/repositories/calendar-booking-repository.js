@@ -25,6 +25,39 @@ export function generateOperationId(prefix = '') {
 }
 
 /**
+ * Normalizes the automatic duration-based discount snapshot with safe fallback (`null`)
+ * for Phase 5/6 bookings or bookings without duration-multiple automatic discount.
+ */
+export function normalizeAutomaticDiscountSnapshot(raw = null) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const intervalMinutes = Math.round(Number(raw.intervalMinutes) || 0);
+  const eligibleBlocks = Math.round(Number(raw.eligibleBlocks) || 0);
+  const discountPerBlock = Math.round(Number(raw.discountPerBlock) || 0);
+  const totalDiscount = Math.round(Number(raw.totalDiscount) || 0);
+
+  if (
+    raw.type !== 'duration_multiple' ||
+    intervalMinutes <= 0 ||
+    eligibleBlocks <= 0 ||
+    discountPerBlock <= 0 ||
+    totalDiscount <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    type: 'duration_multiple',
+    intervalMinutes,
+    eligibleBlocks,
+    discountPerBlock,
+    totalDiscount,
+  };
+}
+
+/**
  * Normalizes the internal commission snapshot with safe fallback for Phase 5 bookings
  * that predate Phase 6 commission tracking.
  */
@@ -77,6 +110,7 @@ export function normalizeBookingRecord(id, data = {}) {
     subtotal: Math.max(0, Number(data.subtotal) || 0),
     discountAmount: Math.max(0, Number(data.discountAmount) || 0),
     totalAmount: Math.max(0, Number(data.totalAmount) || 0),
+    automaticDiscount: normalizeAutomaticDiscountSnapshot(data.automaticDiscount),
     commissionSnapshot: normalizeCommissionSnapshot(data.commissionSnapshot),
     initialPaymentStatus: data.initialPaymentStatus || INITIAL_PAYMENT_STATUS.UNPAID,
     initialPaidAmount: Math.max(0, Number(data.initialPaidAmount) || 0),

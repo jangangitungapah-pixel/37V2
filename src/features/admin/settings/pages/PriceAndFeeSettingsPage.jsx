@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronRight, Loader2, ShieldAlert } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 
@@ -36,9 +36,11 @@ function upsertById(list = [], nextItem) {
 }
 
 export function PriceAndFeeSettingsPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, role } = useAuth();
   const navigate = useNavigate();
   const actorUid = user?.uid || profile?.uid || '';
+  const actorRole = String(role || profile?.role || '').toLowerCase();
+  const isOwner = actorRole === 'owner';
 
   const {
     settings: remoteSettings,
@@ -103,6 +105,7 @@ export function PriceAndFeeSettingsPage() {
   }, [isDirty]);
 
   const updateDraft = (updater) => {
+    if (!isOwner) return;
     setSaveError('');
     setSaveSuccess('');
     setDraftEntry((prev) => {
@@ -116,6 +119,7 @@ export function PriceAndFeeSettingsPage() {
   };
 
   const openEditorDialog = (section, mode, item = null) => {
+    if (!isOwner) return;
     setEditorDialog((prev) => ({
       key: prev.key + 1,
       open: true,
@@ -133,6 +137,7 @@ export function PriceAndFeeSettingsPage() {
   };
 
   const handleToggleItem = (sectionKey, targetItem) => {
+    if (!isOwner) return;
     updateDraft((draft) => ({
       ...draft,
       [sectionKey]: draft[sectionKey].map((item) =>
@@ -142,6 +147,7 @@ export function PriceAndFeeSettingsPage() {
   };
 
   const handleSaveEditorItem = (sectionKey, nextItem) => {
+    if (!isOwner) return;
     updateDraft((draft) => ({
       ...draft,
       [sectionKey]: upsertById(draft[sectionKey], nextItem),
@@ -149,6 +155,7 @@ export function PriceAndFeeSettingsPage() {
   };
 
   const handleRequestDelete = (sectionKey, item, label) => {
+    if (!isOwner) return;
     if (sectionKey === 'sessionTypes') {
       const check = canDeleteSessionType(item.id, effectiveSettings.packages);
       if (!check.canDelete) {
@@ -222,7 +229,7 @@ export function PriceAndFeeSettingsPage() {
   };
 
   const handleSaveChanges = async () => {
-    if (isSaving) return;
+    if (!isOwner || isSaving) return;
     setIsSaving(true);
     setSaveError('');
     setSaveSuccess('');
@@ -231,6 +238,7 @@ export function PriceAndFeeSettingsPage() {
       const expectedVersion = draftEntry ? draftEntry.basedOnVersion : serverSettings.version;
       const saved = await savePricingSettings({
         actorUid,
+        actorRole,
         settings: effectiveSettings,
         expectedVersion,
       });
@@ -330,11 +338,29 @@ export function PriceAndFeeSettingsPage() {
             <span>{loadError}</span>
           </div>
         ) : null}
+
+        {!isOwner ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="border-studio-ink bg-studio-ivory text-studio-ink mt-4 flex items-start gap-2.5 border-2 p-3 text-xs font-bold"
+          >
+            <ShieldAlert
+              className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
+              aria-hidden="true"
+            />
+            <span>
+              Mode Baca Saja (Staff / Operator): Konfigurasi harga layanan, diskon durasi otomatis,
+              paket, dan fee operasional hanya dapat diubah oleh Owner.
+            </span>
+          </div>
+        ) : null}
       </section>
 
       {/* SECTION 01: SESSION TYPES */}
       <SessionTypeList
         sessionTypes={effectiveSettings.sessionTypes}
+        readOnly={!isOwner}
         onAdd={() => openEditorDialog('sessionTypes', 'add')}
         onEdit={(item) => openEditorDialog('sessionTypes', 'edit', item)}
         onToggleActive={(item) => handleToggleItem('sessionTypes', item)}
@@ -344,6 +370,7 @@ export function PriceAndFeeSettingsPage() {
       {/* SECTION 02: RECORDING OPTIONS */}
       <RecordingOptionList
         recordingTypes={effectiveSettings.recordingTypes}
+        readOnly={!isOwner}
         onAdd={() => openEditorDialog('recordingTypes', 'add')}
         onEdit={(item) => openEditorDialog('recordingTypes', 'edit', item)}
         onToggleActive={(item) => handleToggleItem('recordingTypes', item)}
@@ -354,6 +381,7 @@ export function PriceAndFeeSettingsPage() {
       <StudioPackageList
         packages={effectiveSettings.packages}
         sessionTypes={effectiveSettings.sessionTypes}
+        readOnly={!isOwner}
         onAdd={() => openEditorDialog('packages', 'add')}
         onEdit={(item) => openEditorDialog('packages', 'edit', item)}
         onToggleActive={(item) => handleToggleItem('packages', item)}
@@ -364,6 +392,7 @@ export function PriceAndFeeSettingsPage() {
       <DiscountPresetList
         discounts={effectiveSettings.discounts}
         sessionTypes={effectiveSettings.sessionTypes}
+        readOnly={!isOwner}
         onAdd={() => openEditorDialog('discounts', 'add')}
         onEdit={(item) => openEditorDialog('discounts', 'edit', item)}
         onToggleActive={(item) => handleToggleItem('discounts', item)}
@@ -373,6 +402,7 @@ export function PriceAndFeeSettingsPage() {
       {/* SECTION 05: STAFF AND OPERATIONAL FEES */}
       <OperationalFeesForm
         fees={effectiveSettings.fees}
+        readOnly={!isOwner}
         onChangeFees={(nextFees) =>
           updateDraft((draft) => ({
             ...draft,
@@ -387,6 +417,7 @@ export function PriceAndFeeSettingsPage() {
         isPersisted={isPersisted}
         isSaving={isSaving}
         isLoading={isLoading}
+        readOnly={!isOwner}
         version={serverSettings.version}
         hasRemoteVersionConflict={hasRemoteVersionConflict}
         errorMessage={saveError}
