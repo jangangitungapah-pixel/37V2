@@ -26,7 +26,7 @@ export function SiteHeader({
     <>
       {/* Section 01 — Slim Black Top Utility Strip (scrolls away in normal document flow) */}
       <div className="border-studio-ink bg-studio-ink text-studio-ivory border-b">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-1.5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1680px] items-center justify-between gap-2 px-3 py-1.5 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2">
             <span
               className="bg-studio-lime inline-block h-2 w-2 shrink-0 rounded-full"
@@ -55,7 +55,7 @@ export function SiteHeader({
 
       {/* Section 02 — Sticky Main Header / Navigation */}
       <header className="border-studio-ink bg-studio-ivory sticky top-0 z-40 border-b-2">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-2.5 py-2 min-[375px]:px-3 sm:px-6 sm:py-2.5 lg:px-8">
+        <div className="mx-auto flex max-w-[1680px] items-center justify-between gap-2 px-2.5 py-2 min-[375px]:px-3 sm:px-6 sm:py-2.5 lg:px-8">
           {/* Brand Lockup */}
           <a
             href="#top"

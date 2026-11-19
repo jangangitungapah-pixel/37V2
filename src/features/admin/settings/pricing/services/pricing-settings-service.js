@@ -11,7 +11,7 @@ export function mapPricingSettingsErrorToMessage(error) {
   if (code === 'pricing/owner-only') {
     return (
       error.message ||
-      'Hanya Owner yang berwenang mengubah dan menyimpan konfigurasi harga serta diskon durasi.'
+      'Hanya Owner yang berwenang mengubah dan menyimpan konfigurasi harga serta fee internal.'
     );
   }
 
@@ -38,7 +38,7 @@ export function mapPricingSettingsErrorToMessage(error) {
 }
 
 /**
- * Validates and atomically saves the unified `settings/pricing` document to Cloud Firestore.
+ * Validates and atomically saves the unified `settings/pricing` Schema V2 document to Cloud Firestore.
  */
 export async function savePricingSettings({
   actorUid,
@@ -58,7 +58,7 @@ export async function savePricingSettings({
   if (actorRole !== undefined && String(actorRole).trim().toLowerCase() !== 'owner') {
     throw createPricingSettingsRepositoryError(
       'pricing/owner-only',
-      'Hanya Owner yang berwenang mengubah dan menyimpan konfigurasi harga serta diskon durasi.',
+      'Hanya Owner yang berwenang mengubah dan menyimpan konfigurasi harga serta fee internal.',
     );
   }
 

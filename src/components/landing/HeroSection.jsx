@@ -16,7 +16,7 @@ export function HeroSection({ hero, ticker, onNavigate }) {
         aria-labelledby="hero-heading"
         className="border-studio-ink bg-studio-ivory relative scroll-mt-20 border-b-2 py-8 sm:py-12 lg:py-16"
       >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-10">
             {/* Left Top: Badges, Poster Headline, Copy, Primary & Secondary CTAs */}
             <div className="lg:col-span-7 lg:row-start-1">
@@ -163,7 +163,7 @@ export function HeroSection({ hero, ticker, onNavigate }) {
         aria-label="Studio session categories summary"
         className="border-studio-ink bg-studio-lime text-studio-ink border-b-2 py-2.5"
       >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
           <ul className="flex flex-wrap items-center justify-between gap-x-5 gap-y-1.5 font-mono text-[11px] font-extrabold tracking-wider uppercase">
             {ticker.items.map((item) => (
               <li key={item} className="inline-flex items-center gap-1.5">

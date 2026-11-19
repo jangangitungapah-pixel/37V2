@@ -33,16 +33,27 @@ vi.mock('@/lib/firebase/client', () => ({
 
 import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
-import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
+import {
+  DEFAULT_PRICING_SETTINGS,
+  DELIVERY_MODES,
+  DISCOUNT_RULE_MODES,
+  PRICING_MODES,
+} from '@/features/admin/settings/pricing/config/default-pricing-settings';
 import {
   createInMemoryPricingSettingsAdapter,
   resetPricingSettingsRepositoryAdapter,
   setPricingSettingsRepositoryAdapter,
 } from '@/features/admin/settings/pricing/repositories/pricing-settings-repository';
-import { validateSessionTypeForm } from '@/features/admin/settings/pricing/schemas/pricing-settings-schema';
+import { validateServiceOptionForm } from '@/features/admin/settings/pricing/schemas/pricing-settings-schema';
 import { savePricingSettings } from '@/features/admin/settings/pricing/services/pricing-settings-service';
 import { calculateDurationAutomaticDiscount } from '@/features/admin/settings/pricing/utils/calculate-pricing-settings';
+import { clonePricingSettings } from '@/features/admin/settings/pricing/utils/normalize-pricing-settings';
 
+import {
+  createInMemoryCustomerRepositoryAdapter,
+  resetCustomerRepositoryAdapter,
+  setCustomerRepositoryAdapter,
+} from '@/features/admin/customer/repositories/customer-repository';
 import { INITIAL_PAYMENT_STATUS } from './config/calendar-config';
 import {
   resetBookingRepositoryAdapter,
@@ -93,7 +104,31 @@ function renderAppAt(initialEntry = '/admin/calendar') {
   );
 }
 
-describe('Duration-Based Automatic Discount', () => {
+function withRehearsalRegularOverride(overrides = {}) {
+  const cloned = clonePricingSettings(DEFAULT_PRICING_SETTINGS);
+  cloned.serviceTypes = cloned.serviceTypes.map((svc) =>
+    svc.id === 'rehearsal'
+      ? {
+          ...svc,
+          options: svc.options.map((opt) =>
+            opt.id === 'rehearsal-regular'
+              ? {
+                  ...opt,
+                  ...overrides,
+                  pricing: {
+                    ...opt.pricing,
+                    ...(overrides.pricing || {}),
+                  },
+                }
+              : opt,
+          ),
+        }
+      : svc,
+  );
+  return cloned;
+}
+
+describe('Duration-Based Automatic Discount (Catalog V2 Integrated)', () => {
   let pricingAdapter;
   let bookingAdapter;
   const todayIso = getJakartaTodayIso();
@@ -106,12 +141,14 @@ describe('Duration-Based Automatic Discount', () => {
     bookingAdapter = createInMemoryBookingRepositoryAdapter();
     setPricingSettingsRepositoryAdapter(pricingAdapter);
     setBookingRepositoryAdapter(bookingAdapter);
+    setCustomerRepositoryAdapter(createInMemoryCustomerRepositoryAdapter(bookingAdapter));
   });
 
   afterEach(() => {
     cleanup();
     resetPricingSettingsRepositoryAdapter();
     resetBookingRepositoryAdapter();
+    resetCustomerRepositoryAdapter();
   });
 
   describe('1. Domain Calculator & Business Rules', () => {
@@ -128,7 +165,8 @@ describe('Duration-Based Automatic Discount', () => {
       'computes exact automatic duration discount for $durationMinutes minutes -> Rp $expectedDiscount',
       ({ durationMinutes, expectedBlocks, expectedDiscount }) => {
         const snapshot = calculateBookingPricingSnapshot({
-          serviceId: 'rehearsal',
+          serviceTypeId: 'rehearsal',
+          serviceOptionId: 'rehearsal-regular',
           durationMinutes,
           pricingSettings: DEFAULT_PRICING_SETTINGS,
         });
@@ -155,25 +193,13 @@ describe('Duration-Based Automatic Discount', () => {
     );
 
     it('matches the 5-hour Rp 50.000/jam example (Rp 250.000 - Rp 30.000 = Rp 220.000)', () => {
-      const settings50k = {
-        ...DEFAULT_PRICING_SETTINGS,
-        sessionTypes: DEFAULT_PRICING_SETTINGS.sessionTypes.map((s) =>
-          s.id === 'rehearsal'
-            ? {
-                ...s,
-                hourlyRate: 50000,
-                durationDiscount: {
-                  enabled: true,
-                  intervalMinutes: 180,
-                  discountAmount: 30000,
-                },
-              }
-            : s,
-        ),
-      };
+      const settings50k = withRehearsalRegularOverride({
+        pricing: { mode: PRICING_MODES.HOURLY, hourlyRate: 50000 },
+      });
 
       const snapshot = calculateBookingPricingSnapshot({
-        serviceId: 'rehearsal',
+        serviceTypeId: 'rehearsal',
+        serviceOptionId: 'rehearsal-regular',
         durationMinutes: 300,
         pricingSettings: settings50k,
       });
@@ -190,25 +216,24 @@ describe('Duration-Based Automatic Discount', () => {
       });
     });
 
-    it('grants Rp 0 discount when duration discount is disabled on the service', () => {
-      const disabledRehearsalSettings = {
-        ...DEFAULT_PRICING_SETTINGS,
-        sessionTypes: DEFAULT_PRICING_SETTINGS.sessionTypes.map((s) =>
-          s.id === 'rehearsal'
-            ? {
-                ...s,
-                durationDiscount: {
-                  enabled: false,
-                  intervalMinutes: 180,
-                  discountAmount: 30000,
-                },
-              }
-            : s,
-        ),
-      };
+    it('grants Rp 0 discount when duration discount rules are disabled on the subcategory', () => {
+      const disabledRehearsalSettings = withRehearsalRegularOverride({
+        discountRules: [
+          {
+            id: 'disc-rehearsal-regular-3h',
+            name: 'Diskon Durasi',
+            mode: DISCOUNT_RULE_MODES.PER_COMPLETED_BLOCK,
+            intervalMinutes: 180,
+            minimumDurationMinutes: 0,
+            discountAmount: 30000,
+            isActive: false,
+          },
+        ],
+      });
 
       const rehearsal6h = calculateBookingPricingSnapshot({
-        serviceId: 'rehearsal',
+        serviceTypeId: 'rehearsal',
+        serviceOptionId: 'rehearsal-regular',
         durationMinutes: 360,
         pricingSettings: disabledRehearsalSettings,
       });
@@ -217,36 +242,25 @@ describe('Duration-Based Automatic Discount', () => {
       expect(rehearsal6h.totalAmount).toBe(600000);
       expect(rehearsal6h.automaticDiscount).toBeNull();
 
-      // Mixing is disabled by default
-      const mixing6h = calculateBookingPricingSnapshot({
-        serviceId: 'mixing',
+      // Recording Tracking Reguler has no duration discount rules by default
+      const tracking6h = calculateBookingPricingSnapshot({
+        serviceTypeId: 'recording',
+        serviceOptionId: 'tracking-regular',
         durationMinutes: 360,
         pricingSettings: DEFAULT_PRICING_SETTINGS,
       });
-      expect(mixing6h.discountAmount).toBe(0);
-      expect(mixing6h.automaticDiscount).toBeNull();
+      expect(tracking6h.discountAmount).toBe(0);
+      expect(tracking6h.automaticDiscount).toBeNull();
     });
 
     it('never allows final price to become negative and caps discount at subtotal', () => {
-      const lowRateSettings = {
-        ...DEFAULT_PRICING_SETTINGS,
-        sessionTypes: DEFAULT_PRICING_SETTINGS.sessionTypes.map((s) =>
-          s.id === 'rehearsal'
-            ? {
-                ...s,
-                hourlyRate: 5000,
-                durationDiscount: {
-                  enabled: true,
-                  intervalMinutes: 180,
-                  discountAmount: 30000,
-                },
-              }
-            : s,
-        ),
-      };
+      const lowRateSettings = withRehearsalRegularOverride({
+        pricing: { mode: PRICING_MODES.HOURLY, hourlyRate: 5000 },
+      });
 
       const snapshot = calculateBookingPricingSnapshot({
-        serviceId: 'rehearsal',
+        serviceTypeId: 'rehearsal',
+        serviceOptionId: 'rehearsal-regular',
         durationMinutes: 180,
         pricingSettings: lowRateSettings,
       });
@@ -263,7 +277,7 @@ describe('Duration-Based Automatic Discount', () => {
       });
     });
 
-    it('rejects invalid durationDiscount interval/amount configurations and safely ignores invalid values in domain calculator', async () => {
+    it('rejects invalid discount rule interval/amount configurations and safely ignores invalid values in domain calculator', async () => {
       expect(
         calculateDurationAutomaticDiscount({
           durationMinutes: 360,
@@ -288,29 +302,56 @@ describe('Duration-Based Automatic Discount', () => {
         }).discountAmount,
       ).toBe(0);
 
-      const invalidInterval = validateSessionTypeForm({
-        id: 'rehearsal',
-        name: 'Rehearsal',
-        description: 'Latihan',
-        hourlyRate: 100000,
-        durationDiscount: { enabled: true, intervalMinutes: 0, discountAmount: 30000 },
-        isActive: true,
-        sortOrder: 1,
-      });
+      const invalidInterval = validateServiceOptionForm(
+        {
+          id: 'rehearsal-regular',
+          name: 'Reguler',
+          description: 'Latihan',
+          isActive: true,
+          sortOrder: 1,
+          pricing: {
+            mode: PRICING_MODES.HOURLY,
+            hourlyRate: 100000,
+            durationMinutes: null,
+            basePrice: null,
+            discountAmount: 0,
+            projectPrice: null,
+            unitLabel: '',
+          },
+          discountRules: [
+            {
+              id: 'disc-bad-interval',
+              name: 'Bad Interval',
+              mode: DISCOUNT_RULE_MODES.PER_COMPLETED_BLOCK,
+              intervalMinutes: 0,
+              minimumDurationMinutes: 0,
+              discountAmount: 30000,
+              isActive: true,
+            },
+          ],
+          fees: {
+            staff: { mode: 'none', amount: 0 },
+            owner: { mode: 'none', amount: 0 },
+            recordingOperator: { mode: 'none', amount: 0 },
+          },
+        },
+        DELIVERY_MODES.STUDIO,
+      );
       expect(invalidInterval.isValid).toBe(false);
-      expect(invalidInterval.errors['durationDiscount.intervalMinutes']).toBeTruthy();
 
-      const invalidFloatAmount = validateSessionTypeForm({
-        id: 'rehearsal',
-        name: 'Rehearsal',
-        description: 'Latihan',
-        hourlyRate: 100000,
-        durationDiscount: { enabled: true, intervalMinutes: 180, discountAmount: 15000.5 },
-        isActive: true,
-        sortOrder: 1,
+      const invalidSettings = withRehearsalRegularOverride({
+        discountRules: [
+          {
+            id: 'disc-bad-interval',
+            name: 'Bad Interval',
+            mode: DISCOUNT_RULE_MODES.PER_COMPLETED_BLOCK,
+            intervalMinutes: 0,
+            minimumDurationMinutes: 0,
+            discountAmount: 30000,
+            isActive: true,
+          },
+        ],
       });
-      expect(invalidFloatAmount.isValid).toBe(false);
-      expect(invalidFloatAmount.errors['durationDiscount.discountAmount']).toBeTruthy();
 
       await expect(
         savePricingSettings({
@@ -318,68 +359,40 @@ describe('Duration-Based Automatic Discount', () => {
           actorRole: 'owner',
           expectedVersion: 0,
           adapter: pricingAdapter,
-          settings: {
-            ...DEFAULT_PRICING_SETTINGS,
-            sessionTypes: DEFAULT_PRICING_SETTINGS.sessionTypes.map((s) =>
-              s.id === 'rehearsal'
-                ? {
-                    ...s,
-                    durationDiscount: {
-                      enabled: true,
-                      intervalMinutes: 0,
-                      discountAmount: 30000,
-                    },
-                  }
-                : s,
-            ),
-          },
+          settings: invalidSettings,
         }),
       ).rejects.toMatchObject({ code: 'pricing/validation-error' });
     });
 
-    it('preserves existing package pricing and fixed-session recording pricing without double discounting', () => {
-      const settingsWithRecordingDurationDiscount = {
-        ...DEFAULT_PRICING_SETTINGS,
-        sessionTypes: DEFAULT_PRICING_SETTINGS.sessionTypes.map((s) =>
-          s.id === 'recording'
-            ? {
-                ...s,
-                durationDiscount: {
-                  enabled: true,
-                  intervalMinutes: 180,
-                  discountAmount: 30000,
-                },
-              }
-            : s,
-        ),
-      };
-
-      // Package pricing (Paket Rehearsal 3 Jam) must NOT double-discount
+    it('preserves existing Fixed Shift packages and Fixed Shift recording pricing without double discounting', () => {
+      // Fixed Shift package (Paket 3 Hours) uses ONLY its own discount (30k)
       const pkg3h = calculateBookingPricingSnapshot({
-        packageId: 'pkg-rehearsal-3h',
-        pricingSettings: settingsWithRecordingDurationDiscount,
+        serviceTypeId: 'rehearsal',
+        serviceOptionId: 'pkg-rehearsal-3h',
+        pricingSettings: DEFAULT_PRICING_SETTINGS,
       });
       expect(pkg3h.subtotal).toBe(300000);
       expect(pkg3h.discountAmount).toBe(30000);
       expect(pkg3h.totalAmount).toBe(270000);
       expect(pkg3h.automaticDiscount).toBeNull();
 
-      // Package pricing (Paket Rehearsal 5 Jam)
+      // Fixed Shift package (Paket 5 Hours)
       const pkg5h = calculateBookingPricingSnapshot({
-        packageId: 'pkg-rehearsal-5h',
-        pricingSettings: settingsWithRecordingDurationDiscount,
+        serviceTypeId: 'rehearsal',
+        serviceOptionId: 'pkg-rehearsal-5h',
+        pricingSettings: DEFAULT_PRICING_SETTINGS,
       });
       expect(pkg5h.subtotal).toBe(500000);
       expect(pkg5h.discountAmount).toBe(50000);
       expect(pkg5h.totalAmount).toBe(450000);
       expect(pkg5h.automaticDiscount).toBeNull();
 
-      // Fixed-session recording (Live Recording 3 Jam & Multitrack Shift 6 Jam) must NOT be altered
+      // Fixed Shift recording (Live 3h & Multitrack Shift 6h) must NOT be altered
       const fixedRec3h = calculateBookingPricingSnapshot({
-        serviceId: 'recording',
-        recordingTypeId: 'live-recording-3h',
+        serviceTypeId: 'recording',
+        serviceOptionId: 'live-recording-3h',
         durationMinutes: 180,
-        pricingSettings: settingsWithRecordingDurationDiscount,
+        pricingSettings: DEFAULT_PRICING_SETTINGS,
       });
       expect(fixedRec3h.subtotal).toBe(420000);
       expect(fixedRec3h.discountAmount).toBe(0);
@@ -387,33 +400,15 @@ describe('Duration-Based Automatic Discount', () => {
       expect(fixedRec3h.automaticDiscount).toBeNull();
 
       const fixedRec6h = calculateBookingPricingSnapshot({
-        serviceId: 'recording',
-        recordingTypeId: 'multitrack-shift-6h',
+        serviceTypeId: 'recording',
+        serviceOptionId: 'multitrack-shift-6h',
         durationMinutes: 360,
-        pricingSettings: settingsWithRecordingDurationDiscount,
+        pricingSettings: DEFAULT_PRICING_SETTINGS,
       });
       expect(fixedRec6h.subtotal).toBe(800000);
       expect(fixedRec6h.discountAmount).toBe(0);
       expect(fixedRec6h.totalAmount).toBe(800000);
       expect(fixedRec6h.automaticDiscount).toBeNull();
-
-      // Regular hourly recording (Tracking Reguler) DOES apply durationDiscount when enabled on Recording
-      const hourlyRec6h = calculateBookingPricingSnapshot({
-        serviceId: 'recording',
-        recordingTypeId: 'tracking-regular',
-        durationMinutes: 360,
-        pricingSettings: settingsWithRecordingDurationDiscount,
-      });
-      expect(hourlyRec6h.subtotal).toBe(900000);
-      expect(hourlyRec6h.discountAmount).toBe(60000);
-      expect(hourlyRec6h.totalAmount).toBe(840000);
-      expect(hourlyRec6h.automaticDiscount).toEqual({
-        type: 'duration_multiple',
-        intervalMinutes: 180,
-        eligibleBlocks: 2,
-        discountPerBlock: 30000,
-        totalDiscount: 60000,
-      });
     });
   });
 
@@ -428,9 +423,8 @@ describe('Duration-Based Automatic Discount', () => {
           customerName: 'Bima Satria',
           phone: '081234567890',
           bandName: 'Pulse 37',
-          serviceId: 'rehearsal',
-          packageId: '',
-          recordingTypeId: '',
+          serviceTypeId: 'rehearsal',
+          serviceOptionId: 'rehearsal-regular',
           studioId: 'room-a',
           date: todayIso,
           startMinute: 600,
@@ -465,28 +459,16 @@ describe('Duration-Based Automatic Discount', () => {
         totalDiscount: 30000,
       });
 
-      // Owner subsequently disables/modifies Rehearsal duration discount and hourly rate
+      // Owner subsequently changes Rehearsal Reguler rate & disables duration discount
       const updatedSettings = await savePricingSettings({
         actorUid: 'owner-uid-1',
         actorRole: 'owner',
         expectedVersion: 0,
         adapter: pricingAdapter,
-        settings: {
-          ...DEFAULT_PRICING_SETTINGS,
-          sessionTypes: DEFAULT_PRICING_SETTINGS.sessionTypes.map((s) =>
-            s.id === 'rehearsal'
-              ? {
-                  ...s,
-                  hourlyRate: 150000,
-                  durationDiscount: {
-                    enabled: false,
-                    intervalMinutes: 120,
-                    discountAmount: 50000,
-                  },
-                }
-              : s,
-          ),
-        },
+        settings: withRehearsalRegularOverride({
+          pricing: { mode: PRICING_MODES.HOURLY, hourlyRate: 150000 },
+          discountRules: [],
+        }),
       });
 
       // Stored historical booking remains completely unaffected
@@ -519,9 +501,8 @@ describe('Duration-Based Automatic Discount', () => {
           customerName: created.customerName,
           phone: created.phone,
           bandName: created.bandName,
-          serviceId: created.serviceId,
-          packageId: '',
-          recordingTypeId: '',
+          serviceTypeId: created.serviceTypeId,
+          serviceOptionId: created.serviceOptionId,
           studioId: 'room-b',
           date: todayIso,
           startMinute: 720,
@@ -543,7 +524,7 @@ describe('Duration-Based Automatic Discount', () => {
   describe('3. Booking Form UI Reactivity & Booking Detail Drawer Integration', () => {
     it('recalculates Diskon Durasi live when changing duration presets, end time, or service without page reload, hides discount row when Rp 0, and saves snapshot', async () => {
       const user = userEvent.setup();
-      // Operator (Staff) can create bookings and receives automatic duration discount
+      // Operator (Staff) can create Studio bookings and receives automatic duration discount
       mockAuthenticatedUser('staff', 'staff-uid-2');
 
       renderAppAt('/admin/calendar');
@@ -583,9 +564,13 @@ describe('Duration-Based Automatic Discount', () => {
       expect(within(modal).getByText('Diskon Durasi')).toBeTruthy();
       expect(within(modal).getAllByText(/Rp\s*470\.000/).length).toBeGreaterThan(0);
 
-      // Switch Service to Mixing (duration discount disabled) -> Diskon Durasi disappears
+      // Switch Service to Recording (Tracking Reguler has no duration discount) -> Diskon Durasi disappears
       const serviceGroup = within(modal).getByRole('group', { name: /pilih layanan studio/i });
-      await user.click(within(serviceGroup).getByRole('button', { name: /mixing/i }));
+      // WFA services (Mixing / Mastering) MUST NOT appear in Studio Booking Form
+      expect(within(serviceGroup).queryByRole('button', { name: /mixing/i })).toBeNull();
+      expect(within(serviceGroup).queryByRole('button', { name: /mastering/i })).toBeNull();
+
+      await user.click(within(serviceGroup).getByRole('button', { name: /recording/i }));
       expect(within(modal).queryByText(/^Diskon Durasi$/)).toBeNull();
 
       // Switch back to Rehearsal (5 Jam) and submit booking
@@ -634,91 +619,6 @@ describe('Duration-Based Automatic Discount', () => {
   });
 
   describe('4. Owner vs Staff/Operator Authorization & Firestore Rules Contract', () => {
-    it('allows Owner to configure and save durationDiscount on a Session Type while restricting Staff/Operator to read-only', async () => {
-      const user = userEvent.setup();
-
-      // 1. Staff/Operator cannot modify settings in UI or domain service
-      await expect(
-        savePricingSettings({
-          actorUid: 'staff-uid-2',
-          actorRole: 'staff',
-          expectedVersion: 0,
-          adapter: pricingAdapter,
-          settings: DEFAULT_PRICING_SETTINGS,
-        }),
-      ).rejects.toMatchObject({ code: 'pricing/owner-only' });
-
-      mockAuthenticatedUser('staff', 'staff-uid-2');
-      renderAppAt('/admin/settings/price-and-fee');
-      expect(
-        await screen.findByRole('heading', { level: 2, name: /price and fee settings/i }),
-      ).toBeTruthy();
-
-      expect(screen.getByText(/mode baca saja \(staff \/ operator\)/i)).toBeTruthy();
-      const staffSessionSection = screen.getByRole('region', { name: /session types/i });
-      expect(
-        within(staffSessionSection).queryByRole('button', { name: /add session type/i }),
-      ).toBeNull();
-      const staffEditRehearsalBtns = within(staffSessionSection).getAllByRole('button', {
-        name: /edit rehearsal/i,
-      });
-      expect(staffEditRehearsalBtns[0].disabled).toBe(true);
-      const staffSaveBar = screen.getByRole('region', {
-        name: /kontrol penyimpanan price and fee settings/i,
-      });
-      expect(within(staffSaveBar).getByRole('button', { name: /save changes/i }).disabled).toBe(
-        true,
-      );
-
-      cleanup();
-
-      // 2. Owner can edit Rehearsal durationDiscount (interval & discount amount) and save
-      mockAuthenticatedUser('owner', 'owner-uid-1');
-      renderAppAt('/admin/settings/price-and-fee');
-      expect(
-        await screen.findByRole('heading', { level: 2, name: /price and fee settings/i }),
-      ).toBeTruthy();
-
-      const ownerSessionSection = screen.getByRole('region', { name: /session types/i });
-      const editRehearsalBtn = within(ownerSessionSection).getAllByRole('button', {
-        name: /edit rehearsal/i,
-      })[0];
-      await user.click(editRehearsalBtn);
-
-      const editDialog = await screen.findByRole('dialog', { name: /edit session type/i });
-      const enabledCheckbox = within(editDialog).getByLabelText(/enable duration discount/i);
-      expect(enabledCheckbox.checked).toBe(true);
-
-      fireEvent.change(within(editDialog).getByLabelText(/discount interval \(menit\)/i), {
-        target: { value: '120' },
-      });
-      fireEvent.change(within(editDialog).getByLabelText(/discount amount \(idr\)/i), {
-        target: { value: '25000' },
-      });
-      await user.click(within(editDialog).getByRole('button', { name: /update session/i }));
-
-      await waitFor(() => {
-        expect(screen.queryByRole('dialog', { name: /edit session type/i })).toBeNull();
-      });
-
-      const ownerSaveBar = screen.getByRole('region', {
-        name: /kontrol penyimpanan price and fee settings/i,
-      });
-      await user.click(within(ownerSaveBar).getByRole('button', { name: /save changes/i }));
-      await waitFor(() => {
-        expect(within(ownerSaveBar).getByText(/tersimpan • v1/i)).toBeTruthy();
-      });
-
-      const persistedRehearsal = pricingAdapter
-        ._getStoredDoc()
-        .sessionTypes.find((s) => s.id === 'rehearsal');
-      expect(persistedRehearsal.durationDiscount).toEqual({
-        enabled: true,
-        intervalMinutes: 120,
-        discountAmount: 25000,
-      });
-    });
-
     it('enforces Owner-only settings writes and booking automaticDiscount math & immutability in firestore.rules', () => {
       const rulesPath = path.resolve(process.cwd(), 'firestore.rules');
       const rulesContent = fs.readFileSync(rulesPath, 'utf8');

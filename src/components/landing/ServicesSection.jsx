@@ -23,7 +23,7 @@ export function ServicesSection({ services, onSelectService }) {
       aria-labelledby="services-heading"
       className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-12 sm:py-16 lg:py-20"
     >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
         {/* Section Header Row */}
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>

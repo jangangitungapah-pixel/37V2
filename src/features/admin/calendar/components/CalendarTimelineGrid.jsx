@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { AlertCircle, Plus } from 'lucide-react';
 
 import {
@@ -25,11 +26,63 @@ export function CalendarTimelineGrid({
   columns = [],
   columnTrackCss = 'minmax(150px, 1fr)',
   cardVariant = 'compact',
+  focusDateIso = '',
+  focusRequestKey = 0,
   onSelectEmptySlot,
   onSelectBooking,
 }) {
+  const scrollContainerRef = useRef(null);
   const rowHeightPx = CALENDAR_TIMELINE_ROW_HEIGHT_PX;
   const totalTimelineHeight = TIMELINE_HOURLY_SLOTS.length * rowHeightPx;
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return undefined;
+
+    const targetEl =
+      (focusDateIso ? container.querySelector(`[data-column-date="${focusDateIso}"]`) : null) ||
+      container.querySelector('[data-column-today="true"]');
+
+    if (!targetEl) return undefined;
+
+    const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+    if (maxScrollLeft > 0) {
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+      const targetOffsetWithinScroll = targetRect.left - containerRect.left + container.scrollLeft;
+      const colWidth = targetRect.width || 118;
+      const leftContextPx =
+        container.clientWidth >= TIME_COLUMN_WIDTH_PX + colWidth * 3 ? colWidth : 0;
+      const targetScrollLeft = Math.min(
+        maxScrollLeft,
+        Math.max(0, Math.round(targetOffsetWithinScroll - TIME_COLUMN_WIDTH_PX - leftContextPx)),
+      );
+
+      if (typeof container.scrollTo === 'function') {
+        container.scrollTo({
+          left: targetScrollLeft,
+          behavior: focusRequestKey > 0 ? 'smooth' : 'auto',
+        });
+      } else {
+        container.scrollLeft = targetScrollLeft;
+      }
+    }
+
+    if (focusRequestKey > 0) {
+      const pulseClasses = ['ring-2', 'ring-inset', 'ring-studio-lime'];
+      targetEl.classList.add(...pulseClasses);
+      const timerId = window.setTimeout(() => {
+        targetEl.classList.remove(...pulseClasses);
+      }, 900);
+
+      return () => {
+        window.clearTimeout(timerId);
+        targetEl.classList.remove(...pulseClasses);
+      };
+    }
+
+    return undefined;
+  }, [focusDateIso, focusRequestKey]);
 
   const gridTemplateColumns = `${TIME_COLUMN_WIDTH_PX}px repeat(${Math.max(
     1,
@@ -112,7 +165,7 @@ export function CalendarTimelineGrid({
       ) : null}
 
       {/* Unified Horizontal Scroll Container (Header + Body share the exact same CSS Grid) */}
-      <div className="w-full overflow-x-auto overscroll-x-contain">
+      <div ref={scrollContainerRef} className="w-full overflow-x-auto overscroll-x-contain">
         <div
           className="grid min-w-full"
           style={{
@@ -130,6 +183,7 @@ export function CalendarTimelineGrid({
             return (
               <div
                 key={`header-${col.id}`}
+                data-column-date={col.dateIso}
                 data-column-today={col.isToday ? 'true' : 'false'}
                 data-column-selected={col.isSelected ? 'true' : 'false'}
                 className={`border-studio-ink flex flex-col justify-between border-r border-b-2 px-2 py-2 last:border-r-0 ${

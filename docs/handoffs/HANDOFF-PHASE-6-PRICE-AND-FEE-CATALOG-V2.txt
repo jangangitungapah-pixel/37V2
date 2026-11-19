@@ -1,0 +1,289 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 6 V2: SERVICE CATALOG & TARIFF MODEL REDESIGN
+Date: 2026-11-19
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: d:\PROJECT VS\37V2
+Branch: main
+
+============================================================
+1. STARTING HEAD
+============================================================
+
+- Audited baseline HEAD:
+  8cf4e6c7a5329f857b3a461580010857a45b444e
+  (feat: implement automatic pricing discounts and admin calendar booking management)
+
+============================================================
+2. FINAL COMMIT
+============================================================
+
+- Status: Uncommitted working tree on branch `main` built cleanly on top of
+  `8cf4e6c7a5329f857b3a461580010857a45b444e` (awaiting user review and explicit
+  approval before commit / push; no deployment, PR merge, or force push performed).
+
+============================================================
+3. FILES CREATED, MODIFIED & REMOVED
+============================================================
+
+Created:
+- `src/features/admin/settings/pricing/utils/migrate-pricing-settings.js`
+- `src/features/admin/settings/components/DailyMealAllowanceForm.jsx`
+- `src/features/admin/settings/components/DiscountRulesEditor.jsx`
+- `src/features/admin/settings/components/InternalFeeEditor.jsx`
+- `src/features/admin/settings/components/PricingModeFields.jsx`
+- `src/features/admin/settings/components/ServiceOptionDialog.jsx`
+- `src/features/admin/settings/components/ServiceOptionList.jsx`
+- `src/features/admin/settings/components/ServiceTypeCard.jsx`
+- `src/features/admin/settings/components/ServiceTypeDialog.jsx`
+- `scripts/verify-phase-6-tariff-v2.ps1`
+- `docs/architecture/PRICE-AND-FEE-CATALOG-V2.md`
+- `docs/handoffs/HANDOFF-PHASE-6-PRICE-AND-FEE-CATALOG-V2.txt`
+
+Modified:
+- `firestore.rules`
+- `src/features/admin/settings/pricing/config/default-pricing-settings.js`
+- `src/features/admin/settings/pricing/utils/normalize-pricing-settings.js`
+- `src/features/admin/settings/pricing/utils/calculate-pricing-settings.js`
+- `src/features/admin/settings/pricing/schemas/pricing-settings-schema.js`
+- `src/features/admin/settings/pricing/repositories/pricing-settings-repository.js`
+- `src/features/admin/settings/pricing/services/pricing-settings-service.js`
+- `src/features/admin/settings/hooks/usePricingSettings.js`
+- `src/features/admin/settings/components/SettingsSaveBar.jsx`
+- `src/features/admin/settings/components/SettingsSectionCard.jsx`
+- `src/features/admin/settings/pages/PriceAndFeeSettingsPage.jsx`
+- `src/features/admin/settings/settings.test.jsx`
+- `src/features/admin/calendar/utils/booking-pricing.js`
+- `src/features/admin/calendar/schemas/booking-schema.js`
+- `src/features/admin/calendar/repositories/calendar-booking-repository.js`
+- `src/features/admin/calendar/services/calendar-booking-service.js`
+- `src/features/admin/calendar/components/BookingFormDialog.jsx`
+- `src/features/admin/calendar/components/BookingDetailDrawer.jsx`
+- `src/features/admin/calendar/pages/AdminCalendarPage.jsx`
+- `src/features/admin/calendar/calendar.test.jsx`
+- `src/features/admin/calendar/duration-discount.test.jsx`
+
+Removed (Obsolete V1 UI components superseded by V2 hierarchical catalog):
+- `src/features/admin/settings/components/DiscountPresetDialog.jsx`
+- `src/features/admin/settings/components/DiscountPresetList.jsx`
+- `src/features/admin/settings/components/OperationalFeesForm.jsx`
+- `src/features/admin/settings/components/RecordingOptionDialog.jsx`
+- `src/features/admin/settings/components/RecordingOptionList.jsx`
+- `src/features/admin/settings/components/SessionTypeDialog.jsx`
+- `src/features/admin/settings/components/SessionTypeList.jsx`
+- `src/features/admin/settings/components/StudioPackageDialog.jsx`
+- `src/features/admin/settings/components/StudioPackageList.jsx`
+
+Note: All pre-existing handoff files under `docs/handoffs/` remain completely intact.
+
+============================================================
+4. SERVICE CATALOG STRUCTURE
+============================================================
+
+Hierarchical catalog:
+  Service Type (deliveryMode: 'studio' | 'wfa')
+    -> Service Option / Subcategory
+         -> Customer Price + Discount Rules + Internal Fees (Staff / Owner / Recording Operator)
+  Global Operational Settings
+    -> Daily Meal Allowance per Staff
+
+Default V2 Catalog (`DEFAULT_SERVICE_TYPES`):
+- Studio Services (`deliveryMode: 'studio'`):
+  1. Rehearsal (`rehearsal`):
+     - Reguler (`rehearsal-regular`): hourly Rp 100.000/jam + Diskon Durasi Rp 30.000 / 3 jam
+     - Paket 3 Hours (`pkg-rehearsal-3h`): fixed_shift 180m, Rp 300.000 - Rp 30.000 = Rp 270.000
+     - Paket 5 Hours (`pkg-rehearsal-5h`): fixed_shift 300m, Rp 500.000 - Rp 50.000 = Rp 450.000
+     - Paket 6 Hours (`rehearsal-pkg-6h`): unconfigured, isActive=false (no invented rate)
+  2. Recording (`recording`):
+     - Lite (`rec-lite`): unconfigured, isActive=false
+     - Pro (`rec-pro`): unconfigured, isActive=false
+     - Live (`live-recording-3h`): fixed_shift 180m, Rp 420.000
+     - Drum Only (`rec-drum-only`): unconfigured, isActive=false
+     - Others (`rec-others`): manual_quote, staff=manual, recordingOperator=manual
+     - Tracking Reguler (`tracking-regular`): hourly Rp 150.000/jam
+     - Multitrack Shift (`multitrack-shift-6h`): fixed_shift 360m, Rp 800.000
+- WFA Services (`deliveryMode: 'wfa'`, excluded from Studio Room Calendar):
+  3. Mixing (`mixing`): Mixing Reguler (`mixing-regular`, hourly Rp 250.000/jam)
+  4. Mastering (`mastering`): Mastering Reguler (`mastering-regular`, hourly Rp 300.000/jam)
+
+Supports Owner Add/Edit/Toggle/Safe-Delete for both Service Types and Subcategories
+with immutable UUIDs on rename. Active Staff view `/admin/settings/price-and-fee` in
+read-only mode.
+
+============================================================
+5. PRICING MODE
+============================================================
+
+Five explicit modes (`PRICING_MODES`), using integer Rupiah math:
+- `hourly`: `Math.round((hourlyRate * durationMinutes) / 60)` + optional non-stacking
+  `discountRules` (`per_completed_block` or `minimum_duration`, highest single rule wins,
+  capped at subtotal).
+- `fixed_shift`: fixed `durationMinutes`, `basePrice`, built-in `discountAmount`
+  (`final = max(0, basePrice - discountAmount)`), never stacked with regular discount rules.
+- `fixed_project`: fixed `projectPrice` + optional `unitLabel` (for WFA / project services).
+- `manual_quote`: negotiated customer total entered at booking time (`> 0`).
+- `unconfigured`: forced `isActive: false`, hidden from Booking Form, rejected by schema/service.
+
+============================================================
+6. FEE CALCULATION
+============================================================
+
+Three independent internal roles per subcategory (`fees.staff`, `fees.owner`,
+`fees.recordingOperator`), each supporting `none | fixed | hourly | manual`:
+- `none`: Rp 0
+- `fixed`: flat integer `amount` per booking
+- `hourly`: `Math.round((amount * durationMinutes) / 60)`
+- `manual`: entered at booking time (default for Staff & Recording Operator on `Recording -> Others`)
+
+Global `operationalSettings.dailyMealAllowancePerStaff`: operational preset only;
+never included in booking totals or per-booking fee snapshots.
+Internal fees are strictly isolated from Customer Bill (`subtotal`, `discountAmount`,
+`totalAmount`, DP, remaining balance). Fixed and hourly cannot be active simultaneously
+on the same role.
+
+============================================================
+7. FIRESTORE SCHEMA V2
+============================================================
+
+Single document `settings/pricing`:
+- `schemaVersion`: `2`
+- `serviceTypes`: Array of Service Type objects containing nested `options`
+- `operationalSettings`: `{ dailyMealAllowancePerStaff: int >= 0 }`
+- `version`: positive integer incremented transactionally (`expectedVersion`)
+- `updatedAt`: Firestore `serverTimestamp()`
+- `updatedByUid`: `request.auth.uid` (active Owner)
+
+Shared realtime hook `usePricingSettings()` subscribes via `onSnapshot` with zero
+`localStorage` source of truth and clean unsubscribe on unmount.
+
+============================================================
+8. MIGRATION RESULT
+============================================================
+
+Implemented pure, idempotent `migratePricingSettingsV1ToV2()` in
+`src/features/admin/settings/pricing/utils/migrate-pricing-settings.js`:
+- Detects legacy V1 documents (`schemaVersion === 1` or `sessionTypes` without `serviceTypes`).
+- Migrates in memory during read without issuing any automatic Firestore write.
+- Preserves all V1 hourly rates, Recording Options, Studio Packages, duration/regular
+  discounts, rehearsal staff hourly commission, package staff/operator commissions,
+  `dailyMealAllowancePerStaff`, `version`, `updatedAt`, and `updatedByUid`.
+- Surfaces a clear migration banner in `PriceAndFeeSettingsPage` so the Owner explicitly
+  reviews and persists Schema V2 at `version + 1`.
+- Verified idempotence and lossless mapping in `settings.test.jsx` Section D.
+
+============================================================
+9. RULES UPDATES (`firestore.rules`)
+============================================================
+
+- `match /settings/pricing`:
+  - `allow get: if isActiveStaff();`
+  - `allow list: if false;`
+  - `allow create: if isActiveOwner() && isValidPricingSettings(request.resource.data) && request.resource.data.version == 1;`
+  - `allow update: if isActiveOwner() && isValidPricingSettings(request.resource.data) && request.resource.data.version == resource.data.version + 1;`
+  - `allow delete: if false;`
+  - Enforces `schemaVersion == 2`, non-empty `serviceTypes` list, exact 6 top-level keys,
+    valid `operationalSettings.dailyMealAllowancePerStaff >= 0`, `updatedAt is timestamp`,
+    and `updatedByUid == request.auth.uid`.
+- `match /bookings/{bookingId}`:
+  - Accepts V2 service metadata fields (`serviceTypeId`, `serviceTypeName`, `serviceOptionId`,
+    `serviceOptionName`, `deliveryMode`, `pricingMode`, `pricingSettingsVersion`) and enforces
+    `deliveryMode == 'studio'` (blocking WFA bookings at the database layer).
+  - Supports both V1 and V2 `commissionSnapshot` via ternary schema dispatch
+    (`isValidBookingCommissionSnapshotV2` / `isValidBookingCommissionSnapshotV1`) plus null
+    Phase 5 snapshots.
+  - Enforces exact key sizes & `affectedKeys()` validation on updates so complex V2
+    bookings stay comfortably within Firestore Rules' 1000-expression evaluation budget.
+  - Protects customer price snapshot, `automaticDiscount`, `commissionSnapshot`, and
+    payment snapshot from tampering when booking service scope is unchanged.
+  - Preserves `allow delete: if false;`.
+
+============================================================
+10. CALENDAR INTEGRATION
+============================================================
+
+- `AdminCalendarPage` consumes `usePricingSettings()` and passes `pricingSettings` &
+  `activeStudioServiceTypes` into `BookingFormDialog` and booking service functions.
+- `BookingFormDialog` renders sequential `Jenis Jasa (Studio) -> Subkategori / Opsi`,
+  auto-locks duration for `fixed_shift`, exposes Manual Quote + Manual Internal Fee inputs
+  for `Recording -> Others`, computes live `Diskon Durasi` / `Diskon Paket`, and displays
+  clearly separated `CUSTOMER BILL` and `INTERNAL FEE ESTIMATE` panels.
+- `BookingDetailDrawer` displays V2 subcategory details and 3-role internal fee snapshot
+  (`Staff`, `Owner`, `Recording Operator`) with seamless fallback for V1 and Phase 5 bookings.
+- WFA services (`Mixing`, `Mastering`) never appear in Studio Calendar and are explicitly
+  blocked from creating room bookings or `bookingSlots` locks.
+
+============================================================
+11. HISTORICAL SNAPSHOT PROTECTION
+============================================================
+
+- Changing Settings V2 never mutates existing bookings.
+- New bookings snapshot customer totals, `automaticDiscount`, V2 catalog IDs/names, and
+  3-role `commissionSnapshot` V2 at creation time.
+- Editing notes/contact info/status or rescheduling room/date/time preserves historical
+  financial & commission snapshots identically.
+- Changing service/subcategory/duration during edit requires explicit confirmation
+  (`Terapkan harga & fee preset terbaru`) before recalculating snapshots.
+- Legacy Phase 5 (`commissionSnapshot: null`) and Phase 6 V1 (`staffBasis`/`staffAmount`)
+  bookings remain readable and updatable without forced database migration.
+
+============================================================
+12. TEST, BUILD, RULES EMULATOR & RESPONSIVE QA RESULTS
+============================================================
+
+1. Format check (`npx prettier --check --end-of-line auto src/features/admin/settings src/features/admin/calendar`):
+   PASSED (`EXIT_CODE=0`, all matched files use Prettier code style).
+2. ESLint (`npm run lint`):
+   PASSED (`EXIT_CODE=0`, 0 errors, 0 warnings).
+3. Vitest Automated Test Suite (`npm run test:run`):
+   PASSED (`EXIT_CODE=0`, 7/7 test files, 62/62 tests passed):
+   - `src/features/admin/settings/settings.test.jsx`: 7/7 passed (Catalog CRUD, Pricing modes,
+     3-role Internal Fees, V1->V2 migration, Calendar/Manual Quote/WFA regression, Rules assertions)
+   - `src/features/admin/calendar/duration-discount.test.jsx`: 16/16 passed
+   - `src/features/admin/calendar/calendar.test.jsx`: 10/10 passed
+   - `src/features/admin/admin-shell.test.jsx`: 5/5 passed
+   - `src/features/auth/auth.test.jsx`: 12/12 passed
+   - `src/pages/LandingPage.test.jsx`: 10/10 passed
+   - `src/lib/utils.test.js`: 2/2 passed
+4. Vite Production Build (`npm run build`):
+   PASSED (`EXIT_CODE=0`, built in 7.43s).
+5. Live Firebase Firestore Rules Emulator Verification
+   (`firebase emulators:exec --only firestore --project studio37classic`):
+   PASSED 24/24 checks (`RULES_V2_SUMMARY: 24 passed, 0 failed`):
+   - Anonymous read/write denied, Staff read allowed, Staff write denied (Owner-only),
+     Inactive Owner denied, Authenticated user without `staffProfiles` doc denied,
+     invalid `schemaVersion != 2` / empty `serviceTypes` / negative meal allowance denied,
+     Owner migration V1 (v3) -> V2 (v4) allowed, stale version denied, Settings delete denied,
+     V2 5h Rehearsal & Recording Others manual_quote bookings allowed, WFA booking denied,
+     negative V2 commission / tampered discount / extra injected keys denied,
+     V2 reschedule preserving snapshots allowed, scope-unchanged snapshot tampering denied,
+     legacy V1 booking update allowed, duration 5h->6h recalculated update allowed,
+     permanent booking delete denied.
+6. Responsive Browser QA (Headless Chromium via CDP, 10 viewports x 5 views = 50 checks):
+   PASSED 50/50 checks (`PHASE_6_TARIFF_V2_RESPONSIVE_QA=PASSED`, 0 overflow, 0 offenders,
+   0 runtime errors) across all 10 required viewports:
+   `286px`, `320px`, `360px`, `375px`, `390px`, `430px`, `768px`, `1024px`, `1280px`, `1440px`
+   covering `/admin/settings`, `/admin/settings/price-and-fee`, `ServiceOptionDialog`,
+   `ServiceTypeDialog`, and `/admin/calendar` `BookingFormDialog` (Recording -> Others Manual Quote).
+
+============================================================
+13. VERIFICATION LOG
+============================================================
+
+- Verification script: `scripts/verify-phase-6-tariff-v2.ps1`
+- Timestamped log: `.logs/phase-6-tariff-v2-verification-20261119-115317.txt`
+
+============================================================
+14. KNOWN LIMITATIONS
+============================================================
+
+- `firestore.rules` changes have NOT been deployed to production Firebase (`studio37classic`)
+  per Phase 6 V2 scope (`no deployment`). Run `firebase deploy --only firestore:rules` only
+  when explicitly ready to push rules to production.
+- Unconfirmed studio options (`Rehearsal -> Paket 6 Hours`, `Recording -> Lite`, `Pro`,
+  `Drum Only`) intentionally remain `unconfigured` and `isActive: false` until the Owner
+  enters actual confirmed tariffs.
+- WFA services (`Mixing`, `Mastering`) are catalog configuration entries only in this phase;
+  WFA order tracking, staff payroll, operator payout processing, attendance, daily meal
+  distribution, Payment & Bill, invoices, refunds, and bookkeeping ledgers remain out of scope.
+- Pre-existing untouched files on Windows have CRLF line endings; `npm run format:check`
+  globally reports CRLF differences on untouched files unless `--end-of-line auto` is used
+  (as configured in `scripts/verify-phase-6-tariff-v2.ps1` for V2 directories).

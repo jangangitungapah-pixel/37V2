@@ -25,7 +25,11 @@ import {
 } from '../config/calendar-config';
 import { useBookingEvents } from '../hooks/useCalendarBookings';
 import { generateOperationId } from '../repositories/calendar-booking-repository';
-import { extractBookingFinancialSnapshot, formatRupiah } from '../utils/booking-pricing';
+import {
+  extractBookingFinancialSnapshot,
+  formatRupiah,
+  getCommissionSnapshotDisplay,
+} from '../utils/booking-pricing';
 import {
   formatDurationMinutes,
   formatMinuteRange,
@@ -37,9 +41,11 @@ export function BookingDetailDrawer({
   booking,
   open,
   onOpenChange,
-  onEditBooking,
-  onRescheduleBooking,
-  onLifecycleAction,
+  onEditBooking = null,
+  onRescheduleBooking = null,
+  onLifecycleAction = null,
+  readOnly = false,
+  overlayZIndexClass = '',
   now = undefined,
 }) {
   const [actionLoading, setActionLoading] = useState('');
@@ -62,7 +68,11 @@ export function BookingDetailDrawer({
   const sessionMeta = getSessionStatusMeta(booking.sessionStatus);
   const capabilities = getBookingLifecycleCapabilities(booking, now);
   const financial = extractBookingFinancialSnapshot(booking);
+  const commissionDisplay = getCommissionSnapshotDisplay(booking.commissionSnapshot);
   const remainingBalance = financial.remainingBalance;
+  const serviceTitle = booking.serviceTypeName || booking.serviceLabel;
+  const optionTitle =
+    booking.serviceOptionName || booking.packageLabel || booking.recordingTypeLabel || '';
 
   const handleRunAction = async (actionKey, noteValue = '') => {
     if (actionLoading) return;
@@ -86,15 +96,20 @@ export function BookingDetailDrawer({
     }
   };
 
+  const isInteractive =
+    !readOnly && Boolean(onEditBooking || onRescheduleBooking || onLifecycleAction);
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/65 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          className={`fixed inset-0 bg-black/65 backdrop-blur-[1px] ${overlayZIndexClass ? 'z-[60]' : 'z-40'}`}
+        />
 
         <Dialog.Popup
           aria-label={`Detail booking ${booking.customerName}`}
           data-calendar-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col border-l-2 shadow-[-6px_0px_0px_#151515]"
+          className={`border-studio-ink bg-studio-ivory text-studio-ink fixed inset-y-0 right-0 flex h-[100dvh] w-full max-w-xl flex-col border-l-2 shadow-[-6px_0px_0px_#151515] ${overlayZIndexClass || 'z-50'}`}
         >
           {/* Sticky Drawer Header */}
           <div className="border-studio-ink bg-studio-ink text-studio-ivory shrink-0 border-b-2 px-4 py-4 sm:px-6">
@@ -135,37 +150,45 @@ export function BookingDetailDrawer({
             </div>
 
             {/* Quick Booking Actions Bar: Edit, Reschedule, Cancel */}
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-800 pt-3">
-              <button
-                type="button"
-                disabled={!capabilities.canEditOrReschedule || Boolean(actionLoading)}
-                onClick={() => onEditBooking(booking)}
-                className="border-studio-ivory bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Edit Booking</span>
-              </button>
+            {isInteractive ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-800 pt-3">
+                {onEditBooking ? (
+                  <button
+                    type="button"
+                    disabled={!capabilities.canEditOrReschedule || Boolean(actionLoading)}
+                    onClick={() => onEditBooking(booking)}
+                    className="border-studio-ivory bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Edit Booking</span>
+                  </button>
+                ) : null}
 
-              <button
-                type="button"
-                disabled={!capabilities.canEditOrReschedule || Boolean(actionLoading)}
-                onClick={() => onRescheduleBooking(booking)}
-                className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Reschedule</span>
-              </button>
+                {onRescheduleBooking ? (
+                  <button
+                    type="button"
+                    disabled={!capabilities.canEditOrReschedule || Boolean(actionLoading)}
+                    onClick={() => onRescheduleBooking(booking)}
+                    className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Reschedule</span>
+                  </button>
+                ) : null}
 
-              <button
-                type="button"
-                disabled={!capabilities.canCancel || Boolean(actionLoading)}
-                onClick={() => setShowCancelConfirm((prev) => !prev)}
-                className="border-studio-ivory bg-studio-orange text-studio-white inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Cancel Booking</span>
-              </button>
-            </div>
+                {onLifecycleAction ? (
+                  <button
+                    type="button"
+                    disabled={!capabilities.canCancel || Boolean(actionLoading)}
+                    onClick={() => setShowCancelConfirm((prev) => !prev)}
+                    className="border-studio-ivory bg-studio-orange text-studio-white inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Cancel Booking</span>
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {/* Scrollable Drawer Content */}
@@ -279,12 +302,11 @@ export function BookingDetailDrawer({
 
                 <div>
                   <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                    Layanan &amp; Paket
+                    Layanan &amp; Subcategory
                   </dt>
                   <dd className="text-studio-ink mt-0.5 text-sm font-extrabold">
-                    {booking.serviceLabel}
-                    {booking.packageLabel ? ` • ${booking.packageLabel}` : ''}
-                    {booking.recordingTypeLabel ? ` • ${booking.recordingTypeLabel}` : ''}
+                    {serviceTitle}
+                    {optionTitle ? ` • ${optionTitle}` : ''}
                   </dd>
                 </div>
 
@@ -370,31 +392,37 @@ export function BookingDetailDrawer({
                 </dl>
               </div>
 
-              {/* Internal Operational Fee Snapshot Subcard (Safe Phase 5 fallback) */}
+              {/* Internal Operational Fee Snapshot Subcard (V2 + Legacy V1 + Phase 5 fallback) */}
               <div className="border-studio-ink bg-studio-white mt-3 border p-3.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[11px] font-extrabold uppercase">
                     Internal Fee Snapshot
                   </span>
-                  {booking.commissionSnapshot ? (
+                  {commissionDisplay ? (
                     <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
-                      Settings v{booking.commissionSnapshot.settingsVersion}
+                      Settings v{commissionDisplay.settingsVersion}
                     </span>
                   ) : null}
                 </div>
 
-                {booking.commissionSnapshot ? (
+                {commissionDisplay ? (
                   <dl className="mt-2 space-y-1 font-mono text-xs">
                     <div className="flex justify-between">
-                      <dt className="text-studio-muted-ink">Staff Commission</dt>
-                      <dd className="font-bold">
-                        {formatRupiah(booking.commissionSnapshot.staffAmount)}
-                      </dd>
+                      <dt className="text-studio-muted-ink">Staff Fee</dt>
+                      <dd className="font-bold">{formatRupiah(commissionDisplay.staff.amount)}</dd>
                     </div>
+                    {commissionDisplay.owner ? (
+                      <div className="flex justify-between">
+                        <dt className="text-studio-muted-ink">Owner Fee</dt>
+                        <dd className="font-bold">
+                          {formatRupiah(commissionDisplay.owner.amount)}
+                        </dd>
+                      </div>
+                    ) : null}
                     <div className="flex justify-between">
-                      <dt className="text-studio-muted-ink">Recording Operator</dt>
+                      <dt className="text-studio-muted-ink">Recording Operator Fee</dt>
                       <dd className="font-bold">
-                        {formatRupiah(booking.commissionSnapshot.recordingOperatorAmount)}
+                        {formatRupiah(commissionDisplay.recordingOperator.amount)}
                       </dd>
                     </div>
                   </dl>
@@ -479,64 +507,67 @@ export function BookingDetailDrawer({
               </div>
 
               {/* Operational Transition Buttons */}
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={!capabilities.canCheckIn || Boolean(actionLoading)}
-                  onClick={() => handleRunAction('check_in')}
-                  className="brutal-btn bg-studio-ivory text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {actionLoading === 'check_in' ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <UserCheck className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  <span>Check-in</span>
-                </button>
+              {isInteractive && onLifecycleAction ? (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!capabilities.canCheckIn || Boolean(actionLoading)}
+                    onClick={() => handleRunAction('check_in')}
+                    className="brutal-btn bg-studio-ivory text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {actionLoading === 'check_in' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <UserCheck className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    <span>Check-in</span>
+                  </button>
 
-                <button
-                  type="button"
-                  disabled={!capabilities.canStart || Boolean(actionLoading)}
-                  onClick={() => handleRunAction('start_session')}
-                  className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {actionLoading === 'start_session' ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Play className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  <span>Start Session</span>
-                </button>
+                  <button
+                    type="button"
+                    disabled={!capabilities.canStart || Boolean(actionLoading)}
+                    onClick={() => handleRunAction('start_session')}
+                    className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {actionLoading === 'start_session' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Play className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    <span>Start Session</span>
+                  </button>
 
-                <button
-                  type="button"
-                  disabled={!capabilities.canComplete || Boolean(actionLoading)}
-                  onClick={() => handleRunAction('complete_session')}
-                  className="brutal-btn text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 bg-emerald-300 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {actionLoading === 'complete_session' ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  <span>Complete Session</span>
-                </button>
+                  <button
+                    type="button"
+                    disabled={!capabilities.canComplete || Boolean(actionLoading)}
+                    onClick={() => handleRunAction('complete_session')}
+                    className="brutal-btn text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 bg-emerald-300 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {actionLoading === 'complete_session' ? (
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    <span>Complete Session</span>
+                  </button>
 
-                <button
-                  type="button"
-                  disabled={!capabilities.canMarkNoShow || Boolean(actionLoading)}
-                  title={capabilities.noShowReason || 'Tandai customer tidak hadir (No Show)'}
-                  onClick={() => setShowNoShowConfirm((prev) => !prev)}
-                  className="brutal-btn bg-studio-ivory text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <UserX className="h-4 w-4" aria-hidden="true" />
-                  <span>Mark No Show</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    disabled={!capabilities.canMarkNoShow || Boolean(actionLoading)}
+                    title={capabilities.noShowReason || 'Tandai customer tidak hadir (No Show)'}
+                    onClick={() => setShowNoShowConfirm((prev) => !prev)}
+                    className="brutal-btn bg-studio-ivory text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <UserX className="h-4 w-4" aria-hidden="true" />
+                    <span>Mark No Show</span>
+                  </button>
+                </div>
+              ) : null}
 
-              {!capabilities.canMarkNoShow &&
-                booking.sessionStatus === 'upcoming' &&
-                capabilities.noShowReason ? (
+              {isInteractive &&
+              !capabilities.canMarkNoShow &&
+              booking.sessionStatus === 'upcoming' &&
+              capabilities.noShowReason ? (
                 <p className="text-studio-muted-ink mt-2.5 font-mono text-[11px]">
                   Info No Show: {capabilities.noShowReason}
                 </p>

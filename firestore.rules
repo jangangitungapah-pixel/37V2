@@ -4,25 +4,38 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isActiveStaff() {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/staffProfiles/$(request.auth.uid))
-        && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.active == true
-        && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.role in ['owner', 'staff'];
+      let profile = request.auth != null
+        ? get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid))
+        : null;
+      return profile != null
+        && profile.data.active == true
+        && profile.data.role in ['owner', 'staff'];
     }
 
     function isActiveOwner() {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/staffProfiles/$(request.auth.uid))
-        && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.active == true
-        && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.role == 'owner';
+      let profile = request.auth != null
+        ? get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid))
+        : null;
+      return profile != null
+        && profile.data.active == true
+        && profile.data.role == 'owner';
     }
 
     function isValidBookingKeys(data) {
       return data.keys().hasOnly([
+        'customerId',
         'customerName',
         'phone',
+        'phoneNormalized',
         'bandName',
         'studioId',
+        'serviceTypeId',
+        'serviceTypeName',
+        'serviceOptionId',
+        'serviceOptionName',
+        'deliveryMode',
+        'pricingMode',
+        'pricingSettingsVersion',
         'serviceId',
         'serviceLabel',
         'packageId',
@@ -57,88 +70,152 @@ service cloud.firestore {
       ]);
     }
 
+    function isValidBookingUpdateKeys(reqData, resData) {
+      return reqData.diff(resData).affectedKeys().hasOnly([
+        'customerId',
+        'customerName',
+        'phone',
+        'phoneNormalized',
+        'bandName',
+        'studioId',
+        'serviceTypeId',
+        'serviceTypeName',
+        'serviceOptionId',
+        'serviceOptionName',
+        'deliveryMode',
+        'pricingMode',
+        'pricingSettingsVersion',
+        'serviceId',
+        'serviceLabel',
+        'packageId',
+        'packageLabel',
+        'recordingTypeId',
+        'recordingTypeLabel',
+        'date',
+        'startMinute',
+        'durationMinutes',
+        'endMinute',
+        'timeZone',
+        'unitRate',
+        'subtotal',
+        'discountAmount',
+        'totalAmount',
+        'automaticDiscount',
+        'commissionSnapshot',
+        'initialPaymentStatus',
+        'initialPaidAmount',
+        'paymentMethod',
+        'sessionStatus',
+        'checkedInAt',
+        'checkedInByUid',
+        'actualStartedAt',
+        'actualCompletedAt',
+        'notes',
+        'createdAt',
+        'createdByUid',
+        'updatedAt',
+        'updatedByUid',
+        'version'
+      ]);
+    }
+
+    function isValidBookingV2ServiceFields(data) {
+      let psv = data.get('pricingSettingsVersion', 1);
+      return (!('serviceTypeId' in data) || (data.serviceTypeId is string && data.serviceTypeId.size() > 0))
+        && data.get('serviceTypeName', '') is string
+        && data.get('serviceOptionId', '') is string
+        && data.get('serviceOptionName', '') is string
+        && (!('deliveryMode' in data) || data.deliveryMode == 'studio')
+        && data.get('pricingMode', 'hourly') in ['hourly', 'fixed_shift', 'manual_quote']
+        && psv is int
+        && psv >= 1;
+    }
+
+    function isDiscountTotalCappedCorrectly(rawDiscount, subtotal, totalDiscount) {
+      return totalDiscount == (rawDiscount > subtotal ? subtotal : rawDiscount);
+    }
+
     function isValidBookingAutomaticDiscountShape(data) {
-      return !('automaticDiscount' in data)
-        || data.automaticDiscount == null
+      let disc = data.get('automaticDiscount', null);
+      return disc == null
         || (
-          data.automaticDiscount is map
-          && data.automaticDiscount.keys().hasAll([
-            'type',
-            'intervalMinutes',
-            'eligibleBlocks',
-            'discountPerBlock',
-            'totalDiscount'
-          ])
-          && data.automaticDiscount.keys().hasOnly([
-            'type',
-            'intervalMinutes',
-            'eligibleBlocks',
-            'discountPerBlock',
-            'totalDiscount'
-          ])
-          && data.automaticDiscount.type == 'duration_multiple'
-          && data.automaticDiscount.intervalMinutes is int
-          && data.automaticDiscount.intervalMinutes > 0
-          && data.automaticDiscount.eligibleBlocks is int
-          && data.automaticDiscount.eligibleBlocks > 0
-          && data.automaticDiscount.discountPerBlock is int
-          && data.automaticDiscount.discountPerBlock > 0
-          && data.automaticDiscount.totalDiscount is int
-          && data.automaticDiscount.totalDiscount > 0
-          && data.automaticDiscount.totalDiscount <= data.subtotal
-          && data.automaticDiscount.totalDiscount == (
-            data.automaticDiscount.eligibleBlocks * data.automaticDiscount.discountPerBlock > data.subtotal
-              ? data.subtotal
-              : data.automaticDiscount.eligibleBlocks * data.automaticDiscount.discountPerBlock
-          )
-          && data.discountAmount == data.automaticDiscount.totalDiscount
+          disc is map
+          && disc.size() == 5
+          && disc.type == 'duration_multiple'
+          && disc.intervalMinutes is int
+          && disc.intervalMinutes > 0
+          && disc.eligibleBlocks is int
+          && disc.eligibleBlocks > 0
+          && disc.discountPerBlock is int
+          && disc.discountPerBlock > 0
+          && disc.totalDiscount is int
+          && disc.totalDiscount > 0
+          && disc.totalDiscount <= data.subtotal
+          && isDiscountTotalCappedCorrectly(disc.eligibleBlocks * disc.discountPerBlock, data.subtotal, disc.totalDiscount)
+          && data.discountAmount == disc.totalDiscount
         );
     }
 
     function isBookingAutomaticDiscountMathMatched(data) {
-      return !('automaticDiscount' in data)
-        || data.automaticDiscount == null
+      let disc = data.get('automaticDiscount', null);
+      return disc == null
         || (
-          data.automaticDiscount.eligibleBlocks * data.automaticDiscount.intervalMinutes <= data.durationMinutes
-          && (data.automaticDiscount.eligibleBlocks + 1) * data.automaticDiscount.intervalMinutes > data.durationMinutes
+          disc.eligibleBlocks * disc.intervalMinutes <= data.durationMinutes
+          && (disc.eligibleBlocks + 1) * disc.intervalMinutes > data.durationMinutes
         );
     }
 
+    function isValidCommissionRoleEntry(entry) {
+      return entry is map
+        && entry.size() == 3
+        && entry.basis in ['none', 'fixed', 'hourly', 'manual']
+        && entry.rate is int
+        && entry.rate >= 0
+        && entry.amount is int
+        && entry.amount >= 0;
+    }
+
+    function isValidBookingCommissionSnapshotV1(snap) {
+      return snap is map
+        && snap.size() == 5
+        && snap.staffBasis in ['package', 'rehearsal_hourly', 'none']
+        && snap.staffRate is number
+        && snap.staffRate >= 0
+        && snap.staffAmount is number
+        && snap.staffAmount >= 0
+        && snap.recordingOperatorAmount is number
+        && snap.recordingOperatorAmount >= 0
+        && snap.settingsVersion is int
+        && snap.settingsVersion >= 1;
+    }
+
+    function isValidBookingCommissionSnapshotV2(snap) {
+      return snap is map
+        && snap.size() == 5
+        && snap.schemaVersion == 2
+        && isValidCommissionRoleEntry(snap.staff)
+        && isValidCommissionRoleEntry(snap.owner)
+        && isValidCommissionRoleEntry(snap.recordingOperator)
+        && snap.settingsVersion is int
+        && snap.settingsVersion >= 1;
+    }
+
     function isValidBookingCommissionSnapshot(data) {
-      return !('commissionSnapshot' in data)
-        || data.commissionSnapshot == null
-        || (
-          data.commissionSnapshot is map
-          && data.commissionSnapshot.keys().hasAll([
-            'staffBasis',
-            'staffRate',
-            'staffAmount',
-            'recordingOperatorAmount',
-            'settingsVersion'
-          ])
-          && data.commissionSnapshot.keys().hasOnly([
-            'staffBasis',
-            'staffRate',
-            'staffAmount',
-            'recordingOperatorAmount',
-            'settingsVersion'
-          ])
-          && data.commissionSnapshot.staffBasis in ['package', 'rehearsal_hourly', 'none']
-          && data.commissionSnapshot.staffRate is number
-          && data.commissionSnapshot.staffRate >= 0
-          && data.commissionSnapshot.staffAmount is number
-          && data.commissionSnapshot.staffAmount >= 0
-          && data.commissionSnapshot.recordingOperatorAmount is number
-          && data.commissionSnapshot.recordingOperatorAmount >= 0
-          && data.commissionSnapshot.settingsVersion is int
-          && data.commissionSnapshot.settingsVersion >= 1
-        );
+      let snap = data.get('commissionSnapshot', null);
+      return snap == null
+        || (snap is map && (
+          snap.get('schemaVersion', 1) == 2
+            ? isValidBookingCommissionSnapshotV2(snap)
+            : isValidBookingCommissionSnapshotV1(snap)
+        ));
     }
 
     function isServiceScopeUnchanged(reqData, resData) {
       return reqData.serviceId == resData.serviceId
         && reqData.packageId == resData.packageId
         && reqData.recordingTypeId == resData.recordingTypeId
+        && reqData.get('serviceTypeId', '') == resData.get('serviceTypeId', '')
+        && reqData.get('serviceOptionId', '') == resData.get('serviceOptionId', '')
         && reqData.durationMinutes == resData.durationMinutes;
     }
 
@@ -151,46 +228,27 @@ service cloud.firestore {
         && reqData.get('commissionSnapshot', null) == resData.get('commissionSnapshot', null);
     }
 
-    function isValidPricingFees(fees) {
-      return fees is map
-        && fees.keys().hasAll(['rehearsalStaffCommissionPerHour', 'dailyMealAllowancePerStaff'])
-        && fees.keys().hasOnly(['rehearsalStaffCommissionPerHour', 'dailyMealAllowancePerStaff'])
-        && fees.rehearsalStaffCommissionPerHour is number
-        && fees.rehearsalStaffCommissionPerHour >= 0
-        && fees.dailyMealAllowancePerStaff is number
-        && fees.dailyMealAllowancePerStaff >= 0;
+    function isValidBookingScopeAndSnapshots(reqData, resData) {
+      let scopeUnchanged = isServiceScopeUnchanged(reqData, resData);
+      return scopeUnchanged
+        ? isBookingSnapshotsUnchanged(reqData, resData)
+        : (reqData.get('automaticDiscount', null) == resData.get('automaticDiscount', null)
+            || isBookingAutomaticDiscountMathMatched(reqData));
+    }
+
+    function isValidOperationalSettingsV2(settings) {
+      return settings is map
+        && settings.size() == 1
+        && settings.dailyMealAllowancePerStaff is int
+        && settings.dailyMealAllowancePerStaff >= 0;
     }
 
     function isValidPricingSettings(data) {
-      return data.keys().hasAll([
-          'schemaVersion',
-          'sessionTypes',
-          'recordingTypes',
-          'packages',
-          'discounts',
-          'fees',
-          'version',
-          'updatedAt',
-          'updatedByUid'
-        ])
-        && data.keys().hasOnly([
-          'schemaVersion',
-          'sessionTypes',
-          'recordingTypes',
-          'packages',
-          'discounts',
-          'fees',
-          'version',
-          'updatedAt',
-          'updatedByUid'
-        ])
-        && data.schemaVersion == 1
-        && data.sessionTypes is list
-        && data.sessionTypes.size() >= 1
-        && data.recordingTypes is list
-        && data.packages is list
-        && data.discounts is list
-        && isValidPricingFees(data.fees)
+      return data.size() == 6
+        && data.schemaVersion == 2
+        && data.serviceTypes is list
+        && data.serviceTypes.size() >= 1
+        && isValidOperationalSettingsV2(data.operationalSettings)
         && data.version is int
         && data.version >= 1
         && data.updatedAt is timestamp
@@ -204,6 +262,7 @@ service cloud.firestore {
         && data.phone.size() > 0
         && data.bandName is string
         && data.studioId in ['room-a', 'room-b']
+        && isValidBookingV2ServiceFields(data)
         && data.serviceId is string
         && data.serviceLabel is string
         && data.packageId is string
@@ -246,6 +305,92 @@ service cloud.firestore {
         && data.version >= 1;
     }
 
+    function isValidCustomerShape(data, customerId) {
+      return data.size() == 18
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 120
+        && data.normalizedName is string
+        && data.normalizedName.size() >= 1
+        && data.phoneDisplay is string
+        && data.phoneDisplay.size() >= 1
+        && data.phoneNormalized is string
+        && data.phoneNormalized.size() >= 8
+        && data.nameAliases is list
+        && data.previousPhones is list
+        && data.status in ['active', 'archived', 'merged']
+        && (data.status == 'merged'
+          ? (data.mergedIntoCustomerId is string
+              && data.mergedIntoCustomerId.size() > 0
+              && data.mergedIntoCustomerId != customerId)
+          : data.mergedIntoCustomerId == null)
+        && data.historyCustomerIds is list
+        && data.historyCustomerIds.size() >= 1
+        && customerId in data.historyCustomerIds
+        && data.bookingCount is int
+        && data.bookingCount >= 0
+        && data.firstBookingDate is string
+        && data.lastBookingDate is string
+        && data.notes is string
+        && data.notes.size() <= 1000
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidPhoneIndex(data) {
+      return data.size() == 6
+        && data.phoneNormalized is string
+        && data.phoneNormalized.size() >= 8
+        && data.activeCustomerIds is list
+        && data.historicalCustomerIds is list
+        && (data.activeCustomerIds.size() == 0
+          || existsAfter(/databases/$(database)/documents/customers/$(data.activeCustomerIds[0])))
+        && data.version is int
+        && data.version >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
+    function isLinkedCustomerPhoneMatchedAfter(customerId, phoneNormalized, requireActive) {
+      let linkedCustomer = getAfter(/databases/$(database)/documents/customers/$(customerId));
+      return linkedCustomer != null
+        && linkedCustomer.data.phoneNormalized == phoneNormalized
+        && (!requireActive || linkedCustomer.data.status == 'active');
+    }
+
+    function hasValidBookingCustomerLinkAfter(data) {
+      return ('customerId' in data)
+        && data.customerId is string
+        && data.customerId.size() > 0
+        && ('phoneNormalized' in data)
+        && data.phoneNormalized is string
+        && data.phoneNormalized.size() >= 8
+        && isLinkedCustomerPhoneMatchedAfter(data.customerId, data.phoneNormalized, true);
+    }
+
+    function isLegacyBookingCustomerLinkUpdate(reqData, resData) {
+      return resData.get('customerId', '') == ''
+        && reqData.diff(resData).affectedKeys().hasOnly([
+          'customerId',
+          'phoneNormalized',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && reqData.customerId is string
+        && reqData.customerId.size() > 0
+        && reqData.phoneNormalized is string
+        && reqData.phoneNormalized.size() >= 8
+        && reqData.updatedByUid == request.auth.uid
+        && reqData.updatedAt is timestamp
+        && reqData.version == resData.version + 1
+        && isLinkedCustomerPhoneMatchedAfter(reqData.customerId, reqData.phoneNormalized, false);
+    }
+
     match /staffProfiles/{uid} {
       allow get: if request.auth != null
                  && request.auth.uid == uid;
@@ -266,30 +411,70 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /customers/{customerId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidCustomerShape(request.resource.data, customerId)
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.status == 'active'
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && isValidCustomerShape(request.resource.data, customerId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.version == resource.data.version + 1
+        && (resource.data.status != 'merged'
+            || (request.resource.data.status == 'merged'
+                && request.resource.data.mergedIntoCustomerId == resource.data.mergedIntoCustomerId));
+
+      allow delete: if false;
+    }
+
+    match /customerPhoneIndex/{phoneHash} {
+      allow get: if isActiveStaff();
+      allow list: if false;
+
+      allow create: if isActiveStaff()
+        && isValidPhoneIndex(request.resource.data)
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && isValidPhoneIndex(request.resource.data)
+        && request.resource.data.version == resource.data.version + 1;
+
+      allow delete: if false;
+    }
+
     match /bookings/{bookingId} {
       allow read: if isActiveStaff();
 
       allow create: if isActiveStaff()
         && isValidBookingKeys(request.resource.data)
         && isValidBookingShape(request.resource.data)
+        && hasValidBookingCustomerLinkAfter(request.resource.data)
         && isBookingAutomaticDiscountMathMatched(request.resource.data)
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.updatedByUid == request.auth.uid
         && request.resource.data.version == 1;
 
       allow update: if isActiveStaff()
-        && isValidBookingKeys(request.resource.data)
-        && isValidBookingShape(request.resource.data)
-        && (request.resource.data.get('automaticDiscount', null) == resource.data.get('automaticDiscount', null)
-            || isBookingAutomaticDiscountMathMatched(request.resource.data))
-        && request.resource.data.createdByUid == resource.data.createdByUid
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.initialPaymentStatus == resource.data.initialPaymentStatus
-        && request.resource.data.initialPaidAmount == resource.data.initialPaidAmount
-        && request.resource.data.paymentMethod == resource.data.paymentMethod
-        && (!isServiceScopeUnchanged(request.resource.data, resource.data)
-            || isBookingSnapshotsUnchanged(request.resource.data, resource.data));
+        && (
+          isLegacyBookingCustomerLinkUpdate(request.resource.data, resource.data)
+          || (
+            isValidBookingUpdateKeys(request.resource.data, resource.data)
+            && isValidBookingShape(request.resource.data)
+            && request.resource.data.get('customerId', '') == resource.data.get('customerId', '')
+            && request.resource.data.createdByUid == resource.data.createdByUid
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.updatedByUid == request.auth.uid
+            && request.resource.data.initialPaymentStatus == resource.data.initialPaymentStatus
+            && request.resource.data.initialPaidAmount == resource.data.initialPaidAmount
+            && request.resource.data.paymentMethod == resource.data.paymentMethod
+            && isValidBookingScopeAndSnapshots(request.resource.data, resource.data)
+          )
+        );
 
       allow delete: if false;
     }

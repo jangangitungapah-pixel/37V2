@@ -1,16 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { DEFAULT_PRICING_SETTINGS } from '../pricing/config/default-pricing-settings';
+import {
+  DEFAULT_PRICING_SETTINGS,
+  DELIVERY_MODES,
+} from '../pricing/config/default-pricing-settings';
 import { getPricingSettingsRepositoryAdapter } from '../pricing/repositories/pricing-settings-repository';
 import { mapPricingSettingsErrorToMessage } from '../pricing/services/pricing-settings-service';
-import { clonePricingSettings } from '../pricing/utils/normalize-pricing-settings';
+import {
+  clonePricingSettings,
+  isOptionBookableForStudio,
+} from '../pricing/utils/normalize-pricing-settings';
 
 /**
- * Subscribes in realtime to Cloud Firestore `settings/pricing`.
+ * Single shared realtime hook subscribing to Cloud Firestore `settings/pricing` (Schema V2,
+ * with automatic runtime migration from legacy Schema V1).
  *
- * Shared by both Price and Fee Settings page and Calendar Booking Form so
- * updates made in Settings propagate immediately without page refresh or
- * relying on localStorage as source of truth.
+ * Shared by Price and Fee Settings page, Calendar workspace, Booking pricing, and Fee estimation
+ * without relying on localStorage as authoritative source.
  */
 export function usePricingSettings() {
   const adapter = getPricingSettingsRepositoryAdapter();
@@ -19,16 +25,18 @@ export function usePricingSettings() {
     resolvedAdapter: null,
     settings: clonePricingSettings(DEFAULT_PRICING_SETTINGS),
     isPersisted: false,
+    migratedFromV1: false,
     error: null,
   }));
 
   useEffect(() => {
     const unsubscribe = adapter.subscribePricingSettings({
-      onData: ({ settings, isPersisted }) => {
+      onData: ({ settings, isPersisted, migratedFromV1 }) => {
         setState({
           resolvedAdapter: adapter,
           settings: settings || clonePricingSettings(DEFAULT_PRICING_SETTINGS),
           isPersisted: Boolean(isPersisted),
+          migratedFromV1: Boolean(migratedFromV1),
           error: null,
         });
       },
@@ -48,33 +56,42 @@ export function usePricingSettings() {
 
   const isLoading = state.resolvedAdapter !== adapter;
 
-  const activeSessionTypes = useMemo(
-    () => (state.settings.sessionTypes || []).filter((item) => item.isActive !== false),
-    [state.settings.sessionTypes],
+  const serviceTypes = useMemo(
+    () => state.settings.serviceTypes || [],
+    [state.settings.serviceTypes],
   );
 
-  const activeRecordingTypes = useMemo(
-    () => (state.settings.recordingTypes || []).filter((item) => item.isActive !== false),
-    [state.settings.recordingTypes],
+  const studioServiceTypes = useMemo(
+    () => serviceTypes.filter((svc) => svc.deliveryMode === DELIVERY_MODES.STUDIO),
+    [serviceTypes],
   );
 
-  const activePackages = useMemo(
-    () => (state.settings.packages || []).filter((item) => item.isActive !== false),
-    [state.settings.packages],
+  const wfaServiceTypes = useMemo(
+    () => serviceTypes.filter((svc) => svc.deliveryMode === DELIVERY_MODES.WFA),
+    [serviceTypes],
   );
 
-  const activeDiscounts = useMemo(
-    () => (state.settings.discounts || []).filter((item) => item.isActive !== false),
-    [state.settings.discounts],
+  const activeStudioServiceTypes = useMemo(
+    () =>
+      studioServiceTypes
+        .filter((svc) => svc.isActive !== false)
+        .map((svc) => ({
+          ...svc,
+          bookableOptions: (svc.options || []).filter(isOptionBookableForStudio),
+        }))
+        .filter((svc) => svc.bookableOptions.length > 0),
+    [studioServiceTypes],
   );
 
   return {
     settings: state.settings,
-    activeSessionTypes,
-    activeRecordingTypes,
-    activePackages,
-    activeDiscounts,
+    serviceTypes,
+    studioServiceTypes,
+    wfaServiceTypes,
+    activeStudioServiceTypes,
+    operationalSettings: state.settings.operationalSettings,
     isPersisted: state.isPersisted,
+    migratedFromV1: state.migratedFromV1,
     isLoading,
     error: state.error,
   };

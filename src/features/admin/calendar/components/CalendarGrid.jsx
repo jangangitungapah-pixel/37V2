@@ -7,6 +7,7 @@ import { CalendarWeekView } from './CalendarWeekView';
 export function CalendarGrid({
   viewMode,
   activeDate,
+  focusRequestKey = 0,
   roomFilter,
   bookings,
   isLoading,
@@ -74,6 +75,7 @@ export function CalendarGrid({
       {viewMode === 'week' ? (
         <CalendarWeekView
           activeDate={activeDate}
+          focusRequestKey={focusRequestKey}
           roomFilter={roomFilter}
           bookings={bookings}
           onSelectEmptySlot={onSelectEmptySlot}
@@ -85,6 +87,7 @@ export function CalendarGrid({
       {viewMode === 'month' ? (
         <CalendarMonthView
           activeDate={activeDate}
+          focusRequestKey={focusRequestKey}
           roomFilter={roomFilter}
           bookings={bookings}
           onSelectEmptySlot={onSelectEmptySlot}

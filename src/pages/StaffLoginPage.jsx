@@ -144,7 +144,7 @@ export function StaffLoginPage() {
     <div className="bg-studio-ivory text-studio-ink flex min-h-screen flex-col justify-between">
       {/* Top Bar */}
       <header className="border-studio-ink bg-studio-ivory border-b-2">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2.5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1680px] items-center justify-between gap-2 px-3 py-2.5 sm:px-6 lg:px-8">
           <Link
             to="/"
             className="group flex min-h-11 items-center gap-2.5 pr-1"
@@ -176,7 +176,7 @@ export function StaffLoginPage() {
       {/* Main Split Portal Layout */}
       <main
         id="main-content"
-        className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-14"
+        className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-14"
       >
         <div className="brutal-card-lg bg-studio-white grid grid-cols-1 overflow-hidden lg:grid-cols-12">
           {/* Left Panel: Editorial Brand Identity (Compact on mobile, full panel on desktop) */}
@@ -495,7 +495,7 @@ export function StaffLoginPage() {
 
       {/* Compact Footer */}
       <footer className="border-studio-ink bg-studio-ink text-studio-ivory border-t-2 py-4">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 font-mono text-[11px] text-neutral-400 sm:flex-row sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[1680px] flex-col items-center justify-between gap-2 px-4 font-mono text-[11px] text-neutral-400 sm:flex-row sm:px-6 lg:px-8">
           <p>© 2026 37 Music Studio • Internal Authentication Portal</p>
           <p>Provisioned Staff &amp; Owner Access Only</p>
         </div>

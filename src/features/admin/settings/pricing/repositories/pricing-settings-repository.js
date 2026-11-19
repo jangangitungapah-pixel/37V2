@@ -4,6 +4,7 @@ import {
   PRICING_SETTINGS_DOC_ID,
   PRICING_SETTINGS_SCHEMA_VERSION,
 } from '../config/default-pricing-settings';
+import { isLegacyV1PricingSettings } from '../utils/migrate-pricing-settings';
 import {
   clonePricingSettings,
   normalizePricingSettings,
@@ -20,7 +21,8 @@ export function createPricingSettingsRepositoryError(code, message, details = nu
 
 /**
  * Default Cloud Firestore repository adapter for the single centralized document
- * `settings/pricing`. Never auto-creates the document during read/subscribe.
+ * `settings/pricing` (Schema V2 with safe runtime migration from legacy Schema V1).
+ * Never auto-creates or auto-writes during read/subscribe.
  */
 export function createFirestorePricingSettingsAdapter() {
   return {
@@ -52,13 +54,18 @@ export function createFirestorePricingSettingsAdapter() {
                 onData?.({
                   settings: clonePricingSettings(DEFAULT_PRICING_SETTINGS),
                   isPersisted: false,
+                  migratedFromV1: false,
                 });
                 return;
               }
 
+              const rawData = snapshot.data();
+              const migratedFromV1 = isLegacyV1PricingSettings(rawData);
+
               onData?.({
-                settings: normalizePricingSettings(snapshot.data()),
+                settings: normalizePricingSettings(rawData),
                 isPersisted: true,
+                migratedFromV1,
               });
             },
             (err) => {
@@ -102,11 +109,8 @@ export function createFirestorePricingSettingsAdapter() {
         const nextVersion = currentVersion > 0 ? currentVersion + 1 : 1;
         const firestoreDoc = {
           schemaVersion: PRICING_SETTINGS_SCHEMA_VERSION,
-          sessionTypes: payload.sessionTypes,
-          recordingTypes: payload.recordingTypes,
-          packages: payload.packages,
-          discounts: payload.discounts,
-          fees: payload.fees,
+          serviceTypes: payload.serviceTypes,
+          operationalSettings: payload.operationalSettings,
           version: nextVersion,
           updatedAt: serverTimestamp(),
           updatedByUid: actorUid,
@@ -125,18 +129,33 @@ export function createFirestorePricingSettingsAdapter() {
 
 /**
  * In-memory realtime & transactional adapter for deterministic testing across
- * Settings UI and Calendar Booking Form without Firestore network dependencies.
+ * Settings UI, V1 -> V2 migration preview, and Calendar Booking Form without network dependencies.
  */
 export function createInMemoryPricingSettingsAdapter(initialDoc = null) {
-  let storedDoc = initialDoc ? normalizePricingSettings(initialDoc) : null;
+  // Store raw doc so legacy V1 seed preserves `migratedFromV1` detection without auto-writing V2
+  let storedRawDoc = initialDoc ? structuredClone(initialDoc) : null;
   let queuedSaveError = null;
   const listeners = new Set();
 
-  function emitSnapshot() {
-    const payload = storedDoc
-      ? { settings: clonePricingSettings(storedDoc), isPersisted: true }
-      : { settings: clonePricingSettings(DEFAULT_PRICING_SETTINGS), isPersisted: false };
+  function buildEmitPayload() {
+    if (!storedRawDoc) {
+      return {
+        settings: clonePricingSettings(DEFAULT_PRICING_SETTINGS),
+        isPersisted: false,
+        migratedFromV1: false,
+      };
+    }
 
+    const migratedFromV1 = isLegacyV1PricingSettings(storedRawDoc);
+    return {
+      settings: normalizePricingSettings(storedRawDoc),
+      isPersisted: true,
+      migratedFromV1,
+    };
+  }
+
+  function emitSnapshot() {
+    const payload = buildEmitPayload();
     listeners.forEach((listener) => {
       listener.onData?.(payload);
     });
@@ -149,10 +168,7 @@ export function createInMemoryPricingSettingsAdapter(initialDoc = null) {
 
       queueMicrotask(() => {
         if (!listeners.has(entry)) return;
-        const payload = storedDoc
-          ? { settings: clonePricingSettings(storedDoc), isPersisted: true }
-          : { settings: clonePricingSettings(DEFAULT_PRICING_SETTINGS), isPersisted: false };
-        onData?.(payload);
+        onData?.(buildEmitPayload());
       });
 
       return () => {
@@ -167,7 +183,7 @@ export function createInMemoryPricingSettingsAdapter(initialDoc = null) {
         throw errToThrow;
       }
 
-      const currentVersion = storedDoc ? Number(storedDoc.version) || 1 : 0;
+      const currentVersion = storedRawDoc ? Number(storedRawDoc.version) || 1 : 0;
       if (Number.isInteger(expectedVersion) && currentVersion !== expectedVersion) {
         throw createPricingSettingsRepositoryError(
           'pricing/stale-version',
@@ -177,24 +193,21 @@ export function createInMemoryPricingSettingsAdapter(initialDoc = null) {
       }
 
       const nextVersion = currentVersion > 0 ? currentVersion + 1 : 1;
-      storedDoc = normalizePricingSettings({
+      storedRawDoc = normalizePricingSettings({
         schemaVersion: PRICING_SETTINGS_SCHEMA_VERSION,
-        sessionTypes: payload.sessionTypes,
-        recordingTypes: payload.recordingTypes,
-        packages: payload.packages,
-        discounts: payload.discounts,
-        fees: payload.fees,
+        serviceTypes: payload.serviceTypes,
+        operationalSettings: payload.operationalSettings,
         version: nextVersion,
         updatedAt: new Date().toISOString(),
         updatedByUid: actorUid,
       });
 
       emitSnapshot();
-      return clonePricingSettings(storedDoc);
+      return clonePricingSettings(storedRawDoc);
     },
 
     _seedRemoteDoc(nextDoc) {
-      storedDoc = nextDoc ? normalizePricingSettings(nextDoc) : null;
+      storedRawDoc = nextDoc ? structuredClone(nextDoc) : null;
       emitSnapshot();
     },
 
@@ -203,7 +216,7 @@ export function createInMemoryPricingSettingsAdapter(initialDoc = null) {
     },
 
     _getStoredDoc() {
-      return storedDoc ? clonePricingSettings(storedDoc) : null;
+      return storedRawDoc ? structuredClone(storedRawDoc) : null;
     },
   };
 }

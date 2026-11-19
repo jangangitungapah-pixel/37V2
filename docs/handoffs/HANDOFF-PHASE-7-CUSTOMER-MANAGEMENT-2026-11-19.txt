@@ -1,0 +1,231 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 7: CUSTOMER MANAGEMENT (PHONE-BASED IDENTITY & BOOKING HISTORY)
+Date: 2026-11-19
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: d:\PROJECT VS\37V2
+Branch: main
+
+============================================================
+1. STARTING HEAD
+============================================================
+
+- Audited baseline HEAD:
+  8cf4e6c7a5329f857b3a461580010857a45b444e
+  (feat: implement automatic pricing discounts and admin calendar booking management)
+
+============================================================
+2. FINAL IMPLEMENTATION COMMIT
+============================================================
+
+- Status: Uncommitted working tree on branch `main` built cleanly on top of
+  `8cf4e6c7a5329f857b3a461580010857a45b444e` (awaiting user review and explicit
+  commit approval; zero deployment, PR merge, or force push performed).
+
+============================================================
+3. FILES CREATED & MODIFIED (PHASE 7)
+============================================================
+
+Created:
+- `src/features/admin/customer/utils/phone-number.js`
+- `src/features/admin/customer/utils/customer-identity.js`
+- `src/features/admin/customer/utils/customer-history.js`
+- `src/features/admin/customer/schemas/customer-schema.js`
+- `src/features/admin/customer/repositories/customer-repository.js`
+- `src/features/admin/customer/services/customer-service.js`
+- `src/features/admin/customer/services/customer-migration-service.js`
+- `src/features/admin/customer/hooks/useCustomers.js`
+- `src/features/admin/customer/hooks/useCustomerBookingHistory.js`
+- `src/features/admin/customer/components/CustomerDirectoryToolbar.jsx`
+- `src/features/admin/customer/components/CustomerPhoneGroup.jsx`
+- `src/features/admin/customer/components/CustomerProfileCard.jsx`
+- `src/features/admin/customer/components/CustomerBookingHistory.jsx`
+- `src/features/admin/customer/components/CustomerDetailDrawer.jsx`
+- `src/features/admin/customer/components/CustomerIdentityConflictDialog.jsx`
+- `src/features/admin/customer/components/CustomerFormDialog.jsx`
+- `src/features/admin/customer/components/CustomerMergeDialog.jsx`
+- `src/features/admin/customer/components/CustomerArchiveDialog.jsx`
+- `src/features/admin/customer/components/LegacyCustomerImportDialog.jsx`
+- `src/features/admin/customer/pages/AdminCustomersPage.jsx`
+- `src/features/admin/customer/customer.test.jsx`
+- `scripts/verify-phase-7-customer.ps1`
+- `docs/architecture/CUSTOMER-MANAGEMENT.md`
+- `docs/handoffs/HANDOFF-PHASE-7-CUSTOMER-MANAGEMENT-2026-11-19.txt`
+
+Modified (Phase 7 integration):
+- `src/App.jsx` (`/admin/customer` -> `AdminCustomersPage`)
+- `src/features/admin/admin-shell.test.jsx`
+- `src/features/admin/calendar/schemas/booking-schema.js` (shared `normalizePhoneNumber`, `phoneNormalized`)
+- `src/features/admin/calendar/repositories/calendar-booking-repository.js` (customer/phoneIndex tx helpers + `customerId`/`phoneNormalized`)
+- `src/features/admin/calendar/services/calendar-booking-service.js` (atomic Customer+Booking creation, idempotency, shared in-memory store)
+- `src/features/admin/calendar/components/BookingFormDialog.jsx` (Step 1 phone lookup, conflict dialog, edit-mode snapshot notice)
+- `src/features/admin/calendar/components/BookingDetailDrawer.jsx` (read-only reusable mode for Customer Booking History)
+- `src/features/admin/calendar/pages/AdminCalendarPage.jsx` (passes `customerResolution` into `createBooking`)
+- `src/features/admin/calendar/calendar.test.jsx`
+- `src/features/admin/calendar/duration-discount.test.jsx`
+- `src/features/admin/settings/settings.test.jsx`
+- `firestore.rules`
+
+Note: All pre-existing handoff files under `docs/handoffs/` remain completely intact.
+
+============================================================
+4. FIRESTORE COLLECTIONS
+============================================================
+
+1. `customers/{customerId}`:
+   Immutable customer identity document (`displayName`, `normalizedName`, `phoneDisplay`,
+   `phoneNormalized`, `nameAliases`, `previousPhones`, `status`, `mergedIntoCustomerId`,
+   `historyCustomerIds`, `bookingCount`, `firstBookingDate`, `lastBookingDate`, `notes`,
+   `createdAt`, `createdByUid`, `updatedAt`, `updatedByUid`, `version`).
+2. `customerPhoneIndex/{phoneHash}`:
+   Deterministic SHA-256 hash lookup index (`phoneNormalized`, `activeCustomerIds`,
+   `historicalCustomerIds`, `version`, `updatedAt`, `updatedByUid`). Supports multiple
+   active customer profiles per canonical phone number without storing names/bookings.
+3. `bookings/{bookingId}` extension:
+   Added `customerId` and `phoneNormalized` alongside preserved `customerName`, `phone`,
+   `bandName`, and all Phase 5/6 financial, discount, commission, and payment snapshots.
+
+============================================================
+5. CUSTOMER IDENTITY LOGIC
+============================================================
+
+- Decouples immutable `customerId` from `phoneNormalized`.
+- Lightweight name normalization (`NFKC`, trim, collapse spaces, lowercase + compact
+  space-variant equivalence for `Arief Music` / `Ariefmusic` / `ARIEF MUSIC`).
+- Five explicit resolution states (`resolveCustomerIdentityCandidates`):
+  `NO_MATCH`, `HISTORICAL_ONLY` (recycled number), `EXACT_MATCH`, `SINGLE_CONFLICT`,
+  and `MULTIPLE_MATCHES`.
+- Archived and merged profiles are never silently selected for new bookings; merged
+  references resolve safely to their canonical active target.
+
+============================================================
+6. PHONE NORMALIZATION
+============================================================
+
+Shared utility `src/features/admin/customer/utils/phone-number.js`:
+- Normalizes `081234567890`, `+6281234567890`, `6281234567890`, `+62 812-3456-7890`,
+  `(0812) 3456 7890`, and `006281234567890` identically to `+6281234567890`.
+- Preserves non-Indonesian international numbers with explicit `+` / `00` country codes.
+- Rejects empty, alphabetic, or out-of-range numbers.
+- Deterministic SHA-256 hashing (`getPhoneNumberHash` via Web Crypto + identical pure-JS
+  FIPS 180-4 `getPhoneNumberHashSync`).
+
+============================================================
+7. DUPLICATE & IDENTITY SCENARIOS COVERED
+============================================================
+
+1. Same phone + same name / alias / whitespace variant -> auto reuse (`CUSTOMER EXISTING`).
+2. Same phone + different name -> `CustomerIdentityConflictDialog` (`Gabungkan ke <Name>`,
+   `Buat Profil Terpisah`, `Periksa Kembali`).
+3. Same phone + multiple active profiles -> candidate card selector (never auto-picks by
+   highest booking count).
+4. Same name + different phone -> distinct profiles with `Nama mirip, nomor berbeda` badge.
+5. Shared family/band/office number -> `SHARED NUMBER` group card with separate histories
+   and explicit `Merge History` action.
+6. Customer changes phone -> atomic update storing old phone in `previousPhones`, searchable
+   historically, conflict check if new phone occupied, historical booking `phone` untouched.
+7. Recycled phone number -> detected via `historicalCustomerIds` (`HISTORICAL_ONLY`), creates
+   fresh separate profile without auto-linking to previous owner.
+8. One customer, multiple band names -> single profile; `Band / Project History` lists all
+   distinct band snapshots.
+9. Invalid/missing legacy phone -> routed to `Needs Review` for explicit phone fix or linking.
+10. Cancelled / No-Show bookings -> profile retained, `bookingCount` not decremented,
+    visible in history.
+11. Edit/reschedule booking -> retains `customerId`; editing booking phone updates contact
+    snapshot only.
+
+============================================================
+8. MERGE IMPLEMENTATION
+============================================================
+
+- Virtual history merge via `mergeCustomerProfiles()` inside a single atomic Firestore
+  transaction (`CustomerMergeDialog` preview with target/source selector & swap button).
+- Combines `historyCustomerIds`, `nameAliases`, `previousPhones`, `bookingCount`,
+  `firstBookingDate`, and `lastBookingDate` onto the active target profile.
+- Sets source `status = 'merged'` and `mergedIntoCustomerId = targetId`, updates
+  `customerPhoneIndex`, and leaves every historical booking document completely untouched.
+- `useCustomerBookingHistory()` queries `historyCustomerIds` in `<= 10`-ID Firestore `in`
+  chunks, deduplicates by `booking.id`, sorts descending, and paginates with `Load More`.
+
+============================================================
+9. BOOKING TRANSACTION INTEGRATION
+============================================================
+
+- `createBooking()` runs all reads before all writes inside ONE atomic Firestore transaction:
+  `customers/{customerId}`, `customerPhoneIndex/{phoneHash}`, `bookings/{bookingId}`,
+  30-min `bookingSlots`, and `bookingEvents/{eventId}`.
+- Slot conflicts abort before any writes -> zero orphan customer profiles.
+- Pre-generated stable `bookingId`, `eventId`, and `customerId` guarantee full idempotency
+  on retry (bookingCount never increments twice, aliases never duplicate).
+- Validates `expectedPhoneIndexVersion` to reject stale concurrent identity conflicts.
+
+============================================================
+10. LEGACY IMPORT RESULTS
+============================================================
+
+- `scanLegacyBookingsPreview()` scans unlinked bookings via bounded pagination with zero
+  writes on render, grouping strictly by `(phoneNormalized + normalizedName)` and placing
+  invalid/missing phone records into `Needs Review`.
+- `importLegacyBookingHistory()` executes resumable batches (`<= 400` writes/batch) using
+  deterministic legacy Customer IDs (`cust_leg_<hash>`), updating ONLY `customerId`,
+  `phoneNormalized`, `updatedAt`, `updatedByUid`, `version` on legacy bookings without
+  touching financial snapshots, slots, or events.
+- `resolveNeedsReviewLegacyBooking()` links invalid legacy bookings via corrected phone
+  or selected active profile.
+
+============================================================
+11. FIRESTORE RULES (`firestore.rules`)
+============================================================
+
+- Added `match /customers/{customerId}` and `match /customerPhoneIndex/{phoneHash}` with
+  active Owner/Staff read/write (`isActiveStaff()`), anonymous/inactive denial, strict key
+  counts & invariants, self-merge denial, list denial on phone index, and permanent delete denial.
+- Extended `match /bookings/{bookingId}`:
+  - New bookings MUST carry valid `customerId` + `phoneNormalized` verified against the
+    post-transaction active Customer Profile via `getAfter()`.
+  - Supports one-time legacy backfill linking (`isLegacyBookingCustomerLinkUpdate` using
+    `affectedKeys()`) while locking `customerId` immutable on all generic updates and
+    retaining full Phase 5/6 snapshot immutability.
+
+============================================================
+12. TESTING RESULTS
+============================================================
+
+- Live Firebase Firestore Emulator Rules Verification
+  (`firebase emulators:exec --only firestore --project studio37classic`):
+  PASSED 21/21 checks (`RULES_V7_SUMMARY: 21 passed, 0 failed`).
+- Vitest Automated Test Suite (`npm run test:run`):
+  PASSED 8/8 test files, 69/69 tests passed (including `customer.test.jsx` 6/6 covering
+  Sections 17A–17F, `calendar.test.jsx` 11/11, `duration-discount.test.jsx` 16/16,
+  `settings.test.jsx` 7/7, `admin-shell.test.jsx` 5/5, `auth.test.jsx` 12/12,
+  `LandingPage.test.jsx` 10/10, `utils.test.js` 2/2).
+- Responsive Browser QA (Headless Chrome CDP, 10 viewports x 5 views = 50 checks):
+  PASSED 50/50 checks (`PHASE_7_CUSTOMER_RESPONSIVE_QA=PASSED`, 0 overflow, 0 offenders,
+  0 runtime errors) across `286, 320, 360, 375, 390, 430, 768, 1024, 1280, 1440` px.
+
+============================================================
+13. BUILD RESULTS
+============================================================
+
+- Prettier check (Phase 7 changed files): PASSED (`EXIT_CODE=0`, All matched files use Prettier code style!).
+- ESLint (`npm run lint`): PASSED (`EXIT_CODE=0`, 0 errors, 0 warnings).
+- Vite Production Build (`npm run build`): PASSED (`EXIT_CODE=0`, 3347 modules transformed, built in 6.41s).
+
+============================================================
+14. VERIFICATION LOG
+============================================================
+
+- Script: `scripts/verify-phase-7-customer.ps1`
+- Final passed log: `.logs/phase-7-customer-verification-20261119-130927.txt`
+  (`PHASE_7_CUSTOMER_VERIFICATION=PASSED`, `EXIT_CODE=0`).
+
+============================================================
+15. KNOWN LIMITATIONS
+============================================================
+
+- Updated `firestore.rules` has been verified locally on the Firestore Emulator and NOT
+  deployed to production Firebase (`studio37classic`) per no-deployment rules.
+- Customer Management excludes aggregate lifetime spending, invoices, payment history
+  reporting, WhatsApp automation, loyalty/points, and customer self-service portals.
+- Directory-level band search inspects a bounded recent window (`limit(200)`) to avoid
+  unbounded full-collection booking reads on page load; complete band history is loaded
+  inside `CustomerDetailDrawer`.

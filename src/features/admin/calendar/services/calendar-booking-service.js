@@ -1,4 +1,23 @@
-import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
+import {
+  normalizeCustomerRecord,
+  normalizePhoneIndexRecord,
+} from '@/features/admin/customer/schemas/customer-schema';
+import {
+  appendUniqueNameAlias,
+  CUSTOMER_RESOLUTION_MODE,
+  CUSTOMER_STATUS,
+  IDENTITY_MATCH_STATUS,
+  normalizeCustomerName,
+  resolveCustomerIdentityCandidates,
+} from '@/features/admin/customer/utils/customer-identity';
+import {
+  formatPhoneDisplay,
+  getPhoneNumberHash,
+} from '@/features/admin/customer/utils/phone-number';
+import {
+  DEFAULT_PRICING_SETTINGS,
+  DELIVERY_MODES,
+} from '@/features/admin/settings/pricing/config/default-pricing-settings';
 
 import {
   BOOKING_EVENT_TYPES,
@@ -99,6 +118,7 @@ export async function createBooking({
   eventId = generateOperationId('evt'),
   actorUid,
   formValues,
+  customerResolution = null,
   pricingSettings = DEFAULT_PRICING_SETTINGS,
   adapter = getBookingRepositoryAdapter(),
 }) {
@@ -118,6 +138,20 @@ export async function createBooking({
   }
 
   const payload = validation.payload;
+  if (payload.deliveryMode !== DELIVERY_MODES.STUDIO) {
+    throw createBookingServiceError(
+      'booking/wfa-not-allowed',
+      'Layanan WFA (Mixing / Mastering) tidak boleh membuat booking atau mengunci slot ruangan studio.',
+    );
+  }
+
+  if (!payload.phoneNormalized) {
+    throw createBookingServiceError(
+      'booking/invalid-phone',
+      'Nomor HP / WhatsApp tidak valid untuk pencatatan profil customer.',
+    );
+  }
+
   const requiredSlots = buildBookingSlotRecords({
     bookingId: cleanBookingId,
     date: payload.date,
@@ -133,14 +167,23 @@ export async function createBooking({
     );
   }
 
+  const phoneHash = await getPhoneNumberHash(payload.phoneNormalized);
+  // Pre-generate a stable Customer ID before starting the transaction so retries remain idempotent
+  const preGeneratedCustomerId =
+    String(customerResolution?.customerId || '').trim() || generateOperationId('cust');
+
   return adapter.runAtomicTransaction(async (tx) => {
     // 1. ALL READS FIRST
-    const existingBooking = await tx.getBooking(cleanBookingId);
-    const existingEvent = await tx.getEvent(cleanEventId);
-
-    const slotSnapshots = await Promise.all(requiredSlots.map((slot) => tx.getSlot(slot.id)));
+    const [existingBooking, existingEvent, existingPhoneIndex, ...slotSnapshots] =
+      await Promise.all([
+        tx.getBooking(cleanBookingId),
+        tx.getEvent(cleanEventId),
+        tx.getPhoneIndex(phoneHash),
+        ...requiredSlots.map((slot) => tx.getSlot(slot.id)),
+      ]);
 
     // Idempotent retry: if this exact bookingId + eventId was already committed, return it
+    // without touching customer bookingCount, aliases, or phone index a second time
     if (existingBooking && existingEvent) {
       return existingBooking;
     }
@@ -152,7 +195,23 @@ export async function createBooking({
       );
     }
 
-    // Check slot locks
+    // Read all candidate customer profiles referenced by the phone index + explicit resolution target
+    const candidateCustomerIds = Array.from(
+      new Set([
+        ...(existingPhoneIndex?.activeCustomerIds || []),
+        ...(existingPhoneIndex?.historicalCustomerIds || []),
+        ...(customerResolution?.customerId ? [customerResolution.customerId] : []),
+      ]),
+    );
+    const loadedCandidates =
+      candidateCustomerIds.length > 0
+        ? await Promise.all(candidateCustomerIds.map((id) => tx.getCustomer(id)))
+        : [];
+    const profilesById = new Map(
+      loadedCandidates.filter(Boolean).map((profile) => [profile.id, profile]),
+    );
+
+    // Check slot locks BEFORE customer resolution errors so slot conflicts always rollback cleanly
     for (let i = 0; i < requiredSlots.length; i++) {
       const targetSlot = requiredSlots[i];
       const existingSlotLock = slotSnapshots[i];
@@ -171,14 +230,199 @@ export async function createBooking({
       }
     }
 
-    // 2. ALL WRITES AFTER READS
+    // Resolve and validate customer identity against current transactional Phone Index state
+    const currentIndexVersion = Number(existingPhoneIndex?.version) || 0;
+    if (
+      customerResolution &&
+      Number.isInteger(Number(customerResolution.expectedPhoneIndexVersion)) &&
+      currentIndexVersion !== Number(customerResolution.expectedPhoneIndexVersion)
+    ) {
+      throw createBookingServiceError(
+        'booking/stale-customer-identity',
+        'Data profil customer untuk nomor HP ini baru saja berubah. Muat ulang pilihan customer lalu coba simpan kembali.',
+      );
+    }
+
+    const identityResolution = resolveCustomerIdentityCandidates({
+      inputName: payload.customerName,
+      phoneNormalized: payload.phoneNormalized,
+      phoneIndex: existingPhoneIndex,
+      profilesById,
+    });
+
+    let effectiveMode = customerResolution?.mode || '';
+    let resolvedCustomerId = preGeneratedCustomerId;
+    let targetExistingProfile = null;
+
+    if (!effectiveMode) {
+      if (
+        identityResolution.status === IDENTITY_MATCH_STATUS.NO_MATCH ||
+        identityResolution.status === IDENTITY_MATCH_STATUS.HISTORICAL_ONLY
+      ) {
+        effectiveMode = CUSTOMER_RESOLUTION_MODE.CREATE_NEW;
+      } else if (
+        identityResolution.status === IDENTITY_MATCH_STATUS.EXACT_MATCH &&
+        identityResolution.matchedProfile
+      ) {
+        effectiveMode = CUSTOMER_RESOLUTION_MODE.REUSE_EXISTING;
+        resolvedCustomerId = identityResolution.matchedProfile.id;
+        targetExistingProfile = identityResolution.matchedProfile;
+      } else {
+        throw createBookingServiceError(
+          'booking/customer-identity-conflict',
+          'Nomor telepon sudah digunakan oleh profil customer lain. Pilih gabungkan riwayat atau buat profil terpisah terlebih dahulu.',
+          {
+            status: identityResolution.status,
+            activeProfiles: identityResolution.activeProfiles,
+          },
+        );
+      }
+    } else if (
+      effectiveMode === CUSTOMER_RESOLUTION_MODE.REUSE_EXISTING ||
+      effectiveMode === CUSTOMER_RESOLUTION_MODE.MERGE_INTO_EXISTING
+    ) {
+      const targetId = String(customerResolution?.customerId || '').trim();
+      const targetProfile = profilesById.get(targetId) || null;
+      if (!targetProfile || targetProfile.status !== CUSTOMER_STATUS.ACTIVE) {
+        throw createBookingServiceError(
+          'booking/stale-customer-identity',
+          'Profil customer yang dipilih tidak aktif atau sudah berubah. Silakan muat ulang pilihan customer.',
+        );
+      }
+      if (targetProfile.phoneNormalized !== payload.phoneNormalized) {
+        throw createBookingServiceError(
+          'booking/stale-customer-identity',
+          'Nomor telepon pada profil customer yang dipilih sudah tidak cocok. Silakan periksa kembali nomor HP.',
+        );
+      }
+      resolvedCustomerId = targetProfile.id;
+      targetExistingProfile = targetProfile;
+    } else if (effectiveMode === CUSTOMER_RESOLUTION_MODE.CREATE_NEW) {
+      if (identityResolution.activeProfiles.length > 0) {
+        throw createBookingServiceError(
+          'booking/stale-customer-identity',
+          'Nomor telepon baru saja terdaftar pada profil lain. Muat ulang pencarian customer untuk menentukan pilihan profil.',
+        );
+      }
+    } else if (effectiveMode !== CUSTOMER_RESOLUTION_MODE.CREATE_SEPARATE) {
+      throw createBookingServiceError(
+        'booking/invalid-customer-resolution',
+        'Mode resolusi identitas customer tidak valid.',
+      );
+    }
+
+    // 2. ALL WRITES AFTER ALL READS
     const timestamp = tx.nowValue();
 
+    if (targetExistingProfile) {
+      const nextAliases =
+        effectiveMode === CUSTOMER_RESOLUTION_MODE.MERGE_INTO_EXISTING
+          ? appendUniqueNameAlias(
+              targetExistingProfile.displayName,
+              targetExistingProfile.nameAliases,
+              payload.customerName,
+            )
+          : targetExistingProfile.nameAliases;
+
+      const firstDate =
+        [targetExistingProfile.firstBookingDate, payload.date].filter(Boolean).sort()[0] ||
+        payload.date;
+      const lastDates = [targetExistingProfile.lastBookingDate, payload.date]
+        .filter(Boolean)
+        .sort();
+      const lastDate = lastDates[lastDates.length - 1] || payload.date;
+
+      tx.updateCustomer(resolvedCustomerId, {
+        displayName: targetExistingProfile.displayName,
+        normalizedName:
+          targetExistingProfile.normalizedName ||
+          normalizeCustomerName(targetExistingProfile.displayName),
+        phoneDisplay: targetExistingProfile.phoneDisplay,
+        phoneNormalized: targetExistingProfile.phoneNormalized,
+        nameAliases: nextAliases,
+        previousPhones: targetExistingProfile.previousPhones,
+        status: CUSTOMER_STATUS.ACTIVE,
+        mergedIntoCustomerId: null,
+        historyCustomerIds: Array.from(
+          new Set([resolvedCustomerId, ...(targetExistingProfile.historyCustomerIds || [])]),
+        ),
+        bookingCount: (Number(targetExistingProfile.bookingCount) || 0) + 1,
+        firstBookingDate: firstDate,
+        lastBookingDate: lastDate,
+        notes: targetExistingProfile.notes,
+        createdAt: targetExistingProfile.createdAt,
+        createdByUid: targetExistingProfile.createdByUid,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: (Number(targetExistingProfile.version) || 1) + 1,
+      });
+
+      // Ensure active index contains resolvedCustomerId
+      if (!(existingPhoneIndex?.activeCustomerIds || []).includes(resolvedCustomerId)) {
+        tx.setPhoneIndex(phoneHash, {
+          phoneNormalized: payload.phoneNormalized,
+          activeCustomerIds: Array.from(
+            new Set([...(existingPhoneIndex?.activeCustomerIds || []), resolvedCustomerId]),
+          ),
+          historicalCustomerIds: (existingPhoneIndex?.historicalCustomerIds || []).filter(
+            (id) => id !== resolvedCustomerId,
+          ),
+          version: currentIndexVersion + 1,
+          updatedAt: timestamp,
+          updatedByUid: cleanActorUid,
+        });
+      }
+    } else {
+      // Create new Customer Profile (either fresh number or intentional Create Separate on shared number)
+      tx.setCustomer(resolvedCustomerId, {
+        displayName: payload.customerName,
+        normalizedName: normalizeCustomerName(payload.customerName),
+        phoneDisplay: formatPhoneDisplay(payload.phoneNormalized),
+        phoneNormalized: payload.phoneNormalized,
+        nameAliases: [],
+        previousPhones: [],
+        status: CUSTOMER_STATUS.ACTIVE,
+        mergedIntoCustomerId: null,
+        historyCustomerIds: [resolvedCustomerId],
+        bookingCount: 1,
+        firstBookingDate: payload.date,
+        lastBookingDate: payload.date,
+        notes: '',
+        createdAt: timestamp,
+        createdByUid: cleanActorUid,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: 1,
+      });
+
+      tx.setPhoneIndex(phoneHash, {
+        phoneNormalized: payload.phoneNormalized,
+        activeCustomerIds: Array.from(
+          new Set([...(existingPhoneIndex?.activeCustomerIds || []), resolvedCustomerId]),
+        ),
+        historicalCustomerIds: (existingPhoneIndex?.historicalCustomerIds || []).filter(
+          (id) => id !== resolvedCustomerId,
+        ),
+        version: currentIndexVersion + 1,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+      });
+    }
+
     const bookingDoc = {
+      customerId: resolvedCustomerId,
       customerName: payload.customerName,
       phone: payload.phone,
+      phoneNormalized: payload.phoneNormalized,
       bandName: payload.bandName,
       studioId: payload.studioId,
+      serviceTypeId: payload.serviceTypeId,
+      serviceTypeName: payload.serviceTypeName,
+      serviceOptionId: payload.serviceOptionId,
+      serviceOptionName: payload.serviceOptionName,
+      deliveryMode: payload.deliveryMode,
+      pricingMode: payload.pricingMode,
+      pricingSettingsVersion: payload.pricingSettingsVersion,
       serviceId: payload.serviceId,
       serviceLabel: payload.serviceLabel,
       packageId: payload.packageId,
@@ -315,13 +559,24 @@ export async function updateOrRescheduleBooking({
       paymentMethod: existingBooking.paymentMethod || 'cash',
     };
 
+    const historicalOptionId =
+      existingBooking.serviceOptionId ||
+      existingBooking.packageId ||
+      existingBooking.recordingTypeId ||
+      '';
+
     const validation = validateBookingFormPayload(
       mergedFormValues,
       [],
       cleanBookingId,
       pricingSettings,
       {
-        allowedHistoricalServiceIds: [existingBooking.serviceId],
+        allowedHistoricalServiceIds: [
+          existingBooking.serviceId,
+          existingBooking.serviceTypeId,
+        ].filter(Boolean),
+        allowedHistoricalOptionIds: [historicalOptionId].filter(Boolean),
+        skipManualQuoteValidation: !formValues?.applyUpdatedPricing,
         paymentTotalOverride: formValues?.applyUpdatedPricing
           ? undefined
           : existingBooking.totalAmount,
@@ -424,10 +679,20 @@ export async function updateOrRescheduleBooking({
       existingBooking.startMinute !== payload.startMinute ||
       existingBooking.durationMinutes !== payload.durationMinutes;
 
+    const existingEffectiveOptionId =
+      existingBooking.serviceOptionId ||
+      existingBooking.packageId ||
+      existingBooking.recordingTypeId ||
+      '';
+    const nextEffectiveOptionId =
+      payload.serviceOptionId || payload.packageId || payload.recordingTypeId || '';
+
     const isServiceScopeChanged =
       existingBooking.serviceId !== payload.serviceId ||
       existingBooking.packageId !== payload.packageId ||
       existingBooking.recordingTypeId !== payload.recordingTypeId ||
+      (Boolean(existingBooking.serviceOptionId) &&
+        existingEffectiveOptionId !== nextEffectiveOptionId) ||
       existingBooking.durationMinutes !== payload.durationMinutes;
 
     const shouldApplyNewSnapshot =
@@ -435,18 +700,52 @@ export async function updateOrRescheduleBooking({
 
     const nextVersion = (Number(existingBooking.version) || 1) + 1;
 
-    // Preserve immutable initial payment snapshot fields AND historical price/commission snapshots
-    // unless service/package/duration changed and user explicitly confirmed applying current pricing.
+    // Preserve immutable initial payment snapshot fields AND historical price/commission/option snapshots
+    // unless service/subcategory/duration changed and user explicitly confirmed applying current pricing.
+    const preservedV2ServiceFields = shouldApplyNewSnapshot
+      ? {
+          serviceTypeId: payload.serviceTypeId,
+          serviceTypeName: payload.serviceTypeName,
+          serviceOptionId: payload.serviceOptionId,
+          serviceOptionName: payload.serviceOptionName,
+          deliveryMode: payload.deliveryMode,
+          pricingMode: payload.pricingMode,
+          pricingSettingsVersion: payload.pricingSettingsVersion,
+        }
+      : existingBooking.serviceTypeId
+        ? {
+            serviceTypeId: existingBooking.serviceTypeId,
+            serviceTypeName: existingBooking.serviceTypeName,
+            serviceOptionId: existingBooking.serviceOptionId,
+            serviceOptionName: existingBooking.serviceOptionName,
+            deliveryMode: existingBooking.deliveryMode,
+            pricingMode: existingBooking.pricingMode,
+            pricingSettingsVersion: existingBooking.pricingSettingsVersion,
+          }
+        : {};
+
+    const preservedCustomerLinkFields = {};
+    if (existingBooking.customerId) {
+      preservedCustomerLinkFields.customerId = existingBooking.customerId;
+    }
+    if (existingBooking.phoneNormalized) {
+      preservedCustomerLinkFields.phoneNormalized = existingBooking.phoneNormalized;
+    }
+
     const updatedFields = {
+      ...preservedCustomerLinkFields,
       customerName: payload.customerName,
       phone: payload.phone,
       bandName: payload.bandName,
       studioId: payload.studioId,
-      serviceId: payload.serviceId,
+      ...preservedV2ServiceFields,
+      serviceId: shouldApplyNewSnapshot ? payload.serviceId : existingBooking.serviceId,
       serviceLabel: shouldApplyNewSnapshot ? payload.serviceLabel : existingBooking.serviceLabel,
-      packageId: payload.packageId,
+      packageId: shouldApplyNewSnapshot ? payload.packageId : existingBooking.packageId,
       packageLabel: shouldApplyNewSnapshot ? payload.packageLabel : existingBooking.packageLabel,
-      recordingTypeId: payload.recordingTypeId,
+      recordingTypeId: shouldApplyNewSnapshot
+        ? payload.recordingTypeId
+        : existingBooking.recordingTypeId,
       recordingTypeLabel: shouldApplyNewSnapshot
         ? payload.recordingTypeLabel
         : existingBooking.recordingTypeLabel,
@@ -835,12 +1134,19 @@ export async function transitionBookingSession({
  * In-memory transactional repository adapter for deterministic automated testing
  * of concurrency, slot locks, atomic rollback, stale updates, and realtime subscriptions.
  */
-export function createInMemoryBookingRepositoryAdapter(initialBookings = []) {
+export function createInMemoryBookingRepositoryAdapter(
+  initialBookings = [],
+  initialCustomers = [],
+  initialPhoneIndex = [],
+) {
   const bookings = new Map();
   const slots = new Map();
   const events = new Map();
+  const customers = new Map();
+  const phoneIndex = new Map();
   const rangeSubscribers = new Set();
   const eventSubscribers = new Map();
+  const customerSubscribers = new Set();
   let transactionQueue = Promise.resolve();
 
   function notifyRangeSubscribers() {
@@ -862,6 +1168,20 @@ export function createInMemoryBookingRepositoryAdapter(initialBookings = []) {
     }
   }
 
+  function notifyCustomerSubscribers() {
+    const sorted = Array.from(customers.values()).sort(
+      (a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0),
+    );
+    for (const sub of customerSubscribers) {
+      const limited = sorted.slice(0, sub.maxLimit);
+      sub.onData?.({
+        customers: limited.map((c) => ({ ...c })),
+        hasMore: sorted.length > sub.maxLimit,
+        maxLimit: sub.maxLimit,
+      });
+    }
+  }
+
   function notifyEventSubscribers(bookingId) {
     const subs = eventSubscribers.get(bookingId);
     if (!subs) return;
@@ -871,6 +1191,18 @@ export function createInMemoryBookingRepositoryAdapter(initialBookings = []) {
 
     for (const cb of subs) {
       cb(matching.map((e) => ({ ...e })));
+    }
+  }
+
+  // Seed initial customers & phone index if provided
+  for (const seedCust of initialCustomers) {
+    const normCust = normalizeCustomerRecord(seedCust.id || generateOperationId('cust'), seedCust);
+    customers.set(normCust.id, normCust);
+  }
+  for (const seedIdx of initialPhoneIndex) {
+    const normIdx = normalizePhoneIndexRecord(seedIdx.phoneHash || seedIdx.id, seedIdx);
+    if (normIdx.phoneHash) {
+      phoneIndex.set(normIdx.phoneHash, normIdx);
     }
   }
 
@@ -902,21 +1234,43 @@ export function createInMemoryBookingRepositoryAdapter(initialBookings = []) {
     }
   }
 
+  function enqueueTransaction(work) {
+    const runNext = transactionQueue.then(work);
+    transactionQueue = runNext.catch(() => {});
+    return runNext;
+  }
+
   return {
+    _sharedStore: {
+      bookings,
+      slots,
+      events,
+      customers,
+      phoneIndex,
+      customerSubscribers,
+      enqueueTransaction,
+      notifyBookings: notifyRangeSubscribers,
+      notifyCustomers: notifyCustomerSubscribers,
+    },
+
     _inspectState() {
       return {
         bookings: new Map(bookings),
         slots: new Map(slots),
         events: new Map(events),
+        customers: new Map(customers),
+        phoneIndex: new Map(phoneIndex),
       };
     },
 
     runAtomicTransaction(transactionWork) {
-      const runNext = transactionQueue.then(async () => {
+      return enqueueTransaction(async () => {
         // Work on staged copies so any thrown error leaves the store untouched (atomic rollback)
         const stagedBookings = new Map(bookings);
         const stagedSlots = new Map(slots);
         const stagedEvents = new Map(events);
+        const stagedCustomers = new Map(customers);
+        const stagedPhoneIndex = new Map(phoneIndex);
         const touchedBookingIds = new Set();
         let writeStarted = false;
 
@@ -943,6 +1297,20 @@ export function createInMemoryBookingRepositoryAdapter(initialBookings = []) {
             const item = stagedEvents.get(id);
             return item ? { ...item } : null;
           },
+          async getCustomer(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedCustomers.get(id);
+            return item ? normalizeCustomerRecord(id, item) : null;
+          },
+          async getPhoneIndex(hash) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedPhoneIndex.get(hash);
+            return item ? normalizePhoneIndexRecord(hash, item) : null;
+          },
           setBooking(id, data) {
             writeStarted = true;
             touchedBookingIds.add(id);
@@ -967,6 +1335,19 @@ export function createInMemoryBookingRepositoryAdapter(initialBookings = []) {
             touchedBookingIds.add(data.bookingId);
             stagedEvents.set(id, normalizeBookingEventRecord(id, data));
           },
+          setCustomer(id, data) {
+            writeStarted = true;
+            stagedCustomers.set(id, normalizeCustomerRecord(id, data));
+          },
+          updateCustomer(id, data) {
+            writeStarted = true;
+            const prev = stagedCustomers.get(id) || {};
+            stagedCustomers.set(id, normalizeCustomerRecord(id, { ...prev, ...data }));
+          },
+          setPhoneIndex(hash, data) {
+            writeStarted = true;
+            stagedPhoneIndex.set(hash, normalizePhoneIndexRecord(hash, data));
+          },
         };
 
         const result = await transactionWork(txContext);
@@ -978,18 +1359,19 @@ export function createInMemoryBookingRepositoryAdapter(initialBookings = []) {
         for (const [k, v] of stagedSlots) slots.set(k, v);
         events.clear();
         for (const [k, v] of stagedEvents) events.set(k, v);
+        customers.clear();
+        for (const [k, v] of stagedCustomers) customers.set(k, v);
+        phoneIndex.clear();
+        for (const [k, v] of stagedPhoneIndex) phoneIndex.set(k, v);
 
         notifyRangeSubscribers();
+        notifyCustomerSubscribers();
         for (const bId of touchedBookingIds) {
           notifyEventSubscribers(bId);
         }
 
         return result;
       });
-
-      // Keep queue alive even when a transaction rejects
-      transactionQueue = runNext.catch(() => {});
-      return runNext;
     },
 
     subscribeBookingsInRange({

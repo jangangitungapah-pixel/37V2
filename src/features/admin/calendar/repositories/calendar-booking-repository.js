@@ -1,4 +1,9 @@
 import {
+  normalizeCustomerRecord,
+  normalizePhoneIndexRecord,
+} from '@/features/admin/customer/schemas/customer-schema';
+
+import {
   BOOKING_SESSION_STATUS,
   CALENDAR_BOOKINGS_QUERY_LIMIT,
   INITIAL_PAYMENT_STATUS,
@@ -9,6 +14,8 @@ export const FIRESTORE_COLLECTIONS = {
   BOOKINGS: 'bookings',
   BOOKING_SLOTS: 'bookingSlots',
   BOOKING_EVENTS: 'bookingEvents',
+  CUSTOMERS: 'customers',
+  CUSTOMER_PHONE_INDEX: 'customerPhoneIndex',
 };
 
 /**
@@ -58,16 +65,44 @@ export function normalizeAutomaticDiscountSnapshot(raw = null) {
 }
 
 /**
- * Normalizes the internal commission snapshot with safe fallback for Phase 5 bookings
- * that predate Phase 6 commission tracking.
+ * Normalizes a single V2 internal fee recipient entry (`staff`, `owner`, or `recordingOperator`).
+ */
+function normalizeCommissionRoleEntry(raw = null) {
+  const validBasis = ['none', 'fixed', 'hourly', 'manual'];
+  if (!raw || typeof raw !== 'object') {
+    return { basis: 'none', rate: 0, amount: 0 };
+  }
+  const basis = validBasis.includes(raw.basis) ? raw.basis : 'none';
+  return {
+    basis,
+    rate: Math.max(0, Math.round(Number(raw.rate) || 0)),
+    amount: Math.max(0, Math.round(Number(raw.amount) || 0)),
+  };
+}
+
+/**
+ * Normalizes the internal commission snapshot with full backward compatibility across:
+ * - Phase 5 bookings (`null`)
+ * - Phase 6 V1 bookings (`staffBasis`, `staffRate`, `staffAmount`, `recordingOperatorAmount`, `settingsVersion`)
+ * - Phase 6 V2 bookings (`schemaVersion: 2`, `staff`, `owner`, `recordingOperator`, `settingsVersion`)
  */
 export function normalizeCommissionSnapshot(raw = null) {
   if (!raw || typeof raw !== 'object') {
     return null;
   }
 
-  const validBasis = ['package', 'rehearsal_hourly', 'none'];
-  const staffBasis = validBasis.includes(raw.staffBasis) ? raw.staffBasis : 'none';
+  if (raw.schemaVersion === 2 || (raw.staff && typeof raw.staff === 'object')) {
+    return {
+      schemaVersion: 2,
+      staff: normalizeCommissionRoleEntry(raw.staff),
+      owner: normalizeCommissionRoleEntry(raw.owner),
+      recordingOperator: normalizeCommissionRoleEntry(raw.recordingOperator),
+      settingsVersion: Math.max(1, Math.round(Number(raw.settingsVersion) || 1)),
+    };
+  }
+
+  const validLegacyBasis = ['package', 'rehearsal_hourly', 'none'];
+  const staffBasis = validLegacyBasis.includes(raw.staffBasis) ? raw.staffBasis : 'none';
   return {
     staffBasis,
     staffRate: Math.max(0, Math.round(Number(raw.staffRate) || 0)),
@@ -89,14 +124,17 @@ export function normalizeBookingRecord(id, data = {}) {
     ? Number(data.endMinute)
     : startMinute + durationMinutes;
 
-  return {
+  const serviceId = String(data.serviceId || data.serviceTypeId || 'rehearsal').trim();
+  const serviceLabel = String(data.serviceLabel || data.serviceTypeName || 'Rehearsal').trim();
+
+  const record = {
     id: String(id || data.id || ''),
     customerName: String(data.customerName || '').trim(),
     phone: String(data.phone || '').trim(),
     bandName: String(data.bandName || '').trim(),
     studioId: String(data.studioId || 'room-a').trim(),
-    serviceId: String(data.serviceId || 'rehearsal').trim(),
-    serviceLabel: String(data.serviceLabel || 'Rehearsal').trim(),
+    serviceId,
+    serviceLabel,
     packageId: String(data.packageId || '').trim(),
     packageLabel: String(data.packageLabel || '').trim(),
     recordingTypeId: String(data.recordingTypeId || '').trim(),
@@ -127,6 +165,28 @@ export function normalizeBookingRecord(id, data = {}) {
     updatedByUid: String(data.updatedByUid || ''),
     version: Number.isInteger(Number(data.version)) ? Number(data.version) : 1,
   };
+
+  if (data.customerId) {
+    record.customerId = String(data.customerId).trim();
+  }
+  if (data.phoneNormalized) {
+    record.phoneNormalized = String(data.phoneNormalized).trim();
+  }
+
+  if (data.serviceTypeId) {
+    record.serviceTypeId = String(data.serviceTypeId).trim();
+    record.serviceTypeName = String(data.serviceTypeName || serviceLabel).trim();
+    record.serviceOptionId = String(data.serviceOptionId || '').trim();
+    record.serviceOptionName = String(data.serviceOptionName || '').trim();
+    record.deliveryMode = String(data.deliveryMode || 'studio').trim();
+    record.pricingMode = String(data.pricingMode || 'hourly').trim();
+    record.pricingSettingsVersion = Math.max(
+      1,
+      Math.round(Number(data.pricingSettingsVersion) || 1),
+    );
+  }
+
+  return record;
 }
 
 /**
@@ -187,6 +247,16 @@ export function createFirestoreBookingRepositoryAdapter() {
             const snap = await tx.get(ref);
             return snap.exists() ? normalizeBookingEventRecord(snap.id, snap.data()) : null;
           },
+          async getCustomer(customerId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMERS, customerId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizeCustomerRecord(snap.id, snap.data()) : null;
+          },
+          async getPhoneIndex(phoneHash) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMER_PHONE_INDEX, phoneHash);
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizePhoneIndexRecord(snap.id, snap.data()) : null;
+          },
           setBooking(bookingId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKINGS, bookingId);
             tx.set(ref, data);
@@ -205,6 +275,18 @@ export function createFirestoreBookingRepositoryAdapter() {
           },
           setEvent(eventId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKING_EVENTS, eventId);
+            tx.set(ref, data);
+          },
+          setCustomer(customerId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMERS, customerId);
+            tx.set(ref, data);
+          },
+          updateCustomer(customerId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMERS, customerId);
+            tx.update(ref, data);
+          },
+          setPhoneIndex(phoneHash, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMER_PHONE_INDEX, phoneHash);
             tx.set(ref, data);
           },
         };

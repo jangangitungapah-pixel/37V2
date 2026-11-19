@@ -25,7 +25,7 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
 
   return (
     <footer className="bg-studio-ink text-studio-ivory pt-12 pb-8 sm:pt-16">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 pb-10 sm:grid-cols-2 lg:grid-cols-12">
           {/* Column 1: Brand Lockup & Social Icons */}
           <div className="lg:col-span-4">

@@ -51,7 +51,7 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
         aria-labelledby="contact-heading"
         className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-12 sm:py-16 lg:py-20"
       >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-7 lg:grid-cols-12">
             {/* Left Panel: Acid-Lime Testimonials Surface */}
             <div className="brutal-card-lg bg-studio-lime text-studio-ink flex flex-col justify-between p-5 sm:p-8 lg:col-span-7">
@@ -242,7 +242,7 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
         aria-labelledby="final-cta-heading"
         className="border-studio-ink bg-studio-ivory border-b-2 py-12 sm:py-16"
       >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
           <div className="brutal-card-lg bg-studio-orange text-studio-white px-5 py-10 text-center sm:px-10 sm:py-14">
             <span className="border-studio-ink bg-studio-ink text-studio-white inline-block border px-3 py-1 font-mono text-[10px] font-bold tracking-wider uppercase">
               {finalCta.eyebrow}

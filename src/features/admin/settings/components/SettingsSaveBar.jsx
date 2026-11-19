@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Loader2, RotateCcw, Save } from 'lucide-re
 export function SettingsSaveBar({
   isDirty,
   isPersisted,
+  migratedFromV1 = false,
   isSaving,
   isLoading,
   readOnly = false,
@@ -14,7 +15,8 @@ export function SettingsSaveBar({
   onReset,
   onReloadRemote,
 }) {
-  const canSave = !readOnly && (isDirty || !isPersisted) && !isSaving && !isLoading;
+  const canSave =
+    !readOnly && (isDirty || !isPersisted || migratedFromV1) && !isSaving && !isLoading;
 
   return (
     <div
@@ -72,6 +74,10 @@ export function SettingsSaveBar({
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Unsaved Changes</span>
             </span>
+          ) : migratedFromV1 ? (
+            <span className="border-studio-ink text-studio-ink inline-flex items-center gap-1.5 border bg-amber-200 px-2.5 py-1 font-mono text-[11px] font-extrabold uppercase">
+              <span>Migrasi V1 &rarr; V2 • Siap Disimpan</span>
+            </span>
           ) : !isPersisted ? (
             <span className="border-studio-ink text-studio-ink inline-flex items-center gap-1.5 border bg-amber-200 px-2.5 py-1 font-mono text-[11px] font-extrabold uppercase">
               <span>Default Presets • Belum Disimpan</span>
@@ -88,9 +94,11 @@ export function SettingsSaveBar({
               ? 'Mode Baca Saja (Staff/Operator). Perubahan konfigurasi hanya dapat disimpan oleh Owner.'
               : isDirty
                 ? 'Perubahan lokal belum tersimpan ke Firestore (settings/pricing).'
-                : !isPersisted
-                  ? 'Menampilkan default preset V2. Klik Save Changes untuk menyimpan ke Firestore.'
-                  : 'Semua preset sinkron dengan Cloud Firestore dan Calendar.'}
+                : migratedFromV1
+                  ? 'Draft migrasi Catalog V2 dari dokumen V1. Tinjau lalu klik Save Changes untuk menyimpan ke Firestore.'
+                  : !isPersisted
+                    ? 'Menampilkan default preset Catalog V2. Klik Save Changes untuk menyimpan ke Firestore.'
+                    : 'Semua katalog tarif V2 sinkron dengan Cloud Firestore dan Calendar.'}
           </p>
         </div>
 

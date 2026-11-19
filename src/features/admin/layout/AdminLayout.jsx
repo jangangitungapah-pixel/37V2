@@ -54,10 +54,7 @@ export function AdminLayout() {
           mobileMenuTriggerRef={mobileMenuTriggerRef}
         />
 
-        <main
-          id="admin-main-content"
-          className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8"
-        >
+        <main id="admin-main-content" className="w-full flex-1 px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
           <motion.div
             key={location.pathname}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
@@ -71,8 +68,8 @@ export function AdminLayout() {
           </motion.div>
         </main>
 
-        <footer className="border-studio-ink bg-studio-ivory border-t px-4 py-3.5 sm:px-6 lg:px-8">
-          <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-1 font-mono text-[11px] text-neutral-600 sm:flex-row sm:items-center">
+        <footer className="border-studio-ink bg-studio-ivory border-t px-3 py-3.5 sm:px-6 lg:px-8">
+          <div className="flex w-full flex-col items-start justify-between gap-1 font-mono text-[11px] text-neutral-600 sm:flex-row sm:items-center">
             <p>© 2026 37 Music Studio • Internal Administration Workspace</p>
             <p>Phase 4 Admin Shell &amp; Navigation Foundation</p>
           </div>

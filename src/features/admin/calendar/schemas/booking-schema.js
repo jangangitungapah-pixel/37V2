@@ -1,11 +1,28 @@
-import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
+import {
+  isValidPhoneNumber,
+  normalizePhoneNumber,
+} from '@/features/admin/customer/utils/phone-number';
+import {
+  DEFAULT_PRICING_SETTINGS,
+  DELIVERY_MODES,
+  PRICING_MODES,
+} from '@/features/admin/settings/pricing/config/default-pricing-settings';
+import {
+  findServiceOptionById,
+  findServiceTypeById,
+  normalizePricingSettings,
+} from '@/features/admin/settings/pricing/utils/normalize-pricing-settings';
 
 import {
   INITIAL_PAYMENT_STATUS,
   PAYMENT_METHOD_OPTIONS,
   STUDIO_ROOMS,
 } from '../config/calendar-config';
-import { calculateBookingPricingSnapshot, parseMoneyInput } from '../utils/booking-pricing';
+import {
+  calculateBookingPricingSnapshot,
+  parseMoneyInput,
+  resolveServiceAndOption,
+} from '../utils/booking-pricing';
 import {
   doesBookingConflict,
   formatMinuteRange,
@@ -17,25 +34,18 @@ const VALID_ROOM_IDS = new Set(STUDIO_ROOMS.map((room) => room.id));
 const VALID_PAYMENT_METHODS = new Set(PAYMENT_METHOD_OPTIONS.map((m) => m.id));
 
 /**
- * Normalizes a phone / WhatsApp number string while preserving leading `+` or `08`.
+ * Normalizes a phone / WhatsApp number into canonical E.164 format (`+62...` for Indonesia)
+ * using the single shared phone utility.
  */
 export function normalizeCustomerPhone(value) {
-  const trimmed = String(value ?? '').trim();
-  if (!trimmed) return '';
-  const hasPlus = trimmed.startsWith('+');
-  const digits = trimmed.replace(/\D/g, '');
-  if (!digits) return '';
-  return hasPlus ? `+${digits}` : digits;
+  return normalizePhoneNumber(value);
 }
 
 /**
- * Checks whether a normalized phone string is a valid Indonesian / international mobile number
- * (8 to 16 digits).
+ * Checks whether a phone string normalizes into a valid Indonesian / international number.
  */
 export function isValidCustomerPhone(value) {
-  const normalized = normalizeCustomerPhone(value);
-  const digitsOnly = normalized.replace(/\D/g, '');
-  return digitsOnly.length >= 8 && digitsOnly.length <= 16;
+  return isValidPhoneNumber(value);
 }
 
 /**
@@ -72,8 +82,14 @@ export function validateCustomerStep(formValues = {}) {
 }
 
 /**
- * Validates Step 2 — Layanan (Service) section against active `pricingSettings`
- * (plus any historical service/package ID already stored on an existing booking).
+ * Validates Step 2 — Layanan & Subcategory against Schema V2 `pricingSettings`.
+ *
+ * Enforcement:
+ * - Only Studio services (`deliveryMode === 'studio'`) can be booked on Studio Calendar
+ *   (unless preserving a historical booking's legacy service ID during non-repricing edit).
+ * - Unconfigured or inactive options cannot be selected for new bookings.
+ * - `manual_quote` options (e.g. Recording Others) require a valid positive customer price;
+ *   manual internal fees allow Rp 0 and must be non-negative integers.
  */
 export function validateServiceStep(
   formValues = {},
@@ -81,22 +97,99 @@ export function validateServiceStep(
   options = {},
 ) {
   const errors = {};
-  const serviceId = String(formValues.serviceId ?? '').trim();
+  const normalizedSettings = normalizePricingSettings(pricingSettings);
+  const allowedHistoricalServices = new Set(options.allowedHistoricalServiceIds || []);
+  const allowedHistoricalOptions = new Set(options.allowedHistoricalOptionIds || []);
 
-  const sessionTypes = Array.isArray(pricingSettings?.sessionTypes)
-    ? pricingSettings.sessionTypes
-    : DEFAULT_PRICING_SETTINGS.sessionTypes;
+  const requestedServiceId = String(formValues.serviceTypeId || formValues.serviceId || '').trim();
+  const requestedOptionId = String(
+    formValues.serviceOptionId || formValues.packageId || formValues.recordingTypeId || '',
+  ).trim();
 
-  const validServiceIds = new Set(
-    sessionTypes.filter((item) => item.isActive !== false).map((item) => item.id),
-  );
+  // Check if direct option lookup provides the parent service
+  let matchedService = requestedServiceId
+    ? findServiceTypeById(normalizedSettings, requestedServiceId)
+    : null;
+  let matchedOption = null;
 
-  for (const historicalId of options.allowedHistoricalServiceIds || []) {
-    if (historicalId) validServiceIds.add(historicalId);
+  if (requestedOptionId) {
+    const foundByOption = findServiceOptionById(normalizedSettings, requestedOptionId);
+    if (foundByOption) {
+      matchedOption = foundByOption.option;
+      if (!matchedService) {
+        matchedService = foundByOption.serviceType;
+      }
+    }
   }
 
-  if (!serviceId || !validServiceIds.has(serviceId)) {
-    errors.serviceId = 'Pilih layanan studio yang valid dan aktif.';
+  const isHistoricalService = Boolean(
+    requestedServiceId && allowedHistoricalServices.has(requestedServiceId),
+  );
+  const isHistoricalOption = Boolean(
+    requestedOptionId && allowedHistoricalOptions.has(requestedOptionId),
+  );
+
+  if (!matchedService) {
+    if (!isHistoricalService) {
+      errors.serviceId = 'Pilih layanan studio yang valid dan aktif.';
+    }
+  } else {
+    if (matchedService.deliveryMode !== DELIVERY_MODES.STUDIO && !isHistoricalService) {
+      errors.serviceId =
+        'Layanan WFA (Mixing / Mastering) tidak dapat menggunakan jadwal ruangan Studio Calendar.';
+    } else if (matchedService.isActive === false && !isHistoricalService) {
+      errors.serviceId = 'Layanan studio yang dipilih sedang non-aktif.';
+    }
+  }
+
+  // Resolve option if user did not explicitly specify one (legacy caller compatibility)
+  if (!errors.serviceId && matchedService) {
+    if (requestedOptionId) {
+      const optionBelongsToService = (matchedService.options || []).some(
+        (opt) => opt.id === requestedOptionId,
+      );
+      if (!optionBelongsToService && !isHistoricalOption) {
+        errors.serviceOptionId = 'Subcategory tidak sesuai dengan jenis layanan yang dipilih.';
+      }
+    } else {
+      matchedOption =
+        (matchedService.options || []).find(
+          (opt) => opt.isActive !== false && opt.pricing?.mode === PRICING_MODES.HOURLY,
+        ) ||
+        (matchedService.options || []).find(
+          (opt) => opt.isActive !== false && opt.pricing?.mode !== PRICING_MODES.UNCONFIGURED,
+        ) ||
+        null;
+    }
+
+    if (!errors.serviceOptionId) {
+      if (!matchedOption && !isHistoricalOption) {
+        errors.serviceOptionId = 'Pilih subcategory layanan yang valid dan sudah dikonfigurasi.';
+      } else if (matchedOption && !isHistoricalOption) {
+        if (matchedOption.pricing?.mode === PRICING_MODES.UNCONFIGURED) {
+          errors.serviceOptionId =
+            'Subcategory ini belum dikonfigurasi tarifnya dan tidak dapat dibooking.';
+        } else if (matchedOption.pricing?.mode === PRICING_MODES.FIXED_PROJECT) {
+          errors.serviceOptionId =
+            'Subcategory Fixed Project tidak berlaku untuk booking ruangan studio.';
+        } else if (matchedOption.isActive === false) {
+          errors.serviceOptionId = 'Subcategory yang dipilih sedang berstatus non-aktif.';
+        }
+      }
+    }
+  }
+
+  // Validate manual quote customer price when applicable (and not preserving historical snapshot)
+  if (
+    !errors.serviceId &&
+    !errors.serviceOptionId &&
+    matchedOption?.pricing?.mode === PRICING_MODES.MANUAL_QUOTE &&
+    !options.skipManualQuoteValidation
+  ) {
+    const manualPrice = parseMoneyInput(formValues.manualCustomerPrice);
+    if (manualPrice <= 0) {
+      errors.manualCustomerPrice = 'Harga customer manual wajib diisi dan lebih besar dari Rp 0.';
+    }
   }
 
   return {
@@ -106,34 +199,27 @@ export function validateServiceStep(
 }
 
 /**
- * Resolves the effective duration in minutes from form state (taking into account
- * package or fixed recording option locks from Firestore pricingSettings, preset
- * duration, or custom duration).
+ * Resolves the effective duration in minutes from form state (locking to Fixed Shift
+ * duration when a `fixed_shift` subcategory is selected, otherwise using preset or custom duration).
  */
 export function resolveFormDurationMinutes(
   formValues = {},
   pricingSettings = DEFAULT_PRICING_SETTINGS,
 ) {
-  const safeSettings = pricingSettings || DEFAULT_PRICING_SETTINGS;
-  const packages = Array.isArray(safeSettings.packages)
-    ? safeSettings.packages
-    : DEFAULT_PRICING_SETTINGS.packages;
-  const recordingTypes = Array.isArray(safeSettings.recordingTypes)
-    ? safeSettings.recordingTypes
-    : DEFAULT_PRICING_SETTINGS.recordingTypes;
+  const { option } = resolveServiceAndOption({
+    serviceTypeId: formValues.serviceTypeId,
+    serviceOptionId: formValues.serviceOptionId,
+    serviceId: formValues.serviceId,
+    packageId: formValues.packageId,
+    recordingTypeId: formValues.recordingTypeId,
+    pricingSettings,
+  });
 
-  if (formValues.packageId) {
-    const matchedPkg = packages.find((pkg) => pkg.id === formValues.packageId);
-    if (matchedPkg && Number(matchedPkg.durationMinutes) > 0) {
-      return Number(matchedPkg.durationMinutes);
-    }
-  }
-
-  if (formValues.serviceId === 'recording' && formValues.recordingTypeId) {
-    const matchedRec = recordingTypes.find((rec) => rec.id === formValues.recordingTypeId);
-    if (matchedRec && matchedRec.priceMode === 'fixed' && Number(matchedRec.durationMinutes) > 0) {
-      return Number(matchedRec.durationMinutes);
-    }
+  if (
+    option?.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
+    Number(option.pricing.durationMinutes) > 0
+  ) {
+    return Number(option.pricing.durationMinutes);
   }
 
   if (formValues.durationPreset === 'custom') {
@@ -247,7 +333,7 @@ export function validatePaymentStep(formValues = {}, totalAmount = 0) {
 }
 
 /**
- * Validates the entire Booking Form against live `pricingSettings` and builds the
+ * Validates the entire Booking Form against live `pricingSettings` (Schema V2) and builds the
  * normalized payload ready for the transactional booking service.
  */
 export function validateBookingFormPayload(
@@ -257,13 +343,19 @@ export function validateBookingFormPayload(
   pricingSettings = DEFAULT_PRICING_SETTINGS,
   options = {},
 ) {
-  const safeSettings = pricingSettings || DEFAULT_PRICING_SETTINGS;
+  const safeSettings = normalizePricingSettings(pricingSettings);
   const durationMinutes = resolveFormDurationMinutes(formValues, safeSettings);
   const pricing = calculateBookingPricingSnapshot({
+    serviceTypeId: formValues.serviceTypeId,
+    serviceOptionId: formValues.serviceOptionId,
     serviceId: formValues.serviceId,
     packageId: formValues.packageId,
     recordingTypeId: formValues.recordingTypeId,
     durationMinutes,
+    manualCustomerPrice: formValues.manualCustomerPrice,
+    manualStaffFee: formValues.manualStaffFee,
+    manualOwnerFee: formValues.manualOwnerFee,
+    manualRecordingOperatorFee: formValues.manualRecordingOperatorFee,
     initialPaymentStatus: formValues.initialPaymentStatus,
     dpAmount: formValues.dpAmount,
     paymentMethod: formValues.paymentMethod,
@@ -326,26 +418,40 @@ export function validateBookingFormPayload(
     pricing,
     payload: {
       customerName: String(formValues.customerName || '').trim(),
-      phone: normalizeCustomerPhone(formValues.phone),
+      phone: String(formValues.phone || '').trim(),
+      phoneNormalized: normalizeCustomerPhone(formValues.phone),
       bandName: String(formValues.bandName || '').trim(),
       studioId: String(formValues.studioId || 'room-a').trim(),
+      // V2 hierarchical snapshot fields
+      serviceTypeId: pricing.serviceTypeId,
+      serviceTypeName: pricing.serviceTypeName,
+      serviceOptionId: pricing.serviceOptionId,
+      serviceOptionName: pricing.serviceOptionName,
+      deliveryMode: pricing.deliveryMode,
+      pricingMode: pricing.pricingMode,
+      pricingSettingsVersion: pricing.pricingSettingsVersion,
+      // Legacy-compatible identifiers
       serviceId: pricing.serviceId,
       serviceLabel: pricing.serviceLabel,
       packageId: pricing.packageId,
       packageLabel: pricing.packageLabel,
       recordingTypeId: pricing.recordingTypeId,
       recordingTypeLabel: pricing.recordingTypeLabel,
+      // Schedule
       date: String(formValues.date || '').trim(),
       startMinute,
       durationMinutes: validDurationMinutes,
       endMinute,
       timeZone: 'Asia/Jakarta',
+      // Customer price & discount snapshot
       unitRate: pricing.unitRate,
       subtotal: pricing.subtotal,
       discountAmount: pricing.discountAmount,
       totalAmount: pricing.totalAmount,
       automaticDiscount: pricing.automaticDiscount,
+      // Internal fee snapshot V2
       commissionSnapshot: pricing.commissionSnapshot,
+      // Initial payment snapshot
       initialPaymentStatus: pricing.initialPaymentStatus,
       initialPaidAmount: pricing.initialPaidAmount,
       paymentMethod: pricing.paymentMethod,

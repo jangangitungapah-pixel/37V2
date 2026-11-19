@@ -1,0 +1,476 @@
+import { useMemo, useState } from 'react';
+import { AlertTriangle, Database, Loader2, Phone, Plus, Users, UsersRound } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
+import { useAuth } from '@/features/auth/AuthContext';
+
+import { CustomerArchiveDialog } from '../components/CustomerArchiveDialog';
+import { CustomerDetailDrawer } from '../components/CustomerDetailDrawer';
+import { CustomerDirectoryToolbar } from '../components/CustomerDirectoryToolbar';
+import { CustomerFormDialog } from '../components/CustomerFormDialog';
+import { CustomerMergeDialog } from '../components/CustomerMergeDialog';
+import { CustomerPhoneGroup } from '../components/CustomerPhoneGroup';
+import { LegacyCustomerImportDialog } from '../components/LegacyCustomerImportDialog';
+import { useCustomers } from '../hooks/useCustomers';
+import {
+  createManualCustomer,
+  mergeCustomerProfiles,
+  setCustomerArchiveStatus,
+  updateCustomerPhone,
+  updateCustomerProfile,
+} from '../services/customer-service';
+import {
+  buildCustomerPhoneGroups,
+  computeCustomerDirectoryMetrics,
+} from '../utils/customer-history';
+import { CUSTOMER_STATUS } from '../utils/customer-identity';
+
+export function AdminCustomersPage() {
+  const { user, profile } = useAuth();
+  const actorUid = user?.uid || profile?.uid || '';
+
+  const {
+    customers,
+    hasMore,
+    isLoading,
+    error,
+    loadMoreCustomers,
+    legacyUnlinkedCount,
+    legacyNeedsReviewCount,
+    bandNamesByCustomerId,
+    refreshLegacyOverview,
+  } = useCustomers();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('latest_booking');
+
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [formDialogState, setFormDialogState] = useState({
+    sessionKey: 0,
+    open: false,
+    mode: 'create',
+    customer: null,
+  });
+  const [mergeDialogState, setMergeDialogState] = useState({
+    sessionKey: 0,
+    open: false,
+    candidates: [],
+    initialTargetId: '',
+    initialSourceId: '',
+    allowCrossPhoneMerge: false,
+  });
+  const [archiveDialogState, setArchiveDialogState] = useState({
+    open: false,
+    customer: null,
+  });
+  const [legacyImportOpen, setLegacyImportOpen] = useState(false);
+
+  const todayIso = getJakartaTodayIso();
+
+  const metrics = useMemo(() => computeCustomerDirectoryMetrics(customers), [customers]);
+
+  const phoneGroups = useMemo(
+    () =>
+      buildCustomerPhoneGroups({
+        customers,
+        searchQuery,
+        filter: activeFilter,
+        sortBy,
+        bandNamesByCustomerId,
+        referenceDateIso: todayIso,
+      }),
+    [customers, searchQuery, activeFilter, sortBy, bandNamesByCustomerId, todayIso],
+  );
+
+  const visibleProfilesCount = useMemo(
+    () => phoneGroups.reduce((sum, g) => sum + g.profiles.length, 0),
+    [phoneGroups],
+  );
+
+  const selectedCustomer = useMemo(() => {
+    if (!selectedCustomerId) return null;
+    return customers.find((c) => c.id === selectedCustomerId) || null;
+  }, [customers, selectedCustomerId]);
+
+  const selectedCustomerPeers = useMemo(() => {
+    if (!selectedCustomer?.phoneNormalized) return [];
+    return customers.filter(
+      (c) =>
+        c.status === CUSTOMER_STATUS.ACTIVE &&
+        c.phoneNormalized === selectedCustomer.phoneNormalized,
+    );
+  }, [customers, selectedCustomer]);
+
+  const openFormDialog = (mode, customer = null) => {
+    setFormDialogState((prev) => ({
+      sessionKey: prev.sessionKey + 1,
+      open: true,
+      mode,
+      customer,
+    }));
+  };
+
+  const openMergeDialog = (
+    candidates,
+    initialTarget = null,
+    initialSource = null,
+    allowCrossPhoneMerge = false,
+  ) => {
+    setMergeDialogState((prev) => ({
+      sessionKey: prev.sessionKey + 1,
+      open: true,
+      candidates,
+      initialTargetId: initialTarget?.id || candidates[0]?.id || '',
+      initialSourceId: initialSource?.id || '',
+      allowCrossPhoneMerge,
+    }));
+  };
+
+  const handleCreateCustomer = async ({ input, allowSharedPhone }) => {
+    const created = await createManualCustomer({
+      actorUid,
+      input,
+      allowSharedPhone,
+    });
+    toast.success(`Profil customer "${created.displayName}" berhasil ditambahkan.`);
+    setSelectedCustomerId(created.id);
+    return created;
+  };
+
+  const handleEditCustomer = async ({ customerId, expectedVersion, input }) => {
+    const updated = await updateCustomerProfile({
+      customerId,
+      expectedVersion,
+      actorUid,
+      input,
+    });
+    toast.success(`Profil "${updated.displayName}" berhasil diperbarui.`);
+    return updated;
+  };
+
+  const handleUpdatePhone = async ({ customerId, expectedVersion, newPhone }) => {
+    const updated = await updateCustomerPhone({
+      customerId,
+      expectedVersion,
+      actorUid,
+      newPhone,
+    });
+    toast.success(`Nomor utama "${updated.displayName}" diperbarui ke ${updated.phoneDisplay}.`);
+    return updated;
+  };
+
+  const handleConfirmMerge = async ({
+    targetCustomerId,
+    sourceCustomerId,
+    allowCrossPhoneMerge,
+  }) => {
+    const { target, source } = await mergeCustomerProfiles({
+      targetCustomerId,
+      sourceCustomerId,
+      actorUid,
+      allowCrossPhoneMerge,
+    });
+    toast.success(
+      `Riwayat "${source.displayName}" berhasil digabung ke "${target.displayName}" (${target.bookingCount} total booking).`,
+    );
+    setSelectedCustomerId(target.id);
+  };
+
+  const handleConfirmArchiveToggle = async ({ customerId, expectedVersion, archived }) => {
+    const updated = await setCustomerArchiveStatus({
+      customerId,
+      expectedVersion,
+      archived,
+      actorUid,
+    });
+    toast.success(
+      archived
+        ? `Profil "${updated.displayName}" telah diarsipkan.`
+        : `Profil "${updated.displayName}" telah diaktifkan kembali.`,
+    );
+  };
+
+  return (
+    <div className="space-y-4 sm:space-y-5">
+      {/* Page Header & Distinct Metrics (Customer Profiles vs Unique Phone Numbers vs Shared) */}
+      <section
+        aria-labelledby="customer-page-heading"
+        className="brutal-card-lg bg-studio-white p-4 sm:p-6"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <span className="border-studio-ink bg-studio-ink text-studio-lime inline-flex items-center gap-1.5 border px-2.5 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
+              <UsersRound className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span>PHONE-BASED CUSTOMER IDENTITY</span>
+            </span>
+            <h2
+              id="customer-page-heading"
+              className="font-display text-studio-ink mt-2 text-3xl leading-none font-black tracking-tight uppercase sm:text-4xl"
+            >
+              Customer
+            </h2>
+            <p className="text-studio-muted-ink mt-1 text-xs font-semibold sm:text-sm">
+              Customer Directory &amp; Booking History
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => openFormDialog('create')}
+            className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-11 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold tracking-wider uppercase sm:w-auto"
+          >
+            <Plus className="h-4 w-4 stroke-[2.5]" aria-hidden="true" />
+            <span>Add Customer</span>
+          </button>
+        </div>
+
+        {/* Distinct Directory Metrics */}
+        <dl
+          aria-label="Ringkasan Customer Directory"
+          className="mt-4 grid grid-cols-1 gap-2.5 border-t border-neutral-200 pt-4 sm:grid-cols-3"
+        >
+          <div className="border-studio-ink bg-studio-ivory border-2 p-3">
+            <dt className="text-studio-muted-ink flex items-center gap-1.5 font-mono text-[10px] font-extrabold uppercase">
+              <UsersRound className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Customer Profiles</span>
+            </dt>
+            <dd className="font-display text-studio-ink mt-1 text-3xl leading-none font-black">
+              {metrics.totalActiveProfiles}
+            </dd>
+            <p className="text-studio-subtle-ink mt-1 font-mono text-[10px] font-semibold">
+              Profil aktif terdaftar
+            </p>
+          </div>
+
+          <div className="border-studio-ink bg-studio-ivory border-2 p-3">
+            <dt className="text-studio-muted-ink flex items-center gap-1.5 font-mono text-[10px] font-extrabold uppercase">
+              <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Unique Phone Numbers</span>
+            </dt>
+            <dd className="font-display text-studio-ink mt-1 text-3xl leading-none font-black">
+              {metrics.uniqueActivePhones}
+            </dd>
+            <p className="text-studio-subtle-ink mt-1 font-mono text-[10px] font-semibold">
+              Nomor canonical (+62 / intl)
+            </p>
+          </div>
+
+          <div
+            className={`border-studio-ink border-2 p-3 ${
+              metrics.sharedPhoneCount > 0 ? 'bg-amber-100' : 'bg-studio-ivory'
+            }`}
+          >
+            <dt className="text-studio-muted-ink flex items-center gap-1.5 font-mono text-[10px] font-extrabold uppercase">
+              <Users className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Duplicate / Shared Numbers</span>
+            </dt>
+            <dd className="font-display text-studio-ink mt-1 text-3xl leading-none font-black">
+              {metrics.sharedPhoneCount}
+            </dd>
+            <p className="text-studio-subtle-ink mt-1 font-mono text-[10px] font-semibold">
+              {metrics.sharedPhoneCount > 0
+                ? `${metrics.sharedProfileCount} profil berbagi nomor`
+                : 'Tidak ada nomor berbagi saat ini'}
+            </p>
+          </div>
+        </dl>
+      </section>
+
+      {/* Legacy Booking History Backfill Banner (No Auto-Write on Render!) */}
+      {legacyUnlinkedCount > 0 ? (
+        <section
+          role="region"
+          aria-label="Import histori booking lama"
+          className="border-studio-ink bg-studio-lime/35 flex flex-col gap-3 border-2 p-4 shadow-[3px_3px_0px_#151515] sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex items-start gap-2.5">
+            <Database className="text-studio-ink mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="font-mono text-xs font-extrabold uppercase">
+                Existing booking records need to be linked to Customer Directory.
+              </p>
+              <p className="text-studio-ink mt-0.5 text-xs font-semibold">
+                Ditemukan <strong>{legacyUnlinkedCount} booking historis</strong> yang belum
+                memiliki profil customer
+                {legacyNeedsReviewCount > 0
+                  ? ` (${legacyNeedsReviewCount} perlu review nomor HP)`
+                  : ''}
+                . Tinjau preview sebelum menjalankan import.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setLegacyImportOpen(true)}
+            className="brutal-btn bg-studio-ink text-studio-lime inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold uppercase"
+          >
+            <Database className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Review &amp; Import History</span>
+          </button>
+        </section>
+      ) : null}
+
+      {/* Search, Filter & Sort Toolbar */}
+      <CustomerDirectoryToolbar
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
+        visibleGroupsCount={phoneGroups.length}
+        visibleProfilesCount={visibleProfilesCount}
+        sharedCount={metrics.sharedPhoneCount}
+        archivedCount={metrics.archivedCount}
+      />
+
+      {/* Load Error Alert */}
+      {error ? (
+        <div
+          role="alert"
+          className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2.5 border-2 p-3.5 text-xs font-bold shadow-[3px_3px_0px_#151515]"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      ) : null}
+
+      {/* Directory Grouped By Canonical Phone Number */}
+      {isLoading ? (
+        <div
+          role="status"
+          className="brutal-card bg-studio-white flex items-center gap-2.5 p-6 font-mono text-xs font-bold"
+        >
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <span>Memuat Customer Directory dari Firestore...</span>
+        </div>
+      ) : phoneGroups.length === 0 ? (
+        <section className="brutal-card bg-studio-white p-8 text-center">
+          <p className="font-display text-studio-ink text-2xl font-black uppercase">
+            {searchQuery || activeFilter !== 'all'
+              ? 'Tidak Ada Customer yang Cocok'
+              : 'Customer Directory Masih Kosong'}
+          </p>
+          <p className="text-studio-muted-ink mx-auto mt-1.5 max-w-md text-xs font-medium sm:text-sm">
+            {searchQuery || activeFilter !== 'all'
+              ? 'Coba ubah kata kunci pencarian atau pilih filter All Customers.'
+              : 'Customer akan tercatat otomatis saat booking dibuat melalui Calendar, atau Anda dapat menambahkan profil secara manual.'}
+          </p>
+          {!searchQuery && activeFilter === 'all' ? (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => openFormDialog('create')}
+                className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold uppercase"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                <span>Add Customer</span>
+              </button>
+              {legacyUnlinkedCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setLegacyImportOpen(true)}
+                  className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold uppercase"
+                >
+                  <Database className="h-4 w-4" aria-hidden="true" />
+                  <span>Review &amp; Import History</span>
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : (
+        <div className="space-y-3.5">
+          {phoneGroups.map((group) => (
+            <CustomerPhoneGroup
+              key={group.phoneNormalized || group.profiles[0]?.id}
+              group={group}
+              onSelectProfile={(prof) => setSelectedCustomerId(prof.id)}
+              onOpenMergeGroup={(activePeers, clickedProfile) =>
+                openMergeDialog(activePeers, clickedProfile, null, false)
+              }
+            />
+          ))}
+
+          {hasMore ? (
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={loadMoreCustomers}
+                className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-11 cursor-pointer items-center justify-center px-5 py-2 font-mono text-xs font-extrabold uppercase"
+              >
+                Muat Lebih Banyak Customer
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Slide-Over Customer Detail Drawer */}
+      <CustomerDetailDrawer
+        key={selectedCustomer?.id || 'customer-detail-closed'}
+        customer={selectedCustomer}
+        open={Boolean(selectedCustomer)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setSelectedCustomerId('');
+        }}
+        samePhonePeers={selectedCustomerPeers}
+        onEditCustomer={(cust) => openFormDialog('edit', cust)}
+        onUpdatePhone={(cust) => openFormDialog('phone', cust)}
+        onToggleArchive={(cust) => setArchiveDialogState({ open: true, customer: cust })}
+        onOpenMerge={(peers, targetCust) => openMergeDialog(peers, targetCust, null, false)}
+      />
+
+      {/* Manual Add / Edit / Update Phone Dialog */}
+      <CustomerFormDialog
+        key={`form-${formDialogState.sessionKey}`}
+        open={formDialogState.open}
+        mode={formDialogState.mode}
+        customer={formDialogState.customer}
+        onOpenChange={(nextOpen) => setFormDialogState((prev) => ({ ...prev, open: nextOpen }))}
+        onSubmitCreate={handleCreateCustomer}
+        onSubmitEdit={handleEditCustomer}
+        onSubmitPhoneUpdate={handleUpdatePhone}
+        onResolvePhoneConflictWithMerge={({ targetProfile, sourceProfile }) => {
+          openMergeDialog([targetProfile, sourceProfile], targetProfile, sourceProfile, true);
+        }}
+      />
+
+      {/* Explicit Virtual History Merge Dialog */}
+      <CustomerMergeDialog
+        key={`merge-${mergeDialogState.sessionKey}`}
+        open={mergeDialogState.open}
+        candidates={mergeDialogState.candidates}
+        initialTargetId={mergeDialogState.initialTargetId}
+        initialSourceId={mergeDialogState.initialSourceId}
+        allowCrossPhoneMerge={mergeDialogState.allowCrossPhoneMerge}
+        onOpenChange={(nextOpen) => setMergeDialogState((prev) => ({ ...prev, open: nextOpen }))}
+        onConfirmMerge={handleConfirmMerge}
+      />
+
+      {/* Archive / Reactivate Confirmation Dialog */}
+      <CustomerArchiveDialog
+        open={archiveDialogState.open}
+        customer={archiveDialogState.customer}
+        onOpenChange={(nextOpen) => setArchiveDialogState((prev) => ({ ...prev, open: nextOpen }))}
+        onConfirmArchiveToggle={handleConfirmArchiveToggle}
+      />
+
+      {/* Legacy Booking History Import & Needs Review Dialog */}
+      <LegacyCustomerImportDialog
+        open={legacyImportOpen}
+        onOpenChange={setLegacyImportOpen}
+        actorUid={actorUid}
+        activeCustomers={customers}
+        onImportCompleted={() => {
+          refreshLegacyOverview().catch(() => {});
+        }}
+      />
+    </div>
+  );
+}
+
+export default AdminCustomersPage;

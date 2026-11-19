@@ -23,11 +23,13 @@ vi.mock('firebase/firestore', () => ({
   getFirestore: vi.fn(() => ({ app: { name: '[DEFAULT]' } })),
   doc: (...args) => mockDoc(...args),
   getDoc: (...args) => mockGetDoc(...args),
+  getDocs: vi.fn(async () => ({ docs: [] })),
   collection: vi.fn(),
   query: vi.fn(),
   where: vi.fn(),
   orderBy: vi.fn(),
   limit: vi.fn(),
+  startAfter: vi.fn(),
   onSnapshot: vi.fn((_q, onNext) => {
     queueMicrotask(() => onNext({ docs: [] }));
     return () => {};
@@ -151,6 +153,8 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
 
       if (mod.label === 'Calendar') {
         expect(screen.getByText(/studio booking schedule/i)).toBeTruthy();
+      } else if (mod.label === 'Customer') {
+        expect(screen.getByText(/customer directory & booking history/i)).toBeTruthy();
       } else if (mod.label === 'Settings') {
         expect(screen.getByRole('heading', { name: /price and fee settings/i })).toBeTruthy();
       } else {

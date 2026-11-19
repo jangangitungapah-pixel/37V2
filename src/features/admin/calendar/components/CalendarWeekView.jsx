@@ -10,6 +10,7 @@ import { CalendarTimelineGrid } from './CalendarTimelineGrid';
 
 export function CalendarWeekView({
   activeDate,
+  focusRequestKey = 0,
   roomFilter = 'all',
   bookings = [],
   onSelectEmptySlot,
@@ -53,6 +54,8 @@ export function CalendarWeekView({
       columns={columns}
       columnTrackCss="minmax(124px, 1fr)"
       cardVariant="compact"
+      focusDateIso={activeDate}
+      focusRequestKey={focusRequestKey}
       onSelectEmptySlot={onSelectEmptySlot}
       onSelectBooking={onSelectBooking}
     />

@@ -11,6 +11,7 @@ import { CalendarTimelineGrid } from './CalendarTimelineGrid';
 
 export function CalendarMonthView({
   activeDate,
+  focusRequestKey = 0,
   roomFilter = 'all',
   bookings = [],
   onSelectEmptySlot,
@@ -63,6 +64,8 @@ export function CalendarMonthView({
       columns={columns}
       columnTrackCss="118px"
       cardVariant="compact"
+      focusDateIso={activeDate}
+      focusRequestKey={focusRequestKey}
       onSelectEmptySlot={onSelectEmptySlot}
       onSelectBooking={onSelectBooking}
     />

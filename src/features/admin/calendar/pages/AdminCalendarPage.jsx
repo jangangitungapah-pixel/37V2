@@ -33,11 +33,12 @@ function getInitialCalendarViewMode() {
 
 export function AdminCalendarPage() {
   const { user, profile } = useAuth();
-  const { settings: pricingSettings } = usePricingSettings();
+  const { settings: pricingSettings, activeStudioServiceTypes } = usePricingSettings();
   const actorUid = user?.uid || profile?.uid || '';
 
   const [viewMode, setViewMode] = useState(getInitialCalendarViewMode);
   const [activeDate, setActiveDate] = useState(() => getJakartaTodayIso());
+  const [focusRequestKey, setFocusRequestKey] = useState(0);
   const [roomFilter, setRoomFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,6 +95,12 @@ export function AdminCalendarPage() {
 
   const handleSelectToday = () => {
     setActiveDate(getJakartaTodayIso());
+    setFocusRequestKey((prev) => prev + 1);
+  };
+
+  const handleSelectDate = (nextDateIso) => {
+    setActiveDate(nextDateIso);
+    setFocusRequestKey((prev) => prev + 1);
   };
 
   const handleOpenDayView = (targetDateIso) => {
@@ -102,8 +109,9 @@ export function AdminCalendarPage() {
   };
 
   const handleOpenNewBooking = (slotOverride = null) => {
-    const defaultActiveServiceId =
-      pricingSettings.sessionTypes?.find((s) => s.isActive !== false)?.id || 'rehearsal';
+    const defaultService = activeStudioServiceTypes[0] || null;
+    const defaultActiveServiceId = defaultService?.id || 'rehearsal';
+    const defaultActiveOptionId = defaultService?.bookableOptions?.[0]?.id || 'rehearsal-regular';
 
     setBookingDialogState((prev) => ({
       sessionKey: prev.sessionKey + 1,
@@ -114,6 +122,7 @@ export function AdminCalendarPage() {
         studioId: slotOverride?.studioId || (roomFilter === 'all' ? 'room-a' : roomFilter),
         startMinute: slotOverride?.startMinute ?? 600,
         defaultServiceId: defaultActiveServiceId,
+        defaultOptionId: defaultActiveOptionId,
       },
       editingBooking: null,
     }));
@@ -139,7 +148,14 @@ export function AdminCalendarPage() {
     }));
   };
 
-  const handleSubmitBooking = async ({ mode, bookingId, eventId, expectedVersion, formValues }) => {
+  const handleSubmitBooking = async ({
+    mode,
+    bookingId,
+    eventId,
+    expectedVersion,
+    formValues,
+    customerResolution = null,
+  }) => {
     try {
       if (mode === 'edit' || mode === 'reschedule') {
         const updated = await updateOrRescheduleBooking({
@@ -166,6 +182,7 @@ export function AdminCalendarPage() {
         eventId,
         actorUid,
         formValues,
+        customerResolution,
         pricingSettings,
       });
       const message = `Booking baru untuk "${created.customerName}" berhasil disimpan.`;
@@ -236,7 +253,7 @@ export function AdminCalendarPage() {
         onPreviousPeriod={handlePreviousPeriod}
         onNextPeriod={handleNextPeriod}
         onSelectToday={handleSelectToday}
-        onSelectDate={setActiveDate}
+        onSelectDate={handleSelectDate}
         onOpenNewBooking={() => handleOpenNewBooking()}
         newBookingButtonRef={newBookingButtonRef}
       />
@@ -260,6 +277,7 @@ export function AdminCalendarPage() {
           <CalendarGrid
             viewMode={viewMode}
             activeDate={activeDate}
+            focusRequestKey={focusRequestKey}
             roomFilter={roomFilter}
             bookings={filteredBookings}
             isLoading={isLoading}

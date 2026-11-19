@@ -1,23 +1,32 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ChevronRight, Loader2, ShieldAlert } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ChevronRight,
+  Globe,
+  Loader2,
+  Music2,
+  Plus,
+  RefreshCw,
+  ShieldAlert,
+} from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/features/auth/AuthContext';
 
-import { DiscountPresetDialog } from '../components/DiscountPresetDialog';
-import { DiscountPresetList } from '../components/DiscountPresetList';
-import { OperationalFeesForm } from '../components/OperationalFeesForm';
-import { RecordingOptionDialog } from '../components/RecordingOptionDialog';
-import { RecordingOptionList } from '../components/RecordingOptionList';
-import { SessionTypeDialog } from '../components/SessionTypeDialog';
-import { SessionTypeList } from '../components/SessionTypeList';
+import { DailyMealAllowanceForm } from '../components/DailyMealAllowanceForm';
+import { ServiceOptionDialog } from '../components/ServiceOptionDialog';
+import { ServiceTypeCard } from '../components/ServiceTypeCard';
+import { ServiceTypeDialog } from '../components/ServiceTypeDialog';
 import { SettingsConfirmDialog } from '../components/SettingsConfirmDialog';
 import { SettingsSaveBar } from '../components/SettingsSaveBar';
-import { StudioPackageDialog } from '../components/StudioPackageDialog';
-import { StudioPackageList } from '../components/StudioPackageList';
 import { usePricingSettings } from '../hooks/usePricingSettings';
-import { canDeleteSessionType } from '../pricing/schemas/pricing-settings-schema';
+import { DELIVERY_MODES, PRICING_MODES } from '../pricing/config/default-pricing-settings';
+import {
+  canDeleteServiceOption,
+  canDeleteServiceType,
+} from '../pricing/schemas/pricing-settings-schema';
 import {
   mapPricingSettingsErrorToMessage,
   savePricingSettings,
@@ -45,6 +54,7 @@ export function PriceAndFeeSettingsPage() {
   const {
     settings: remoteSettings,
     isPersisted: remoteIsPersisted,
+    migratedFromV1: remoteMigratedFromV1,
     isLoading,
     error: loadError,
   } = usePricingSettings();
@@ -55,11 +65,19 @@ export function PriceAndFeeSettingsPage() {
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
 
-  const [editorDialog, setEditorDialog] = useState({
+  const [serviceDialog, setServiceDialog] = useState({
     key: 0,
     open: false,
-    section: '',
     mode: 'add',
+    item: null,
+    defaultDeliveryMode: DELIVERY_MODES.STUDIO,
+  });
+
+  const [optionDialog, setOptionDialog] = useState({
+    key: 0,
+    open: false,
+    mode: 'add',
+    serviceTypeId: '',
     item: null,
   });
 
@@ -74,14 +92,21 @@ export function PriceAndFeeSettingsPage() {
     payload: null,
   });
 
-  const serverSettings =
-    savedSnapshot && savedSnapshot.version > remoteSettings.version
-      ? savedSnapshot
-      : remoteSettings;
-
+  const isLocalSnapshotNewer = Boolean(
+    savedSnapshot && savedSnapshot.version > remoteSettings.version,
+  );
+  const serverSettings = isLocalSnapshotNewer ? savedSnapshot : remoteSettings;
   const isPersisted = remoteIsPersisted || Boolean(savedSnapshot && savedSnapshot.version >= 1);
+  const migratedFromV1 = !isLocalSnapshotNewer && remoteMigratedFromV1;
 
   const effectiveSettings = draftEntry ? draftEntry.settings : serverSettings;
+  const effectiveServiceTypes = effectiveSettings.serviceTypes || [];
+  const studioServices = effectiveServiceTypes.filter(
+    (svc) => svc.deliveryMode === DELIVERY_MODES.STUDIO,
+  );
+  const wfaServices = effectiveServiceTypes.filter(
+    (svc) => svc.deliveryMode === DELIVERY_MODES.WFA,
+  );
 
   const isDirty = Boolean(
     draftEntry && !arePricingSettingsEqual(draftEntry.settings, serverSettings),
@@ -91,7 +116,6 @@ export function PriceAndFeeSettingsPage() {
     isDirty && draftEntry && remoteSettings.version > draftEntry.basedOnVersion,
   );
 
-  // Warn browser refresh / close when there are unsaved changes
   useEffect(() => {
     if (!isDirty) return undefined;
     const handleBeforeUnload = (event) => {
@@ -118,79 +142,155 @@ export function PriceAndFeeSettingsPage() {
     });
   };
 
-  const openEditorDialog = (section, mode, item = null) => {
+  // Service Type CRUD
+  const openServiceDialog = (mode, item = null, defaultDeliveryMode = DELIVERY_MODES.STUDIO) => {
     if (!isOwner) return;
-    setEditorDialog((prev) => ({
+    setServiceDialog((prev) => ({
       key: prev.key + 1,
       open: true,
-      section,
       mode,
       item,
+      defaultDeliveryMode,
     }));
   };
 
-  const closeEditorDialog = (nextOpen) => {
-    setEditorDialog((prev) => ({
-      ...prev,
-      open: nextOpen,
-    }));
-  };
-
-  const handleToggleItem = (sectionKey, targetItem) => {
-    if (!isOwner) return;
+  const handleSaveServiceType = (nextService) => {
     updateDraft((draft) => ({
       ...draft,
-      [sectionKey]: draft[sectionKey].map((item) =>
-        item.id === targetItem.id ? { ...item, isActive: !(item.isActive !== false) } : item,
+      serviceTypes: upsertById(draft.serviceTypes, nextService),
+    }));
+  };
+
+  const handleToggleServiceActive = (targetService) => {
+    updateDraft((draft) => ({
+      ...draft,
+      serviceTypes: draft.serviceTypes.map((svc) =>
+        svc.id === targetService.id ? { ...svc, isActive: !(svc.isActive !== false) } : svc,
       ),
     }));
   };
 
-  const handleSaveEditorItem = (sectionKey, nextItem) => {
+  const handleRequestDeleteService = (serviceType) => {
     if (!isOwner) return;
-    updateDraft((draft) => ({
-      ...draft,
-      [sectionKey]: upsertById(draft[sectionKey], nextItem),
-    }));
-  };
-
-  const handleRequestDelete = (sectionKey, item, label) => {
-    if (!isOwner) return;
-    if (sectionKey === 'sessionTypes') {
-      const check = canDeleteSessionType(item.id, effectiveSettings.packages);
-      if (!check.canDelete) {
-        setConfirmState({
-          open: true,
-          type: 'blocked',
-          title: 'Session Type Tidak Dapat Dihapus',
-          description: check.message,
-          confirmLabel: 'Mengerti',
-          confirmTone: 'primary',
-          infoOnly: true,
-          payload: null,
-        });
-        return;
-      }
+    const check = canDeleteServiceType(serviceType, effectiveServiceTypes);
+    if (!check.canDelete) {
+      setConfirmState({
+        open: true,
+        type: 'blocked',
+        title: 'Service Type Tidak Dapat Dihapus',
+        description: check.message,
+        confirmLabel: 'Mengerti',
+        confirmTone: 'primary',
+        infoOnly: true,
+        payload: null,
+      });
+      return;
     }
 
     setConfirmState({
       open: true,
-      type: 'delete',
-      title: `Hapus ${label}?`,
-      description: `Anda akan menghapus "${item.name}" dari daftar preset. Klik Save Changes untuk menerapkan perubahan ke Firestore. Data booking lama tetap mempertahankan snapshot historisnya.`,
-      confirmLabel: `Hapus ${label}`,
+      type: 'delete-service',
+      title: `Hapus Service "${serviceType.name}"?`,
+      description:
+        'Service ini akan dihapus dari katalog draft. Klik Save Changes untuk menyimpan ke Firestore. Booking historis tetap mempertahankan snapshot harganya.',
+      confirmLabel: 'Hapus Service',
       confirmTone: 'danger',
       infoOnly: false,
-      payload: { sectionKey, itemId: item.id },
+      payload: { serviceTypeId: serviceType.id },
+    });
+  };
+
+  // Subcategory / Service Option CRUD
+  const openOptionDialog = (mode, serviceType, option = null) => {
+    if (!isOwner) return;
+    setOptionDialog((prev) => ({
+      key: prev.key + 1,
+      open: true,
+      mode,
+      serviceTypeId: serviceType.id,
+      item: option,
+    }));
+  };
+
+  const handleSaveServiceOption = (serviceTypeId, nextOption) => {
+    updateDraft((draft) => ({
+      ...draft,
+      serviceTypes: draft.serviceTypes.map((svc) =>
+        svc.id === serviceTypeId
+          ? {
+              ...svc,
+              options: upsertById(svc.options || [], nextOption),
+            }
+          : svc,
+      ),
+    }));
+  };
+
+  const handleToggleOptionActive = (serviceType, targetOption) => {
+    if (!isOwner || targetOption.pricing?.mode === PRICING_MODES.UNCONFIGURED) return;
+    updateDraft((draft) => ({
+      ...draft,
+      serviceTypes: draft.serviceTypes.map((svc) =>
+        svc.id === serviceType.id
+          ? {
+              ...svc,
+              options: (svc.options || []).map((opt) =>
+                opt.id === targetOption.id ? { ...opt, isActive: !(opt.isActive !== false) } : opt,
+              ),
+            }
+          : svc,
+      ),
+    }));
+  };
+
+  const handleRequestDeleteOption = (serviceType, option) => {
+    if (!isOwner) return;
+    const check = canDeleteServiceOption(serviceType, option, effectiveServiceTypes);
+    if (!check.canDelete) {
+      setConfirmState({
+        open: true,
+        type: 'blocked',
+        title: 'Subcategory Tidak Dapat Dihapus',
+        description: check.message,
+        confirmLabel: 'Mengerti',
+        confirmTone: 'primary',
+        infoOnly: true,
+        payload: null,
+      });
+      return;
+    }
+
+    setConfirmState({
+      open: true,
+      type: 'delete-option',
+      title: `Hapus Subcategory "${option.name}"?`,
+      description: `Subcategory ini akan dihapus dari layanan "${serviceType.name}". Klik Save Changes untuk menerapkan perubahan ke Firestore. Data booking historis tetap aman.`,
+      confirmLabel: 'Hapus Subcategory',
+      confirmTone: 'danger',
+      infoOnly: false,
+      payload: { serviceTypeId: serviceType.id, optionId: option.id },
     });
   };
 
   const handleConfirmAction = () => {
-    if (confirmState.type === 'delete' && confirmState.payload) {
-      const { sectionKey, itemId } = confirmState.payload;
+    if (confirmState.type === 'delete-service' && confirmState.payload) {
+      const { serviceTypeId } = confirmState.payload;
       updateDraft((draft) => ({
         ...draft,
-        [sectionKey]: draft[sectionKey].filter((item) => item.id !== itemId),
+        serviceTypes: draft.serviceTypes.filter((svc) => svc.id !== serviceTypeId),
+      }));
+    } else if (confirmState.type === 'delete-option' && confirmState.payload) {
+      const { serviceTypeId, optionId } = confirmState.payload;
+      updateDraft((draft) => ({
+        ...draft,
+        serviceTypes: draft.serviceTypes.map((svc) =>
+          svc.id === serviceTypeId
+            ? {
+                ...svc,
+                options: (svc.options || []).filter((opt) => opt.id !== optionId),
+              }
+            : svc,
+        ),
       }));
     } else if (confirmState.type === 'leave' && confirmState.payload?.targetPath) {
       setDraftEntry(null);
@@ -245,7 +345,7 @@ export function PriceAndFeeSettingsPage() {
 
       setSavedSnapshot(saved);
       setDraftEntry(null);
-      const msg = `Price and Fee Settings berhasil disimpan ke Firestore (v${saved.version}).`;
+      const msg = `Price and Fee Settings (Catalog V2) berhasil disimpan ke Firestore (v${saved.version}).`;
       setSaveSuccess(msg);
       toast.success(msg);
     } catch (err) {
@@ -257,12 +357,16 @@ export function PriceAndFeeSettingsPage() {
     }
   };
 
+  const activeOptionService = optionDialog.serviceTypeId
+    ? effectiveServiceTypes.find((svc) => svc.id === optionDialog.serviceTypeId) || null
+    : null;
+
   return (
     <div data-calendar-scoped="true" className="space-y-5 sm:space-y-6">
       {/* Header & Breadcrumb Card */}
       <section
         aria-labelledby="price-and-fee-heading"
-        className="brutal-card-lg bg-studio-white p-5 sm:p-7"
+        className="brutal-card-lg bg-studio-white p-4 sm:p-7"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <nav aria-label="Settings breadcrumb">
@@ -315,7 +419,8 @@ export function PriceAndFeeSettingsPage() {
         </h2>
 
         <p className="text-studio-muted-ink mt-2 max-w-2xl text-sm leading-relaxed font-semibold sm:text-base">
-          Manage studio pricing, package rates, discounts, and operational fee presets.
+          Kelola katalog jasa bertingkat: Jenis Jasa &rarr; Subcategory &rarr; Tarif Customer &amp;
+          Fee Internal (Staff, Owner, Recording Operator).
         </p>
 
         {isLoading ? (
@@ -339,6 +444,21 @@ export function PriceAndFeeSettingsPage() {
           </div>
         ) : null}
 
+        {migratedFromV1 ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="border-studio-ink mt-4 flex items-start gap-2.5 border-2 bg-amber-100 p-3 text-xs font-bold"
+          >
+            <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>
+              Konfigurasi legacy (Schema V1) telah dimigrasikan ke tampilan Catalog V2 tanpa
+              menghapus tarif lama. Tinjau seluruh subcategory lalu klik{' '}
+              <strong>Save Changes</strong> untuk menyimpan Schema V2 ke Firestore.
+            </span>
+          </div>
+        ) : null}
+
         {!isOwner ? (
           <div
             role="status"
@@ -350,63 +470,129 @@ export function PriceAndFeeSettingsPage() {
               aria-hidden="true"
             />
             <span>
-              Mode Baca Saja (Staff / Operator): Konfigurasi harga layanan, diskon durasi otomatis,
-              paket, dan fee operasional hanya dapat diubah oleh Owner.
+              Mode Baca Saja (Staff / Operator): Konfigurasi katalog layanan, tarif customer, fee
+              internal, dan uang makan hanya dapat diubah oleh Owner.
             </span>
           </div>
         ) : null}
       </section>
 
-      {/* SECTION 01: SESSION TYPES */}
-      <SessionTypeList
-        sessionTypes={effectiveSettings.sessionTypes}
-        readOnly={!isOwner}
-        onAdd={() => openEditorDialog('sessionTypes', 'add')}
-        onEdit={(item) => openEditorDialog('sessionTypes', 'edit', item)}
-        onToggleActive={(item) => handleToggleItem('sessionTypes', item)}
-        onRequestDelete={(item) => handleRequestDelete('sessionTypes', item, 'Session Type')}
-      />
+      {/* GROUP 1: STUDIO SESSIONS */}
+      <section aria-labelledby="group-studio-sessions-heading" className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span className="border-studio-ink bg-studio-lime text-studio-ink inline-flex items-center gap-1.5 border px-2.5 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
+              <Music2 className="h-3 w-3" aria-hidden="true" />
+              <span>STUDIO SESSIONS</span>
+            </span>
+            <h3
+              id="group-studio-sessions-heading"
+              className="font-display text-studio-ink mt-1.5 text-2xl leading-none font-black uppercase sm:text-3xl"
+            >
+              Layanan Ruangan Studio ({studioServices.length})
+            </h3>
+            <p className="text-studio-muted-ink mt-1 text-xs font-medium">
+              Tampil pada Studio Calendar (Room A &amp; Room B). Subcategory berstatus Belum
+              Dikonfigurasi otomatis disembunyikan dari Booking Form.
+            </p>
+          </div>
 
-      {/* SECTION 02: RECORDING OPTIONS */}
-      <RecordingOptionList
-        recordingTypes={effectiveSettings.recordingTypes}
-        readOnly={!isOwner}
-        onAdd={() => openEditorDialog('recordingTypes', 'add')}
-        onEdit={(item) => openEditorDialog('recordingTypes', 'edit', item)}
-        onToggleActive={(item) => handleToggleItem('recordingTypes', item)}
-        onRequestDelete={(item) => handleRequestDelete('recordingTypes', item, 'Recording Option')}
-      />
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={() => openServiceDialog('add', null, DELIVERY_MODES.STUDIO)}
+              className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold uppercase"
+            >
+              <Plus className="h-4 w-4 stroke-[2.5]" aria-hidden="true" />
+              <span>Add Studio Service</span>
+            </button>
+          ) : null}
+        </div>
 
-      {/* SECTION 03: STUDIO PACKAGES */}
-      <StudioPackageList
-        packages={effectiveSettings.packages}
-        sessionTypes={effectiveSettings.sessionTypes}
-        readOnly={!isOwner}
-        onAdd={() => openEditorDialog('packages', 'add')}
-        onEdit={(item) => openEditorDialog('packages', 'edit', item)}
-        onToggleActive={(item) => handleToggleItem('packages', item)}
-        onRequestDelete={(item) => handleRequestDelete('packages', item, 'Package')}
-      />
+        <div className="space-y-4">
+          {studioServices.map((svc) => (
+            <ServiceTypeCard
+              key={svc.id}
+              serviceType={svc}
+              defaultExpanded
+              readOnly={!isOwner}
+              onEditService={(item) => openServiceDialog('edit', item, item.deliveryMode)}
+              onToggleServiceActive={handleToggleServiceActive}
+              onRequestDeleteService={handleRequestDeleteService}
+              onAddOption={(parent) => openOptionDialog('add', parent, null)}
+              onEditOption={(parent, opt) => openOptionDialog('edit', parent, opt)}
+              onToggleOptionActive={handleToggleOptionActive}
+              onRequestDeleteOption={handleRequestDeleteOption}
+            />
+          ))}
+        </div>
+      </section>
 
-      {/* SECTION 04: DISCOUNT PRESETS */}
-      <DiscountPresetList
-        discounts={effectiveSettings.discounts}
-        sessionTypes={effectiveSettings.sessionTypes}
-        readOnly={!isOwner}
-        onAdd={() => openEditorDialog('discounts', 'add')}
-        onEdit={(item) => openEditorDialog('discounts', 'edit', item)}
-        onToggleActive={(item) => handleToggleItem('discounts', item)}
-        onRequestDelete={(item) => handleRequestDelete('discounts', item, 'Discount Preset')}
-      />
+      {/* GROUP 2: WFA SERVICES */}
+      <section aria-labelledby="group-wfa-services-heading" className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <span className="border-studio-ink bg-studio-ink text-studio-ivory inline-flex items-center gap-1.5 border px-2.5 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
+              <Globe className="h-3 w-3" aria-hidden="true" />
+              <span>WFA SERVICES</span>
+            </span>
+            <h3
+              id="group-wfa-services-heading"
+              className="font-display text-studio-ink mt-1.5 text-2xl leading-none font-black uppercase sm:text-3xl"
+            >
+              Layanan Work From Anywhere ({wfaServices.length})
+            </h3>
+            <p className="text-studio-muted-ink mt-1 text-xs font-medium">
+              Tarif dan fee untuk layanan Mixing, Mastering, atau pekerjaan jarak jauh. Layanan WFA
+              tidak mengunci jadwal Room A / Room B di Studio Calendar.
+            </p>
+          </div>
 
-      {/* SECTION 05: STAFF AND OPERATIONAL FEES */}
-      <OperationalFeesForm
-        fees={effectiveSettings.fees}
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={() => openServiceDialog('add', null, DELIVERY_MODES.WFA)}
+              className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold uppercase"
+            >
+              <Plus className="h-4 w-4 stroke-[2.5]" aria-hidden="true" />
+              <span>Add WFA Service</span>
+            </button>
+          ) : null}
+        </div>
+
+        <div className="space-y-4">
+          {wfaServices.length === 0 ? (
+            <div className="border-studio-ink bg-studio-white border-2 border-dashed p-5 text-center font-mono text-xs">
+              Belum ada layanan WFA yang terdaftar.
+            </div>
+          ) : (
+            wfaServices.map((svc) => (
+              <ServiceTypeCard
+                key={svc.id}
+                serviceType={svc}
+                defaultExpanded
+                readOnly={!isOwner}
+                onEditService={(item) => openServiceDialog('edit', item, item.deliveryMode)}
+                onToggleServiceActive={handleToggleServiceActive}
+                onRequestDeleteService={handleRequestDeleteService}
+                onAddOption={(parent) => openOptionDialog('add', parent, null)}
+                onEditOption={(parent, opt) => openOptionDialog('edit', parent, opt)}
+                onToggleOptionActive={handleToggleOptionActive}
+                onRequestDeleteOption={handleRequestDeleteOption}
+              />
+            ))
+          )}
+        </div>
+      </section>
+
+      {/* GROUP 3: GLOBAL OPERATIONAL SETTINGS */}
+      <DailyMealAllowanceForm
+        operationalSettings={effectiveSettings.operationalSettings}
         readOnly={!isOwner}
-        onChangeFees={(nextFees) =>
+        onChangeOperationalSettings={(nextOperational) =>
           updateDraft((draft) => ({
             ...draft,
-            fees: nextFees,
+            operationalSettings: nextOperational,
           }))
         }
       />
@@ -415,6 +601,7 @@ export function PriceAndFeeSettingsPage() {
       <SettingsSaveBar
         isDirty={isDirty}
         isPersisted={isPersisted}
+        migratedFromV1={migratedFromV1}
         isSaving={isSaving}
         isLoading={isLoading}
         readOnly={!isOwner}
@@ -428,53 +615,29 @@ export function PriceAndFeeSettingsPage() {
       />
 
       {/* MODALS */}
-      {editorDialog.open && editorDialog.section === 'sessionTypes' ? (
-        <SessionTypeDialog
-          key={`session-${editorDialog.key}`}
-          open={editorDialog.open}
-          mode={editorDialog.mode}
-          initialItem={editorDialog.item}
-          nextSortOrder={(effectiveSettings.sessionTypes?.length || 0) + 1}
-          onOpenChange={closeEditorDialog}
-          onSaveItem={(item) => handleSaveEditorItem('sessionTypes', item)}
+      {serviceDialog.open ? (
+        <ServiceTypeDialog
+          key={`svc-${serviceDialog.key}`}
+          open={serviceDialog.open}
+          mode={serviceDialog.mode}
+          initialItem={serviceDialog.item}
+          defaultDeliveryMode={serviceDialog.defaultDeliveryMode}
+          nextSortOrder={effectiveServiceTypes.length + 1}
+          onOpenChange={(nextOpen) => setServiceDialog((prev) => ({ ...prev, open: nextOpen }))}
+          onSaveItem={handleSaveServiceType}
         />
       ) : null}
 
-      {editorDialog.open && editorDialog.section === 'recordingTypes' ? (
-        <RecordingOptionDialog
-          key={`recording-${editorDialog.key}`}
-          open={editorDialog.open}
-          mode={editorDialog.mode}
-          initialItem={editorDialog.item}
-          nextSortOrder={(effectiveSettings.recordingTypes?.length || 0) + 1}
-          onOpenChange={closeEditorDialog}
-          onSaveItem={(item) => handleSaveEditorItem('recordingTypes', item)}
-        />
-      ) : null}
-
-      {editorDialog.open && editorDialog.section === 'packages' ? (
-        <StudioPackageDialog
-          key={`package-${editorDialog.key}`}
-          open={editorDialog.open}
-          mode={editorDialog.mode}
-          initialItem={editorDialog.item}
-          sessionTypes={effectiveSettings.sessionTypes}
-          nextSortOrder={(effectiveSettings.packages?.length || 0) + 1}
-          onOpenChange={closeEditorDialog}
-          onSaveItem={(item) => handleSaveEditorItem('packages', item)}
-        />
-      ) : null}
-
-      {editorDialog.open && editorDialog.section === 'discounts' ? (
-        <DiscountPresetDialog
-          key={`discount-${editorDialog.key}`}
-          open={editorDialog.open}
-          mode={editorDialog.mode}
-          initialItem={editorDialog.item}
-          sessionTypes={effectiveSettings.sessionTypes}
-          nextSortOrder={(effectiveSettings.discounts?.length || 0) + 1}
-          onOpenChange={closeEditorDialog}
-          onSaveItem={(item) => handleSaveEditorItem('discounts', item)}
+      {optionDialog.open && activeOptionService ? (
+        <ServiceOptionDialog
+          key={`opt-${optionDialog.key}`}
+          open={optionDialog.open}
+          mode={optionDialog.mode}
+          serviceType={activeOptionService}
+          initialItem={optionDialog.item}
+          nextSortOrder={(activeOptionService.options?.length || 0) + 1}
+          onOpenChange={(nextOpen) => setOptionDialog((prev) => ({ ...prev, open: nextOpen }))}
+          onSaveItem={(item) => handleSaveServiceOption(activeOptionService.id, item)}
         />
       ) : null}
 

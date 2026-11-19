@@ -34,6 +34,11 @@ vi.mock('@/lib/firebase/client', () => ({
 import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
 import {
+  createInMemoryCustomerRepositoryAdapter,
+  resetCustomerRepositoryAdapter,
+  setCustomerRepositoryAdapter,
+} from '@/features/admin/customer/repositories/customer-repository';
+import {
   createInMemoryPricingSettingsAdapter,
   resetPricingSettingsRepositoryAdapter,
   setPricingSettingsRepositoryAdapter,
@@ -108,12 +113,14 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
     memoryAdapter = createInMemoryBookingRepositoryAdapter();
     pricingAdapter = createInMemoryPricingSettingsAdapter();
     setBookingRepositoryAdapter(memoryAdapter);
+    setCustomerRepositoryAdapter(createInMemoryCustomerRepositoryAdapter(memoryAdapter));
     setPricingSettingsRepositoryAdapter(pricingAdapter);
   });
 
   afterEach(() => {
     cleanup();
     resetBookingRepositoryAdapter();
+    resetCustomerRepositoryAdapter();
     resetPricingSettingsRepositoryAdapter();
   });
 
@@ -258,6 +265,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
           ...baseForm,
           studioId: 'room-b',
           customerName: 'Nadia Putri',
+          phone: '081298765499',
         },
         adapter: memoryAdapter,
       });
@@ -269,9 +277,9 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
         customerName: 'Arif Nugroho',
         phone: '081122334455',
         bandName: 'Echoes',
-        serviceId: 'mixing',
+        serviceId: 'recording',
         packageId: '',
-        recordingTypeId: '',
+        recordingTypeId: 'tracking-regular',
         studioId: 'room-b',
         date: '2026-11-21',
         startMinute: 780, // 13:00
@@ -623,9 +631,9 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
           customerName: 'Siska Amelia',
           phone: '081233334444',
           bandName: 'Velvet Sun',
-          serviceId: 'mastering',
+          serviceId: 'recording',
           packageId: '',
-          recordingTypeId: '',
+          recordingTypeId: 'tracking-regular',
           studioId: 'room-b',
           date: todayIso,
           startMinute: 780, // 13:00
@@ -855,9 +863,9 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
           customerName: 'Band Akhir Bulan',
           phone: '081299998888',
           bandName: '',
-          serviceId: 'mixing',
+          serviceId: 'recording',
           packageId: '',
-          recordingTypeId: '',
+          recordingTypeId: 'tracking-regular',
           studioId: 'room-b',
           date: monthLastDate,
           startMinute: 1200, // 20:00
@@ -894,6 +902,45 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       }
       expect(within(monthTimeline).getByText('Band Akhir Bulan')).toBeTruthy();
       expect(screen.queryByText(/booking lainnya/i)).toBeNull();
+    });
+
+    it('returns to today and scrolls/highlights today column when clicking Today in Month View', async () => {
+      const user = userEvent.setup();
+      mockAuthenticatedStaff('owner');
+      renderCalendarAt('/admin/calendar');
+
+      expect(
+        await screen.findByText(/studio booking schedule/i, {}, { timeout: 5000 }),
+      ).toBeTruthy();
+
+      const viewModeGroup = screen.getByRole('group', { name: /mode tampilan kalender/i });
+      await user.click(within(viewModeGroup).getByRole('button', { name: 'Month' }));
+
+      const monthTimeline = await screen.findByLabelText(/tampilan timeline bulanan/i);
+      const scrollContainer = monthTimeline.querySelector('.overflow-x-auto');
+      const scrollToSpy = vi.fn();
+      Object.defineProperty(scrollContainer, 'scrollWidth', { configurable: true, value: 3600 });
+      Object.defineProperty(scrollContainer, 'clientWidth', { configurable: true, value: 900 });
+      scrollContainer.scrollTo = scrollToSpy;
+
+      // Navigate to next month so Today is no longer pressed
+      const nextBtn = screen.getByRole('button', { name: /periode berikutnya/i });
+      const todayBtn = screen.getByRole('button', { name: /^today$/i });
+      await user.click(nextBtn);
+      expect(todayBtn.getAttribute('aria-pressed')).toBe('false');
+
+      // Click Today -> returns to today's month and triggers smooth scroll + highlight pulse
+      await user.click(todayBtn);
+      expect(todayBtn.getAttribute('aria-pressed')).toBe('true');
+      const todayHeader = monthTimeline.querySelector(`[data-column-date="${todayIso}"]`);
+      expect(todayHeader).toBeTruthy();
+      expect(todayHeader.getAttribute('data-column-today')).toBe('true');
+      expect(scrollToSpy).toHaveBeenCalled();
+
+      // Clicking Today again while already on todayIso still re-triggers focus scroll
+      const callsBefore = scrollToSpy.mock.calls.length;
+      await user.click(todayBtn);
+      expect(scrollToSpy.mock.calls.length).toBeGreaterThan(callsBefore);
     });
   });
 
