@@ -15,75 +15,98 @@ export function PaymentOverviewMetrics({ metrics, hasActivePeriodFilter = false 
   return (
     <dl
       aria-label="Ringkasan Payment and Bill"
-      className="mt-3 grid grid-cols-1 gap-2 border-t border-neutral-200 pt-2.5 sm:grid-cols-2 xl:grid-cols-4"
+      className="mt-2.5 grid grid-cols-2 gap-1.5 border-t border-neutral-200 pt-2 sm:mt-3 sm:gap-2 sm:pt-2.5 xl:grid-cols-4"
     >
       {/* 1. Outstanding Balance */}
       <div
-        className={`border-studio-ink flex items-center justify-between gap-2.5 border-2 px-3 py-2 shadow-[2px_2px_0px_#151515] ${
+        className={`border-studio-ink flex items-center justify-between gap-1.5 border-2 px-2 py-1.5 shadow-[2px_2px_0px_#151515] sm:gap-2.5 sm:px-3 sm:py-2 ${
           metrics.outstandingBalance > 0 ? 'bg-amber-100' : 'bg-studio-ivory'
         }`}
       >
         <div className="min-w-0">
-          <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase">
-            <Wallet className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span className="truncate">Outstanding Balance</span>
+          <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
+            <Wallet className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
+            <span className="truncate">
+              <span className="sm:hidden">Outstanding</span>
+              <span className="hidden sm:inline">Outstanding Balance</span>
+            </span>
           </dt>
-          <dd className="font-display text-studio-ink mt-1 truncate text-xl leading-none font-black tabular-nums sm:text-2xl">
+          <dd className="font-display text-studio-ink mt-0.5 truncate text-base leading-tight font-black tabular-nums min-[360px]:text-lg sm:mt-1 sm:text-xl xl:text-2xl">
             {formatRupiah(metrics.outstandingBalance)}
           </dd>
-          <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[9px] font-semibold">
-            Seluruh invoice aktif ({metrics.allActiveUnpaidOrPartialCount} belum lunas)
+          <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[8.5px] font-semibold sm:text-[9px]">
+            <span className="sm:hidden">{metrics.allActiveUnpaidOrPartialCount} belum lunas</span>
+            <span className="hidden sm:inline">
+              Seluruh invoice aktif ({metrics.allActiveUnpaidOrPartialCount} belum lunas)
+            </span>
           </p>
         </div>
       </div>
 
       {/* 2. Payments Received (Net) */}
-      <div className="border-studio-ink bg-studio-lime/30 flex items-center justify-between gap-2.5 border-2 px-3 py-2 shadow-[2px_2px_0px_#151515]">
+      <div className="border-studio-ink bg-studio-lime/30 flex items-center justify-between gap-1.5 border-2 px-2 py-1.5 shadow-[2px_2px_0px_#151515] sm:gap-2.5 sm:px-3 sm:py-2">
         <div className="min-w-0">
-          <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase">
-            <Banknote className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span className="truncate">Payments Received</span>
+          <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
+            <Banknote className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
+            <span className="truncate">
+              <span className="sm:hidden">Received</span>
+              <span className="hidden sm:inline">Payments Received</span>
+            </span>
           </dt>
-          <dd className="font-display text-studio-ink mt-1 truncate text-xl leading-none font-black tabular-nums sm:text-2xl">
+          <dd className="font-display text-studio-ink mt-0.5 truncate text-base leading-tight font-black tabular-nums min-[360px]:text-lg sm:mt-1 sm:text-xl xl:text-2xl">
             {formatRupiah(Math.max(0, metrics.paymentsReceived))}
           </dd>
-          <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[9px] font-semibold">
-            {periodLabel} • {metrics.paymentCount} masuk
-            {metrics.reversalCount > 0 ? `, ${metrics.reversalCount} reversal` : ''}
+          <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[8.5px] font-semibold sm:text-[9px]">
+            <span className="sm:hidden">
+              {metrics.paymentCount} masuk
+              {metrics.reversalCount > 0 ? `, ${metrics.reversalCount} rev` : ''}
+            </span>
+            <span className="hidden sm:inline">
+              {periodLabel} • {metrics.paymentCount} masuk
+              {metrics.reversalCount > 0 ? `, ${metrics.reversalCount} reversal` : ''}
+            </span>
           </p>
         </div>
       </div>
 
       {/* 3. Total Invoices Issued */}
-      <div className="border-studio-ink bg-studio-ivory flex items-center justify-between gap-2.5 border-2 px-3 py-2 shadow-[2px_2px_0px_#151515]">
+      <div className="border-studio-ink bg-studio-ivory flex items-center justify-between gap-1.5 border-2 px-2 py-1.5 shadow-[2px_2px_0px_#151515] sm:gap-2.5 sm:px-3 sm:py-2">
         <div className="min-w-0">
-          <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase">
-            <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
+            <FileText className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
             <span className="truncate">Total Invoices</span>
           </dt>
-          <dd className="font-display text-studio-ink mt-1 text-xl leading-none font-black tabular-nums sm:text-2xl">
+          <dd className="font-display text-studio-ink mt-0.5 text-base leading-tight font-black tabular-nums min-[360px]:text-lg sm:mt-1 sm:text-xl xl:text-2xl">
             {metrics.totalInvoices}
           </dd>
-          <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[9px] font-semibold">
-            Diterbitkan ({periodLabel.toLowerCase()})
+          <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[8.5px] font-semibold sm:text-[9px]">
+            <span className="sm:hidden">Invoice diterbitkan</span>
+            <span className="hidden sm:inline">Diterbitkan ({periodLabel.toLowerCase()})</span>
           </p>
         </div>
       </div>
 
       {/* 4. Unpaid / Partial Invoices */}
-      <div className="border-studio-ink bg-studio-ivory flex items-center justify-between gap-2.5 border-2 px-3 py-2 shadow-[2px_2px_0px_#151515]">
+      <div className="border-studio-ink bg-studio-ivory flex items-center justify-between gap-1.5 border-2 px-2 py-1.5 shadow-[2px_2px_0px_#151515] sm:gap-2.5 sm:px-3 sm:py-2">
         <div className="min-w-0">
-          <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase">
-            <AlertCircle className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
+            <AlertCircle className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
             <span className="truncate">Unpaid / Partial</span>
           </dt>
-          <dd className="font-display text-studio-ink mt-1 text-xl leading-none font-black tabular-nums sm:text-2xl">
+          <dd className="font-display text-studio-ink mt-0.5 text-base leading-tight font-black tabular-nums min-[360px]:text-lg sm:mt-1 sm:text-xl xl:text-2xl">
             {metrics.unpaidOrPartialCount}
           </dd>
-          <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[9px] font-semibold">
-            {metrics.overdueCount > 0
-              ? `${metrics.overdueCount} melewati jatuh tempo`
-              : `Masih memiliki sisa tagihan (${periodLabel.toLowerCase()})`}
+          <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[8.5px] font-semibold sm:text-[9px]">
+            {metrics.overdueCount > 0 ? (
+              `${metrics.overdueCount} lewat jatuh tempo`
+            ) : (
+              <>
+                <span className="sm:hidden">Ada sisa tagihan</span>
+                <span className="hidden sm:inline">
+                  Masih memiliki sisa tagihan ({periodLabel.toLowerCase()})
+                </span>
+              </>
+            )}
           </p>
         </div>
       </div>

@@ -350,10 +350,10 @@ export async function createBooking({
       const nextAliases =
         effectiveMode === CUSTOMER_RESOLUTION_MODE.MERGE_INTO_EXISTING
           ? appendUniqueNameAlias(
-            targetExistingProfile.displayName,
-            targetExistingProfile.nameAliases,
-            payload.customerName,
-          )
+              targetExistingProfile.displayName,
+              targetExistingProfile.nameAliases,
+              payload.customerName,
+            )
           : targetExistingProfile.nameAliases;
 
       const firstDate =
@@ -782,24 +782,24 @@ export async function updateOrRescheduleBooking({
     // unless service/subcategory/duration changed and user explicitly confirmed applying current pricing.
     const preservedV2ServiceFields = shouldApplyNewSnapshot
       ? {
-        serviceTypeId: payload.serviceTypeId,
-        serviceTypeName: payload.serviceTypeName,
-        serviceOptionId: payload.serviceOptionId,
-        serviceOptionName: payload.serviceOptionName,
-        deliveryMode: payload.deliveryMode,
-        pricingMode: payload.pricingMode,
-        pricingSettingsVersion: payload.pricingSettingsVersion,
-      }
+          serviceTypeId: payload.serviceTypeId,
+          serviceTypeName: payload.serviceTypeName,
+          serviceOptionId: payload.serviceOptionId,
+          serviceOptionName: payload.serviceOptionName,
+          deliveryMode: payload.deliveryMode,
+          pricingMode: payload.pricingMode,
+          pricingSettingsVersion: payload.pricingSettingsVersion,
+        }
       : existingBooking.serviceTypeId
         ? {
-          serviceTypeId: existingBooking.serviceTypeId,
-          serviceTypeName: existingBooking.serviceTypeName,
-          serviceOptionId: existingBooking.serviceOptionId,
-          serviceOptionName: existingBooking.serviceOptionName,
-          deliveryMode: existingBooking.deliveryMode,
-          pricingMode: existingBooking.pricingMode,
-          pricingSettingsVersion: existingBooking.pricingSettingsVersion,
-        }
+            serviceTypeId: existingBooking.serviceTypeId,
+            serviceTypeName: existingBooking.serviceTypeName,
+            serviceOptionId: existingBooking.serviceOptionId,
+            serviceOptionName: existingBooking.serviceOptionName,
+            deliveryMode: existingBooking.deliveryMode,
+            pricingMode: existingBooking.pricingMode,
+            pricingSettingsVersion: existingBooking.pricingSettingsVersion,
+          }
         : {};
 
     const preservedCustomerLinkFields = {};
@@ -1412,7 +1412,7 @@ export function createInMemoryBookingRepositoryAdapter(
 
   function enqueueTransaction(work) {
     const runNext = transactionQueue.then(work);
-    transactionQueue = runNext.catch(() => { });
+    transactionQueue = runNext.catch(() => {});
     return runNext;
   }
 
@@ -1613,7 +1613,7 @@ export function createInMemoryBookingRepositoryAdapter(
     subscribeBookingEvents({ bookingId, onData }) {
       if (!bookingId) {
         onData?.([]);
-        return () => { };
+        return () => {};
       }
       if (!eventSubscribers.has(bookingId)) {
         eventSubscribers.set(bookingId, new Set());

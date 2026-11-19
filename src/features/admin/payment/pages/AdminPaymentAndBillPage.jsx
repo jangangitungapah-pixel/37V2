@@ -307,31 +307,31 @@ export function AdminPaymentAndBillPage() {
   const activeError = activeTab === 'transactions' ? transactionsError : invoicesError;
 
   return (
-    <div data-payment-scoped="true" className="relative isolate z-0 space-y-3.5 sm:space-y-4">
+    <div data-payment-scoped="true" className="relative isolate z-0 space-y-2.5 sm:space-y-4">
       {/* Page Header, Primary Tab Switcher & Compact Overview Metrics */}
       <section
         aria-labelledby="payment-page-heading"
-        className="cal-card bg-studio-white p-3 sm:p-4"
+        className="cal-card bg-studio-white p-2.5 sm:p-4"
       >
-        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2 sm:gap-2.5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="border-studio-ink bg-studio-ink text-studio-lime inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-extrabold tracking-wider uppercase">
-                <ReceiptText className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span className="border-studio-ink bg-studio-ink text-studio-lime inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold tracking-wider uppercase sm:px-2 sm:text-[9px]">
+                <ReceiptText className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
                 <span>CUSTOMER BILLING &amp; PAYMENT LEDGER</span>
               </span>
-              <span className="border-studio-ink bg-studio-ivory text-studio-ink inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-bold uppercase">
+              <span className="border-studio-ink bg-studio-ivory text-studio-ink hidden items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-bold uppercase sm:inline-flex">
                 <span>1 BOOKING = 1 INVOICE</span>
               </span>
             </div>
 
             <h2
               id="payment-page-heading"
-              className="font-display text-studio-ink mt-1.5 truncate text-xl leading-none font-black tracking-tight uppercase sm:text-3xl"
+              className="font-display text-studio-ink mt-1 truncate text-lg leading-none font-black tracking-tight uppercase sm:mt-1.5 sm:text-3xl"
             >
               Payment and Bill
             </h2>
-            <p className="text-studio-muted-ink mt-1 text-xs font-medium">
+            <p className="text-studio-muted-ink mt-0.5 text-[11px] font-medium sm:mt-1 sm:text-xs">
               Invoices, customer payments, and outstanding balances.
             </p>
           </div>
@@ -356,21 +356,22 @@ export function AdminPaymentAndBillPage() {
         <section
           role="region"
           aria-label="Rekonsiliasi invoice booking lama"
-          className="cal-card bg-studio-lime/35 flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2.5"
+          className="cal-card bg-studio-lime/35 flex flex-col gap-2 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2.5 sm:px-4 sm:py-2.5"
         >
           <div className="flex items-start gap-2">
-            <Database className="text-studio-ink mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <Database
+              className="text-studio-ink mt-0.5 h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
+              aria-hidden="true"
+            />
             <div className="min-w-0">
-              <p className="font-mono text-[10.5px] font-extrabold uppercase">
+              <p className="font-mono text-[10px] font-extrabold uppercase sm:text-[10.5px]">
                 Existing bookings are ready for invoice reconciliation.
               </p>
-              <p className="text-studio-ink mt-0.5 text-xs font-medium">
-                Ditemukan <strong>{legacyWithoutInvoiceCount} booking lama</strong> yang belum
-                memiliki invoice
-                {legacyNeedsReviewCount > 0
-                  ? ` (${legacyNeedsReviewCount} perlu review eksplisit)`
-                  : ''}
-                . Tinjau preview sebelum menjalankan import tanpa double-counting.
+              <p className="text-studio-ink mt-0.5 text-[11px] leading-snug font-medium sm:text-xs">
+                Ditemukan <strong>{legacyWithoutInvoiceCount} booking lama</strong> belum punya
+                invoice
+                {legacyNeedsReviewCount > 0 ? ` (${legacyNeedsReviewCount} perlu review)` : ''}.
+                Tinjau preview sebelum import.
               </p>
             </div>
           </div>
@@ -378,9 +379,9 @@ export function AdminPaymentAndBillPage() {
           <button
             type="button"
             onClick={() => setLegacyImportOpen(true)}
-            className="cal-control bg-studio-ink text-studio-lime inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
+            className="cal-control bg-studio-ink text-studio-lime inline-flex min-h-8.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1 font-mono text-[10px] font-extrabold uppercase sm:min-h-10 sm:py-1.5 sm:text-[10.5px]"
           >
-            <Database className="h-3.5 w-3.5" aria-hidden="true" />
+            <Database className="h-3 w-3 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
             <span>Review Existing Bookings</span>
           </button>
         </section>

@@ -58,9 +58,9 @@ export function AdminTopbar({
 
   return (
     <header className="border-studio-ink bg-studio-white sticky top-0 z-20 border-b-2">
-      <div className="flex min-h-16 items-center justify-between gap-2 px-3 py-2 sm:min-h-[72px] sm:px-6 lg:px-8">
+      <div className="flex min-h-14 items-center justify-between gap-1.5 px-2.5 py-1.5 sm:min-h-[72px] sm:gap-2 sm:px-6 sm:py-2 lg:px-8">
         {/* Left: Mobile Drawer Button / Desktop Sidebar Toggle + Breadcrumb + Dynamic Page Title */}
-        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3.5">
           {/* Mobile & Tablet Off-Canvas Drawer Trigger */}
           <button
             ref={mobileMenuTriggerRef}
@@ -68,9 +68,9 @@ export function AdminTopbar({
             onClick={onOpenMobileDrawer}
             aria-expanded={isMobileDrawerOpen}
             aria-label="Open navigation drawer"
-            className="brutal-btn bg-studio-ivory text-studio-ink inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center lg:hidden"
+            className="brutal-btn bg-studio-ivory text-studio-ink inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center sm:h-11 sm:w-11 lg:hidden"
           >
-            <Menu className="h-5 w-5" aria-hidden="true" />
+            <Menu className="h-4.5 w-4.5 sm:h-5 sm:w-5" aria-hidden="true" />
           </button>
 
           {/* Desktop Sidebar Expand / Collapse Quick Control */}
@@ -91,7 +91,7 @@ export function AdminTopbar({
 
           {/* Breadcrumb & Active Route Page Title */}
           <div className="min-w-0">
-            <nav aria-label="Breadcrumb">
+            <nav aria-label="Breadcrumb" className="hidden sm:block">
               <ol className="text-studio-muted-ink flex items-center gap-1 font-mono text-[10px] font-bold tracking-wider uppercase sm:text-[11px]">
                 <li className="truncate">37 Studio</li>
                 <li aria-hidden="true">
@@ -103,18 +103,18 @@ export function AdminTopbar({
               </ol>
             </nav>
 
-            <h1 className="font-display text-studio-ink truncate text-xl leading-none font-black tracking-tight uppercase sm:text-2xl">
+            <h1 className="font-display text-studio-ink truncate text-base leading-none font-black tracking-tight uppercase sm:text-2xl">
               {activeNavItem.label}
             </h1>
           </div>
         </div>
 
         {/* Right: Authenticated User Identity + Role Badge + Public Site Link + Logout */}
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
           {/* Authenticated Identity Pill */}
           <div
             aria-label="Authenticated user profile"
-            className="border-studio-ink bg-studio-ivory flex min-h-11 items-center gap-2.5 border-[1.5px] px-2.5 py-1.5 sm:px-3"
+            className="sm:border-studio-ink sm:bg-studio-ivory flex items-center gap-2 sm:min-h-11 sm:gap-2.5 sm:border-[1.5px] sm:px-3 sm:py-1.5"
           >
             <span
               aria-hidden="true"
@@ -137,8 +137,8 @@ export function AdminTopbar({
             <span
               className={
                 isOwner
-                  ? 'border-studio-ink bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-wider uppercase'
-                  : 'border-studio-ink bg-studio-orange text-studio-white inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-wider uppercase'
+                  ? 'border-studio-ink bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold tracking-wider uppercase sm:px-2 sm:text-[10px]'
+                  : 'border-studio-ink bg-studio-orange text-studio-white inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold tracking-wider uppercase sm:px-2 sm:text-[10px]'
               }
             >
               <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -162,14 +162,15 @@ export function AdminTopbar({
             onClick={handleSignOut}
             disabled={isSigningOut}
             aria-label="Sign out of studio session"
-            className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 px-3 py-2 text-xs font-extrabold tracking-wider uppercase disabled:cursor-not-allowed disabled:opacity-60 sm:px-4"
+            title="Sign Out"
+            className="brutal-btn bg-studio-orange text-studio-white inline-flex h-9 w-9 cursor-pointer items-center justify-center gap-1.5 text-xs font-extrabold tracking-wider uppercase disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:min-h-11 sm:w-auto sm:px-4 sm:py-2"
           >
             {isSigningOut ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
               <LogOut className="h-4 w-4" aria-hidden="true" />
             )}
-            <span className="hidden min-[380px]:inline">Sign Out</span>
+            <span className="hidden sm:inline">Sign Out</span>
           </button>
         </div>
       </div>

@@ -39,8 +39,8 @@ export function PaymentWorkspaceTabs({
             onClick={() => onTabChange(tab.id)}
             className={
               isActive
-                ? 'border-studio-ink bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 border px-3 py-1 font-mono text-[10.5px] font-extrabold whitespace-nowrap uppercase sm:px-4'
-                : 'text-studio-muted-ink hover:text-studio-ink inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 border border-transparent px-3 py-1 font-mono text-[10.5px] font-bold whitespace-nowrap uppercase sm:px-4'
+                ? 'border-studio-ink bg-studio-lime text-studio-ink inline-flex min-h-8.5 cursor-pointer items-center justify-center gap-1 border px-2 py-1 font-mono text-[10px] font-extrabold whitespace-nowrap uppercase sm:min-h-10 sm:gap-1.5 sm:px-4 sm:text-[10.5px]'
+                : 'text-studio-muted-ink hover:text-studio-ink inline-flex min-h-8.5 cursor-pointer items-center justify-center gap-1 border border-transparent px-2 py-1 font-mono text-[10px] font-bold whitespace-nowrap uppercase sm:min-h-10 sm:gap-1.5 sm:px-4 sm:text-[10.5px]'
             }
           >
             <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

@@ -32,37 +32,37 @@ export function InvoiceDirectoryTable({
         className="cal-card bg-studio-white overflow-hidden"
       >
         {/* Top Legend Strip (consistent with Calendar & Customer tables) */}
-        <div className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-2 border-b-2 px-3 py-2 sm:px-4">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-studio-ink font-mono text-[10px] font-extrabold tracking-wider uppercase">
+        <div className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-1.5 border-b-2 px-2.5 py-1.5 sm:gap-2 sm:px-4 sm:py-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3">
+            <span className="text-studio-ink font-mono text-[9.5px] font-extrabold tracking-wider uppercase sm:text-[10px]">
               INVOICE LEDGER
             </span>
 
-            <div className="flex flex-wrap items-center gap-2.5 font-mono text-[10px] font-bold">
+            <div className="flex flex-wrap items-center gap-2 font-mono text-[9px] font-bold sm:gap-2.5 sm:text-[10px]">
               <span className="inline-flex items-center gap-1">
                 <span
-                  className="bg-studio-lime border-studio-ink h-2.5 w-2.5 border"
+                  className="bg-studio-lime border-studio-ink h-2 w-2 border sm:h-2.5 sm:w-2.5"
                   aria-hidden="true"
                 />
                 <span>Paid</span>
               </span>
               <span className="inline-flex items-center gap-1">
                 <span
-                  className="border-studio-ink h-2.5 w-2.5 border bg-amber-200"
+                  className="border-studio-ink h-2 w-2 border bg-amber-200 sm:h-2.5 sm:w-2.5"
                   aria-hidden="true"
                 />
                 <span>Partial</span>
               </span>
               <span className="inline-flex items-center gap-1">
                 <span
-                  className="bg-studio-orange border-studio-ink h-2.5 w-2.5 border"
+                  className="bg-studio-orange border-studio-ink h-2 w-2 border sm:h-2.5 sm:w-2.5"
                   aria-hidden="true"
                 />
                 <span>Overdue</span>
               </span>
               <span className="inline-flex items-center gap-1">
                 <span
-                  className="border-studio-ink bg-studio-ivory h-2.5 w-2.5 border"
+                  className="border-studio-ink bg-studio-ivory h-2 w-2 border sm:h-2.5 sm:w-2.5"
                   aria-hidden="true"
                 />
                 <span>Unpaid</span>
@@ -133,14 +133,14 @@ export function InvoiceDirectoryTable({
               return (
                 <tr
                   key={invoice.id}
-                  className={`group block px-3 py-2.5 transition-colors md:table-row md:p-0 ${rowBgClass}`}
+                  className={`group grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 px-2.5 py-2 transition-colors md:table-row md:p-0 ${rowBgClass}`}
                 >
                   {/* Col 1: Invoice Number & Booking Date */}
-                  <td className="block md:table-cell md:px-2.5 md:py-2 md:align-middle md:whitespace-nowrap xl:px-3">
+                  <td className="col-start-1 row-start-1 min-w-0 md:table-cell md:px-2.5 md:py-2 md:align-middle md:whitespace-nowrap xl:px-3">
                     <button
                       type="button"
                       onClick={() => onSelectInvoice?.(invoice)}
-                      className="text-studio-ink hover:text-studio-orange block cursor-pointer text-left font-mono text-[10.5px] font-extrabold transition-colors xl:text-[11px]"
+                      className="text-studio-ink hover:text-studio-orange block max-w-full cursor-pointer truncate text-left font-mono text-[10.5px] font-extrabold transition-colors xl:text-[11px]"
                     >
                       {invoice.invoiceNumber}
                     </button>
@@ -160,7 +160,7 @@ export function InvoiceDirectoryTable({
                   </td>
 
                   {/* Col 2: Customer Snapshot & Service (wraps cleanly, zero horizontal expansion) */}
-                  <td className="mt-1 block min-w-0 md:mt-0 md:table-cell md:px-2.5 md:py-2 md:align-middle xl:px-3">
+                  <td className="col-span-2 row-start-2 min-w-0 md:table-cell md:px-2.5 md:py-2 md:align-middle xl:px-3">
                     <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
                       <span className="text-studio-ink text-xs font-extrabold">
                         {invoice.customerSnapshot?.name || '-'}
@@ -183,8 +183,8 @@ export function InvoiceDirectoryTable({
                   </td>
 
                   {/* Col 3: Invoice + Payment Status Badges */}
-                  <td className="mt-1.5 block md:mt-0 md:table-cell md:px-2.5 md:py-2 md:align-middle md:whitespace-nowrap xl:px-3">
-                    <div className="flex flex-wrap items-center gap-1 md:flex-col md:items-start">
+                  <td className="col-start-2 row-start-1 justify-self-end md:table-cell md:px-2.5 md:py-2 md:align-middle md:whitespace-nowrap xl:px-3">
+                    <div className="flex flex-col items-end gap-0.5 md:items-start md:gap-1">
                       {isVoid ? (
                         <span
                           className={`border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase ${invoiceMeta.badgeClass}`}
@@ -206,39 +206,50 @@ export function InvoiceDirectoryTable({
                     </div>
                   </td>
 
-                  {/* Col 4: Total Amount (mobile inline + desktop xl+) */}
-                  <td className="mt-1.5 mr-3 inline-flex items-baseline gap-1 md:hidden xl:table-cell xl:px-3 xl:py-2 xl:text-right xl:align-middle xl:whitespace-nowrap">
-                    <span className="text-studio-muted-ink font-mono text-[9px] font-bold uppercase md:hidden">
-                      Total:
-                    </span>
+                  {/* Col 4: Total Amount (desktop xl+) */}
+                  <td className="hidden xl:table-cell xl:px-3 xl:py-2 xl:text-right xl:align-middle xl:whitespace-nowrap">
                     <span className="text-studio-ink font-mono text-[11px] font-extrabold tabular-nums">
                       {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)}
                     </span>
                   </td>
 
-                  {/* Col 5: Amount Paid (2xl+) */}
+                  {/* Col 5: Amount Paid (desktop 2xl+) */}
                   <td className="hidden 2xl:table-cell 2xl:px-3 2xl:py-2 2xl:text-right 2xl:align-middle 2xl:whitespace-nowrap">
                     <span className="font-mono text-[11px] font-bold text-emerald-800 tabular-nums">
                       {formatRupiah(invoice.amountPaid || 0)}
                     </span>
                   </td>
 
-                  {/* Col 6: Outstanding Balance (with compact Total/Paid sub-info on md–xl) */}
-                  <td className="mt-1.5 inline-flex items-baseline gap-1 md:mt-0 md:table-cell md:px-2.5 md:py-2 md:text-right md:align-middle md:whitespace-nowrap xl:px-3">
-                    <span className="text-studio-muted-ink font-mono text-[9px] font-bold uppercase md:hidden">
-                      Sisa:
-                    </span>
-                    <span
-                      className={`block font-mono text-[11px] font-extrabold tabular-nums ${
-                        isVoid
-                          ? 'text-neutral-500 line-through'
-                          : invoice.balanceDue > 0
-                            ? 'text-studio-orange'
-                            : 'text-emerald-800'
-                      }`}
-                    >
-                      {formatRupiah(invoice.balanceDue || 0)}
-                    </span>
+                  {/* Col 6: Outstanding Balance (compact inline Total+Sisa on mobile, right-aligned on md+) */}
+                  <td className="col-start-1 row-start-3 min-w-0 self-center pt-1 md:table-cell md:px-2.5 md:py-2 md:pt-2 md:text-right md:align-middle md:whitespace-nowrap xl:px-3">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 md:block">
+                      <span className="inline-flex items-baseline gap-1 md:hidden">
+                        <span className="text-studio-muted-ink font-mono text-[8.5px] font-bold uppercase">
+                          Tot
+                        </span>
+                        <span className="text-studio-ink font-mono text-[10.5px] font-extrabold tabular-nums">
+                          {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)}
+                        </span>
+                      </span>
+
+                      <span className="inline-flex items-baseline gap-1 md:block">
+                        <span className="text-studio-muted-ink font-mono text-[8.5px] font-bold uppercase md:hidden">
+                          Sisa
+                        </span>
+                        <span
+                          className={`font-mono text-[10.5px] font-extrabold tabular-nums md:block md:text-[11px] ${
+                            isVoid
+                              ? 'text-neutral-500 line-through'
+                              : invoice.balanceDue > 0
+                                ? 'text-studio-orange'
+                                : 'text-emerald-800'
+                          }`}
+                        >
+                          {formatRupiah(invoice.balanceDue || 0)}
+                        </span>
+                      </span>
+                    </div>
+
                     <span className="text-studio-subtle-ink hidden font-mono text-[9px] font-semibold tabular-nums md:block 2xl:hidden">
                       <span className="xl:hidden">
                         Tot {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)} •{' '}
@@ -247,15 +258,15 @@ export function InvoiceDirectoryTable({
                     </span>
                   </td>
 
-                  {/* Col 7: Compact Row Actions */}
-                  <td className="mt-2 flex items-center justify-end border-t border-neutral-200/80 pt-2 md:mt-0 md:table-cell md:border-t-0 md:px-2.5 md:py-2 md:text-right md:align-middle md:whitespace-nowrap xl:px-3">
+                  {/* Col 7: Compact Row Actions (inline on same row as Totals on mobile!) */}
+                  <td className="col-start-2 row-start-3 self-center justify-self-end pt-1 md:table-cell md:px-2.5 md:py-2 md:pt-2 md:text-right md:align-middle md:whitespace-nowrap xl:px-3">
                     <div className="inline-flex items-center justify-end gap-1">
                       {canRecordPayment ? (
                         <button
                           type="button"
                           onClick={() => onQuickRecordPayment?.(invoice)}
                           aria-label={`Catat pembayaran ${invoice.invoiceNumber}`}
-                          className="border-studio-ink bg-studio-lime text-studio-ink hover:bg-studio-ink hover:text-studio-lime inline-flex h-8 cursor-pointer items-center justify-center gap-1 border px-2 font-mono text-[9.5px] font-extrabold uppercase transition-colors"
+                          className="border-studio-ink bg-studio-lime text-studio-ink hover:bg-studio-ink hover:text-studio-lime inline-flex h-7.5 cursor-pointer items-center justify-center gap-1 border px-2 font-mono text-[9.5px] font-extrabold uppercase transition-colors sm:h-8"
                         >
                           <Banknote className="h-3 w-3" aria-hidden="true" />
                           <span>Bayar</span>
@@ -266,7 +277,7 @@ export function InvoiceDirectoryTable({
                         type="button"
                         onClick={() => onSelectInvoice?.(invoice)}
                         aria-label={`Buka detail invoice ${invoice.invoiceNumber}`}
-                        className="border-studio-ink bg-studio-ink text-studio-lime hover:bg-studio-orange hover:text-studio-white inline-flex h-8 cursor-pointer items-center justify-center gap-1 border px-2 font-mono text-[9.5px] font-extrabold uppercase transition-colors xl:px-2.5"
+                        className="border-studio-ink bg-studio-ink text-studio-lime hover:bg-studio-orange hover:text-studio-white inline-flex h-7.5 cursor-pointer items-center justify-center gap-1 border px-2 font-mono text-[9.5px] font-extrabold uppercase transition-colors sm:h-8 xl:px-2.5"
                       >
                         <span>Detail</span>
                         <ChevronRight className="h-3 w-3" aria-hidden="true" />

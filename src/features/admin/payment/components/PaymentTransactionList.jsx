@@ -36,23 +36,28 @@ export function PaymentTransactionList({
   onLoadMore,
 }) {
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-2.5 sm:space-y-3.5">
       {/* Transactions Filter Bar */}
       <section
         aria-label="Filter dan pencarian transaksi pembayaran"
-        className="cal-card bg-studio-white space-y-2.5 p-3 sm:p-4"
+        className="cal-card bg-studio-white space-y-2 p-2.5 sm:space-y-2.5 sm:p-4"
       >
-        <div className="flex flex-col gap-2.5 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between xl:gap-x-3 xl:gap-y-2">
+        <div className="flex flex-col gap-2 sm:gap-2.5 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between xl:gap-x-3 xl:gap-y-2">
           <div className="min-w-0">
-            <span className="text-studio-muted-ink mb-1 flex min-h-5 items-center gap-1 font-mono text-[10px] font-extrabold uppercase">
-              <ArrowLeftRight className="h-3 w-3 shrink-0" aria-hidden="true" />
-              <span>Jenis Transaksi</span>
-            </span>
+            <div className="mb-1 flex min-h-4 items-center justify-between gap-2 sm:min-h-5">
+              <span className="text-studio-muted-ink flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase sm:text-[10px]">
+                <ArrowLeftRight className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>Jenis Transaksi</span>
+              </span>
+              <span className="border-studio-ink bg-studio-ivory text-studio-ink border px-1.5 py-0.5 font-mono text-[9px] font-extrabold whitespace-nowrap uppercase xl:hidden">
+                {transactions.length} transaksi
+              </span>
+            </div>
 
             <div
               role="group"
               aria-label="Filter jenis transaksi pembayaran"
-              className="grid w-full grid-cols-3 gap-1.5 sm:inline-flex sm:w-auto"
+              className="grid w-full grid-cols-3 gap-1 sm:inline-flex sm:w-auto sm:gap-1.5"
             >
               {TRANSACTION_TYPE_FILTER_OPTIONS.map((opt) => {
                 const isSelected = transactionType === opt.id;
@@ -64,8 +69,8 @@ export function PaymentTransactionList({
                     aria-pressed={isSelected}
                     className={
                       isSelected
-                        ? 'border-studio-ink bg-studio-lime text-studio-ink inline-flex min-h-10 w-full cursor-pointer items-center justify-center border-2 px-2.5 py-1 font-mono text-[10px] leading-none font-extrabold whitespace-nowrap uppercase shadow-[2px_2px_0px_#151515] sm:w-auto md:text-[10.5px]'
-                        : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white inline-flex min-h-10 w-full cursor-pointer items-center justify-center border-2 px-2.5 py-1 font-mono text-[10px] leading-none font-bold whitespace-nowrap uppercase sm:w-auto md:text-[10.5px]'
+                        ? 'border-studio-ink bg-studio-lime text-studio-ink inline-flex min-h-8 w-full cursor-pointer items-center justify-center border-2 px-2 py-1 font-mono text-[9.5px] leading-none font-extrabold whitespace-nowrap uppercase shadow-[2px_2px_0px_#151515] sm:min-h-10 sm:w-auto sm:px-2.5 sm:text-[10px] md:text-[10.5px]'
+                        : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white inline-flex min-h-8 w-full cursor-pointer items-center justify-center border-2 px-2 py-1 font-mono text-[9.5px] leading-none font-bold whitespace-nowrap uppercase sm:min-h-10 sm:w-auto sm:px-2.5 sm:text-[10px] md:text-[10.5px]'
                     }
                   >
                     {opt.label}
@@ -76,7 +81,7 @@ export function PaymentTransactionList({
           </div>
 
           <div className="flex w-full min-w-0 flex-col xl:min-w-[320px] xl:flex-1">
-            <div className="mb-1 flex min-h-5 items-center justify-between gap-2 font-mono text-[10px] font-bold uppercase sm:justify-end">
+            <div className="mb-1 hidden min-h-5 items-center justify-end gap-2 font-mono text-[10px] font-bold uppercase xl:flex">
               <span className="text-studio-muted-ink">Hasil Tampil:</span>
               <span className="border-studio-ink bg-studio-ivory text-studio-ink border px-2 py-0.5 font-extrabold whitespace-nowrap">
                 {transactions.length} transaksi
@@ -94,14 +99,14 @@ export function PaymentTransactionList({
                 onChange={(event) => onSearchQueryChange(event.target.value)}
                 aria-label="Cari ID transaksi, no. invoice, customer, atau referensi"
                 placeholder="Cari ID transaksi, no. invoice, customer, atau ref..."
-                className="border-studio-ink bg-studio-ivory text-studio-ink placeholder:text-studio-subtle-ink h-10 w-full border-2 py-1.5 pr-8 pl-8 text-xs font-semibold"
+                className="border-studio-ink bg-studio-ivory text-studio-ink placeholder:text-studio-subtle-ink h-9 w-full border-2 py-1 pr-8 pl-8 text-xs font-semibold sm:h-10 sm:py-1.5"
               />
               {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => onSearchQueryChange('')}
                   aria-label="Bersihkan pencarian transaksi"
-                  className="text-studio-ink hover:text-studio-orange absolute top-1/2 right-1 inline-flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center"
+                  className="text-studio-ink hover:text-studio-orange absolute top-1/2 right-1 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center sm:h-8 sm:w-8"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -111,11 +116,11 @@ export function PaymentTransactionList({
         </div>
 
         {/* Method + Date Range */}
-        <div className="grid grid-cols-1 gap-2 border-t border-neutral-200 pt-2.5 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
-          <div className="min-w-0 lg:w-40">
+        <div className="grid grid-cols-1 gap-1.5 border-t border-neutral-200 pt-2 min-[320px]:grid-cols-2 sm:gap-2 sm:pt-2.5 lg:flex lg:flex-wrap lg:items-end">
+          <div className="min-w-0 min-[320px]:col-span-2 lg:col-span-1 lg:w-40">
             <label
               htmlFor="tx-method-filter"
-              className="text-studio-muted-ink mb-1 block font-mono text-[9.5px] font-extrabold uppercase"
+              className="text-studio-muted-ink mb-0.5 block font-mono text-[9px] font-extrabold uppercase sm:mb-1 sm:text-[9.5px]"
             >
               Metode Pembayaran
             </label>
@@ -123,7 +128,7 @@ export function PaymentTransactionList({
               id="tx-method-filter"
               value={paymentMethod}
               onChange={(event) => onPaymentMethodChange(event.target.value)}
-              className="border-studio-ink bg-studio-ivory text-studio-ink h-10 w-full cursor-pointer border-2 px-2 font-mono text-[10px] font-extrabold uppercase"
+              className="border-studio-ink bg-studio-ivory text-studio-ink h-8.5 w-full cursor-pointer border-2 px-1.5 font-mono text-[9.5px] font-extrabold uppercase sm:h-10 sm:px-2 sm:text-[10px]"
             >
               <option value="all">All Methods</option>
               {PAYMENT_METHOD_OPTIONS.map((m) => (
@@ -137,7 +142,7 @@ export function PaymentTransactionList({
           <div className="min-w-0 lg:w-40">
             <label
               htmlFor="tx-date-from"
-              className="text-studio-muted-ink mb-1 block font-mono text-[9.5px] font-extrabold uppercase"
+              className="text-studio-muted-ink mb-0.5 block font-mono text-[9px] font-extrabold uppercase sm:mb-1 sm:text-[9.5px]"
             >
               Dari Tanggal
             </label>
@@ -146,14 +151,14 @@ export function PaymentTransactionList({
               type="date"
               value={dateFrom}
               onChange={(event) => onDateFromChange(event.target.value)}
-              className="border-studio-ink bg-studio-ivory text-studio-ink h-10 w-full border-2 px-2 font-mono text-[10.5px] font-bold"
+              className="border-studio-ink bg-studio-ivory text-studio-ink h-8.5 w-full min-w-0 border-2 px-1.5 font-mono text-[9.5px] font-bold sm:h-10 sm:px-2 sm:text-[10.5px]"
             />
           </div>
 
           <div className="min-w-0 lg:w-40">
             <label
               htmlFor="tx-date-to"
-              className="text-studio-muted-ink mb-1 block font-mono text-[9.5px] font-extrabold uppercase"
+              className="text-studio-muted-ink mb-0.5 block font-mono text-[9px] font-extrabold uppercase sm:mb-1 sm:text-[9.5px]"
             >
               Sampai Tanggal
             </label>
@@ -162,16 +167,16 @@ export function PaymentTransactionList({
               type="date"
               value={dateTo}
               onChange={(event) => onDateToChange(event.target.value)}
-              className="border-studio-ink bg-studio-ivory text-studio-ink h-10 w-full border-2 px-2 font-mono text-[10.5px] font-bold"
+              className="border-studio-ink bg-studio-ivory text-studio-ink h-8.5 w-full min-w-0 border-2 px-1.5 font-mono text-[9.5px] font-bold sm:h-10 sm:px-2 sm:text-[10.5px]"
             />
           </div>
 
           {hasActiveFilters ? (
-            <div className="sm:col-span-2 lg:ml-auto">
+            <div className="min-[320px]:col-span-2 lg:ml-auto">
               <button
                 type="button"
                 onClick={onClearFilters}
-                className="cal-control bg-studio-ivory text-studio-ink hover:bg-studio-white inline-flex h-10 w-full cursor-pointer items-center justify-center gap-1.5 px-3 font-mono text-[10px] font-extrabold uppercase lg:w-auto"
+                className="cal-control bg-studio-ivory text-studio-ink hover:bg-studio-white inline-flex h-8.5 w-full cursor-pointer items-center justify-center gap-1.5 px-3 font-mono text-[10px] font-extrabold uppercase sm:h-10 lg:w-auto"
               >
                 <RotateCcw className="h-3 w-3" aria-hidden="true" />
                 <span>Clear Filters</span>
@@ -198,11 +203,11 @@ export function PaymentTransactionList({
           aria-label="Tabel riwayat transaksi pembayaran"
           className="cal-card bg-studio-white overflow-hidden"
         >
-          <div className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-2 border-b-2 px-3 py-2 sm:px-4">
-            <span className="text-studio-ink font-mono text-[10px] font-extrabold tracking-wider uppercase">
+          <div className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-1.5 border-b-2 px-2.5 py-1.5 sm:gap-2 sm:px-4 sm:py-2">
+            <span className="text-studio-ink font-mono text-[9.5px] font-extrabold tracking-wider uppercase sm:text-[10px]">
               APPEND-ONLY PAYMENT LEDGER
             </span>
-            <span className="text-studio-muted-ink font-mono text-[9.5px] font-bold uppercase">
+            <span className="text-studio-muted-ink hidden font-mono text-[9.5px] font-bold uppercase sm:inline">
               Transaksi tidak dapat diedit/dihapus • Koreksi melalui Reversal
             </span>
           </div>
@@ -251,22 +256,22 @@ export function PaymentTransactionList({
                 return (
                   <tr
                     key={tx.id}
-                    className={`block px-3 py-2.5 transition-colors md:table-row md:p-0 ${rowBgClass}`}
+                    className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 px-2.5 py-2 transition-colors md:table-row md:p-0 ${rowBgClass}`}
                   >
-                    <td className="block md:table-cell md:px-2.5 md:py-2 md:align-middle xl:px-3">
-                      <p className="text-studio-ink font-mono text-[10.5px] font-extrabold whitespace-nowrap xl:text-[11px]">
+                    <td className="col-start-1 row-start-1 min-w-0 md:table-cell md:px-2.5 md:py-2 md:align-middle xl:px-3">
+                      <p className="text-studio-ink font-mono text-[10px] font-extrabold whitespace-nowrap sm:text-[10.5px] xl:text-[11px]">
                         {formatIndonesianTimestamp(tx.receivedAt || tx.createdAt)}
                       </p>
-                      <p className="text-studio-subtle-ink mt-0.5 font-mono text-[9px] font-semibold break-all">
+                      <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[8.5px] font-semibold sm:text-[9px] md:break-all md:whitespace-normal">
                         {tx.id}
                       </p>
                     </td>
 
-                    <td className="mt-1 block min-w-0 md:mt-0 md:table-cell md:px-2.5 md:py-2 md:align-middle xl:px-3">
+                    <td className="col-span-2 row-start-2 min-w-0 md:table-cell md:px-2.5 md:py-2 md:align-middle xl:px-3">
                       <button
                         type="button"
                         onClick={() => onOpenInvoice?.(tx.invoiceId)}
-                        className="text-studio-ink hover:text-studio-orange cursor-pointer text-left font-mono text-[10.5px] font-extrabold transition-colors xl:text-[11px]"
+                        className="text-studio-ink hover:text-studio-orange block max-w-full cursor-pointer truncate text-left font-mono text-[10.5px] font-extrabold transition-colors xl:text-[11px]"
                       >
                         {tx.invoiceNumber || tx.invoiceId}
                       </button>
@@ -286,10 +291,10 @@ export function PaymentTransactionList({
                       ) : null}
                     </td>
 
-                    <td className="mt-1.5 block md:mt-0 md:table-cell md:px-2.5 md:py-2 md:align-middle md:whitespace-nowrap xl:px-3">
+                    <td className="col-start-1 row-start-3 min-w-0 self-center pt-0.5 md:table-cell md:px-2.5 md:py-2 md:pt-2 md:align-middle md:whitespace-nowrap xl:px-3">
                       <div className="flex flex-wrap items-center gap-1">
                         <span
-                          className={`border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase ${typeMeta.badgeClass}`}
+                          className={`border px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9px] ${typeMeta.badgeClass}`}
                         >
                           {typeMeta.label}
                         </span>
@@ -302,7 +307,7 @@ export function PaymentTransactionList({
                           </span>
                         ) : null}
                       </div>
-                      <p className="text-studio-subtle-ink mt-0.5 font-mono text-[9.5px] font-semibold">
+                      <p className="text-studio-subtle-ink mt-0.5 font-mono text-[9px] font-semibold sm:text-[9.5px]">
                         {sourceMeta.shortLabel}
                       </p>
                     </td>
@@ -313,7 +318,7 @@ export function PaymentTransactionList({
                       </span>
                     </td>
 
-                    <td className="mt-1.5 inline-flex items-center md:mt-0 md:table-cell md:px-2.5 md:py-2 md:text-right md:align-middle md:whitespace-nowrap xl:px-3">
+                    <td className="col-start-2 row-start-1 justify-self-end md:table-cell md:px-2.5 md:py-2 md:text-right md:align-middle md:whitespace-nowrap xl:px-3">
                       <span
                         className={`font-mono text-xs font-extrabold tabular-nums ${
                           isReversal
@@ -328,12 +333,12 @@ export function PaymentTransactionList({
                       </span>
                     </td>
 
-                    <td className="mt-2 flex items-center justify-end border-t border-neutral-200/80 pt-2 md:mt-0 md:table-cell md:border-t-0 md:px-2.5 md:py-2 md:text-right md:align-middle md:whitespace-nowrap xl:px-3">
+                    <td className="col-start-2 row-start-3 self-center justify-self-end pt-0.5 md:table-cell md:px-2.5 md:py-2 md:pt-2 md:text-right md:align-middle md:whitespace-nowrap xl:px-3">
                       <button
                         type="button"
                         onClick={() => onOpenReceipt?.(tx, linkedInvoice)}
                         aria-label={`Buka receipt transaksi ${tx.id}`}
-                        className="border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-lime inline-flex h-8 cursor-pointer items-center justify-center gap-1 border px-2 font-mono text-[9.5px] font-extrabold uppercase transition-colors xl:px-2.5"
+                        className="border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-lime inline-flex h-7.5 cursor-pointer items-center justify-center gap-1 border px-2 font-mono text-[9.5px] font-extrabold uppercase transition-colors sm:h-8 xl:px-2.5"
                       >
                         <ReceiptText className="h-3 w-3" aria-hidden="true" />
                         <span>Receipt</span>
