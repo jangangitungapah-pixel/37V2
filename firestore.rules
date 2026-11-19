@@ -587,6 +587,176 @@ service cloud.firestore {
         );
     }
 
+    function isCommissionItemAmountsMatchingSnapshot(data, snap) {
+      return snap is map
+        && (
+          snap.get('schemaVersion', 1) == 2
+            ? (
+              isValidBookingCommissionSnapshotV2(snap)
+              && data.staffPayableAmount == snap.staff.amount
+              && data.recordingOperatorPayableAmount == snap.recordingOperator.amount
+              && data.ownerAllocationReference == snap.owner.amount
+            )
+            : (
+              isValidBookingCommissionSnapshotV1(snap)
+              && data.staffPayableAmount == int(snap.staffAmount)
+              && data.recordingOperatorPayableAmount == int(snap.recordingOperatorAmount)
+              && data.ownerAllocationReference == 0
+            )
+        );
+    }
+
+    function isValidCommissionBatchCreate(data, batchId) {
+      let staffEntryId = 'bk_commission_' + batchId + '_staff';
+      let operatorEntryId = 'bk_commission_' + batchId + '_operator';
+      let expectedEntryCount = (data.staffCommissionTotal > 0 ? 1 : 0)
+        + (data.recordingOperatorFeeTotal > 0 ? 1 : 0);
+      return data.size() == 15
+        && batchId is string
+        && batchId.size() > 0
+        && data.periodStart is string
+        && data.periodStart.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.periodEnd is string
+        && data.periodEnd.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.completionTimeZone == 'Asia/Jakarta'
+        && data.bookingCount is int
+        && data.bookingCount >= 1
+        && data.bookingCount <= 100
+        && data.staffCommissionTotal is int
+        && data.staffCommissionTotal >= 0
+        && data.recordingOperatorFeeTotal is int
+        && data.recordingOperatorFeeTotal >= 0
+        && data.payableTotal is int
+        && data.payableTotal > 0
+        && data.payableTotal == data.staffCommissionTotal + data.recordingOperatorFeeTotal
+        && data.ownerAllocationReferenceTotal is int
+        && data.ownerAllocationReferenceTotal >= 0
+        && data.currency == 'IDR'
+        && data.status == 'posted'
+        && data.bookkeepingEntryIds is list
+        && data.bookkeepingEntryIds.size() == expectedEntryCount
+        && (data.staffCommissionTotal == 0
+          || (staffEntryId in data.bookkeepingEntryIds
+              && existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(staffEntryId))))
+        && (data.recordingOperatorFeeTotal == 0
+          || (operatorEntryId in data.bookkeepingEntryIds
+              && existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(operatorEntryId))))
+        && data.postedAt is timestamp
+        && data.postedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid;
+    }
+
+    function isValidCommissionPostingItemCreate(data, itemId) {
+      let booking = exists(/databases/$(database)/documents/bookings/$(itemId))
+        ? get(/databases/$(database)/documents/bookings/$(itemId))
+        : null;
+      return data.size() == 15
+        && itemId is string
+        && itemId.size() > 0
+        && data.bookingId == itemId
+        && data.batchId is string
+        && data.batchId.size() > 0
+        && existsAfter(/databases/$(database)/documents/commissionBatches/$(data.batchId))
+        && data.customerSnapshot is map
+        && data.customerSnapshot.size() == 2
+        && data.customerSnapshot.name is string
+        && data.customerSnapshot.name.size() > 0
+        && data.customerSnapshot.bandName is string
+        && data.completedAt is timestamp
+        && data.serviceSnapshot is map
+        && data.serviceSnapshot.size() == 3
+        && data.serviceSnapshot.serviceTypeId in ['rehearsal', 'recording']
+        && data.serviceSnapshot.serviceTypeName is string
+        && data.serviceSnapshot.serviceOptionName is string
+        && data.staffPayableAmount is int
+        && data.staffPayableAmount >= 0
+        && data.recordingOperatorPayableAmount is int
+        && data.recordingOperatorPayableAmount >= 0
+        && data.ownerAllocationReference is int
+        && data.ownerAllocationReference >= 0
+        && data.payableTotal is int
+        && data.payableTotal > 0
+        && data.payableTotal == data.staffPayableAmount + data.recordingOperatorPayableAmount
+        && data.currency == 'IDR'
+        && data.status == 'posted'
+        && data.postedAt is timestamp
+        && data.postedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && booking != null
+        && booking.data.sessionStatus == 'completed'
+        && booking.data.get('deliveryMode', 'studio') == 'studio'
+        && booking.data.get('serviceTypeId', booking.data.serviceId) in ['rehearsal', 'recording']
+        && booking.data.actualCompletedAt is timestamp
+        && data.completedAt == booking.data.actualCompletedAt
+        && booking.data.commissionSnapshot is map
+        && data.commissionSnapshot == booking.data.commissionSnapshot
+        && isCommissionItemAmountsMatchingSnapshot(data, booking.data.commissionSnapshot);
+    }
+
+    function isValidCommissionBookkeepingEntryCreate(data, entryId) {
+      let staffExpectedId = 'bk_commission_' + data.sourceId + '_staff';
+      let operatorExpectedId = 'bk_commission_' + data.sourceId + '_operator';
+      let batchAfter = getAfter(/databases/$(database)/documents/commissionBatches/$(data.sourceId));
+      return data.size() == 13
+        && data.sourceModule == 'commission-and-fee'
+        && data.sourceType == 'commission_batch'
+        && data.sourceId is string
+        && data.sourceId.size() > 0
+        && data.entryType == 'expense_accrual'
+        && data.category in ['staff_commission', 'recording_operator_fee']
+        && data.description is string
+        && data.description.size() >= 3
+        && data.description.size() <= 200
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && data.settlementStatus == 'unpaid'
+        && data.occurredAt is timestamp
+        && data.postedAt is timestamp
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/commissionBatches/$(data.sourceId))
+        && batchAfter != null
+        && (
+          (data.category == 'staff_commission'
+            && entryId == staffExpectedId
+            && data.amount == batchAfter.data.staffCommissionTotal)
+          || (data.category == 'recording_operator_fee'
+              && entryId == operatorExpectedId
+              && data.amount == batchAfter.data.recordingOperatorFeeTotal)
+        );
+    }
+
+    function isValidCommissionReviewResolutionCreate(data, resolutionId) {
+      let booking = exists(/databases/$(database)/documents/bookings/$(resolutionId))
+        ? get(/databases/$(database)/documents/bookings/$(resolutionId))
+        : null;
+      return data.size() == 9
+        && resolutionId is string
+        && resolutionId.size() > 0
+        && data.bookingId == resolutionId
+        && data.status == 'dismissed_no_commission'
+        && data.reason is string
+        && data.reason.size() >= 3
+        && data.reason.size() <= 300
+        && data.snapshotIssue is string
+        && data.snapshotIssue.size() <= 200
+        && data.customerSnapshot is map
+        && data.customerSnapshot.size() == 2
+        && data.customerSnapshot.name is string
+        && data.customerSnapshot.name.size() > 0
+        && data.customerSnapshot.bandName is string
+        && data.completedAt is timestamp
+        && data.resolvedAt is timestamp
+        && data.resolvedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && booking != null
+        && booking.data.sessionStatus == 'completed'
+        && booking.data.actualCompletedAt is timestamp
+        && data.completedAt == booking.data.actualCompletedAt;
+    }
+
     match /staffProfiles/{uid} {
       allow get: if request.auth != null
                  && request.auth.uid == uid;
@@ -766,6 +936,42 @@ service cloud.firestore {
 
       allow create: if isActiveStaff()
         && isValidPaymentTransactionCreate(request.resource.data, transactionId);
+
+      allow update, delete: if false;
+    }
+
+    match /commissionBatches/{batchId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidCommissionBatchCreate(request.resource.data, batchId);
+
+      allow update, delete: if false;
+    }
+
+    match /commissionPostingItems/{itemId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidCommissionPostingItemCreate(request.resource.data, itemId);
+
+      allow update, delete: if false;
+    }
+
+    match /bookkeepingEntries/{entryId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidCommissionBookkeepingEntryCreate(request.resource.data, entryId);
+
+      allow update, delete: if false;
+    }
+
+    match /commissionReviewResolutions/{resolutionId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidCommissionReviewResolutionCreate(request.resource.data, resolutionId);
 
       allow update, delete: if false;
     }

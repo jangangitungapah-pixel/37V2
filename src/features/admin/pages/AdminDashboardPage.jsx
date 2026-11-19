@@ -132,6 +132,7 @@ export function AdminDashboardPage() {
               'calendar',
               'customer',
               'payment-and-bill',
+              'commission-and-fee',
               'settings',
             ].includes(item.id);
 

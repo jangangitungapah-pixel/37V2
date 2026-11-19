@@ -1220,12 +1220,17 @@ export function createInMemoryBookingRepositoryAdapter(
   initialPaymentTransactions = [],
 ) {
   const bookings = new Map();
+  const rawCommissionSnapshots = new Map();
   const slots = new Map();
   const events = new Map();
   const customers = new Map();
   const phoneIndex = new Map();
   const invoices = new Map();
   const paymentTransactions = new Map();
+  const commissionBatches = new Map();
+  const commissionPostingItems = new Map();
+  const commissionReviewResolutions = new Map();
+  const bookkeepingEntries = new Map();
   const rangeSubscribers = new Set();
   const eventSubscribers = new Map();
   const customerSubscribers = new Set();
@@ -1234,7 +1239,14 @@ export function createInMemoryBookingRepositoryAdapter(
   const invoiceRangeSubscribers = new Set();
   const transactionSubscribers = new Set();
   const invoiceTransactionSubscribers = new Map();
+  const commissionSubscribers = new Set();
   let transactionQueue = Promise.resolve();
+
+  function notifyCommissionSubscribers() {
+    for (const cb of commissionSubscribers) {
+      cb?.();
+    }
+  }
 
   function notifyRangeSubscribers() {
     for (const sub of rangeSubscribers) {
@@ -1384,8 +1396,13 @@ export function createInMemoryBookingRepositoryAdapter(
 
   // Seed initial bookings and their slot locks if provided
   for (const seed of initialBookings) {
-    const normalized = normalizeBookingRecord(seed.id || generateOperationId('bkg'), seed);
+    const seedId = seed.id || generateOperationId('bkg');
+    const normalized = normalizeBookingRecord(seedId, seed);
     bookings.set(normalized.id, normalized);
+    rawCommissionSnapshots.set(
+      normalized.id,
+      'commissionSnapshot' in seed ? (seed.commissionSnapshot ?? null) : null,
+    );
     if (
       normalized.sessionStatus !== BOOKING_SESSION_STATUS.CANCELLED &&
       normalized.sessionStatus !== BOOKING_SESSION_STATUS.NO_SHOW
@@ -1419,23 +1436,30 @@ export function createInMemoryBookingRepositoryAdapter(
   return {
     _sharedStore: {
       bookings,
+      rawCommissionSnapshots,
       slots,
       events,
       customers,
       phoneIndex,
       invoices,
       paymentTransactions,
+      commissionBatches,
+      commissionPostingItems,
+      commissionReviewResolutions,
+      bookkeepingEntries,
       customerSubscribers,
       invoiceSubscribers,
       invoiceDocSubscribers,
       invoiceRangeSubscribers,
       transactionSubscribers,
       invoiceTransactionSubscribers,
+      commissionSubscribers,
       enqueueTransaction,
       notifyBookings: notifyRangeSubscribers,
       notifyCustomers: notifyCustomerSubscribers,
       notifyInvoices: notifyInvoiceSubscribers,
       notifyTransactions: notifyTransactionSubscribers,
+      notifyCommissions: notifyCommissionSubscribers,
     },
 
     _inspectState() {
@@ -1454,6 +1478,7 @@ export function createInMemoryBookingRepositoryAdapter(
       return enqueueTransaction(async () => {
         // Work on staged copies so any thrown error leaves the store untouched (atomic rollback)
         const stagedBookings = new Map(bookings);
+        const stagedRawCommissionSnapshots = new Map(rawCommissionSnapshots);
         const stagedSlots = new Map(slots);
         const stagedEvents = new Map(events);
         const stagedCustomers = new Map(customers);
@@ -1517,12 +1542,19 @@ export function createInMemoryBookingRepositoryAdapter(
           setBooking(id, data) {
             writeStarted = true;
             touchedBookingIds.add(id);
+            stagedRawCommissionSnapshots.set(
+              id,
+              'commissionSnapshot' in data ? (data.commissionSnapshot ?? null) : null,
+            );
             stagedBookings.set(id, normalizeBookingRecord(id, data));
           },
           updateBooking(id, data) {
             writeStarted = true;
             touchedBookingIds.add(id);
             const prev = stagedBookings.get(id) || {};
+            if ('commissionSnapshot' in data) {
+              stagedRawCommissionSnapshots.set(id, data.commissionSnapshot ?? null);
+            }
             stagedBookings.set(id, normalizeBookingRecord(id, { ...prev, ...data }));
           },
           setSlot(id, data) {
@@ -1571,6 +1603,8 @@ export function createInMemoryBookingRepositoryAdapter(
         // Commit staged changes atomically
         bookings.clear();
         for (const [k, v] of stagedBookings) bookings.set(k, v);
+        rawCommissionSnapshots.clear();
+        for (const [k, v] of stagedRawCommissionSnapshots) rawCommissionSnapshots.set(k, v);
         slots.clear();
         for (const [k, v] of stagedSlots) slots.set(k, v);
         events.clear();
@@ -1588,6 +1622,7 @@ export function createInMemoryBookingRepositoryAdapter(
         notifyCustomerSubscribers();
         notifyInvoiceSubscribers();
         notifyTransactionSubscribers();
+        notifyCommissionSubscribers();
         for (const bId of touchedBookingIds) {
           notifyEventSubscribers(bId);
         }

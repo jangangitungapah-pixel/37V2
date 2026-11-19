@@ -104,7 +104,7 @@ body {
 
 :where(button, input, textarea, select):not([data-calendar-scoped] *):not(
     [data-customer-scoped] *
-  ):not([data-payment-scoped] *) {
+  ):not([data-payment-scoped] *):not([data-commission-scoped] *) {
   font: inherit;
 }
 

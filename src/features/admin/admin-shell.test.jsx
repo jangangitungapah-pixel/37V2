@@ -21,6 +21,7 @@ vi.mock('firebase/auth', () => ({
 
 vi.mock('firebase/firestore', () => ({
   getFirestore: vi.fn(() => ({ app: { name: '[DEFAULT]' } })),
+  Timestamp: { fromDate: (d) => d },
   doc: (...args) => mockDoc(...args),
   getDoc: (...args) => mockGetDoc(...args),
   getDocs: vi.fn(async () => ({ docs: [] })),
@@ -160,6 +161,10 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
           screen.getByText(
             /kelola tagihan, pembayaran dp atau cicilan, dan sisa tagihan pelanggan\./i,
           ),
+        ).toBeTruthy();
+      } else if (mod.label === 'Commission and Fee') {
+        expect(
+          screen.getByText(/review completed session fees before posting them to bookkeeping\./i),
         ).toBeTruthy();
       } else if (mod.label === 'Settings') {
         expect(screen.getByRole('heading', { name: /price and fee settings/i })).toBeTruthy();

@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { AppProviders } from '@/app/providers/AppProviders';
 import { AdminCalendarPage } from '@/features/admin/calendar/pages/AdminCalendarPage';
+import { AdminCommissionAndFeePage } from '@/features/admin/commission/pages/AdminCommissionAndFeePage';
 import { AdminCustomersPage } from '@/features/admin/customer/pages/AdminCustomersPage';
 import { AdminLayout } from '@/features/admin/layout/AdminLayout';
 import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
@@ -32,10 +33,7 @@ export function AppRoutes() {
         <Route path="calendar" element={<AdminCalendarPage />} />
         <Route path="customer" element={<AdminCustomersPage />} />
         <Route path="payment-and-bill" element={<AdminPaymentAndBillPage />} />
-        <Route
-          path="commission-and-fee"
-          element={<AdminModulePlaceholderPage moduleId="commission-and-fee" />}
-        />
+        <Route path="commission-and-fee" element={<AdminCommissionAndFeePage />} />
         <Route path="inventory" element={<AdminModulePlaceholderPage moduleId="inventory" />} />
         <Route path="pembukuan" element={<AdminModulePlaceholderPage moduleId="pembukuan" />} />
         <Route path="settings" element={<AdminSettingsPage />} />

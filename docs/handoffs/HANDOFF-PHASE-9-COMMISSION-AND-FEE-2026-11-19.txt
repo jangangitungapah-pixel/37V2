@@ -1,0 +1,229 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 9: COMMISSION & FEE MANAGEMENT (SESSION REVIEW & BOOKKEEPING POSTING)
+Date: 2026-11-19
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: d:\PROJECT VS\37V2
+Branch: main
+
+============================================================
+1. STARTING HEAD
+============================================================
+
+- Audited baseline HEAD:
+  f4d850242b8a98aba63622aa5deab6d353d5c6f9
+  (refactor(admin): improve mobile layouts and simplify user-facing copy)
+
+============================================================
+2. FINAL IMPLEMENTATION COMMIT
+============================================================
+
+- Status: Uncommitted working tree on branch `main` built cleanly on top of
+  `f4d850242b8a98aba63622aa5deab6d353d5c6f9` (awaiting user review and explicit
+  commit approval; zero deployment, PR merge, commit, or push performed).
+
+============================================================
+3. FILES CREATED & MODIFIED (PHASE 9)
+============================================================
+
+Created:
+- `src/features/admin/commission/utils/commission-period.js`
+- `src/features/admin/commission/utils/commission-snapshot.js`
+- `src/features/admin/commission/utils/commission-calculation.js`
+- `src/features/admin/commission/schemas/commission-schema.js`
+- `src/features/admin/commission/repositories/commission-repository.js`
+- `src/features/admin/commission/services/commission-review-service.js`
+- `src/features/admin/commission/services/commission-posting-service.js`
+- `src/features/admin/commission/hooks/useCommissionReview.js`
+- `src/features/admin/commission/hooks/useCommissionBatches.js`
+- `src/features/admin/commission/components/CommissionWorkspaceTabs.jsx`
+- `src/features/admin/commission/components/CommissionPeriodFilter.jsx`
+- `src/features/admin/commission/components/CommissionOverviewMetrics.jsx`
+- `src/features/admin/commission/components/CommissionSelectedSummary.jsx`
+- `src/features/admin/commission/components/CommissionNeedsReviewList.jsx`
+- `src/features/admin/commission/components/CommissionReviewCard.jsx`
+- `src/features/admin/commission/components/CommissionReviewTable.jsx`
+- `src/features/admin/commission/components/CommissionBookingDetailDrawer.jsx`
+- `src/features/admin/commission/components/CommissionPostConfirmDialog.jsx`
+- `src/features/admin/commission/components/CommissionResolveNeedsReviewDialog.jsx`
+- `src/features/admin/commission/components/CommissionBatchHistory.jsx`
+- `src/features/admin/commission/components/CommissionBatchDetailDrawer.jsx`
+- `src/features/admin/commission/pages/AdminCommissionAndFeePage.jsx`
+- `src/features/admin/commission/commission.test.jsx`
+- `scripts/verify-phase-9-commission-and-fee.ps1`
+- `docs/architecture/COMMISSION-AND-FEE-MANAGEMENT.md`
+- `docs/handoffs/HANDOFF-PHASE-9-COMMISSION-AND-FEE-2026-11-19.txt`
+
+Modified (Phase 9 integration):
+- `src/App.jsx` (`/admin/commission-and-fee` -> `AdminCommissionAndFeePage`)
+- `src/features/admin/pages/AdminDashboardPage.jsx` (`commission-and-fee` marked active `SIAP DIPAKAI`)
+- `src/styles/index.css` (`:not([data-commission-scoped] *)` typography parity)
+- `src/features/admin/calendar/repositories/calendar-booking-repository.js` (added `COMMISSION_BATCHES`, `COMMISSION_POSTING_ITEMS`, `COMMISSION_REVIEW_RESOLUTIONS`, `BOOKKEEPING_ENTRIES` constants)
+- `src/features/admin/calendar/services/calendar-booking-service.js` (added shared `commissionBatches`, `commissionPostingItems`, `commissionReviewResolutions`, `bookkeepingEntries`, and `rawCommissionSnapshots` to in-memory test/QA store)
+- `src/features/admin/admin-shell.test.jsx` (updated `/admin/commission-and-fee` route assertion & `Timestamp` mock)
+- `firestore.rules` (added Owner-only Phase 9 security rules)
+- Prettier indentation alignment on `src/features/admin/payment/components/LegacyInvoiceImportDialog.jsx` and `src/features/admin/settings/pages/PriceAndFeeSettingsPage.jsx`
+
+Note: All pre-existing handoff files under `docs/handoffs/` remain untouched.
+
+============================================================
+4. ELIGIBILITY & COMPLETION DATE LOGIC
+============================================================
+
+- Filters strictly by `bookings.actualCompletedAt` using `date-fns` and `@date-fns/tz`
+  anchored in `Asia/Jakarta` (`This Month` default, `Last Month`, `Custom Date Range`).
+- A booking is eligible iff:
+  1. `sessionStatus === 'completed'`
+  2. Valid `actualCompletedAt` timestamp within the active Jakarta period bounds
+  3. `deliveryMode === 'studio'` and service is `rehearsal` or `recording`
+  4. Valid V1 or V2 `commissionSnapshot`
+  5. No existing `commissionPostingItems/{bookingId}`
+  6. Payable total (`staff + recordingOperator`) > 0
+- Strictly excludes `upcoming`, `in_progress`, `cancelled`, `no_show`, WFA services,
+  bookings without valid `actualCompletedAt`, zero-payable records (including
+  Owner-allocation-only records), and already-posted bookings.
+- Bounded period pagination (`limit(pageSize + 1)`) surfaces `More sessions available` and
+  `Load More Sessions` when more completed sessions exist so partial totals are never
+  presented as complete period totals.
+
+============================================================
+5. SNAPSHOT NORMALIZATION
+============================================================
+
+- Implemented in `src/features/admin/commission/utils/commission-snapshot.js`:
+  - Supports V2 (`schemaVersion: 2`, per-role `staff` / `owner` / `recordingOperator` with
+    basis `none | fixed | hourly | manual`, rate, integer Rupiah amount, `settingsVersion`)
+  - Supports Legacy V1 compatibility (`staffBasis`, `staffRate`, `staffAmount`,
+    `recordingOperatorAmount`, `settingsVersion`; treats `owner` allocation as `0`)
+  - Preserves raw Firestore `commissionSnapshot` (`rawCommissionSnapshot`) without clamping
+    malformed/negative data so missing, corrupted, or negative snapshots route reliably
+    into `Needs Review` with zero silent recalculation from live Settings.
+
+============================================================
+6. FEE CATEGORY CALCULATION & RECIPIENT BOUNDARY
+============================================================
+
+- Payable categories:
+  - `Staff Commission` (`Staff / Studio Guard`) = `commissionSnapshot.staff.amount`
+  - `Recording Operator Fee` (`Recording Operator / External PIC`) = `commissionSnapshot.recordingOperator.amount`
+  - `Total To Pay = Staff Commission + Recording Operator Fee`
+- Reference-only category:
+  - `Owner Allocation` = `commissionSnapshot.owner.amount`, stored for informational
+    transparency only and strictly excluded from `Total To Pay` and `bookkeepingEntries`.
+- Individual recipient names are not fabricated (`createdByUid` is never treated as fee earner).
+
+============================================================
+7. FIRESTORE COLLECTIONS
+============================================================
+
+1. `commissionBatches/{batchId}` (15 fields, immutable):
+   - Period (`periodStart`, `periodEnd`, `completionTimeZone: 'Asia/Jakarta'`), `bookingCount` (`1..100`),
+     `staffCommissionTotal`, `recordingOperatorFeeTotal`, `payableTotal`,
+     `ownerAllocationReferenceTotal`, `currency: 'IDR'`, `status: 'posted'`,
+     `bookkeepingEntryIds`, `postedAt`, `postedByUid`, `createdAt`, `createdByUid`.
+2. `commissionPostingItems/{bookingId}` (15 fields, deterministic doc ID === `bookingId`, immutable):
+   - Links `batchId`, `bookingId`, `customerSnapshot`, `completedAt`, `serviceSnapshot`,
+     exact historical `commissionSnapshot`, integer `staffPayableAmount`,
+     `recordingOperatorPayableAmount`, `ownerAllocationReference`, `payableTotal`, `currency`,
+     `status: 'posted'`, `postedAt`, `postedByUid`, `createdAt`.
+3. `bookkeepingEntries/{entryId}` (13 fields, expense accrual contract):
+   - Deterministic IDs: `bk_commission_{batchId}_staff` and `bk_commission_{batchId}_operator`
+     (created strictly when each category > 0).
+   - `sourceModule: 'commission-and-fee'`, `sourceType: 'commission_batch'`, `sourceId: batchId`,
+     `entryType: 'expense_accrual'`, `category` (`'staff_commission' | 'recording_operator_fee'`),
+     `description`, `amount`, `currency: 'IDR'`, `settlementStatus: 'unpaid'`, `occurredAt`,
+     `postedAt`, `createdAt`, `createdByUid`.
+4. `commissionReviewResolutions/{bookingId}` (9 fields, deterministic doc ID === `bookingId`, immutable):
+   - Records explicit Owner acknowledgement (`status: 'dismissed_no_commission'`, `reason`,
+     `snapshotIssue`, `customerSnapshot`, `completedAt`, `resolvedAt`, `resolvedByUid`, `createdAt`)
+     so legacy/invalid Needs Review bookings can be marked resolved and hidden from the collapsible
+     Needs Review banner without mutating historical `bookings` or creating fake `bookkeepingEntries`.
+
+============================================================
+8. POSTING TRANSACTION FLOW & BOOKKEEPING INTEGRATION
+============================================================
+
+- `postCommissionBatch()` (`src/features/admin/commission/services/commission-posting-service.js`)
+  executes inside `runTransaction` with all reads (`commissionBatches`, `bookkeepingEntries`,
+  `bookings`, `commissionPostingItems`) before any writes:
+  - Pre-generates stable `batchId` in `Confirm Commission Posting` so retries replay idempotently.
+  - Enforces max `100` bookings per batch, active Owner role, `completed` status, optimistic
+    `booking.version` & snapshot signature match, and absence of prior posting items.
+  - Concurrent double-post attempts abort cleanly (`commission/already-posted`) with zero
+    partial writes or duplicate `bookkeepingEntries`.
+  - Posting creates `expense_accrual` entries (`settlementStatus: 'unpaid'`) and never alters
+    `bookings.commissionSnapshot`, `customers`, `invoices`, or `paymentTransactions`.
+
+============================================================
+9. FIRESTORE RULES & OWNER AUTHORIZATION
+============================================================
+
+- Updated `firestore.rules` with `match /commissionBatches/{batchId}`,
+  `match /commissionPostingItems/{itemId}`, `match /commissionReviewResolutions/{resolutionId}`,
+  and `match /bookkeepingEntries/{entryId}`:
+  - Active Owner only (`isActiveOwner()`) for `read` and `create`; `update` & `delete` denied.
+  - Enforces `bookingId == itemId`, source booking `completed` (`studio` Rehearsal/Recording),
+    `completedAt == booking.actualCompletedAt`, `commissionSnapshot == booking.commissionSnapshot`,
+    V1/V2 amount consistency, `payableTotal == staff + operator` (Owner excluded), and atomic
+    `existsAfter()` / `getAfter()` linkage to deterministic `bookkeepingEntries`.
+  - `commissionReviewResolutions` verifies source booking is `completed` with matching
+    `actualCompletedAt`, mandatory reason `3..300` chars, Owner UID, and strict immutability.
+- Active Staff on `/admin/commission-and-fee` see `Owner Access Required` /
+  `Read Only — Owner Approval Required` with zero privileged Firestore queries subscribed.
+
+============================================================
+10. TEST RESULTS & EMULATOR RULES VERIFICATION
+============================================================
+
+- Live Firebase Firestore Emulator Verification (`firebase emulators:exec --only firestore`):
+  - Phase 9 (`verify-firestore-rules-v9.mjs`): PASSED 16/16 checks (0 failed)
+  - Phase 8 regression (`verify-firestore-rules-v8.mjs`): PASSED 22/22 checks (0 failed)
+  - Phase 7 regression (`verify-firestore-rules-v7.mjs`): PASSED 21/21 checks (0 failed)
+- Prettier (`npm run format:check`): PASSED (`All matched files use Prettier code style!`)
+- ESLint (`npm run lint`): PASSED (0 errors, 0 warnings)
+- Vitest (`npm run test:run`): PASSED 10/10 files, 83/83 tests in 20.88s:
+  - `src/lib/utils.test.js` (2 tests)
+  - `src/pages/LandingPage.test.jsx` (10 tests)
+  - `src/features/auth/auth.test.jsx` (12 tests)
+  - `src/features/admin/admin-shell.test.jsx` (5 tests)
+  - `src/features/admin/calendar/calendar.test.jsx` (11 tests)
+  - `src/features/admin/calendar/duration-discount.test.jsx` (16 tests)
+  - `src/features/admin/settings/settings.test.jsx` (7 tests)
+  - `src/features/admin/customer/customer.test.jsx` (6 tests)
+  - `src/features/admin/payment/payment.test.jsx` (6 tests)
+  - `src/features/admin/commission/commission.test.jsx` (8 tests)
+
+============================================================
+11. BUILD RESULTS & RESPONSIVE QA
+============================================================
+
+- Production Build (`npm run build` / Vite v8.3.8): PASSED (`3,402` modules, built in `6.50s`).
+- Headless Chrome CDP Responsive QA (`qa-phase9-commission.mjs`) across 10 viewports
+  (`286, 320, 360, 375, 390, 430, 768, 1024, 1280, 1440` px) × 6 views (`To Review`,
+  `CommissionBookingDetailDrawer`, `CommissionPostConfirmDialog`, `Posted`,
+  `CommissionBatchDetailDrawer`, `CommissionResolveNeedsReviewDialog`):
+  - PASSED 60/60 checks (`PHASE_9_COMMISSION_RESPONSIVE_QA=PASSED`, 0 horizontal overflow,
+    0 clipping/offenders, 0 runtime errors; visual pixel verification on `375px` and `1440px`).
+
+============================================================
+12. VERIFICATION LOG
+============================================================
+
+- Script: `scripts/verify-phase-9-commission-and-fee.ps1`
+- Final passed log: `.logs/phase-9-commission-and-fee-verification-20261119-211043.txt`
+- Status: `PHASE_9_COMMISSION_AND_FEE_VERIFICATION=PASSED` (`EXIT_CODE=0`)
+
+============================================================
+13. KNOWN LIMITATIONS & INTEGRATION NOTES FOR PEMBUKUAN
+============================================================
+
+- Updated `firestore.rules` has been verified locally on Firebase Firestore Emulator and
+  NOT deployed to production Firebase (`studio37classic`) per no-deployment constraint.
+- Future Pembukuan module integration notes:
+  - Query `bookkeepingEntries` filtering by `sourceModule == 'commission-and-fee'`,
+    `entryType == 'expense_accrual'`, and `settlementStatus == 'unpaid'` to display accrued
+    Staff Commission and Recording Operator Fee obligations waiting for actual payout.
+  - Settling an obligation should mark `settlementStatus` and record an actual cash/bank
+    disbursement transaction without double-counting the underlying `commissionPostingItems`
+    or re-accruing the same `commissionBatches` source.
+  - Excludes Staff/Operator individual assignee names, payroll, bank payout settlement, P&L,
+    cash flow, WFA commission lifecycle, manual commission overrides, and tax/PPN.

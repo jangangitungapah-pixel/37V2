@@ -218,9 +218,9 @@ export function PriceAndFeeSettingsPage() {
       serviceTypes: draft.serviceTypes.map((svc) =>
         svc.id === serviceTypeId
           ? {
-            ...svc,
-            options: upsertById(svc.options || [], nextOption),
-          }
+              ...svc,
+              options: upsertById(svc.options || [], nextOption),
+            }
           : svc,
       ),
     }));
@@ -233,11 +233,11 @@ export function PriceAndFeeSettingsPage() {
       serviceTypes: draft.serviceTypes.map((svc) =>
         svc.id === serviceType.id
           ? {
-            ...svc,
-            options: (svc.options || []).map((opt) =>
-              opt.id === targetOption.id ? { ...opt, isActive: !(opt.isActive !== false) } : opt,
-            ),
-          }
+              ...svc,
+              options: (svc.options || []).map((opt) =>
+                opt.id === targetOption.id ? { ...opt, isActive: !(opt.isActive !== false) } : opt,
+              ),
+            }
           : svc,
       ),
     }));
@@ -286,9 +286,9 @@ export function PriceAndFeeSettingsPage() {
         serviceTypes: draft.serviceTypes.map((svc) =>
           svc.id === serviceTypeId
             ? {
-              ...svc,
-              options: (svc.options || []).filter((opt) => opt.id !== optionId),
-            }
+                ...svc,
+                options: (svc.options || []).filter((opt) => opt.id !== optionId),
+              }
             : svc,
         ),
       }));

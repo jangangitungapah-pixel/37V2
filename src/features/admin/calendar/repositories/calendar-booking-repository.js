@@ -22,6 +22,10 @@ export const FIRESTORE_COLLECTIONS = {
   CUSTOMER_PHONE_INDEX: 'customerPhoneIndex',
   INVOICES: 'invoices',
   PAYMENT_TRANSACTIONS: 'paymentTransactions',
+  COMMISSION_BATCHES: 'commissionBatches',
+  COMMISSION_POSTING_ITEMS: 'commissionPostingItems',
+  COMMISSION_REVIEW_RESOLUTIONS: 'commissionReviewResolutions',
+  BOOKKEEPING_ENTRIES: 'bookkeepingEntries',
 };
 
 /**

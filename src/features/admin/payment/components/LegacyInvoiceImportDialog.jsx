@@ -212,8 +212,9 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                     </span>
                   </div>
                   <div
-                    className={`border-studio-ink border-2 p-2.5 ${preview.needsReviewCount > 0 ? 'bg-amber-100' : 'bg-studio-white'
-                      }`}
+                    className={`border-studio-ink border-2 p-2.5 ${
+                      preview.needsReviewCount > 0 ? 'bg-amber-100' : 'bg-studio-white'
+                    }`}
                   >
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
                       Perlu Dicek
