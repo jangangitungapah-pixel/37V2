@@ -38,6 +38,7 @@ export function CustomerArchiveDialog({ open, customer, onOpenChange, onConfirmA
 
         <Dialog.Popup
           aria-label={willArchive ? 'Konfirmasi arsipkan customer' : 'Konfirmasi aktifkan customer'}
+          data-customer-scoped="true"
           className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-4 top-1/2 z-[70] mx-auto max-w-md -translate-y-1/2 border-2 shadow-[6px_6px_0px_#151515]"
         >
           <div className="border-studio-ink bg-studio-ink text-studio-ivory flex items-start justify-between gap-2 border-b-2 px-4 py-3.5">

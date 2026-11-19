@@ -63,7 +63,7 @@ Fast, privacy-safe phone lookup uses a dedicated index keyed by deterministic SH
 
 ## 4. Shared Number Handling
 
-- Default directory grouping on `/admin/customer` groups active customer profiles by `phoneNormalized` (`CustomerPhoneGroup`).
+- Default directory listing on `/admin/customer` renders a Calendar-scaled Neo-Brutalist data table (`CustomerDirectoryTable`) grouped by `phoneNormalized` with explicit `SHARED NUMBER` sub-header rows.
 - Headline metrics clearly separate **Customer Profiles** vs **Unique Phone Numbers** vs **Duplicate / Shared Numbers**.
 - Whenever 2+ active profiles share the same `phoneNormalized`:
   - The phone group displays a prominent `SHARED NUMBER • N PROFIL` dark header bar and explains that booking histories remain separate.

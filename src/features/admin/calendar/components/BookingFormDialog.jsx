@@ -935,8 +935,8 @@ export function BookingFormDialog({
                     {dialogTitle}
                   </Dialog.Title>
                   <Dialog.Description className="mt-1 text-xs text-neutral-300">
-                    Lengkapi empat tahap operasional di bawah. Konflik jadwal, harga, dan fee internal
-                    dihitung secara otomatis.
+                    Lengkapi empat tahap operasional di bawah. Konflik jadwal, harga, dan fee
+                    internal dihitung secara otomatis.
                   </Dialog.Description>
                 </div>
 
@@ -966,8 +966,8 @@ export function BookingFormDialog({
                       onClick={() => handleStepSelect(step.id)}
                       aria-current={isStepActive ? 'step' : undefined}
                       className={`flex min-h-11 cursor-pointer items-center justify-between gap-2 border px-2.5 py-1.5 text-left transition-colors ${isStepActive
-                        ? 'border-studio-ivory bg-studio-lime text-studio-ink font-extrabold'
-                        : 'border-neutral-700 bg-neutral-900 text-neutral-200 hover:border-neutral-500'
+                          ? 'border-studio-ivory bg-studio-lime text-studio-ink font-extrabold'
+                          : 'border-neutral-700 bg-neutral-900 text-neutral-200 hover:border-neutral-500'
                         }`}
                     >
                       <div className="flex min-w-0 items-center gap-1.5">
@@ -981,8 +981,8 @@ export function BookingFormDialog({
                         <span
                           title={`Tahap ${step.label} lengkap`}
                           className={`flex h-4 w-4 shrink-0 items-center justify-center border ${isStepActive
-                            ? 'border-studio-ink bg-studio-ink text-studio-lime'
-                            : 'border-studio-lime bg-studio-lime text-studio-ink'
+                              ? 'border-studio-ink bg-studio-ink text-studio-lime'
+                              : 'border-studio-lime bg-studio-lime text-studio-ink'
                             }`}
                         >
                           <Check className="h-3 w-3 stroke-[3]" aria-hidden="true" />
@@ -1081,12 +1081,21 @@ export function BookingFormDialog({
                         value={formValues.phone}
                         onChange={(e) => handleFieldChange('phone', e.target.value)}
                         onBlur={() => {
-                          if (!isEditingOrRescheduling && currentPhoneNormalized) {
-                            runPhoneLookup(formValues.phone, formValues.customerName, {
-                              openDialogOnConflict: true,
-                            });
+                            if (
+                              !isEditingOrRescheduling &&
+                              currentPhoneNormalized &&
+                              !conflictDialogOpen &&
+                              !(
+                                lookupState.status === 'resolved' &&
+                                lookupState.phoneNormalized === currentPhoneNormalized
+                              )
+                            ) {
+                              runPhoneLookup(formValues.phone, formValues.customerName, {
+                                openDialogOnConflict: true,
+                              });
+                            }
                           }
-                        }}
+                        }
                         placeholder="Contoh: 081234567890"
                         className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-bold"
                       />
@@ -1236,8 +1245,8 @@ export function BookingFormDialog({
                           </span>
                           <p className="text-studio-ink mt-1 font-semibold">
                             Nomor ini pernah tercatat sebagai nomor lama / arsip customer lain.
-                            Booking baru akan membuat <strong>profil customer terpisah</strong> tanpa
-                            menggabungkan riwayat lama.
+                            Booking baru akan membuat <strong>profil customer terpisah</strong>{' '}
+                            tanpa menggabungkan riwayat lama.
                           </p>
                         </div>
                       </div>
@@ -1281,7 +1290,8 @@ export function BookingFormDialog({
                         htmlFor="booking-band-name"
                         className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
                       >
-                        Nama Band / Project <span className="text-studio-muted-ink">(Opsional)</span>
+                        Nama Band / Project{' '}
+                        <span className="text-studio-muted-ink">(Opsional)</span>
                       </label>
                       <input
                         id="booking-band-name"
@@ -1343,8 +1353,8 @@ export function BookingFormDialog({
                             onClick={() => handleSelectServiceType(service.id)}
                             aria-pressed={isSelected}
                             className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${isSelected
-                              ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
-                              : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                                ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
+                                : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
                               }`}
                           >
                             <div className="flex items-center justify-between gap-2">
@@ -1402,8 +1412,8 @@ export function BookingFormDialog({
                             onClick={() => handleSelectSubcategory(option.id)}
                             aria-pressed={isSelected}
                             className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${isSelected
-                              ? 'border-studio-ink bg-studio-ink text-studio-white shadow-[2px_2px_0px_#151515]'
-                              : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                                ? 'border-studio-ink bg-studio-ink text-studio-white shadow-[2px_2px_0px_#151515]'
+                                : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
                               }`}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -1623,8 +1633,8 @@ export function BookingFormDialog({
                             onClick={() => handleFieldChange('studioId', room.id)}
                             aria-pressed={isSelected}
                             className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${isSelected
-                              ? 'border-studio-ink bg-studio-ink text-studio-lime shadow-[2px_2px_0px_#151515]'
-                              : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                                ? 'border-studio-ink bg-studio-ink text-studio-lime shadow-[2px_2px_0px_#151515]'
+                                : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
                               }`}
                           >
                             <div className="flex items-center justify-between gap-2">
@@ -1730,8 +1740,8 @@ export function BookingFormDialog({
                       </span>
                       {isDurationLockedByFixedShift ? (
                         <span className="font-mono text-[10px] font-bold text-emerald-800 uppercase">
-                          Terkunci oleh Fixed Shift ({formatDurationMinutes(effectiveDurationMinutes)}
-                          )
+                          Terkunci oleh Fixed Shift (
+                          {formatDurationMinutes(effectiveDurationMinutes)})
                         </span>
                       ) : null}
                     </div>
@@ -1752,8 +1762,8 @@ export function BookingFormDialog({
                             onClick={() => handleFieldChange('durationPreset', option.key)}
                             aria-pressed={isSelected}
                             className={`min-h-11 cursor-pointer border-2 px-2.5 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${isSelected
-                              ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
-                              : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                                ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
+                                : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
                               }`}
                           >
                             {option.label}
@@ -1777,7 +1787,9 @@ export function BookingFormDialog({
                           max="780"
                           step="30"
                           value={formValues.customDurationMinutes}
-                          onChange={(e) => handleFieldChange('customDurationMinutes', e.target.value)}
+                          onChange={(e) =>
+                            handleFieldChange('customDurationMinutes', e.target.value)
+                          }
                           className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full max-w-xs border-2 px-3 py-2 font-mono text-sm font-bold"
                         />
                         <p className="text-studio-muted-ink mt-1 font-mono text-[11px]">
@@ -1867,9 +1879,10 @@ export function BookingFormDialog({
                         <strong>
                           {getInitialPaymentStatusMeta(editingBooking?.initialPaymentStatus).label}
                         </strong>{' '}
-                        • <strong>{formatRupiah(editingBooking?.initialPaidAmount)}</strong> • Metode:{' '}
-                        <strong>{getPaymentMethodLabel(editingBooking?.paymentMethod)}</strong>) tidak
-                        diubah melalui jalur edit jadwal.
+                        • <strong>{formatRupiah(editingBooking?.initialPaidAmount)}</strong> •
+                        Metode:{' '}
+                        <strong>{getPaymentMethodLabel(editingBooking?.paymentMethod)}</strong>)
+                        tidak diubah melalui jalur edit jadwal.
                       </p>
                     </div>
                   ) : (
@@ -1896,8 +1909,8 @@ export function BookingFormDialog({
                                 }
                                 aria-pressed={isSelected}
                                 className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${isSelected
-                                  ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
-                                  : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                                    ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
+                                    : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
                                   }`}
                               >
                                 <span className="font-display text-lg leading-none font-black uppercase">
@@ -2005,8 +2018,8 @@ export function BookingFormDialog({
                       <p className="text-studio-ink mt-1 text-xs leading-relaxed font-medium">
                         Anda mengubah jenis jasa, subcategory, atau durasi pada booking lama. Secara
                         default snapshot harga &amp; fee sebelumnya tetap dipertahankan (
-                        <strong>{formatRupiah(editingBooking?.totalAmount)}</strong>). Centang opsi di
-                        bawah hanya jika Anda ingin menerapkan preset harga &amp; fee terbaru (
+                        <strong>{formatRupiah(editingBooking?.totalAmount)}</strong>). Centang opsi
+                        di bawah hanya jika Anda ingin menerapkan preset harga &amp; fee terbaru (
                         <strong>{formatRupiah(livePricing.totalAmount)}</strong>) — snapshot fee
                         internal juga akan diperbarui.
                       </p>
@@ -2014,7 +2027,9 @@ export function BookingFormDialog({
                         <input
                           type="checkbox"
                           checked={Boolean(formValues.applyUpdatedPricing)}
-                          onChange={(e) => handleFieldChange('applyUpdatedPricing', e.target.checked)}
+                          onChange={(e) =>
+                            handleFieldChange('applyUpdatedPricing', e.target.checked)
+                          }
                           className="accent-studio-ink h-4 w-4 cursor-pointer"
                         />
                         <span>Terapkan harga &amp; fee preset terbaru</span>
@@ -2058,7 +2073,8 @@ export function BookingFormDialog({
                                 {formatDurationMinutes(
                                   displayedPricing.automaticDiscount.intervalMinutes,
                                 )}{' '}
-                                (-{formatRupiah(displayedPricing.automaticDiscount.discountPerBlock)})
+                                (-
+                                {formatRupiah(displayedPricing.automaticDiscount.discountPerBlock)})
                               </p>
                             ) : null}
                           </div>
@@ -2205,6 +2221,7 @@ export function BookingFormDialog({
         phoneNormalized={currentPhoneNormalized}
         activeProfiles={effectiveIdentity?.activeProfiles || []}
         onSelectMerge={(profile) => {
+          lookupSeqRef.current += 1;
           setManualCustomerChoice({
             mode: CUSTOMER_RESOLUTION_MODE.MERGE_INTO_EXISTING,
             customerId: profile.id,
@@ -2216,6 +2233,7 @@ export function BookingFormDialog({
           if (submitError) setSubmitError('');
         }}
         onSelectSeparate={() => {
+          lookupSeqRef.current += 1;
           setManualCustomerChoice({
             mode: CUSTOMER_RESOLUTION_MODE.CREATE_SEPARATE,
             customerId: operationIds.customerId,
@@ -2227,6 +2245,7 @@ export function BookingFormDialog({
           if (submitError) setSubmitError('');
         }}
         onReviewAgain={() => {
+          lookupSeqRef.current += 1;
           setConflictDialogOpen(false);
         }}
       />

@@ -102,96 +102,97 @@ body {
   font-family: var(--font-sans);
 }
 
-:where(button, input, textarea, select):not([data-calendar-scoped] *) {
-  font: inherit;
-}
-
-:focus-visible {
-  outline: 3px solid var(--studio-orange);
-  outline-offset: 2px;
-}
-
-::selection {
-  background: var(--studio-lime);
-  color: var(--studio-ink);
-}
-
-/* Reusable Neo-Brutalist surface & tactile control primitives */
-.brutal-card {
-  border: 2px solid var(--studio-ink);
-  box-shadow: var(--shadow-brutal-md);
-}
-
-.brutal-card-lg {
-  border: 2px solid var(--studio-ink);
-  box-shadow: var(--shadow-brutal-lg);
-}
-
-.brutal-card-sm {
-  border: 1.5px solid var(--studio-ink);
-  box-shadow: var(--shadow-brutal-xs);
-}
-
-.brutal-btn {
-  border: 2px solid var(--studio-ink);
-  box-shadow: var(--shadow-brutal-sm);
-  transition:
-    transform 120ms cubic-bezier(0.2, 0, 0, 1),
-    box-shadow 120ms cubic-bezier(0.2, 0, 0, 1),
-    background-color 120ms ease,
-    color 120ms ease;
-}
-
-.brutal-btn:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow: var(--shadow-brutal-md);
-}
-
-.brutal-btn:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0px var(--studio-ink);
-}
-
-/* Compact ~15% scaled Calendar operational workspace primitives */
-.cal-card {
-  border: 2px solid var(--studio-ink);
-  box-shadow: var(--shadow-brutal-sm);
-}
-
-.cal-control {
-  border: 2px solid var(--studio-ink);
-  box-shadow: var(--shadow-brutal-xs);
-  transition:
-    transform 120ms cubic-bezier(0.2, 0, 0, 1),
-    box-shadow 120ms cubic-bezier(0.2, 0, 0, 1),
-    background-color 120ms ease,
-    color 120ms ease;
-}
-
-.cal-control:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow: var(--shadow-brutal-sm);
-}
-
-.cal-control:active:not(:disabled) {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px var(--studio-ink);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  :where(button, input, textarea, select):not([data-calendar-scoped] *):not([data-customer-scoped] *) {
+    font: inherit;
   }
 
-  .brutal-btn:hover:not(:disabled),
-  .brutal-btn:active:not(:disabled),
-  .cal-control:hover:not(:disabled),
+  :focus-visible {
+    outline: 3px solid var(--studio-orange);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--studio-lime);
+    color: var(--studio-ink);
+  }
+
+  /* Reusable Neo-Brutalist surface & tactile control primitives */
+  .brutal-card {
+    border: 2px solid var(--studio-ink);
+    box-shadow: var(--shadow-brutal-md);
+  }
+
+  .brutal-card-lg {
+    border: 2px solid var(--studio-ink);
+    box-shadow: var(--shadow-brutal-lg);
+  }
+
+  .brutal-card-sm {
+    border: 1.5px solid var(--studio-ink);
+    box-shadow: var(--shadow-brutal-xs);
+  }
+
+  .brutal-btn {
+    border: 2px solid var(--studio-ink);
+    box-shadow: var(--shadow-brutal-sm);
+    transition:
+      transform 120ms cubic-bezier(0.2, 0, 0, 1),
+      box-shadow 120ms cubic-bezier(0.2, 0, 0, 1),
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .brutal-btn:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-brutal-md);
+  }
+
+  .brutal-btn:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0px var(--studio-ink);
+  }
+
+  /* Compact ~15% scaled Calendar operational workspace primitives */
+  .cal-card {
+    border: 2px solid var(--studio-ink);
+    box-shadow: var(--shadow-brutal-sm);
+  }
+
+  .cal-control {
+    border: 2px solid var(--studio-ink);
+    box-shadow: var(--shadow-brutal-xs);
+    transition:
+      transform 120ms cubic-bezier(0.2, 0, 0, 1),
+      box-shadow 120ms cubic-bezier(0.2, 0, 0, 1),
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .cal-control:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-brutal-sm);
+  }
+
   .cal-control:active:not(:disabled) {
-    transform: none !important;
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px var(--studio-ink);
   }
-}
+
+  @media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+
+    .brutal-btn:hover:not(:disabled),
+    .brutal-btn:active:not(:disabled),
+    .cal-control:hover:not(:disabled),
+    .cal-control:active:not(:disabled) {
+      transform: none !important;
+    }
+  }

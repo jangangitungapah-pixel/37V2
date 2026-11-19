@@ -36,8 +36,7 @@ Created:
 - `src/features/admin/customer/hooks/useCustomers.js`
 - `src/features/admin/customer/hooks/useCustomerBookingHistory.js`
 - `src/features/admin/customer/components/CustomerDirectoryToolbar.jsx`
-- `src/features/admin/customer/components/CustomerPhoneGroup.jsx`
-- `src/features/admin/customer/components/CustomerProfileCard.jsx`
+- `src/features/admin/customer/components/CustomerDirectoryTable.jsx`
 - `src/features/admin/customer/components/CustomerBookingHistory.jsx`
 - `src/features/admin/customer/components/CustomerDetailDrawer.jsx`
 - `src/features/admin/customer/components/CustomerIdentityConflictDialog.jsx`

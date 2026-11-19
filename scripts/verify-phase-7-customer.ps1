@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Continue'
+﻿$ErrorActionPreference = 'Continue'
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $projectRoot
@@ -65,7 +65,7 @@ function Invoke-VerificationStep {
 }
 
 Invoke-VerificationStep -Name 'Git Status' -CommandText 'git status --short --branch' -Command { git status --short --branch }
-Invoke-VerificationStep -Name 'Format Check (Phase 7 Changed Files)' -CommandText 'npx prettier --check --end-of-line auto src/App.jsx src/features/admin/admin-shell.test.jsx src/features/admin/customer src/features/admin/calendar src/features/admin/settings' -Command { npx prettier --check --end-of-line auto src/App.jsx src/features/admin/admin-shell.test.jsx src/features/admin/customer src/features/admin/calendar src/features/admin/settings }
+Invoke-VerificationStep -Name 'Format Check (Phase 7 Changed Files)' -CommandText 'npx prettier --check --end-of-line auto src/App.jsx src/styles/index.css src/features/admin/admin-shell.test.jsx src/features/admin/customer src/features/admin/calendar src/features/admin/settings' -Command { npx prettier --check --end-of-line auto src/App.jsx src/styles/index.css src/features/admin/admin-shell.test.jsx src/features/admin/customer src/features/admin/calendar src/features/admin/settings }
 Invoke-VerificationStep -Name 'ESLint' -CommandText 'npm run lint' -Command { npm run lint }
 Invoke-VerificationStep -Name 'Vitest Automated Test Suite' -CommandText 'npm run test:run' -Command { npm run test:run }
 Invoke-VerificationStep -Name 'Vite Production Build' -CommandText 'npm run build' -Command { npm run build }
