@@ -1,5 +1,7 @@
 import { ArrowUpRight, CalendarClock, Clock3, Plus } from 'lucide-react';
 
+import { getPaymentStatusMeta } from '@/features/admin/payment/utils/invoice-status';
+
 import {
   getInitialPaymentStatusMeta,
   getSessionStatusMeta,
@@ -58,7 +60,9 @@ export function UpcomingBookings({ bookings = [], onSelectBooking, onOpenNewBook
         <ul className="mt-3 space-y-2">
           {bookings.map((booking) => {
             const room = getStudioRoomById(booking.studioId);
-            const paymentMeta = getInitialPaymentStatusMeta(booking.initialPaymentStatus);
+            const paymentMeta = booking.invoiceSummary?.hasInvoice
+              ? getPaymentStatusMeta(booking.invoiceSummary.paymentStatus)
+              : getInitialPaymentStatusMeta(booking.initialPaymentStatus);
             const sessionMeta = getSessionStatusMeta(booking.sessionStatus);
             const serviceSummary =
               booking.packageLabel || booking.recordingTypeLabel || booking.serviceLabel;

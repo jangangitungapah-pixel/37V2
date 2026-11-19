@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Database, Loader2, Phone, Plus, Users, UsersRound } from 'lucide-react';
+import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 
 import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
@@ -29,6 +30,8 @@ import { CUSTOMER_STATUS } from '../utils/customer-identity';
 export function AdminCustomersPage() {
   const { user, profile } = useAuth();
   const actorUid = user?.uid || profile?.uid || '';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlCustomerId = searchParams.get('customerId') || '';
 
   const {
     customers,
@@ -89,10 +92,12 @@ export function AdminCustomersPage() {
     [phoneGroups],
   );
 
+  const activeSelectedCustomerId = selectedCustomerId || urlCustomerId;
+
   const selectedCustomer = useMemo(() => {
-    if (!selectedCustomerId) return null;
-    return customers.find((c) => c.id === selectedCustomerId) || null;
-  }, [customers, selectedCustomerId]);
+    if (!activeSelectedCustomerId) return null;
+    return customers.find((c) => c.id === activeSelectedCustomerId) || null;
+  }, [customers, activeSelectedCustomerId]);
 
   const selectedCustomerPeers = useMemo(() => {
     if (!selectedCustomer?.phoneNormalized) return [];
@@ -270,8 +275,9 @@ export function AdminCustomersPage() {
           </div>
 
           <div
-            className={`border-studio-ink flex items-center justify-between gap-2.5 border-2 px-3 py-2 shadow-[2px_2px_0px_#151515] ${metrics.sharedPhoneCount > 0 ? 'bg-amber-100' : 'bg-studio-ivory'
-              }`}
+            className={`border-studio-ink flex items-center justify-between gap-2.5 border-2 px-3 py-2 shadow-[2px_2px_0px_#151515] ${
+              metrics.sharedPhoneCount > 0 ? 'bg-amber-100' : 'bg-studio-ivory'
+            }`}
           >
             <div className="min-w-0">
               <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase">
@@ -426,7 +432,14 @@ export function AdminCustomersPage() {
         customer={selectedCustomer}
         open={Boolean(selectedCustomer)}
         onOpenChange={(nextOpen) => {
-          if (!nextOpen) setSelectedCustomerId('');
+          if (!nextOpen) {
+            setSelectedCustomerId('');
+            if (urlCustomerId) {
+              const next = new URLSearchParams(searchParams);
+              next.delete('customerId');
+              setSearchParams(next, { replace: true });
+            }
+          }
         }}
         samePhonePeers={selectedCustomerPeers}
         onEditCustomer={(cust) => openFormDialog('edit', cust)}
@@ -477,7 +490,7 @@ export function AdminCustomersPage() {
         actorUid={actorUid}
         activeCustomers={customers}
         onImportCompleted={() => {
-          refreshLegacyOverview().catch(() => { });
+          refreshLegacyOverview().catch(() => {});
         }}
       />
     </div>

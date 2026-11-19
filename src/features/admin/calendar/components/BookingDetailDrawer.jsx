@@ -6,15 +6,24 @@ import {
   CheckCircle2,
   Clock3,
   Edit3,
+  ExternalLink,
   History,
   Loader2,
   Phone,
   Play,
+  ReceiptText,
   UserCheck,
   UserX,
   X,
   XCircle,
 } from 'lucide-react';
+import { Link } from 'react-router';
+
+import {
+  getInvoiceStatusMeta,
+  getPaymentStatusMeta,
+} from '@/features/admin/payment/utils/invoice-status';
+import { resolveBookingLatestPaymentView } from '@/features/admin/payment/utils/payment-calculation';
 
 import {
   BOOKING_EVENT_LABELS,
@@ -64,12 +73,28 @@ export function BookingDetailDrawer({
   }
 
   const room = getStudioRoomById(booking.studioId);
-  const paymentMeta = getInitialPaymentStatusMeta(booking.initialPaymentStatus);
+  const latestPayment =
+    booking.invoiceSummary ||
+    resolveBookingLatestPaymentView(booking, booking.linkedInvoice || null);
+  const paymentMeta = latestPayment.hasInvoice
+    ? getPaymentStatusMeta(latestPayment.paymentStatus)
+    : getInitialPaymentStatusMeta(booking.initialPaymentStatus);
+  const invoiceStatusMeta = latestPayment.hasInvoice
+    ? getInvoiceStatusMeta(latestPayment.invoiceStatus)
+    : null;
   const sessionMeta = getSessionStatusMeta(booking.sessionStatus);
   const capabilities = getBookingLifecycleCapabilities(booking, now);
   const financial = extractBookingFinancialSnapshot(booking);
   const commissionDisplay = getCommissionSnapshotDisplay(booking.commissionSnapshot);
-  const remainingBalance = financial.remainingBalance;
+  const remainingBalance = latestPayment.hasInvoice
+    ? latestPayment.balanceDue
+    : financial.remainingBalance;
+  const displayedPaidAmount = latestPayment.hasInvoice
+    ? latestPayment.amountPaid
+    : financial.initialPaidAmount;
+  const displayedTotalAmount = latestPayment.hasInvoice
+    ? latestPayment.totalAmount
+    : financial.totalAmount;
   const serviceTitle = booking.serviceTypeName || booking.serviceLabel;
   const optionTitle =
     booking.serviceOptionName || booking.packageLabel || booking.recordingTypeLabel || '';
@@ -333,18 +358,60 @@ export function BookingDetailDrawer({
                 </div>
               </dl>
 
-              {/* Financial Snapshot Subcard */}
+              {/* Financial & Authoritative Invoice Ledger Subcard */}
               <div className="border-studio-ink bg-studio-ivory mt-4 border p-3.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[11px] font-extrabold uppercase">
-                    Informasi Pembayaran Awal
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-extrabold uppercase">
+                    <ReceiptText className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>
+                      {latestPayment.hasInvoice
+                        ? 'Status Invoice & Pembayaran Terkini'
+                        : 'Informasi Pembayaran Awal'}
+                    </span>
                   </span>
-                  <span
-                    className={`border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase ${paymentMeta.badgeClass}`}
-                  >
-                    {paymentMeta.label}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {invoiceStatusMeta ? (
+                      <span
+                        className={`border px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold uppercase ${invoiceStatusMeta.badgeClass}`}
+                      >
+                        {invoiceStatusMeta.label}
+                      </span>
+                    ) : null}
+                    <span
+                      className={`border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase ${paymentMeta.badgeClass}`}
+                    >
+                      {paymentMeta.indoLabel || paymentMeta.label}
+                    </span>
+                  </div>
                 </div>
+
+                {latestPayment.hasInvoice ? (
+                  <div className="border-studio-ink/40 bg-studio-white mt-2.5 flex flex-wrap items-center justify-between gap-2 border px-2.5 py-2">
+                    <div className="min-w-0 font-mono text-[11px]">
+                      <span className="text-studio-muted-ink block text-[9px] font-bold uppercase">
+                        Invoice Number
+                      </span>
+                      <span className="text-studio-ink font-extrabold">
+                        {latestPayment.invoiceNumber}
+                      </span>
+                    </div>
+                    <Link
+                      to={`/admin/payment-and-bill?invoiceId=${encodeURIComponent(latestPayment.invoiceId)}`}
+                      className="border-studio-ink bg-studio-ink text-studio-lime hover:bg-studio-orange hover:text-studio-white inline-flex h-8 shrink-0 items-center gap-1 border px-2.5 font-mono text-[9.5px] font-extrabold uppercase transition-colors"
+                    >
+                      <span>Open Invoice</span>
+                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    </Link>
+                  </div>
+                ) : null}
+
+                {latestPayment.isSnapshotMismatch ? (
+                  <p className="border-studio-ink mt-2 border bg-amber-100 px-2.5 py-1.5 font-mono text-[10px] font-bold text-[#9a3412]">
+                    Perhatian: Total booking terbaru ({formatRupiah(financial.totalAmount)}) berbeda
+                    dari snapshot invoice ({formatRupiah(latestPayment.totalAmount)}). Kelola
+                    penyesuaian tagihan secara eksplisit melalui halaman Payment and Bill.
+                  </p>
+                ) : null}
 
                 <dl className="mt-2.5 space-y-1 font-mono text-xs">
                   {financial.discountAmount > 0 ? (
@@ -374,13 +441,15 @@ export function BookingDetailDrawer({
                   ) : null}
                   <div className="flex justify-between">
                     <dt className="text-studio-muted-ink">Total Tagihan</dt>
-                    <dd className="font-extrabold">{formatRupiah(financial.totalAmount)}</dd>
+                    <dd className="font-extrabold">{formatRupiah(displayedTotalAmount)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-studio-muted-ink">Pembayaran Awal</dt>
+                    <dt className="text-studio-muted-ink">
+                      {latestPayment.hasInvoice ? 'Sudah Dibayar (Ledger)' : 'Pembayaran Awal'}
+                    </dt>
                     <dd className="font-bold">
-                      {formatRupiah(financial.initialPaidAmount)}
-                      {booking.paymentMethod
+                      {formatRupiah(displayedPaidAmount)}
+                      {!latestPayment.hasInvoice && booking.paymentMethod
                         ? ` (${getPaymentMethodLabel(booking.paymentMethod)})`
                         : ''}
                     </dd>

@@ -15,6 +15,21 @@ import {
   getPhoneNumberHash,
 } from '@/features/admin/customer/utils/phone-number';
 import {
+  buildInvoiceDocumentFromBooking,
+  normalizeInvoiceRecord,
+  normalizePaymentTransactionRecord,
+} from '@/features/admin/payment/schemas/payment-schema';
+import { getTimestampMillis } from '@/features/admin/payment/utils/invoice-format';
+import {
+  buildInitialPaymentId,
+  buildInvoiceId,
+} from '@/features/admin/payment/utils/invoice-number';
+import {
+  PAYMENT_SOURCE,
+  SUPPORTED_PAYMENT_METHODS,
+  TRANSACTION_TYPE,
+} from '@/features/admin/payment/utils/invoice-status';
+import {
   DEFAULT_PRICING_SETTINGS,
   DELIVERY_MODES,
 } from '@/features/admin/settings/pricing/config/default-pricing-settings';
@@ -171,19 +186,29 @@ export async function createBooking({
   // Pre-generate a stable Customer ID before starting the transaction so retries remain idempotent
   const preGeneratedCustomerId =
     String(customerResolution?.customerId || '').trim() || generateOperationId('cust');
+  const deterministicInvoiceId = buildInvoiceId(cleanBookingId);
+  const deterministicInitialPaymentId = buildInitialPaymentId(cleanBookingId);
 
   return adapter.runAtomicTransaction(async (tx) => {
-    // 1. ALL READS FIRST
-    const [existingBooking, existingEvent, existingPhoneIndex, ...slotSnapshots] =
-      await Promise.all([
-        tx.getBooking(cleanBookingId),
-        tx.getEvent(cleanEventId),
-        tx.getPhoneIndex(phoneHash),
-        ...requiredSlots.map((slot) => tx.getSlot(slot.id)),
-      ]);
+    // 1. ALL READS FIRST (Booking, Event, PhoneIndex, Invoice, Initial Payment, and Slots)
+    const [
+      existingBooking,
+      existingEvent,
+      existingPhoneIndex,
+      existingInvoice,
+      existingInitialPayment,
+      ...slotSnapshots
+    ] = await Promise.all([
+      tx.getBooking(cleanBookingId),
+      tx.getEvent(cleanEventId),
+      tx.getPhoneIndex(phoneHash),
+      tx.getInvoice(deterministicInvoiceId),
+      tx.getPaymentTransaction(deterministicInitialPaymentId),
+      ...requiredSlots.map((slot) => tx.getSlot(slot.id)),
+    ]);
 
     // Idempotent retry: if this exact bookingId + eventId was already committed, return it
-    // without touching customer bookingCount, aliases, or phone index a second time
+    // without touching customer bookingCount, aliases, phone index, invoice, or initial payment twice
     if (existingBooking && existingEvent) {
       return existingBooking;
     }
@@ -192,6 +217,13 @@ export async function createBooking({
       throw createBookingServiceError(
         'booking/duplicate-id',
         'ID operasi booking sudah digunakan.',
+      );
+    }
+
+    if (existingInvoice && existingInvoice.bookingId !== cleanBookingId) {
+      throw createBookingServiceError(
+        'booking/duplicate-invoice',
+        'ID invoice untuk booking ini sudah digunakan oleh transaksi lain.',
       );
     }
 
@@ -318,10 +350,10 @@ export async function createBooking({
       const nextAliases =
         effectiveMode === CUSTOMER_RESOLUTION_MODE.MERGE_INTO_EXISTING
           ? appendUniqueNameAlias(
-              targetExistingProfile.displayName,
-              targetExistingProfile.nameAliases,
-              payload.customerName,
-            )
+            targetExistingProfile.displayName,
+            targetExistingProfile.nameAliases,
+            payload.customerName,
+          )
           : targetExistingProfile.nameAliases;
 
       const firstDate =
@@ -485,6 +517,52 @@ export async function createBooking({
       },
       note: `Booking dibuat untuk ${payload.customerName} (${formatMinuteRange(payload.startMinute, payload.endMinute)})`,
     });
+
+    // 3. Automatic Invoice & Optional Initial Payment Transaction (Phase 8 — atomic with booking)
+    const initialPaidInt = Math.max(0, Math.round(Number(payload.initialPaidAmount) || 0));
+    const hasInitialPayment = initialPaidInt > 0;
+    const { invoiceId, invoiceNumber, invoiceDoc } = buildInvoiceDocumentFromBooking({
+      bookingId: cleanBookingId,
+      booking: bookingDoc,
+      customerId: resolvedCustomerId,
+      actorUid: cleanActorUid,
+      timestamp,
+      invoiceDate: timestamp,
+      dueDate: null,
+      initialPaymentTransactionId: hasInitialPayment ? deterministicInitialPaymentId : null,
+      initialPaidAmount: initialPaidInt,
+    });
+
+    if (!existingInvoice) {
+      tx.setInvoice(invoiceId, invoiceDoc);
+    }
+
+    if (hasInitialPayment && !existingInitialPayment) {
+      const normalizedPaymentMethod = SUPPORTED_PAYMENT_METHODS.includes(payload.paymentMethod)
+        ? payload.paymentMethod
+        : 'cash';
+
+      tx.setPaymentTransaction(deterministicInitialPaymentId, {
+        invoiceId,
+        invoiceNumber,
+        bookingId: cleanBookingId,
+        customerId: resolvedCustomerId,
+        transactionType: TRANSACTION_TYPE.PAYMENT,
+        amount: initialPaidInt,
+        currency: 'IDR',
+        paymentMethod: normalizedPaymentMethod,
+        receivedAt: timestamp,
+        referenceNumber: '',
+        notes:
+          initialPaidInt >= invoiceDoc.financialSnapshot.totalAmount
+            ? 'Pembayaran lunas saat pembuatan booking'
+            : 'Pembayaran DP awal saat pembuatan booking',
+        source: PAYMENT_SOURCE.BOOKING_INITIAL_PAYMENT,
+        reversalOfTransactionId: null,
+        recordedByUid: cleanActorUid,
+        createdAt: timestamp,
+      });
+    }
 
     return normalizeBookingRecord(cleanBookingId, bookingDoc);
   });
@@ -704,24 +782,24 @@ export async function updateOrRescheduleBooking({
     // unless service/subcategory/duration changed and user explicitly confirmed applying current pricing.
     const preservedV2ServiceFields = shouldApplyNewSnapshot
       ? {
-          serviceTypeId: payload.serviceTypeId,
-          serviceTypeName: payload.serviceTypeName,
-          serviceOptionId: payload.serviceOptionId,
-          serviceOptionName: payload.serviceOptionName,
-          deliveryMode: payload.deliveryMode,
-          pricingMode: payload.pricingMode,
-          pricingSettingsVersion: payload.pricingSettingsVersion,
-        }
+        serviceTypeId: payload.serviceTypeId,
+        serviceTypeName: payload.serviceTypeName,
+        serviceOptionId: payload.serviceOptionId,
+        serviceOptionName: payload.serviceOptionName,
+        deliveryMode: payload.deliveryMode,
+        pricingMode: payload.pricingMode,
+        pricingSettingsVersion: payload.pricingSettingsVersion,
+      }
       : existingBooking.serviceTypeId
         ? {
-            serviceTypeId: existingBooking.serviceTypeId,
-            serviceTypeName: existingBooking.serviceTypeName,
-            serviceOptionId: existingBooking.serviceOptionId,
-            serviceOptionName: existingBooking.serviceOptionName,
-            deliveryMode: existingBooking.deliveryMode,
-            pricingMode: existingBooking.pricingMode,
-            pricingSettingsVersion: existingBooking.pricingSettingsVersion,
-          }
+          serviceTypeId: existingBooking.serviceTypeId,
+          serviceTypeName: existingBooking.serviceTypeName,
+          serviceOptionId: existingBooking.serviceOptionId,
+          serviceOptionName: existingBooking.serviceOptionName,
+          deliveryMode: existingBooking.deliveryMode,
+          pricingMode: existingBooking.pricingMode,
+          pricingSettingsVersion: existingBooking.pricingSettingsVersion,
+        }
         : {};
 
     const preservedCustomerLinkFields = {};
@@ -1138,15 +1216,24 @@ export function createInMemoryBookingRepositoryAdapter(
   initialBookings = [],
   initialCustomers = [],
   initialPhoneIndex = [],
+  initialInvoices = [],
+  initialPaymentTransactions = [],
 ) {
   const bookings = new Map();
   const slots = new Map();
   const events = new Map();
   const customers = new Map();
   const phoneIndex = new Map();
+  const invoices = new Map();
+  const paymentTransactions = new Map();
   const rangeSubscribers = new Set();
   const eventSubscribers = new Map();
   const customerSubscribers = new Set();
+  const invoiceSubscribers = new Set();
+  const invoiceDocSubscribers = new Map();
+  const invoiceRangeSubscribers = new Set();
+  const transactionSubscribers = new Set();
+  const invoiceTransactionSubscribers = new Map();
   let transactionQueue = Promise.resolve();
 
   function notifyRangeSubscribers() {
@@ -1170,7 +1257,7 @@ export function createInMemoryBookingRepositoryAdapter(
 
   function notifyCustomerSubscribers() {
     const sorted = Array.from(customers.values()).sort(
-      (a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0),
+      (a, b) => getTimestampMillis(b.updatedAt) - getTimestampMillis(a.updatedAt),
     );
     for (const sub of customerSubscribers) {
       const limited = sorted.slice(0, sub.maxLimit);
@@ -1179,6 +1266,77 @@ export function createInMemoryBookingRepositoryAdapter(
         hasMore: sorted.length > sub.maxLimit,
         maxLimit: sub.maxLimit,
       });
+    }
+  }
+
+  function notifyInvoiceSubscribers() {
+    const sorted = Array.from(invoices.values()).sort((a, b) => {
+      const diff = getTimestampMillis(b.invoiceDate) - getTimestampMillis(a.invoiceDate);
+      if (diff !== 0) return diff;
+      return String(b.invoiceNumber || '').localeCompare(String(a.invoiceNumber || ''));
+    });
+
+    for (const sub of invoiceSubscribers) {
+      const limited = sorted.slice(0, sub.maxLimit);
+      sub.onData?.({
+        invoices: limited.map((inv) => normalizeInvoiceRecord(inv.id, inv)),
+        hasMore: sorted.length > sub.maxLimit,
+        maxLimit: sub.maxLimit,
+      });
+    }
+
+    for (const [invoiceId, listeners] of invoiceDocSubscribers.entries()) {
+      const target = invoices.get(invoiceId);
+      const normalized = target ? normalizeInvoiceRecord(invoiceId, target) : null;
+      for (const cb of listeners) {
+        cb(normalized);
+      }
+    }
+
+    for (const sub of invoiceRangeSubscribers) {
+      const matching = Array.from(invoices.values())
+        .filter((inv) => {
+          const d = inv.bookingSnapshot?.bookingDate || '';
+          return d >= sub.startDate && d <= sub.endDate;
+        })
+        .sort((a, b) =>
+          String(a.bookingSnapshot?.bookingDate || '').localeCompare(
+            String(b.bookingSnapshot?.bookingDate || ''),
+          ),
+        );
+      const limited = matching.slice(0, sub.maxLimit);
+      sub.onData?.({
+        invoices: limited.map((inv) => normalizeInvoiceRecord(inv.id, inv)),
+        isTruncated: matching.length > sub.maxLimit,
+      });
+    }
+  }
+
+  function notifyTransactionSubscribers() {
+    const sorted = Array.from(paymentTransactions.values()).sort((a, b) => {
+      const diff =
+        getTimestampMillis(b.receivedAt || b.createdAt) -
+        getTimestampMillis(a.receivedAt || a.createdAt);
+      if (diff !== 0) return diff;
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
+
+    for (const sub of transactionSubscribers) {
+      const limited = sorted.slice(0, sub.maxLimit);
+      sub.onData?.({
+        transactions: limited.map((tx) => normalizePaymentTransactionRecord(tx.id, tx)),
+        hasMore: sorted.length > sub.maxLimit,
+        maxLimit: sub.maxLimit,
+      });
+    }
+
+    for (const [invoiceId, listeners] of invoiceTransactionSubscribers.entries()) {
+      const matching = sorted
+        .filter((tx) => tx.invoiceId === invoiceId)
+        .map((tx) => normalizePaymentTransactionRecord(tx.id, tx));
+      for (const cb of listeners) {
+        cb(matching);
+      }
     }
   }
 
@@ -1203,6 +1361,24 @@ export function createInMemoryBookingRepositoryAdapter(
     const normIdx = normalizePhoneIndexRecord(seedIdx.phoneHash || seedIdx.id, seedIdx);
     if (normIdx.phoneHash) {
       phoneIndex.set(normIdx.phoneHash, normIdx);
+    }
+  }
+  for (const seedInv of initialInvoices) {
+    const normInv = normalizeInvoiceRecord(
+      seedInv.id || buildInvoiceId(seedInv.bookingId),
+      seedInv,
+    );
+    if (normInv.id) {
+      invoices.set(normInv.id, normInv);
+    }
+  }
+  for (const seedTx of initialPaymentTransactions) {
+    const normTx = normalizePaymentTransactionRecord(
+      seedTx.id || generateOperationId('pay'),
+      seedTx,
+    );
+    if (normTx.id) {
+      paymentTransactions.set(normTx.id, normTx);
     }
   }
 
@@ -1236,7 +1412,7 @@ export function createInMemoryBookingRepositoryAdapter(
 
   function enqueueTransaction(work) {
     const runNext = transactionQueue.then(work);
-    transactionQueue = runNext.catch(() => {});
+    transactionQueue = runNext.catch(() => { });
     return runNext;
   }
 
@@ -1247,10 +1423,19 @@ export function createInMemoryBookingRepositoryAdapter(
       events,
       customers,
       phoneIndex,
+      invoices,
+      paymentTransactions,
       customerSubscribers,
+      invoiceSubscribers,
+      invoiceDocSubscribers,
+      invoiceRangeSubscribers,
+      transactionSubscribers,
+      invoiceTransactionSubscribers,
       enqueueTransaction,
       notifyBookings: notifyRangeSubscribers,
       notifyCustomers: notifyCustomerSubscribers,
+      notifyInvoices: notifyInvoiceSubscribers,
+      notifyTransactions: notifyTransactionSubscribers,
     },
 
     _inspectState() {
@@ -1260,6 +1445,8 @@ export function createInMemoryBookingRepositoryAdapter(
         events: new Map(events),
         customers: new Map(customers),
         phoneIndex: new Map(phoneIndex),
+        invoices: new Map(invoices),
+        paymentTransactions: new Map(paymentTransactions),
       };
     },
 
@@ -1271,6 +1458,8 @@ export function createInMemoryBookingRepositoryAdapter(
         const stagedEvents = new Map(events);
         const stagedCustomers = new Map(customers);
         const stagedPhoneIndex = new Map(phoneIndex);
+        const stagedInvoices = new Map(invoices);
+        const stagedPaymentTransactions = new Map(paymentTransactions);
         const touchedBookingIds = new Set();
         let writeStarted = false;
 
@@ -1311,6 +1500,20 @@ export function createInMemoryBookingRepositoryAdapter(
             const item = stagedPhoneIndex.get(hash);
             return item ? normalizePhoneIndexRecord(hash, item) : null;
           },
+          async getInvoice(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedInvoices.get(id);
+            return item ? normalizeInvoiceRecord(id, item) : null;
+          },
+          async getPaymentTransaction(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedPaymentTransactions.get(id);
+            return item ? normalizePaymentTransactionRecord(id, item) : null;
+          },
           setBooking(id, data) {
             writeStarted = true;
             touchedBookingIds.add(id);
@@ -1348,6 +1551,19 @@ export function createInMemoryBookingRepositoryAdapter(
             writeStarted = true;
             stagedPhoneIndex.set(hash, normalizePhoneIndexRecord(hash, data));
           },
+          setInvoice(id, data) {
+            writeStarted = true;
+            stagedInvoices.set(id, normalizeInvoiceRecord(id, data));
+          },
+          updateInvoice(id, data) {
+            writeStarted = true;
+            const prev = stagedInvoices.get(id) || {};
+            stagedInvoices.set(id, normalizeInvoiceRecord(id, { ...prev, ...data }));
+          },
+          setPaymentTransaction(id, data) {
+            writeStarted = true;
+            stagedPaymentTransactions.set(id, normalizePaymentTransactionRecord(id, data));
+          },
         };
 
         const result = await transactionWork(txContext);
@@ -1363,9 +1579,15 @@ export function createInMemoryBookingRepositoryAdapter(
         for (const [k, v] of stagedCustomers) customers.set(k, v);
         phoneIndex.clear();
         for (const [k, v] of stagedPhoneIndex) phoneIndex.set(k, v);
+        invoices.clear();
+        for (const [k, v] of stagedInvoices) invoices.set(k, v);
+        paymentTransactions.clear();
+        for (const [k, v] of stagedPaymentTransactions) paymentTransactions.set(k, v);
 
         notifyRangeSubscribers();
         notifyCustomerSubscribers();
+        notifyInvoiceSubscribers();
+        notifyTransactionSubscribers();
         for (const bId of touchedBookingIds) {
           notifyEventSubscribers(bId);
         }
@@ -1391,7 +1613,7 @@ export function createInMemoryBookingRepositoryAdapter(
     subscribeBookingEvents({ bookingId, onData }) {
       if (!bookingId) {
         onData?.([]);
-        return () => {};
+        return () => { };
       }
       if (!eventSubscribers.has(bookingId)) {
         eventSubscribers.set(bookingId, new Set());

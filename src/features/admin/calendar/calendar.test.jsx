@@ -45,6 +45,11 @@ import {
 } from '@/features/admin/settings/pricing/repositories/pricing-settings-repository';
 
 import {
+  createInMemoryPaymentRepositoryAdapter,
+  resetPaymentRepositoryAdapter,
+  setPaymentRepositoryAdapter,
+} from '@/features/admin/payment/repositories/payment-repository';
+import {
   BOOKING_SESSION_STATUS,
   INITIAL_PAYMENT_STATUS,
   TIMELINE_HOURLY_SLOTS,
@@ -114,6 +119,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
     pricingAdapter = createInMemoryPricingSettingsAdapter();
     setBookingRepositoryAdapter(memoryAdapter);
     setCustomerRepositoryAdapter(createInMemoryCustomerRepositoryAdapter(memoryAdapter));
+    setPaymentRepositoryAdapter(createInMemoryPaymentRepositoryAdapter(memoryAdapter));
     setPricingSettingsRepositoryAdapter(pricingAdapter);
   });
 
@@ -121,6 +127,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
     cleanup();
     resetBookingRepositoryAdapter();
     resetCustomerRepositoryAdapter();
+    resetPaymentRepositoryAdapter();
     resetPricingSettingsRepositoryAdapter();
   });
 

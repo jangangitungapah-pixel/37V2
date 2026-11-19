@@ -47,6 +47,11 @@ import {
 } from '@/features/admin/calendar/services/calendar-booking-service';
 import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
 import {
+  createInMemoryPaymentRepositoryAdapter,
+  resetPaymentRepositoryAdapter,
+  setPaymentRepositoryAdapter,
+} from '@/features/admin/payment/repositories/payment-repository';
+import {
   createInMemoryPricingSettingsAdapter,
   resetPricingSettingsRepositoryAdapter,
   setPricingSettingsRepositoryAdapter,
@@ -157,6 +162,7 @@ describe('Phase 7 — Customer Management (Phone-Based Identity & Booking Histor
 
     setBookingRepositoryAdapter(bookingAdapter);
     setCustomerRepositoryAdapter(customerAdapter);
+    setPaymentRepositoryAdapter(createInMemoryPaymentRepositoryAdapter(bookingAdapter));
     setPricingSettingsRepositoryAdapter(pricingAdapter);
   });
 
@@ -164,6 +170,7 @@ describe('Phase 7 — Customer Management (Phone-Based Identity & Booking Histor
     cleanup();
     resetBookingRepositoryAdapter();
     resetCustomerRepositoryAdapter();
+    resetPaymentRepositoryAdapter();
     resetPricingSettingsRepositoryAdapter();
   });
 

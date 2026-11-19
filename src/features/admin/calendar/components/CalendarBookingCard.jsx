@@ -1,3 +1,5 @@
+import { getPaymentStatusMeta } from '@/features/admin/payment/utils/invoice-status';
+
 import {
   BOOKING_SESSION_STATUS,
   getInitialPaymentStatusMeta,
@@ -15,7 +17,9 @@ export function CalendarBookingCard({
   style = undefined,
 }) {
   const room = getStudioRoomById(booking.studioId);
-  const paymentMeta = getInitialPaymentStatusMeta(booking.initialPaymentStatus);
+  const paymentMeta = booking.invoiceSummary?.hasInvoice
+    ? getPaymentStatusMeta(booking.invoiceSummary.paymentStatus)
+    : getInitialPaymentStatusMeta(booking.initialPaymentStatus);
   const sessionMeta = getSessionStatusMeta(booking.sessionStatus);
   const isCancelled = booking.sessionStatus === BOOKING_SESSION_STATUS.CANCELLED;
   const timeRangeLabel = formatMinuteRange(booking.startMinute, booking.endMinute, false);

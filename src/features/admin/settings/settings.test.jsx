@@ -54,6 +54,11 @@ import { calculateBookingPricingSnapshot } from '@/features/admin/calendar/utils
 import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
 
 import {
+  createInMemoryPaymentRepositoryAdapter,
+  resetPaymentRepositoryAdapter,
+  setPaymentRepositoryAdapter,
+} from '@/features/admin/payment/repositories/payment-repository';
+import {
   DEFAULT_PRICING_SETTINGS,
   DELIVERY_MODES,
   DISCOUNT_RULE_MODES,
@@ -121,6 +126,7 @@ describe('Phase 6 V2 — Service Catalog & Tariff Model Redesign', () => {
     setPricingSettingsRepositoryAdapter(pricingAdapter);
     setBookingRepositoryAdapter(bookingAdapter);
     setCustomerRepositoryAdapter(createInMemoryCustomerRepositoryAdapter(bookingAdapter));
+    setPaymentRepositoryAdapter(createInMemoryPaymentRepositoryAdapter(bookingAdapter));
   });
 
   afterEach(() => {
@@ -128,6 +134,7 @@ describe('Phase 6 V2 — Service Catalog & Tariff Model Redesign', () => {
     resetPricingSettingsRepositoryAdapter();
     resetBookingRepositoryAdapter();
     resetCustomerRepositoryAdapter();
+    resetPaymentRepositoryAdapter();
   });
 
   describe('A. Catalog Management, Navigation, Owner Authorization & Save Behavior', () => {

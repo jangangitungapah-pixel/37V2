@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { resolveBookingLatestPaymentView } from '@/features/admin/payment/utils/payment-calculation';
+
 import { BOOKING_SESSION_STATUS, CALENDAR_BOOKINGS_QUERY_LIMIT } from '../config/calendar-config';
 import { getBookingRepositoryAdapter } from '../repositories/calendar-booking-repository';
 import { mapBookingErrorToMessage } from '../services/calendar-booking-service';
@@ -7,6 +9,8 @@ import { mapBookingErrorToMessage } from '../services/calendar-booking-service';
 /**
  * Subscribes in realtime to `bookings` within `[startDate, endDate]` and applies
  * client-side filtering (room, payment status, cancelled toggle, search query).
+ * When `invoicesByBookingId` is provided from the shared Calendar invoice range
+ * subscription, payment badges & filters reflect the latest Invoice Ledger status.
  */
 export function useCalendarBookings({
   startDate,
@@ -15,6 +19,7 @@ export function useCalendarBookings({
   paymentFilter = 'all',
   showCancelled = false,
   searchQuery = '',
+  invoicesByBookingId = null,
 }) {
   const activeRangeKey = `${startDate || ''}:${endDate || ''}`;
 
@@ -64,18 +69,30 @@ export function useCalendarBookings({
     .trim()
     .toLowerCase();
 
+  const enrichedBookings = useMemo(() => {
+    return state.bookings.map((booking) => {
+      const linkedInvoice = invoicesByBookingId?.get?.(booking.id) || null;
+      const invoiceSummary = resolveBookingLatestPaymentView(booking, linkedInvoice);
+      return {
+        ...booking,
+        linkedInvoice,
+        invoiceSummary,
+      };
+    });
+  }, [state.bookings, invoicesByBookingId]);
+
   // Active (non-cancelled) bookings in the current date range for conflict detection
   const activeSlotBookings = useMemo(() => {
-    return state.bookings.filter(
+    return enrichedBookings.filter(
       (booking) =>
         booking.sessionStatus !== BOOKING_SESSION_STATUS.CANCELLED &&
         booking.sessionStatus !== BOOKING_SESSION_STATUS.NO_SHOW,
     );
-  }, [state.bookings]);
+  }, [enrichedBookings]);
 
   // Bookings matching the active toolbar & filter bar criteria
   const filteredBookings = useMemo(() => {
-    return state.bookings.filter((booking) => {
+    return enrichedBookings.filter((booking) => {
       if (!showCancelled && booking.sessionStatus === BOOKING_SESSION_STATUS.CANCELLED) {
         return false;
       }
@@ -84,7 +101,9 @@ export function useCalendarBookings({
         return false;
       }
 
-      if (paymentFilter !== 'all' && booking.initialPaymentStatus !== paymentFilter) {
+      const authoritativePaymentStatus =
+        booking.invoiceSummary?.storedPaymentStatus || booking.initialPaymentStatus;
+      if (paymentFilter !== 'all' && authoritativePaymentStatus !== paymentFilter) {
         return false;
       }
 
@@ -101,15 +120,18 @@ export function useCalendarBookings({
         const serviceMatch = String(booking.serviceLabel || '')
           .toLowerCase()
           .includes(normalizedSearch);
+        const invoiceMatch = String(booking.invoiceSummary?.invoiceNumber || '')
+          .toLowerCase()
+          .includes(normalizedSearch);
 
-        if (!customerMatch && !bandMatch && !phoneMatch && !serviceMatch) {
+        if (!customerMatch && !bandMatch && !phoneMatch && !serviceMatch && !invoiceMatch) {
           return false;
         }
       }
 
       return true;
     });
-  }, [state.bookings, showCancelled, roomFilter, paymentFilter, normalizedSearch]);
+  }, [enrichedBookings, showCancelled, roomFilter, paymentFilter, normalizedSearch]);
 
   // Upcoming bookings panel list (active upcoming or in_progress bookings in loaded window)
   const upcomingBookings = useMemo(() => {
@@ -127,7 +149,7 @@ export function useCalendarBookings({
   }, [filteredBookings]);
 
   return {
-    allBookings: state.bookings,
+    allBookings: enrichedBookings,
     activeSlotBookings,
     filteredBookings,
     upcomingBookings,

@@ -5,20 +5,31 @@ import {
   ArchiveRestore,
   CalendarClock,
   Edit3,
+  ExternalLink,
   GitMerge,
   History,
   Music2,
   Phone,
   PhoneForwarded,
+  ReceiptText,
   Tag,
   X,
 } from 'lucide-react';
+import { Link } from 'react-router';
 
 import { BookingDetailDrawer } from '@/features/admin/calendar/components/BookingDetailDrawer';
+import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
 import {
   formatIndonesianDateMedium,
   formatIndonesianTimestamp,
 } from '@/features/admin/calendar/utils/calendar-date';
+import { useCustomerInvoices } from '@/features/admin/payment/hooks/useInvoicePaymentSummaries';
+import {
+  getEffectivePaymentStatus,
+  getInvoiceStatusMeta,
+  getPaymentStatusMeta,
+  INVOICE_STATUS,
+} from '@/features/admin/payment/utils/invoice-status';
 
 import { useCustomerBookingHistory } from '../hooks/useCustomerBookingHistory';
 import { CUSTOMER_STATUS } from '../utils/customer-identity';
@@ -49,6 +60,12 @@ export function CustomerDetailDrawer({
     loadMore,
   } = useCustomerBookingHistory(open && customer ? customer : null);
 
+  const {
+    invoices: customerInvoices,
+    isLoading: isInvoicesLoading,
+    error: invoicesError,
+  } = useCustomerInvoices(open && customer ? customer : null);
+
   if (!customer) {
     return null;
   }
@@ -71,10 +88,10 @@ export function CustomerDetailDrawer({
             className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col border-l-2 shadow-[-6px_0px_0px_#151515]"
           >
             {/* Sticky Header */}
-              <div className="border-studio-ink bg-studio-ink text-studio-ivory shrink-0 border-b-2 px-4 py-3.5 sm:px-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5">
+            <div className="border-studio-ink bg-studio-ink text-studio-ivory shrink-0 border-b-2 px-4 py-3.5 sm:px-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span
                       className={`border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase ${
                         isArchived
@@ -149,291 +166,387 @@ export function CustomerDetailDrawer({
                   <button
                     type="button"
                     onClick={() => onToggleArchive?.(customer)}
-                        className = {`border-studio-ivory inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase transition-colors ${isArchived
-                            ? 'bg-studio-lime text-studio-ink'
-                            : 'bg-studio-orange text-studio-white'
-                          }`}
+                    className={`border-studio-ivory inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase transition-colors ${
+                      isArchived
+                        ? 'bg-studio-lime text-studio-ink'
+                        : 'bg-studio-orange text-studio-white'
+                    }`}
                   >
-                      {isArchived ? (
-                        <>
-                          <ArchiveRestore className="h-3 w-3" aria-hidden="true" />
-                          <span>Aktifkan Kembali</span>
-                        </>
-                      ) : (
-                        <>
-                          <Archive className="h-3 w-3" aria-hidden="true" />
-                          <span>Arsipkan</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                    {isArchived ? (
+                      <>
+                        <ArchiveRestore className="h-3 w-3" aria-hidden="true" />
+                        <span>Aktifkan Kembali</span>
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="h-3 w-3" aria-hidden="true" />
+                        <span>Arsipkan</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               ) : null}
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-3.5 pb-7 sm:px-5 sm:py-4">
+              {/* SECTION 1: IDENTITY */}
+              <section
+                aria-labelledby="customer-identity-heading"
+                className="cal-card bg-studio-white p-3.5 sm:p-4"
+              >
+                <h3
+                  id="customer-identity-heading"
+                  className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                >
+                  Identity
+                </h3>
+
+                <dl className="mt-3 grid grid-cols-1 gap-3 border-t border-neutral-200 pt-3 text-xs sm:grid-cols-2">
+                  <div>
+                    <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
+                      Customer Name
+                    </dt>
+                    <dd className="text-studio-ink mt-0.5 text-sm font-extrabold">
+                      {customer.displayName}
+                    </dd>
+                  </div>
+
+                  <div>
+                    <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
+                      Primary Phone Number
+                    </dt>
+                    <dd className="text-studio-ink mt-0.5 flex items-center gap-1.5 font-mono text-sm font-extrabold">
+                      <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span>{formattedPhone}</span>
+                    </dd>
+                    <span className="text-studio-subtle-ink block font-mono text-[10px]">
+                      Canonical: {customer.phoneNormalized}
+                    </span>
+                  </div>
+
+                  <div>
+                    <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
+                      Customer ID
+                    </dt>
+                    <dd className="text-studio-ink mt-0.5 font-mono text-[11px] font-bold break-all">
+                      {customer.id}
+                    </dd>
+                  </div>
+
+                  <div>
+                    <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
+                      Created At
+                    </dt>
+                    <dd className="text-studio-ink mt-0.5 font-mono text-[11px] font-bold">
+                      {formatIndonesianTimestamp(customer.createdAt)}
+                    </dd>
+                  </div>
+                </dl>
+
+                {/* Previous Names / Aliases */}
+                <div className="mt-3 border-t border-neutral-200 pt-3">
+                  <p className="text-studio-muted-ink flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase">
+                    <Tag className="h-3 w-3" aria-hidden="true" />
+                    <span>Previous Names / Name Aliases</span>
+                  </p>
+                  {customer.nameAliases?.length > 0 ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {customer.nameAliases.map((alias) => (
+                        <span
+                          key={alias}
+                          className="border-studio-ink bg-studio-ivory border px-2 py-0.5 text-xs font-bold"
+                        >
+                          {alias}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-studio-subtle-ink mt-1 text-xs">Belum ada nama alias.</p>
+                  )}
                 </div>
 
-                {/* Scrollable Body */}
-                  <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-3.5 pb-7 sm:px-5 sm:py-4">
-                    {/* SECTION 1: IDENTITY */}
-                    <section
-                      aria-labelledby="customer-identity-heading"
-                      className="cal-card bg-studio-white p-3.5 sm:p-4"
-                    >
-                      <h3
-                        id="customer-identity-heading"
-                        className="font-mono text-xs font-extrabold tracking-wider uppercase"
-                      >
-                        Identity
-                      </h3>
-
-                      <dl className="mt-3 grid grid-cols-1 gap-3 border-t border-neutral-200 pt-3 text-xs sm:grid-cols-2">
-                        <div>
-                          <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                            Customer Name
-                          </dt>
-                          <dd className="text-studio-ink mt-0.5 text-sm font-extrabold">
-                            {customer.displayName}
-                          </dd>
-                        </div>
-
-                        <div>
-                          <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                            Primary Phone Number
-                          </dt>
-                          <dd className="text-studio-ink mt-0.5 flex items-center gap-1.5 font-mono text-sm font-extrabold">
-                            <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                            <span>{formattedPhone}</span>
-                          </dd>
-                          <span className="text-studio-subtle-ink block font-mono text-[10px]">
-                            Canonical: {customer.phoneNormalized}
-                          </span>
-                        </div>
-
-                        <div>
-                          <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                            Customer ID
-                          </dt>
-                          <dd className="text-studio-ink mt-0.5 font-mono text-[11px] font-bold break-all">
-                            {customer.id}
-                          </dd>
-                        </div>
-
-                        <div>
-                          <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                            Created At
-                          </dt>
-                          <dd className="text-studio-ink mt-0.5 font-mono text-[11px] font-bold">
-                            {formatIndonesianTimestamp(customer.createdAt)}
-                          </dd>
-                        </div>
-                      </dl>
-
-                      {/* Previous Names / Aliases */}
-                      <div className="mt-3 border-t border-neutral-200 pt-3">
-                        <p className="text-studio-muted-ink flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase">
-                          <Tag className="h-3 w-3" aria-hidden="true" />
-                          <span>Previous Names / Name Aliases</span>
-                        </p>
-                        {customer.nameAliases?.length > 0 ? (
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {customer.nameAliases.map((alias) => (
-                              <span
-                                key={alias}
-                                className="border-studio-ink bg-studio-ivory border px-2 py-0.5 text-xs font-bold"
-                              >
-                                {alias}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-studio-subtle-ink mt-1 text-xs">Belum ada nama alias.</p>
-                        )}
-                      </div>
-
-                      {/* Previous Phone Numbers */}
-                      {customer.previousPhones?.length > 0 ? (
-                        <div className="mt-3 border-t border-neutral-200 pt-3">
-                          <p className="text-studio-muted-ink flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase">
-                            <History className="h-3 w-3" aria-hidden="true" />
-                            <span>Previous Phone Number</span>
-                          </p>
-                          <ul className="mt-1.5 space-y-1.5">
-                            {customer.previousPhones.map((prev, idx) => (
-                              <li
-                                key={`${prev.phoneNormalized}-${idx}`}
-                                className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-2 border px-2.5 py-1.5 font-mono text-[11px]"
-                              >
-                                <span className="text-studio-ink font-extrabold">
-                                  {formatPhoneDisplay(prev.phoneNormalized || prev.phoneDisplay)}
-                                </span>
-                                {prev.changedAt ? (
-                                  <span className="text-studio-muted-ink text-[10px]">
-                                    Diganti: {formatIndonesianTimestamp(prev.changedAt)}
-                                  </span>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-
-                      {customer.notes ? (
-                        <div className="mt-3 border-t border-neutral-200 pt-3">
-                          <p className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                            Catatan Profil
-                          </p>
-                          <p className="text-studio-ink mt-1 text-xs leading-relaxed font-medium">
-                            {customer.notes}
-                          </p>
-                        </div>
-                      ) : null}
-                    </section>
-
-                    {/* SECTION 2: BOOKING SUMMARY (NO AGGREGATE MONEY TOTALS) */}
-                    <section
-                      aria-labelledby="customer-summary-heading"
-                      className="cal-card bg-studio-white p-3.5 sm:p-4"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <h3
-                          id="customer-summary-heading"
-                          className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                {/* Previous Phone Numbers */}
+                {customer.previousPhones?.length > 0 ? (
+                  <div className="mt-3 border-t border-neutral-200 pt-3">
+                    <p className="text-studio-muted-ink flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase">
+                      <History className="h-3 w-3" aria-hidden="true" />
+                      <span>Previous Phone Number</span>
+                    </p>
+                    <ul className="mt-1.5 space-y-1.5">
+                      {customer.previousPhones.map((prev, idx) => (
+                        <li
+                          key={`${prev.phoneNormalized}-${idx}`}
+                          className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-2 border px-2.5 py-1.5 font-mono text-[11px]"
                         >
-                          Booking Summary
-                        </h3>
-                        <span className="text-studio-muted-ink font-mono text-[10px] font-bold">
-                          Termasuk cancelled &amp; no-show
-                        </span>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                        <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                          <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                            Total Booking
+                          <span className="text-studio-ink font-extrabold">
+                            {formatPhoneDisplay(prev.phoneNormalized || prev.phoneDisplay)}
                           </span>
-                          <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
-                            {customer.bookingCount}
-                          </span>
-                        </div>
-
-                        <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                          <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                            Active Bookings
-                          </span>
-                          <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
-                            {isHistoryLoading ? '…' : activeBookingsCount}
-                          </span>
-                        </div>
-
-                        <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                          <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                            First Booking
-                          </span>
-                          <span className="text-studio-ink mt-1 block font-mono text-[11px] font-extrabold">
-                            {customer.firstBookingDate
-                              ? formatIndonesianDateMedium(customer.firstBookingDate)
-                              : '-'}
-                          </span>
-                        </div>
-
-                        <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                          <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                            Last Booking
-                          </span>
-                          <span className="text-studio-ink mt-1 block font-mono text-[11px] font-extrabold">
-                            {customer.lastBookingDate
-                              ? formatIndonesianDateMedium(customer.lastBookingDate)
-                              : '-'}
-                          </span>
-                        </div>
-                      </div>
-                    </section>
-
-                    {/* SECTION 3: BAND / PROJECT HISTORY */}
-                    <section
-                      aria-labelledby="customer-band-history-heading"
-                      className="cal-card bg-studio-white p-3.5 sm:p-4"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Music2 className="text-studio-orange h-4 w-4 shrink-0" aria-hidden="true" />
-                        <h3
-                          id="customer-band-history-heading"
-                          className="font-mono text-xs font-extrabold tracking-wider uppercase"
-                        >
-                          Band / Project History
-                        </h3>
-                      </div>
-                      <p className="text-studio-muted-ink mt-1 text-[11px] font-medium">
-                        Nama band/project adalah snapshot per booking. Satu customer dapat memiliki
-                        beberapa nama band tanpa membuat profil baru.
-                      </p>
-
-                      {bandHistory.length > 0 ? (
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {bandHistory.map((band) => (
-                            <span
-                              key={band}
-                              className="border-studio-ink bg-studio-lime/30 text-studio-ink border px-2.5 py-1 font-mono text-[11px] font-extrabold"
-                            >
-                              {band}
+                          {prev.changedAt ? (
+                            <span className="text-studio-muted-ink text-[10px]">
+                              Diganti: {formatIndonesianTimestamp(prev.changedAt)}
                             </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-studio-subtle-ink mt-2 text-xs">
-                          Belum ada nama band / project yang tercatat pada booking customer ini.
-                        </p>
-                      )}
-                    </section>
-
-                    {/* SECTION 4: BOOKING HISTORY */}
-                    <section
-                      aria-labelledby="customer-booking-history-heading"
-                      className="cal-card bg-studio-white p-3.5 sm:p-4"
-                    >
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-2.5">
-                        <div className="flex items-center gap-1.5">
-                          <CalendarClock
-                            className="text-studio-ink h-4 w-4 shrink-0"
-                            aria-hidden="true"
-                          />
-                          <h3
-                            id="customer-booking-history-heading"
-                            className="font-mono text-xs font-extrabold tracking-wider uppercase"
-                          >
-                            Booking History ({totalLoaded})
-                          </h3>
-                        </div>
-                        <span className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                          Klik item untuk detail booking
-                        </span>
-                      </div>
-
-                      <CustomerBookingHistory
-                        bookings={visibleBookings}
-                        totalLoaded={totalLoaded}
-                        hasMore={hasMore}
-                        isTruncated={isTruncated}
-                        isLoading={isHistoryLoading}
-                        error={historyError}
-                        onLoadMore={loadMore}
-                        onSelectBooking={(booking) => setSelectedBooking(booking)}
-                      />
-                    </section>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                </Dialog.Popup>
-              </Dialog.Portal>
-            </Dialog.Root>
+                ) : null}
 
-            {/* Reusable Calendar Booking Detail Drawer */}
-            <BookingDetailDrawer
-              key={selectedBooking?.id || 'customer-history-booking-closed'}
-              booking={selectedBooking}
-              open={Boolean(selectedBooking)}
-              onOpenChange={(nextOpen) => {
-                if (!nextOpen) setSelectedBooking(null);
-              }}
-              readOnly
-              overlayZIndexClass="z-[70]"
-            />
-          </>
-          );
+                {customer.notes ? (
+                  <div className="mt-3 border-t border-neutral-200 pt-3">
+                    <p className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
+                      Catatan Profil
+                    </p>
+                    <p className="text-studio-ink mt-1 text-xs leading-relaxed font-medium">
+                      {customer.notes}
+                    </p>
+                  </div>
+                ) : null}
+              </section>
+
+              {/* SECTION 2: BOOKING SUMMARY (NO AGGREGATE MONEY TOTALS) */}
+              <section
+                aria-labelledby="customer-summary-heading"
+                className="cal-card bg-studio-white p-3.5 sm:p-4"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <h3
+                    id="customer-summary-heading"
+                    className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                  >
+                    Booking Summary
+                  </h3>
+                  <span className="text-studio-muted-ink font-mono text-[10px] font-bold">
+                    Termasuk cancelled &amp; no-show
+                  </span>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  <div className="border-studio-ink bg-studio-ivory border p-2.5">
+                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                      Total Booking
+                    </span>
+                    <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
+                      {customer.bookingCount}
+                    </span>
+                  </div>
+
+                  <div className="border-studio-ink bg-studio-ivory border p-2.5">
+                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                      Active Bookings
+                    </span>
+                    <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
+                      {isHistoryLoading ? '…' : activeBookingsCount}
+                    </span>
+                  </div>
+
+                  <div className="border-studio-ink bg-studio-ivory border p-2.5">
+                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                      First Booking
+                    </span>
+                    <span className="text-studio-ink mt-1 block font-mono text-[11px] font-extrabold">
+                      {customer.firstBookingDate
+                        ? formatIndonesianDateMedium(customer.firstBookingDate)
+                        : '-'}
+                    </span>
+                  </div>
+
+                  <div className="border-studio-ink bg-studio-ivory border p-2.5">
+                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                      Last Booking
+                    </span>
+                    <span className="text-studio-ink mt-1 block font-mono text-[11px] font-extrabold">
+                      {customer.lastBookingDate
+                        ? formatIndonesianDateMedium(customer.lastBookingDate)
+                        : '-'}
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 3: BAND / PROJECT HISTORY */}
+              <section
+                aria-labelledby="customer-band-history-heading"
+                className="cal-card bg-studio-white p-3.5 sm:p-4"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Music2 className="text-studio-orange h-4 w-4 shrink-0" aria-hidden="true" />
+                  <h3
+                    id="customer-band-history-heading"
+                    className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                  >
+                    Band / Project History
+                  </h3>
+                </div>
+                <p className="text-studio-muted-ink mt-1 text-[11px] font-medium">
+                  Nama band/project adalah snapshot per booking. Satu customer dapat memiliki
+                  beberapa nama band tanpa membuat profil baru.
+                </p>
+
+                {bandHistory.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {bandHistory.map((band) => (
+                      <span
+                        key={band}
+                        className="border-studio-ink bg-studio-lime/30 text-studio-ink border px-2.5 py-1 font-mono text-[11px] font-extrabold"
+                      >
+                        {band}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-studio-subtle-ink mt-2 text-xs">
+                    Belum ada nama band / project yang tercatat pada booking customer ini.
+                  </p>
+                )}
+              </section>
+
+              {/* SECTION 4: INVOICES & PAYMENTS (PHASE 8 INTEGRATION) */}
+              <section
+                aria-labelledby="customer-invoices-heading"
+                className="cal-card bg-studio-white p-3.5 sm:p-4"
+              >
+                <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <ReceiptText className="text-studio-ink h-4 w-4 shrink-0" aria-hidden="true" />
+                    <h3
+                      id="customer-invoices-heading"
+                      className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                    >
+                      Invoices &amp; Payments ({customerInvoices.length})
+                    </h3>
+                  </div>
+                  <Link
+                    to="/admin/payment-and-bill"
+                    className="text-studio-muted-ink hover:text-studio-orange inline-flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase"
+                  >
+                    <span>Payment &amp; Bill</span>
+                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  </Link>
+                </div>
+
+                {invoicesError ? (
+                  <p role="alert" className="text-studio-error-ink text-xs font-bold">
+                    {invoicesError}
+                  </p>
+                ) : isInvoicesLoading ? (
+                  <p className="text-studio-muted-ink font-mono text-[11px] font-bold">
+                    Memuat daftar invoice customer...
+                  </p>
+                ) : customerInvoices.length === 0 ? (
+                  <p className="text-studio-subtle-ink text-xs">
+                    Belum ada invoice yang tertaut pada profil atau riwayat tergabung customer ini.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {customerInvoices.slice(0, 15).map((inv) => {
+                      const isVoid = inv.invoiceStatus === INVOICE_STATUS.VOID;
+                      const effectiveStatus = getEffectivePaymentStatus(inv);
+                      const payMeta = getPaymentStatusMeta(effectiveStatus);
+                      const invMeta = getInvoiceStatusMeta(inv.invoiceStatus);
+
+                      return (
+                        <li
+                          key={inv.id}
+                          className="border-studio-ink bg-studio-ivory/60 flex flex-wrap items-center justify-between gap-2 border p-2.5 text-xs"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-mono text-[11px] font-extrabold">
+                                {inv.invoiceNumber}
+                              </span>
+                              <span
+                                className={`border px-1.5 py-0 font-mono text-[8.5px] font-extrabold uppercase ${
+                                  isVoid ? invMeta.badgeClass : payMeta.badgeClass
+                                }`}
+                              >
+                                {isVoid ? 'VOID' : payMeta.label}
+                              </span>
+                            </div>
+                            <p className="text-studio-muted-ink mt-0.5 font-mono text-[10px] font-semibold">
+                              {inv.bookingSnapshot?.bookingDate
+                                ? formatIndonesianDateMedium(inv.bookingSnapshot.bookingDate)
+                                : '-'}{' '}
+                              • Total {formatRupiah(inv.financialSnapshot?.totalAmount || 0)} • Paid{' '}
+                              {formatRupiah(inv.amountPaid || 0)} • Sisa{' '}
+                              <strong
+                                className={
+                                  inv.balanceDue > 0 && !isVoid
+                                    ? 'text-studio-orange'
+                                    : 'text-emerald-800'
+                                }
+                              >
+                                {formatRupiah(inv.balanceDue || 0)}
+                              </strong>
+                            </p>
+                          </div>
+
+                          <Link
+                            to={`/admin/payment-and-bill?invoiceId=${encodeURIComponent(inv.id)}`}
+                            aria-label={`Buka invoice ${inv.invoiceNumber}`}
+                            className="border-studio-ink bg-studio-ink text-studio-lime hover:bg-studio-orange hover:text-studio-white inline-flex h-7 shrink-0 items-center gap-1 border px-2 font-mono text-[9px] font-extrabold uppercase transition-colors"
+                          >
+                            <span>Open Invoice</span>
+                            <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+
+              {/* SECTION 5: BOOKING HISTORY */}
+              <section
+                aria-labelledby="customer-booking-history-heading"
+                className="cal-card bg-studio-white p-3.5 sm:p-4"
+              >
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <CalendarClock
+                      className="text-studio-ink h-4 w-4 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <h3
+                      id="customer-booking-history-heading"
+                      className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                    >
+                      Booking History ({totalLoaded})
+                    </h3>
+                  </div>
+                  <span className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
+                    Klik item untuk detail booking
+                  </span>
+                </div>
+
+                <CustomerBookingHistory
+                  bookings={visibleBookings}
+                  totalLoaded={totalLoaded}
+                  hasMore={hasMore}
+                  isTruncated={isTruncated}
+                  isLoading={isHistoryLoading}
+                  error={historyError}
+                  onLoadMore={loadMore}
+                  onSelectBooking={(booking) => setSelectedBooking(booking)}
+                />
+              </section>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Reusable Calendar Booking Detail Drawer */}
+      <BookingDetailDrawer
+        key={selectedBooking?.id || 'customer-history-booking-closed'}
+        booking={selectedBooking}
+        open={Boolean(selectedBooking)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setSelectedBooking(null);
+        }}
+        readOnly
+        overlayZIndexClass="z-[70]"
+      />
+    </>
+  );
 }

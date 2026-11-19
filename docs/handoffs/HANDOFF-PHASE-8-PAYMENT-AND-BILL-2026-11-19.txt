@@ -1,0 +1,250 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 8: PAYMENT & BILL MANAGEMENT (INVOICE GENERATION & CUSTOMER PAYMENT LEDGER)
+Date: 2026-11-19
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: d:\PROJECT VS\37V2
+Branch: main
+
+============================================================
+1. STARTING HEAD
+============================================================
+
+- Audited baseline HEAD:
+  387babf64b7893d1ca25ba84f3357b66f39e7a6f
+  (feat: add phase 7 customer management verification script)
+
+============================================================
+2. FINAL IMPLEMENTATION COMMIT
+============================================================
+
+- Status: Uncommitted working tree on branch `main` built cleanly on top of
+  `387babf64b7893d1ca25ba84f3357b66f39e7a6f` (awaiting user review and explicit
+  commit approval; zero deployment, PR merge, or force push performed).
+
+============================================================
+3. FILES CREATED & MODIFIED (PHASE 8)
+============================================================
+
+Created:
+- `src/features/admin/payment/utils/invoice-number.js`
+- `src/features/admin/payment/utils/invoice-status.js`
+- `src/features/admin/payment/utils/payment-calculation.js`
+- `src/features/admin/payment/utils/invoice-format.js`
+- `src/features/admin/payment/schemas/payment-schema.js`
+- `src/features/admin/payment/repositories/payment-repository.js`
+- `src/features/admin/payment/services/invoice-service.js`
+- `src/features/admin/payment/services/payment-service.js`
+- `src/features/admin/payment/services/legacy-invoice-service.js`
+- `src/features/admin/payment/hooks/useInvoices.js`
+- `src/features/admin/payment/hooks/useInvoiceDetail.js`
+- `src/features/admin/payment/hooks/usePaymentTransactions.js`
+- `src/features/admin/payment/hooks/useInvoicePaymentSummaries.js`
+- `src/features/admin/payment/components/PaymentOverviewMetrics.jsx`
+- `src/features/admin/payment/components/PaymentWorkspaceTabs.jsx`
+- `src/features/admin/payment/components/InvoiceDirectoryToolbar.jsx`
+- `src/features/admin/payment/components/InvoiceDirectoryTable.jsx`
+- `src/features/admin/payment/components/InvoiceDetailDrawer.jsx`
+- `src/features/admin/payment/components/InvoicePrintable.jsx`
+- `src/features/admin/payment/components/PaymentTransactionList.jsx`
+- `src/features/admin/payment/components/RecordPaymentDialog.jsx`
+- `src/features/admin/payment/components/PaymentReceipt.jsx`
+- `src/features/admin/payment/components/PaymentCorrectionDialog.jsx`
+- `src/features/admin/payment/components/VoidInvoiceDialog.jsx`
+- `src/features/admin/payment/components/LegacyInvoiceImportDialog.jsx`
+- `src/features/admin/payment/pages/AdminPaymentAndBillPage.jsx`
+- `src/features/admin/payment/payment.test.jsx`
+- `scripts/verify-phase-8-payment-and-bill.ps1`
+- `docs/architecture/PAYMENT-AND-BILL.md`
+- `docs/handoffs/HANDOFF-PHASE-8-PAYMENT-AND-BILL-2026-11-19.txt`
+
+Modified (Phase 8 integration):
+- `src/App.jsx` (`/admin/payment-and-bill` -> `AdminPaymentAndBillPage`)
+- `src/styles/index.css` (`data-payment-scoped` scale parity + A4 `@media print` isolation)
+- `src/features/admin/calendar/repositories/calendar-booking-repository.js` (added `INVOICES` & `PAYMENT_TRANSACTIONS` tx helpers)
+- `src/features/admin/calendar/services/calendar-booking-service.js` (atomic `createBooking()` invoice + initial payment generation + shared in-memory store)
+- `src/features/admin/calendar/hooks/useCalendarBookings.js` (enriches bookings with authoritative Invoice Ledger payment summaries)
+- `src/features/admin/calendar/pages/AdminCalendarPage.jsx` (shared `useCalendarInvoiceSummaries` date-range listener, zero N+1)
+- `src/features/admin/calendar/components/CalendarBookingCard.jsx` (renders latest invoice payment badge)
+- `src/features/admin/calendar/components/UpcomingBookings.jsx` (renders latest invoice payment badge)
+- `src/features/admin/calendar/components/BookingDetailDrawer.jsx` (displays Invoice Number, Invoice Status, Current Payment Status, Paid, Balance Due, repricing mismatch notice, `Open Invoice` deep link)
+- `src/features/admin/calendar/components/BookingFormDialog.jsx` (explicit invoice-snapshot warning when repricing existing bookings)
+- `src/features/admin/customer/pages/AdminCustomersPage.jsx` (`?customerId=` deep-link support from Invoice Detail)
+- `src/features/admin/customer/components/CustomerDetailDrawer.jsx` (`Invoices & Payments` section across virtual merged `historyCustomerIds`)
+- `src/features/admin/admin-shell.test.jsx`
+- `src/features/admin/calendar/calendar.test.jsx`
+- `src/features/admin/calendar/duration-discount.test.jsx`
+- `src/features/admin/customer/customer.test.jsx`
+- `src/features/admin/settings/settings.test.jsx`
+- `firestore.rules`
+
+Note: All pre-existing handoff files under `docs/handoffs/` remain completely intact.
+
+============================================================
+4. FIRESTORE COLLECTIONS
+============================================================
+
+1. `invoices/{invoiceId}` (`inv_{bookingId}`, 20 fields):
+   - Identity: `invoiceNumber`, `bookingId`, `customerId`, `invoiceStatus`, `currency` (`IDR`).
+   - Immutable snapshots: `customerSnapshot`, `bookingSnapshot`, `financialSnapshot` (zero internal commissions).
+   - Transactional aggregates: `amountPaid`, `balanceDue`, `paymentStatus`, `lastPaymentTransactionId`.
+   - Metadata/Audit: `invoiceDate`, `dueDate`, `voidReason`, `createdAt`, `createdByUid`, `updatedAt`, `updatedByUid`, `version`.
+2. `paymentTransactions/{transactionId}` (15 fields, append-only):
+   - References: `invoiceId`, `invoiceNumber`, `bookingId`, `customerId`.
+   - Entry: `transactionType` (`payment` | `reversal`), `amount` (int Rupiah > 0), `currency`, `paymentMethod` (`cash` | `transfer` | `qris` | `other`), `receivedAt`, `referenceNumber`, `notes`.
+   - Provenance: `source` (`booking_initial_payment` | `manual` | `legacy_initial_snapshot` | `reversal`), `reversalOfTransactionId`, `recordedByUid`, `createdAt`.
+
+============================================================
+5. INVOICE NUMBER FORMAT
+============================================================
+
+- Pattern: `37MS-YYYYMMDD-XXXXXXXXXXXX`
+- Deterministic from `bookingDate` (`YYYYMMDD`) + 12 uppercase hex chars of
+  `SHA-256("37ms:invoice:" + bookingId)`.
+- Stable across retries without mutable counter documents; locked immutable in Firestore Rules.
+
+============================================================
+6. AUTOMATIC INVOICE GENERATION FLOW
+============================================================
+
+- Executed atomically inside `createBooking()` (`calendar-booking-service.js`) with all reads
+  preceding all writes:
+  Customer + PhoneIndex + Booking + BookingSlots + BookingEvent + `invoices/inv_{bookingId}`
+  + optional `paymentTransactions/pay_initial_{bookingId}`.
+- Slot conflicts or validation errors abort before any writes -> zero orphan invoices or payments.
+- Retries with the same `bookingId` + `eventId` return the committed booking idempotently.
+
+============================================================
+7. PAYMENT TRANSACTION FLOW
+============================================================
+
+- `recordInvoicePayment()` uses a pre-generated stable `transactionId` inside `runTransaction`:
+  reads invoice + transaction ID first, verifies `issued` status, `expectedVersion`, positive
+  integer Rupiah amount, and `amount <= balanceDue` (overpayment protection), then writes the
+  append-only transaction and updates `amountPaid`, `balanceDue`, `paymentStatus`,
+  `lastPaymentTransactionId`, and `version + 1` atomically.
+- Concurrent payment attempts serialize via optimistic concurrency (`version` / `balanceDue`)
+  preventing negative balances.
+- `reversePaymentTransaction()` creates deterministic append-only reversal records
+  (`pay_rev_{originalTxId}`) with mandatory reason and explicit non-refund confirmation UX.
+- `voidInvoice()` requires `amountPaid === 0` and mandatory reason; void invoices reject new payments.
+
+============================================================
+8. INITIAL PAYMENT INTEGRATION
+============================================================
+
+- Booking Form initial statuses (`unpaid` / `partial` / `paid`) remain preserved on `bookings`
+  as immutable initial snapshots (`initialPaymentStatus`, `initialPaidAmount`, `paymentMethod`).
+- When `initialPaidAmount > 0`, `createBooking()` atomically writes `pay_initial_{bookingId}`
+  with `source = 'booking_initial_payment'`.
+- When `initialPaidAmount === 0`, no payment transaction is written (`amountPaid = 0`, `unpaid`).
+
+============================================================
+9. LEGACY INVOICE RECONCILIATION
+============================================================
+
+- `scanLegacyBookingsForInvoicesPreview()` scans historical bookings via bounded pagination
+  with zero writes on render, classifying inconsistent initial payments and cancelled/no-show
+  records into `Needs Review`.
+- `importLegacyBookingInvoices()` creates deterministic invoices (`inv_{bookingId}`) and
+  `legacy_initial_snapshot` transactions (`pay_initial_{bookingId}`) in resumable batches
+  (`<= 400` writes, keeping invoice/payment pairs atomic in the same batch), without touching
+  historical bookings, slots, events, or customers, and with strict anti-double-counting on retry.
+- `reconcileNeedsReviewLegacyBooking()` reconciles flagged items explicitly per record.
+
+============================================================
+10. FIRESTORE RULES UPDATES (`firestore.rules`)
+============================================================
+
+- Added `match /invoices/{invoiceId}` and `match /paymentTransactions/{transactionId}` under
+  active Owner/Staff authorization (`isActiveStaff()`), denying anonymous and inactive access.
+- Enforces 20-field invoice & 15-field transaction schemas, immutable snapshots & invoiceNumber,
+  permanent delete denial on invoices, update & delete denial on paymentTransactions,
+  atomic `getAfter()` verification of `amountPaid` / `balanceDue` updates against the newly created
+  payment/reversal transaction, deterministic reversal ID `pay_rev_{originalTxId}`, and void guards.
+- Live Firebase Firestore Emulator verification:
+  - Phase 8 suite: PASSED 22/22 checks (`RULES_V8_SUMMARY: 22 passed, 0 failed`).
+  - Phase 7 regression suite: PASSED 21/21 checks (`RULES_V7_SUMMARY: 21 passed, 0 failed`).
+
+============================================================
+11. CALENDAR INTEGRATION
+============================================================
+
+- `AdminCalendarPage` opens ONE shared realtime range subscription via
+  `useCalendarInvoiceSummaries` (`bookingSnapshot.bookingDate`, zero custom composite index,
+  zero N+1 listeners).
+- `CalendarBookingCard`, `UpcomingBookings`, Calendar Payment Status Filter, and
+  `BookingDetailDrawer` display live Invoice Ledger status (`Paid`/`Lunas`, `Partial`/`DP`,
+  `Unpaid`/`Belum Bayar`, `Overdue`), Invoice Number, Paid, Balance Due, and `Open Invoice`
+  deep link (`/admin/payment-and-bill?invoiceId=...`).
+- Repricing an existing booking preserves issued invoice snapshots and displays an explicit warning.
+
+============================================================
+12. CUSTOMER INTEGRATION
+============================================================
+
+- `CustomerDetailDrawer` adds an `Invoices & Payments` section powered by `useCustomerInvoices`
+  (chunked `<= 10` `in` queries across `customer.historyCustomerIds`, fully compatible with
+  virtual merged customer histories) with direct `Open Invoice` links.
+- `AdminCustomersPage` supports `?customerId=...` deep links from `InvoiceDetailDrawer`.
+
+============================================================
+13. TEST RESULTS
+============================================================
+
+- Live Firestore Emulator Rules Verification:
+  - Phase 8 (`verify-firestore-rules-v8.mjs`): PASSED 22/22 checks (0 failed).
+  - Phase 7 Regression (`verify-firestore-rules-v7.mjs`): PASSED 21/21 checks (0 failed).
+- Prettier Format Check (`npx prettier --check --end-of-line auto ...`):
+  - PASSED (All matched Phase 8 files use Prettier code style).
+- ESLint (`npm run lint`):
+  - PASSED (0 errors, 0 warnings).
+- Vitest Automated Test Suite (`npm run test:run`):
+  - PASSED: 9 test files passed (9/9), 75 tests passed (75/75) in 17.91s:
+    - `src/lib/utils.test.js` (2 tests)
+    - `src/pages/LandingPage.test.jsx` (10 tests)
+    - `src/features/auth/auth.test.jsx` (12 tests)
+    - `src/features/admin/admin-shell.test.jsx` (5 tests)
+    - `src/features/admin/calendar/calendar.test.jsx` (11 tests)
+    - `src/features/admin/calendar/duration-discount.test.jsx` (16 tests)
+    - `src/features/admin/settings/settings.test.jsx` (7 tests)
+    - `src/features/admin/customer/customer.test.jsx` (6 tests)
+    - `src/features/admin/payment/payment.test.jsx` (6 tests)
+
+============================================================
+14. BUILD RESULTS
+============================================================
+
+- Production Build (`npm run build` / Vite v8.3.8):
+  - PASSED: 3,372 modules transformed, built in 5.05s (`EXIT_CODE=0`).
+
+============================================================
+15. RESPONSIVE QA
+============================================================
+
+- Real Headless Chrome CDP Responsive QA (`qa-phase8-payment.mjs`) across all 10 viewports
+  (`286, 320, 360, 375, 390, 430, 768, 1024, 1280, 1440` px) x 5 interactive views
+  (Invoices directory, Transactions tab, Invoice Detail Drawer, Record Payment Dialog,
+  Printable A4 Invoice Preview):
+  - PASSED 50/50 checks (`PHASE_8_PAYMENT_RESPONSIVE_QA=PASSED`, 0 horizontal overflow,
+    0 clipping/offender elements, 0 runtime console/page errors).
+  - Visual screenshot inspection verified crisp Neo-Brutalist alignment on desktop (1440px)
+    and mobile (375px) matching Calendar & Customer scale.
+
+============================================================
+16. VERIFICATION LOG
+============================================================
+
+- Script: `scripts/verify-phase-8-payment-and-bill.ps1`
+- Final passed log: `.logs/phase-8-payment-and-bill-verification-20261119-163007.txt`
+- Status: `PHASE_8_PAYMENT_AND_BILL_VERIFICATION=PASSED` (`EXIT_CODE=0`)
+
+============================================================
+17. KNOWN LIMITATIONS
+============================================================
+
+- Updated `firestore.rules` has been verified locally on the Firestore Emulator and NOT
+  deployed to production Firebase (`studio37classic`) per no-deployment rules.
+- Excludes accounting/bookkeeping ledgers, P&L/cash-flow reports, staff/owner/operator payouts,
+  payroll, tax/PPN/NPWP, bank APIs, payment gateways, online customer portals, public invoice
+  URLs, automated WhatsApp sending, payment proof file uploads (Firebase Storage), physical
+  refund settlement workflows, and multi-booking consolidated invoices.

@@ -155,6 +155,10 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
         expect(screen.getByText(/studio booking schedule/i)).toBeTruthy();
       } else if (mod.label === 'Customer') {
         expect(screen.getByText(/customer directory & booking history/i)).toBeTruthy();
+      } else if (mod.label === 'Payment and Bill') {
+        expect(
+          screen.getByText(/invoices, customer payments, and outstanding balances\./i),
+        ).toBeTruthy();
       } else if (mod.label === 'Settings') {
         expect(screen.getByRole('heading', { name: /price and fee settings/i })).toBeTruthy();
       } else {

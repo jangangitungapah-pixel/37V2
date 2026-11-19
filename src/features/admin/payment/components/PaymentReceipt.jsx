@@ -1,0 +1,244 @@
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Dialog } from '@base-ui/react/dialog';
+import { Check, Copy, Printer, ReceiptText, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { getPaymentMethodLabel } from '@/features/admin/calendar/config/calendar-config';
+import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
+import { formatIndonesianTimestamp } from '@/features/admin/calendar/utils/calendar-date';
+
+import { buildWhatsAppReceiptSummary } from '../utils/invoice-format';
+import {
+  getPaymentSourceMeta,
+  getTransactionTypeMeta,
+  TRANSACTION_TYPE,
+} from '../utils/invoice-status';
+
+function getOrCreatePrintPortalElement() {
+  if (typeof document === 'undefined') return null;
+  let el = document.getElementById('studio-print-portal');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'studio-print-portal';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+export function PaymentReceiptSheet({ transaction, invoice }) {
+  if (!transaction) return null;
+
+  const isReversal = transaction.transactionType === TRANSACTION_TYPE.REVERSAL;
+  const typeMeta = getTransactionTypeMeta(transaction.transactionType);
+  const sourceMeta = getPaymentSourceMeta(transaction.source);
+
+  return (
+    <article className="border-studio-ink bg-studio-white text-studio-ink mx-auto w-full max-w-md border-2 p-5 print:max-w-[440px] print:border">
+      <header className="border-studio-ink flex items-start justify-between gap-3 border-b-2 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="border-studio-ink bg-studio-lime text-studio-ink font-display flex h-9 w-9 shrink-0 items-center justify-center border-2 text-lg leading-none font-black">
+            37
+          </div>
+          <div>
+            <p className="font-display text-lg leading-none font-black uppercase">
+              37 MUSIC STUDIO
+            </p>
+            <p className="text-studio-muted-ink font-mono text-[9px] font-bold uppercase">
+              {isReversal ? 'PAYMENT REVERSAL RECORD' : 'PAYMENT RECEIPT'}
+            </p>
+          </div>
+        </div>
+        <span
+          className={`border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase ${typeMeta.badgeClass}`}
+        >
+          {typeMeta.label}
+        </span>
+      </header>
+
+      <div className="border-studio-ink bg-studio-ivory mt-4 border-2 p-3 text-center">
+        <p className="text-studio-muted-ink font-mono text-[9.5px] font-bold uppercase">
+          {isReversal ? 'Nominal Koreksi (Reversal)' : 'Jumlah Pembayaran Diterima'}
+        </p>
+        <p
+          className={`font-display mt-1 text-3xl leading-none font-black tabular-nums ${
+            isReversal ? 'text-studio-orange' : 'text-studio-ink'
+          }`}
+        >
+          {isReversal ? '-' : ''}
+          {formatRupiah(transaction.amount)}
+        </p>
+      </div>
+
+      <dl className="mt-4 space-y-2 font-mono text-[11px]">
+        <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
+          <dt className="text-studio-muted-ink">Receipt / Tx ID</dt>
+          <dd className="text-right font-extrabold break-all">{transaction.id}</dd>
+        </div>
+        <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
+          <dt className="text-studio-muted-ink">Invoice Number</dt>
+          <dd className="text-right font-extrabold">
+            {transaction.invoiceNumber || invoice?.invoiceNumber || '-'}
+          </dd>
+        </div>
+        <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
+          <dt className="text-studio-muted-ink">Customer</dt>
+          <dd className="text-right font-bold">{invoice?.customerSnapshot?.name || '-'}</dd>
+        </div>
+        <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
+          <dt className="text-studio-muted-ink">Payment Date</dt>
+          <dd className="text-right font-bold">
+            {formatIndonesianTimestamp(transaction.receivedAt || transaction.createdAt)}
+          </dd>
+        </div>
+        <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
+          <dt className="text-studio-muted-ink">Method</dt>
+          <dd className="text-right font-extrabold">
+            {getPaymentMethodLabel(transaction.paymentMethod)}
+          </dd>
+        </div>
+        <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
+          <dt className="text-studio-muted-ink">Source</dt>
+          <dd className="text-right font-bold">{sourceMeta.label}</dd>
+        </div>
+        {transaction.referenceNumber ? (
+          <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
+            <dt className="text-studio-muted-ink">Reference</dt>
+            <dd className="text-right font-bold">{transaction.referenceNumber}</dd>
+          </div>
+        ) : null}
+        {transaction.reversalOfTransactionId ? (
+          <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
+            <dt className="text-studio-muted-ink">Reversal Of</dt>
+            <dd className="text-right font-bold break-all">
+              {transaction.reversalOfTransactionId}
+            </dd>
+          </div>
+        ) : null}
+        <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
+          <dt className="text-studio-muted-ink">Recorded By</dt>
+          <dd className="text-right font-bold">{transaction.recordedByUid || '-'}</dd>
+        </div>
+        {transaction.notes ? (
+          <div className="pt-1">
+            <dt className="text-studio-muted-ink text-[9.5px] uppercase">Notes</dt>
+            <dd className="mt-0.5 font-sans text-xs font-medium">{transaction.notes}</dd>
+          </div>
+        ) : null}
+      </dl>
+
+      <footer className="border-studio-ink mt-5 border-t pt-2.5 text-center font-mono text-[9.5px] text-neutral-600">
+        37 MUSIC STUDIO • Bukti Pencatatan Transaksi Pembayaran
+      </footer>
+    </article>
+  );
+}
+
+export function PaymentReceipt({ open, transaction, invoice, onOpenChange }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleAfterPrint = () => {
+      document.body.removeAttribute('data-studio-print-mode');
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+      document.body.removeAttribute('data-studio-print-mode');
+    };
+  }, [open]);
+
+  if (!transaction) return null;
+
+  const portalRoot = open ? getOrCreatePrintPortalElement() : null;
+
+  const handlePrint = () => {
+    document.body.setAttribute('data-studio-print-mode', 'true');
+    window.print();
+    window.setTimeout(() => {
+      document.body.removeAttribute('data-studio-print-mode');
+    }, 800);
+  };
+
+  const handleCopy = async () => {
+    const text = buildWhatsAppReceiptSummary({ transaction, invoice });
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      }
+      setCopied(true);
+      toast.success('Ringkasan receipt berhasil disalin.');
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Tidak dapat mengakses clipboard browser.');
+    }
+  };
+
+  return (
+    <>
+      <Dialog.Root open={open} onOpenChange={onOpenChange}>
+        <Dialog.Portal>
+          <Dialog.Backdrop className="no-print fixed inset-0 z-[70] bg-black/75 backdrop-blur-[1px]" />
+
+          <Dialog.Popup
+            aria-label={`Receipt transaksi ${transaction.id}`}
+            data-payment-scoped="true"
+            className="no-print border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-[80] mx-auto flex max-h-[92dvh] w-full max-w-lg flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:border-2"
+          >
+            <div className="border-studio-ink bg-studio-ink text-studio-ivory flex shrink-0 items-center justify-between gap-2 border-b-2 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <ReceiptText className="text-studio-lime h-4 w-4 shrink-0" aria-hidden="true" />
+                <Dialog.Title className="font-display truncate text-lg leading-none font-black text-white uppercase">
+                  Payment Receipt
+                </Dialog.Title>
+              </div>
+
+              <Dialog.Close
+                aria-label="Tutup receipt pembayaran"
+                className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Dialog.Close>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <PaymentReceiptSheet transaction={transaction} invoice={invoice} />
+            </div>
+
+            <div className="border-studio-ink bg-studio-white flex shrink-0 flex-wrap items-center justify-end gap-2 border-t-2 px-4 py-3">
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="cal-control bg-studio-ivory text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase"
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                <span>{copied ? 'Disalin' : 'Copy Receipt Summary'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="cal-control bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 font-mono text-[10px] font-extrabold uppercase"
+              >
+                <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Print Receipt</span>
+              </button>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {portalRoot
+        ? createPortal(
+            <PaymentReceiptSheet transaction={transaction} invoice={invoice} />,
+            portalRoot,
+          )
+        : null}
+    </>
+  );
+}

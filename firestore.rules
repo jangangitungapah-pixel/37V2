@@ -391,6 +391,202 @@ service cloud.firestore {
         && isLinkedCustomerPhoneMatchedAfter(reqData.customerId, reqData.phoneNormalized, false);
     }
 
+    function isValidInvoiceSnapshots(data) {
+      return data.customerSnapshot is map
+        && data.customerSnapshot.size() == 3
+        && data.customerSnapshot.name is string
+        && data.customerSnapshot.name.size() > 0
+        && data.customerSnapshot.phone is string
+        && data.customerSnapshot.bandName is string
+        && data.bookingSnapshot is map
+        && data.bookingSnapshot.size() == 7
+        && data.bookingSnapshot.serviceTypeName is string
+        && data.bookingSnapshot.serviceOptionName is string
+        && data.bookingSnapshot.studioId in ['room-a', 'room-b']
+        && data.bookingSnapshot.bookingDate is string
+        && data.bookingSnapshot.bookingDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.bookingSnapshot.startMinute is int
+        && data.bookingSnapshot.endMinute is int
+        && data.bookingSnapshot.durationMinutes is int
+        && data.bookingSnapshot.durationMinutes > 0
+        && data.financialSnapshot is map
+        && data.financialSnapshot.size() == 3
+        && data.financialSnapshot.subtotal is int
+        && data.financialSnapshot.subtotal >= 0
+        && data.financialSnapshot.discountAmount is int
+        && data.financialSnapshot.discountAmount >= 0
+        && data.financialSnapshot.discountAmount <= data.financialSnapshot.subtotal
+        && data.financialSnapshot.totalAmount is int
+        && data.financialSnapshot.totalAmount == data.financialSnapshot.subtotal - data.financialSnapshot.discountAmount;
+    }
+
+    function isValidInvoicePaymentMath(data) {
+      return data.amountPaid is int
+        && data.amountPaid >= 0
+        && data.amountPaid <= data.financialSnapshot.totalAmount
+        && data.balanceDue is int
+        && data.balanceDue == data.financialSnapshot.totalAmount - data.amountPaid
+        && data.paymentStatus == (
+          data.balanceDue == 0
+            ? 'paid'
+            : (data.amountPaid > 0 ? 'partial' : 'unpaid')
+        );
+    }
+
+    function isValidInvoiceBase(data, invoiceId) {
+      return data.size() == 20
+        && data.invoiceNumber is string
+        && data.invoiceNumber.matches('^37MS-\\d{8}-[A-Z0-9]{12}$')
+        && data.bookingId is string
+        && data.bookingId.size() > 0
+        && invoiceId == 'inv_' + data.bookingId
+        && data.customerId is string
+        && data.invoiceStatus in ['draft', 'issued', 'void']
+        && data.currency == 'IDR'
+        && isValidInvoiceSnapshots(data)
+        && isValidInvoicePaymentMath(data)
+        && data.invoiceDate is timestamp
+        && (data.dueDate == null
+          || (data.dueDate is string && data.dueDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && (data.lastPaymentTransactionId == null
+          || (data.lastPaymentTransactionId is string && data.lastPaymentTransactionId.size() > 0))
+        && data.voidReason is string
+        && data.voidReason.size() <= 300
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidInitialInvoicePaymentLinkAfter(data, invoiceId) {
+      return data.amountPaid == 0
+        ? data.lastPaymentTransactionId == null
+        : (
+          data.lastPaymentTransactionId is string
+          && data.lastPaymentTransactionId.size() > 0
+          && existsAfter(/databases/$(database)/documents/paymentTransactions/$(data.lastPaymentTransactionId))
+          && getAfter(/databases/$(database)/documents/paymentTransactions/$(data.lastPaymentTransactionId)).data.invoiceId == invoiceId
+          && getAfter(/databases/$(database)/documents/paymentTransactions/$(data.lastPaymentTransactionId)).data.transactionType == 'payment'
+          && getAfter(/databases/$(database)/documents/paymentTransactions/$(data.lastPaymentTransactionId)).data.amount == data.amountPaid
+        );
+    }
+
+    function isInvoiceImmutableFieldsUnchanged(reqData, resData) {
+      return reqData.invoiceNumber == resData.invoiceNumber
+        && reqData.bookingId == resData.bookingId
+        && reqData.customerId == resData.customerId
+        && reqData.currency == resData.currency
+        && reqData.customerSnapshot == resData.customerSnapshot
+        && reqData.bookingSnapshot == resData.bookingSnapshot
+        && reqData.financialSnapshot == resData.financialSnapshot
+        && reqData.invoiceDate == resData.invoiceDate
+        && reqData.createdAt == resData.createdAt
+        && reqData.createdByUid == resData.createdByUid;
+    }
+
+    function isInvoiceAggregateMatchingTxAfter(reqData, resData, invoiceId) {
+      let txAfter = getAfter(/databases/$(database)/documents/paymentTransactions/$(reqData.lastPaymentTransactionId));
+      return txAfter != null
+        && txAfter.data.invoiceId == invoiceId
+        && (
+          txAfter.data.transactionType == 'payment'
+            ? reqData.amountPaid == resData.amountPaid + txAfter.data.amount
+            : (txAfter.data.transactionType == 'reversal'
+                && reqData.amountPaid == resData.amountPaid - txAfter.data.amount)
+        );
+    }
+
+    function isValidInvoicePaymentAggregateUpdate(reqData, resData, invoiceId) {
+      return resData.invoiceStatus == 'issued'
+        && reqData.invoiceStatus == 'issued'
+        && reqData.voidReason == resData.voidReason
+        && reqData.dueDate == resData.dueDate
+        && reqData.lastPaymentTransactionId is string
+        && reqData.lastPaymentTransactionId.size() > 0
+        && reqData.lastPaymentTransactionId != resData.lastPaymentTransactionId
+        && existsAfter(/databases/$(database)/documents/paymentTransactions/$(reqData.lastPaymentTransactionId))
+        && isInvoiceAggregateMatchingTxAfter(reqData, resData, invoiceId);
+    }
+
+    function isValidInvoiceVoidUpdate(reqData, resData) {
+      return resData.invoiceStatus == 'issued'
+        && reqData.invoiceStatus == 'void'
+        && resData.amountPaid == 0
+        && reqData.amountPaid == 0
+        && reqData.balanceDue == resData.balanceDue
+        && reqData.paymentStatus == resData.paymentStatus
+        && reqData.lastPaymentTransactionId == resData.lastPaymentTransactionId
+        && reqData.dueDate == resData.dueDate
+        && reqData.voidReason is string
+        && reqData.voidReason.size() >= 3;
+    }
+
+    function isValidInvoiceDueDateUpdate(reqData, resData) {
+      return resData.invoiceStatus == 'issued'
+        && reqData.invoiceStatus == 'issued'
+        && reqData.amountPaid == resData.amountPaid
+        && reqData.balanceDue == resData.balanceDue
+        && reqData.paymentStatus == resData.paymentStatus
+        && reqData.lastPaymentTransactionId == resData.lastPaymentTransactionId
+        && reqData.voidReason == resData.voidReason
+        && reqData.dueDate != resData.dueDate;
+    }
+
+    function isValidReversalOriginalPayment(data) {
+      return exists(/databases/$(database)/documents/paymentTransactions/$(data.reversalOfTransactionId))
+        && get(/databases/$(database)/documents/paymentTransactions/$(data.reversalOfTransactionId)).data.transactionType == 'payment'
+        && get(/databases/$(database)/documents/paymentTransactions/$(data.reversalOfTransactionId)).data.invoiceId == data.invoiceId
+        && get(/databases/$(database)/documents/paymentTransactions/$(data.reversalOfTransactionId)).data.amount == data.amount;
+    }
+
+    function isTxInvoiceConsistentAfter(data) {
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$(data.invoiceId));
+      return invAfter != null
+        && invAfter.data.invoiceStatus == 'issued'
+        && invAfter.data.bookingId == data.bookingId
+        && invAfter.data.customerId == data.customerId
+        && invAfter.data.invoiceNumber == data.invoiceNumber;
+    }
+
+    function isValidPaymentTransactionCreate(data, transactionId) {
+      return data.size() == 15
+        && data.invoiceId is string
+        && data.invoiceId.size() > 0
+        && data.invoiceNumber is string
+        && data.invoiceNumber.matches('^37MS-\\d{8}-[A-Z0-9]{12}$')
+        && data.bookingId is string
+        && data.bookingId.size() > 0
+        && data.customerId is string
+        && data.transactionType in ['payment', 'reversal']
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && data.paymentMethod in ['cash', 'transfer', 'qris', 'other']
+        && data.receivedAt is timestamp
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && data.notes is string
+        && data.notes.size() <= 400
+        && data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot', 'reversal']
+        && data.recordedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && existsAfter(/databases/$(database)/documents/invoices/$(data.invoiceId))
+        && isTxInvoiceConsistentAfter(data)
+        && (
+          data.transactionType == 'payment'
+            ? (data.reversalOfTransactionId == null
+                && data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot'])
+            : (data.source == 'reversal'
+                && data.reversalOfTransactionId is string
+                && data.reversalOfTransactionId.size() > 0
+                && transactionId == 'pay_rev_' + data.reversalOfTransactionId
+                && data.notes.size() >= 3
+                && isValidReversalOriginalPayment(data))
+        );
+    }
+
     match /staffProfiles/{uid} {
       allow get: if request.auth != null
                  && request.auth.uid == uid;
@@ -536,6 +732,40 @@ service cloud.firestore {
         && existsAfter(
           /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
         );
+
+      allow update, delete: if false;
+    }
+
+    match /invoices/{invoiceId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidInvoiceBase(request.resource.data, invoiceId)
+        && request.resource.data.invoiceStatus in ['draft', 'issued']
+        && request.resource.data.voidReason == ''
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.version == 1
+        && existsAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
+        && isValidInitialInvoicePaymentLinkAfter(request.resource.data, invoiceId);
+
+      allow update: if isActiveStaff()
+        && isValidInvoiceBase(request.resource.data, invoiceId)
+        && isInvoiceImmutableFieldsUnchanged(request.resource.data, resource.data)
+        && request.resource.data.version == resource.data.version + 1
+        && (
+          isValidInvoicePaymentAggregateUpdate(request.resource.data, resource.data, invoiceId)
+          || isValidInvoiceVoidUpdate(request.resource.data, resource.data)
+          || isValidInvoiceDueDateUpdate(request.resource.data, resource.data)
+        );
+
+      allow delete: if false;
+    }
+
+    match /paymentTransactions/{transactionId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidPaymentTransactionCreate(request.resource.data, transactionId);
 
       allow update, delete: if false;
     }

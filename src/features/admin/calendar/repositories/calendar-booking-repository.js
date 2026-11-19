@@ -2,6 +2,10 @@ import {
   normalizeCustomerRecord,
   normalizePhoneIndexRecord,
 } from '@/features/admin/customer/schemas/customer-schema';
+import {
+  normalizeInvoiceRecord,
+  normalizePaymentTransactionRecord,
+} from '@/features/admin/payment/schemas/payment-schema';
 
 import {
   BOOKING_SESSION_STATUS,
@@ -16,6 +20,8 @@ export const FIRESTORE_COLLECTIONS = {
   BOOKING_EVENTS: 'bookingEvents',
   CUSTOMERS: 'customers',
   CUSTOMER_PHONE_INDEX: 'customerPhoneIndex',
+  INVOICES: 'invoices',
+  PAYMENT_TRANSACTIONS: 'paymentTransactions',
 };
 
 /**
@@ -257,6 +263,16 @@ export function createFirestoreBookingRepositoryAdapter() {
             const snap = await tx.get(ref);
             return snap.exists() ? normalizePhoneIndexRecord(snap.id, snap.data()) : null;
           },
+          async getInvoice(invoiceId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.INVOICES, invoiceId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizeInvoiceRecord(snap.id, snap.data()) : null;
+          },
+          async getPaymentTransaction(transactionId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS, transactionId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizePaymentTransactionRecord(snap.id, snap.data()) : null;
+          },
           setBooking(bookingId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKINGS, bookingId);
             tx.set(ref, data);
@@ -287,6 +303,18 @@ export function createFirestoreBookingRepositoryAdapter() {
           },
           setPhoneIndex(phoneHash, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMER_PHONE_INDEX, phoneHash);
+            tx.set(ref, data);
+          },
+          setInvoice(invoiceId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.INVOICES, invoiceId);
+            tx.set(ref, data);
+          },
+          updateInvoice(invoiceId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.INVOICES, invoiceId);
+            tx.update(ref, data);
+          },
+          setPaymentTransaction(transactionId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS, transactionId);
             tx.set(ref, data);
           },
         };

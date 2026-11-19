@@ -6,6 +6,7 @@ import { AdminCustomersPage } from '@/features/admin/customer/pages/AdminCustome
 import { AdminLayout } from '@/features/admin/layout/AdminLayout';
 import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
 import { AdminModulePlaceholderPage } from '@/features/admin/pages/AdminModulePlaceholderPage';
+import { AdminPaymentAndBillPage } from '@/features/admin/payment/pages/AdminPaymentAndBillPage';
 import { AdminSettingsPage } from '@/features/admin/settings/pages/AdminSettingsPage';
 import { PriceAndFeeSettingsPage } from '@/features/admin/settings/pages/PriceAndFeeSettingsPage';
 import { RequireStaff } from '@/features/auth/RequireStaff';
@@ -30,10 +31,7 @@ export function AppRoutes() {
         <Route path="dashboard" element={<AdminDashboardPage />} />
         <Route path="calendar" element={<AdminCalendarPage />} />
         <Route path="customer" element={<AdminCustomersPage />} />
-        <Route
-          path="payment-and-bill"
-          element={<AdminModulePlaceholderPage moduleId="payment-and-bill" />}
-        />
+        <Route path="payment-and-bill" element={<AdminPaymentAndBillPage />} />
         <Route
           path="commission-and-fee"
           element={<AdminModulePlaceholderPage moduleId="commission-and-fee" />}

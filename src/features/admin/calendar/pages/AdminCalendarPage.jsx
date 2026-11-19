@@ -2,8 +2,9 @@ import { useMemo, useRef, useState } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { useAuth } from '@/features/auth/AuthContext';
 import { usePricingSettings } from '@/features/admin/settings/hooks/usePricingSettings';
+import { useCalendarInvoiceSummaries } from '@/features/admin/payment/hooks/useInvoicePaymentSummaries';
+import { useAuth } from '@/features/auth/AuthContext';
 
 import { BookingDetailDrawer } from '../components/BookingDetailDrawer';
 import { BookingFormDialog } from '../components/BookingFormDialog';
@@ -62,6 +63,12 @@ export function AdminCalendarPage() {
     [viewMode, activeDate],
   );
 
+  // Single shared invoice range listener (zero N+1 per-booking listeners)
+  const { invoicesByBookingId } = useCalendarInvoiceSummaries({
+    startDate: viewDateRange.startDate,
+    endDate: viewDateRange.endDate,
+  });
+
   const {
     allBookings,
     activeSlotBookings,
@@ -78,6 +85,7 @@ export function AdminCalendarPage() {
     paymentFilter,
     showCancelled,
     searchQuery,
+    invoicesByBookingId,
   });
 
   const selectedBooking = useMemo(() => {

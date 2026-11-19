@@ -54,6 +54,11 @@ import {
   resetCustomerRepositoryAdapter,
   setCustomerRepositoryAdapter,
 } from '@/features/admin/customer/repositories/customer-repository';
+import {
+  createInMemoryPaymentRepositoryAdapter,
+  resetPaymentRepositoryAdapter,
+  setPaymentRepositoryAdapter,
+} from '@/features/admin/payment/repositories/payment-repository';
 import { INITIAL_PAYMENT_STATUS } from './config/calendar-config';
 import {
   resetBookingRepositoryAdapter,
@@ -142,6 +147,7 @@ describe('Duration-Based Automatic Discount (Catalog V2 Integrated)', () => {
     setPricingSettingsRepositoryAdapter(pricingAdapter);
     setBookingRepositoryAdapter(bookingAdapter);
     setCustomerRepositoryAdapter(createInMemoryCustomerRepositoryAdapter(bookingAdapter));
+    setPaymentRepositoryAdapter(createInMemoryPaymentRepositoryAdapter(bookingAdapter));
   });
 
   afterEach(() => {
@@ -149,6 +155,7 @@ describe('Duration-Based Automatic Discount (Catalog V2 Integrated)', () => {
     resetPricingSettingsRepositoryAdapter();
     resetBookingRepositoryAdapter();
     resetCustomerRepositoryAdapter();
+    resetPaymentRepositoryAdapter();
   });
 
   describe('1. Domain Calculator & Business Rules', () => {

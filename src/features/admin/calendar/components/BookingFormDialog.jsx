@@ -162,7 +162,7 @@ function buildInitialFormValues({ mode, initialSlot, editingBooking, normalizedS
 
   const defaultDuration =
     defaultOption?.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
-      defaultOption.pricing.durationMinutes > 0
+    defaultOption.pricing.durationMinutes > 0
       ? String(defaultOption.pricing.durationMinutes)
       : '60';
 
@@ -650,7 +650,7 @@ export function BookingFormDialog({
 
     const nextDurationPreset =
       nextDefaultOption?.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
-        nextDefaultOption.pricing.durationMinutes > 0
+      nextDefaultOption.pricing.durationMinutes > 0
         ? PRESET_MINUTE_SET.has(nextDefaultOption.pricing.durationMinutes)
           ? String(nextDefaultOption.pricing.durationMinutes)
           : 'custom'
@@ -671,7 +671,7 @@ export function BookingFormDialog({
       durationPreset: nextDurationPreset,
       customDurationMinutes:
         nextDefaultOption?.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
-          nextDefaultOption.pricing.durationMinutes > 0
+        nextDefaultOption.pricing.durationMinutes > 0
           ? String(nextDefaultOption.pricing.durationMinutes)
           : prev.customDurationMinutes,
     }));
@@ -965,10 +965,11 @@ export function BookingFormDialog({
                       type="button"
                       onClick={() => handleStepSelect(step.id)}
                       aria-current={isStepActive ? 'step' : undefined}
-                      className={`flex min-h-11 cursor-pointer items-center justify-between gap-2 border px-2.5 py-1.5 text-left transition-colors ${isStepActive
+                      className={`flex min-h-11 cursor-pointer items-center justify-between gap-2 border px-2.5 py-1.5 text-left transition-colors ${
+                        isStepActive
                           ? 'border-studio-ivory bg-studio-lime text-studio-ink font-extrabold'
                           : 'border-neutral-700 bg-neutral-900 text-neutral-200 hover:border-neutral-500'
-                        }`}
+                      }`}
                     >
                       <div className="flex min-w-0 items-center gap-1.5">
                         <StepIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -980,10 +981,11 @@ export function BookingFormDialog({
                       {isStepValid ? (
                         <span
                           title={`Tahap ${step.label} lengkap`}
-                          className={`flex h-4 w-4 shrink-0 items-center justify-center border ${isStepActive
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center border ${
+                            isStepActive
                               ? 'border-studio-ink bg-studio-ink text-studio-lime'
                               : 'border-studio-lime bg-studio-lime text-studio-ink'
-                            }`}
+                          }`}
                         >
                           <Check className="h-3 w-3 stroke-[3]" aria-hidden="true" />
                         </span>
@@ -1081,21 +1083,20 @@ export function BookingFormDialog({
                         value={formValues.phone}
                         onChange={(e) => handleFieldChange('phone', e.target.value)}
                         onBlur={() => {
-                            if (
-                              !isEditingOrRescheduling &&
-                              currentPhoneNormalized &&
-                              !conflictDialogOpen &&
-                              !(
-                                lookupState.status === 'resolved' &&
-                                lookupState.phoneNormalized === currentPhoneNormalized
-                              )
-                            ) {
-                              runPhoneLookup(formValues.phone, formValues.customerName, {
-                                openDialogOnConflict: true,
-                              });
-                            }
+                          if (
+                            !isEditingOrRescheduling &&
+                            currentPhoneNormalized &&
+                            !conflictDialogOpen &&
+                            !(
+                              lookupState.status === 'resolved' &&
+                              lookupState.phoneNormalized === currentPhoneNormalized
+                            )
+                          ) {
+                            runPhoneLookup(formValues.phone, formValues.customerName, {
+                              openDialogOnConflict: true,
+                            });
                           }
-                        }
+                        }}
                         placeholder="Contoh: 081234567890"
                         className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-bold"
                       />
@@ -1352,10 +1353,11 @@ export function BookingFormDialog({
                             type="button"
                             onClick={() => handleSelectServiceType(service.id)}
                             aria-pressed={isSelected}
-                            className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${isSelected
+                            className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${
+                              isSelected
                                 ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
                                 : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
-                              }`}
+                            }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="font-display text-lg leading-none font-black uppercase">
@@ -1411,18 +1413,20 @@ export function BookingFormDialog({
                             type="button"
                             onClick={() => handleSelectSubcategory(option.id)}
                             aria-pressed={isSelected}
-                            className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${isSelected
+                            className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${
+                              isSelected
                                 ? 'border-studio-ink bg-studio-ink text-studio-white shadow-[2px_2px_0px_#151515]'
                                 : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
-                              }`}
+                            }`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <span className="font-display text-lg leading-none font-black uppercase">
                                 {option.name}
                               </span>
                               <span
-                                className={`shrink-0 font-mono text-[11px] font-extrabold ${isSelected ? 'text-studio-lime' : 'text-studio-ink'
-                                  }`}
+                                className={`shrink-0 font-mono text-[11px] font-extrabold ${
+                                  isSelected ? 'text-studio-lime' : 'text-studio-ink'
+                                }`}
                               >
                                 {summary.primary}
                               </span>
@@ -1430,8 +1434,9 @@ export function BookingFormDialog({
 
                             {option.description ? (
                               <span
-                                className={`mt-1 text-xs font-medium ${isSelected ? 'text-neutral-300' : 'text-studio-muted-ink'
-                                  }`}
+                                className={`mt-1 text-xs font-medium ${
+                                  isSelected ? 'text-neutral-300' : 'text-studio-muted-ink'
+                                }`}
                               >
                                 {option.description}
                               </span>
@@ -1439,8 +1444,9 @@ export function BookingFormDialog({
 
                             {activeBlockRule ? (
                               <span
-                                className={`mt-1.5 inline-block font-mono text-[10px] font-extrabold ${isSelected ? 'text-studio-lime' : 'text-emerald-800'
-                                  }`}
+                                className={`mt-1.5 inline-block font-mono text-[10px] font-extrabold ${
+                                  isSelected ? 'text-studio-lime' : 'text-emerald-800'
+                                }`}
                               >
                                 Diskon Durasi -{formatRupiah(activeBlockRule.discountAmount)} /{' '}
                                 {formatDurationMinutes(activeBlockRule.intervalMinutes)}
@@ -1632,10 +1638,11 @@ export function BookingFormDialog({
                             type="button"
                             onClick={() => handleFieldChange('studioId', room.id)}
                             aria-pressed={isSelected}
-                            className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${isSelected
+                            className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${
+                              isSelected
                                 ? 'border-studio-ink bg-studio-ink text-studio-lime shadow-[2px_2px_0px_#151515]'
                                 : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
-                              }`}
+                            }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="font-display text-lg leading-none font-black uppercase">
@@ -1648,8 +1655,9 @@ export function BookingFormDialog({
                               </span>
                             </div>
                             <span
-                              className={`mt-1 text-xs font-medium ${isSelected ? 'text-neutral-300' : 'text-studio-muted-ink'
-                                }`}
+                              className={`mt-1 text-xs font-medium ${
+                                isSelected ? 'text-neutral-300' : 'text-studio-muted-ink'
+                              }`}
                             >
                               {room.subtitle}
                             </span>
@@ -1761,10 +1769,11 @@ export function BookingFormDialog({
                             disabled={isDurationLockedByFixedShift}
                             onClick={() => handleFieldChange('durationPreset', option.key)}
                             aria-pressed={isSelected}
-                            className={`min-h-11 cursor-pointer border-2 px-2.5 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${isSelected
+                            className={`min-h-11 cursor-pointer border-2 px-2.5 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                              isSelected
                                 ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
                                 : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
-                              }`}
+                            }`}
                           >
                             {option.label}
                           </button>
@@ -1808,8 +1817,8 @@ export function BookingFormDialog({
                   {/* Live Slot Availability & Conflict Banner */}
                   <div className="mt-4">
                     {liveValidation.errors.scheduleConflict ||
-                      liveValidation.errors.startMinute ||
-                      liveValidation.errors.durationMinutes ? (
+                    liveValidation.errors.startMinute ||
+                    liveValidation.errors.durationMinutes ? (
                       <div
                         role="alert"
                         className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2.5 border-2 p-3 shadow-[2px_2px_0px_#151515]"
@@ -1908,10 +1917,11 @@ export function BookingFormDialog({
                                   handleFieldChange('initialPaymentStatus', statusOption.id)
                                 }
                                 aria-pressed={isSelected}
-                                className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${isSelected
+                                className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${
+                                  isSelected
                                     ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
                                     : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
-                                  }`}
+                                }`}
                               >
                                 <span className="font-display text-lg leading-none font-black uppercase">
                                   {statusOption.shortLabel}
@@ -1927,7 +1937,7 @@ export function BookingFormDialog({
 
                       {/* Payment Method & DP Nominal */}
                       {formValues.initialPaymentStatus === INITIAL_PAYMENT_STATUS.PARTIAL ||
-                        formValues.initialPaymentStatus === INITIAL_PAYMENT_STATUS.PAID ? (
+                      formValues.initialPaymentStatus === INITIAL_PAYMENT_STATUS.PAID ? (
                         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <div>
                             <label
@@ -2034,6 +2044,13 @@ export function BookingFormDialog({
                         />
                         <span>Terapkan harga &amp; fee preset terbaru</span>
                       </label>
+                      {formValues.applyUpdatedPricing ? (
+                        <p className="border-studio-ink bg-studio-white mt-2 border px-2.5 py-1.5 font-mono text-[10px] font-bold text-[#9a3412]">
+                          Catatan Invoice: Invoice yang sudah diterbitkan (Issued) tidak berubah
+                          otomatis akibat repricing. Jika nominal tagihan perlu disesuaikan, tinjau
+                          melalui halaman Payment and Bill secara eksplisit.
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -2098,8 +2115,8 @@ export function BookingFormDialog({
                       </dl>
 
                       {displayedPricing.durationDiscountConfig?.enabled &&
-                        displayedPricing.durationDiscountConfig?.intervalMinutes > 0 &&
-                        displayedPricing.durationDiscountConfig?.discountAmount > 0 ? (
+                      displayedPricing.durationDiscountConfig?.intervalMinutes > 0 &&
+                      displayedPricing.durationDiscountConfig?.discountAmount > 0 ? (
                         <p className="border-studio-ink bg-studio-white text-studio-ink mt-3 border px-2.5 py-2 font-mono text-[10px] leading-relaxed font-semibold">
                           Diskon Durasi otomatis:{' '}
                           <strong className="text-emerald-800">
