@@ -75,12 +75,14 @@ export function CustomerDetailDrawer({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span
-                              ? 'border-neutral-400 bg-neutral-700 text-neutral-100'
-                              : isMerged
-                                ? 'border-studio-orange bg-studio-orange text-white'
-                                : 'border-studio-ivory bg-studio-lime text-studio-ink'
-                            }`}
+                    <span
+                      className={`border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase ${
+                        isArchived
+                          ? 'border-neutral-400 bg-neutral-700 text-neutral-100'
+                          : isMerged
+                            ? 'border-studio-orange bg-studio-orange text-white'
+                            : 'border-studio-ivory bg-studio-lime text-studio-ink'
+                      }`}
                     >
                       {customer.status}
                     </span>
