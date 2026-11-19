@@ -66,10 +66,10 @@ export function VoidInvoiceDialog({ open, invoice, onOpenChange, onConfirmVoid }
             <div className="min-w-0">
               <span className="border-studio-ivory bg-studio-orange text-studio-white inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase">
                 <Ban className="h-3 w-3" aria-hidden="true" />
-                <span>VOID INVOICE</span>
+                <span>BATALKAN INVOICE</span>
               </span>
               <Dialog.Title className="font-display mt-1.5 text-xl leading-none font-black text-white uppercase">
-                Void {invoice.invoiceNumber}?
+                Batalkan {invoice.invoiceNumber}?
               </Dialog.Title>
             </div>
 
@@ -103,20 +103,20 @@ export function VoidInvoiceDialog({ open, invoice, onOpenChange, onConfirmVoid }
                 className="border-studio-ink border-2 bg-amber-100 p-3 leading-relaxed"
               >
                 <p className="font-mono text-[10px] font-extrabold text-[#b92b0c] uppercase">
-                  Void Diblokir — Invoice Memiliki Pembayaran
+                  Tidak Bisa Dibatalkan — Invoice Sudah Ada Pembayaran
                 </p>
                 <p className="mt-1 font-medium text-neutral-800">
-                  Invoice ini sudah mencatat pembayaran bersih sebesar{' '}
-                  <strong>{formatRupiah(invoice.amountPaid)}</strong>. Void langsung tidak diizinkan
-                  karena memerlukan penanganan koreksi/reconciliation terlebih dahulu.
+                  Invoice ini sudah menerima pembayaran bersih sebesar{' '}
+                  <strong>{formatRupiah(invoice.amountPaid)}</strong>. Batalkan dulu catatan
+                  pembayaran yang sudah masuk sebelum membatalkan invoice ini.
                 </p>
               </div>
             ) : (
               <>
                 <p className="leading-relaxed font-medium text-neutral-800">
-                  Invoice yang di-void tidak dapat menerima pembayaran baru dan tetap tersimpan
-                  sebagai jejak audit (tidak dihapus permanen). Status booking pada Calendar tidak
-                  ikut diubah otomatis.
+                  Invoice yang dibatalkan tidak bisa menerima pembayaran lagi, tetapi tetap
+                  tersimpan di daftar arsip (tidak dihapus permanen). Jadwal booking pada Calendar
+                  tidak ikut dibatalkan.
                 </p>
 
                 <div>
@@ -124,7 +124,7 @@ export function VoidInvoiceDialog({ open, invoice, onOpenChange, onConfirmVoid }
                     htmlFor="void-invoice-reason"
                     className="text-studio-ink block font-mono text-[10.5px] font-extrabold uppercase"
                   >
-                    Alasan Void Invoice <span className="text-studio-orange">*</span>
+                    Alasan Pembatalan Invoice <span className="text-studio-orange">*</span>
                   </label>
                   <textarea
                     id="void-invoice-reason"
@@ -168,7 +168,7 @@ export function VoidInvoiceDialog({ open, invoice, onOpenChange, onConfirmVoid }
                   ) : (
                     <Ban className="h-3.5 w-3.5" aria-hidden="true" />
                   )}
-                  <span>Ya, Void Invoice</span>
+                  <span>Ya, Batalkan Invoice</span>
                 </button>
               ) : null}
             </div>

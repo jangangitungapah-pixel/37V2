@@ -44,7 +44,7 @@ export function CustomerArchiveDialog({ open, customer, onOpenChange, onConfirmA
           <div className="border-studio-ink bg-studio-ink text-studio-ivory flex items-start justify-between gap-2 border-b-2 px-4 py-3.5">
             <div>
               <span className="border-studio-ivory bg-studio-orange text-studio-white inline-block border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase">
-                {willArchive ? 'ARCHIVE CUSTOMER' : 'REACTIVATE CUSTOMER'}
+                {willArchive ? 'ARSIPKAN PELANGGAN' : 'AKTIFKAN PELANGGAN'}
               </span>
               <Dialog.Title className="font-display mt-1.5 text-xl leading-none font-black text-white uppercase">
                 {willArchive
@@ -74,16 +74,15 @@ export function CustomerArchiveDialog({ open, customer, onOpenChange, onConfirmA
 
             {willArchive ? (
               <p className="font-medium text-neutral-800">
-                Profil tidak akan dihapus permanen dan seluruh riwayat{' '}
-                <strong>{customer.bookingCount} booking</strong> tetap tersimpan. Profil yang
-                diarsipkan disembunyikan dari directory utama dan tidak otomatis dipilih pada
-                booking baru, tetapi tetap dapat ditemukan pada filter <strong>Archived</strong> dan
-                diaktifkan kembali kapan saja.
+                Data tidak dihapus dan riwayat <strong>{customer.bookingCount} booking</strong>{' '}
+                tetap aman tersimpan. Pelanggan yang diarsipkan disembunyikan dari daftar utama,
+                namun tetap dapat dicari lewat filter <strong>Diarsipkan</strong> dan diaktifkan
+                kembali kapan saja.
               </p>
             ) : (
               <p className="font-medium text-neutral-800">
-                Profil <strong>{customer.displayName}</strong> akan kembali aktif pada Customer
-                Directory dan kembali terdeteksi saat nomor HP digunakan pada Booking Form.
+                Profil <strong>{customer.displayName}</strong> akan tampil kembali di daftar utama
+                dan otomatis dikenali saat nomor HP diisi di form booking.
               </p>
             )}
 

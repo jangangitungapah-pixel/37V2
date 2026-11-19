@@ -235,8 +235,8 @@ export function BookingDetailDrawer({
                   Konfirmasi Pembatalan Booking
                 </p>
                 <p className="text-studio-muted-ink mt-1 text-xs leading-relaxed font-medium">
-                  Slot ruangan akan dilepaskan secara atomik agar dapat dipakai booking lain, namun
-                  dokumen histori booking tetap tersimpan.
+                  Slot ruangan akan langsung dikosongkan agar dapat dipakai booking lain, sedangkan
+                  catatan booking ini tetap tersimpan.
                 </p>
 
                 <label
@@ -399,7 +399,7 @@ export function BookingDetailDrawer({
                       to={`/admin/payment-and-bill?invoiceId=${encodeURIComponent(latestPayment.invoiceId)}`}
                       className="border-studio-ink bg-studio-ink text-studio-lime hover:bg-studio-orange hover:text-studio-white inline-flex h-8 shrink-0 items-center gap-1 border px-2.5 font-mono text-[9.5px] font-extrabold uppercase transition-colors"
                     >
-                      <span>Open Invoice</span>
+                      <span>Lihat Invoice</span>
                       <ExternalLink className="h-3 w-3" aria-hidden="true" />
                     </Link>
                   </div>
@@ -408,8 +408,8 @@ export function BookingDetailDrawer({
                 {latestPayment.isSnapshotMismatch ? (
                   <p className="border-studio-ink mt-2 border bg-amber-100 px-2.5 py-1.5 font-mono text-[10px] font-bold text-[#9a3412]">
                     Perhatian: Total booking terbaru ({formatRupiah(financial.totalAmount)}) berbeda
-                    dari snapshot invoice ({formatRupiah(latestPayment.totalAmount)}). Kelola
-                    penyesuaian tagihan secara eksplisit melalui halaman Payment and Bill.
+                    dari total di invoice ({formatRupiah(latestPayment.totalAmount)}). Sesuaikan
+                    tagihan melalui halaman Payment and Bill.
                   </p>
                 ) : null}
 
@@ -445,7 +445,7 @@ export function BookingDetailDrawer({
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-studio-muted-ink">
-                      {latestPayment.hasInvoice ? 'Sudah Dibayar (Ledger)' : 'Pembayaran Awal'}
+                      {latestPayment.hasInvoice ? 'Sudah Dibayar' : 'Pembayaran Awal'}
                     </dt>
                     <dd className="font-bold">
                       {formatRupiah(displayedPaidAmount)}
@@ -461,15 +461,15 @@ export function BookingDetailDrawer({
                 </dl>
               </div>
 
-              {/* Internal Operational Fee Snapshot Subcard (V2 + Legacy V1 + Phase 5 fallback) */}
+              {/* Internal Operational Fee Breakdown */}
               <div className="border-studio-ink bg-studio-white mt-3 border p-3.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[11px] font-extrabold uppercase">
-                    Internal Fee Snapshot
+                    Pembagian Komisi Tim
                   </span>
                   {commissionDisplay ? (
                     <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
-                      Settings v{commissionDisplay.settingsVersion}
+                      Tarif v{commissionDisplay.settingsVersion}
                     </span>
                   ) : null}
                 </div>
@@ -497,7 +497,7 @@ export function BookingDetailDrawer({
                   </dl>
                 ) : (
                   <p className="text-studio-muted-ink mt-1.5 font-mono text-[11px]">
-                    Tidak ada snapshot komisi internal (booking sebelum konfigurasi Phase 6).
+                    Belum ada catatan komisi tim untuk booking lama ini.
                   </p>
                 )}
               </div>
@@ -514,7 +514,7 @@ export function BookingDetailDrawer({
               ) : null}
             </section>
 
-            {/* SECTION 2: SESSION LIFECYCLE */}
+            {/* SECTION 2: SESSION STATUS */}
             <section
               aria-labelledby="drawer-lifecycle-heading"
               className="brutal-card bg-studio-white p-4 sm:p-5"
@@ -525,7 +525,7 @@ export function BookingDetailDrawer({
                     id="drawer-lifecycle-heading"
                     className="font-mono text-xs font-extrabold tracking-wider uppercase"
                   >
-                    Session Lifecycle
+                    Status Sesi Studio
                   </h3>
                   <p className="text-studio-muted-ink mt-0.5 text-xs">
                     Status sesi operasional terpisah dari status pembayaran.

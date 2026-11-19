@@ -1,4 +1,5 @@
 # PHASE 8 — PAYMENT & BILL MANAGEMENT ARCHITECTURE
+
 ## 37 Music Studio — Invoice Generation & Customer Payment Ledger
 
 **Module Route:** `/admin/payment-and-bill` (supports `?invoiceId=<id>` and `?tab=invoices|transactions`)  
@@ -35,6 +36,7 @@ Implemented in `src/features/admin/payment/utils/invoice-number.js`:
 ## 3. Firestore Data Model
 
 ### A. `invoices/{invoiceId}` (20 fields)
+
 - Identity: `invoiceNumber`, `bookingId`, `customerId`, `invoiceStatus` (`draft` | `issued` | `void`), `currency` (`IDR`).
 - Immutable Snapshots:
   - `customerSnapshot`: `{ name, phone, bandName }`
@@ -44,11 +46,13 @@ Implemented in `src/features/admin/payment/utils/invoice-number.js`:
 - Metadata & Audit: `invoiceDate`, `dueDate` (`YYYY-MM-DD` or `null`), `voidReason`, `createdAt`, `createdByUid`, `updatedAt`, `updatedByUid`, `version`.
 
 ### B. `paymentTransactions/{transactionId}` (15 fields, Append-Only)
+
 - References: `invoiceId`, `invoiceNumber`, `bookingId`, `customerId`.
 - Ledger Entry: `transactionType` (`payment` | `reversal`), `amount` (int > 0), `currency` (`IDR`), `paymentMethod` (`cash` | `transfer` | `qris` | `other`), `receivedAt`, `referenceNumber`, `notes`.
 - Provenance: `source` (`booking_initial_payment` | `manual` | `legacy_initial_snapshot` | `reversal`), `reversalOfTransactionId` (`null` or original tx ID), `recordedByUid`, `createdAt`.
 
 ### Single-Field Index Strategy (Zero Custom Composite Indexes)
+
 - `invoices` directory: `orderBy('invoiceDate', 'desc'), limit(maxLimit + 1)`
 - Calendar invoice range summary: `where('bookingSnapshot.bookingDate', '>=', startDate), where('bookingSnapshot.bookingDate', '<=', endDate), orderBy('bookingSnapshot.bookingDate', 'asc')`
 - Customer invoice history (virtual merge compatible): chunked `<= 10` `where('customerId', 'in', chunk), limit(100)`
@@ -123,6 +127,7 @@ Implemented in `src/features/admin/payment/services/payment-service.js` and `uti
 ## 10. Firestore Security Rules (`firestore.rules`)
 
 Verified live on the Firebase Firestore Emulator (`22/22` Phase 8 checks + `21/21` Phase 7 checks passed):
+
 - `invoices/{invoiceId}`: active Owner/Staff read/create/controlled-update; permanent delete denied; immutable snapshot & `invoiceNumber` locked; aggregate `amountPaid`/`balanceDue` verified via `getAfter()` against the transaction created in the same atomic commit; void requires `amountPaid == 0` and `voidReason.size() >= 3`.
 - `paymentTransactions/{transactionId}`: active Owner/Staff read/create; update & delete strictly denied; positive integer IDR amount; enum method; `recordedByUid == request.auth.uid`; verifies `getAfter()` target invoice is `issued` with matching `bookingId`, `customerId`, and `invoiceNumber`; reversals strictly enforce deterministic `pay_rev_{originalTxId}` and matching original payment via `get()`.
 

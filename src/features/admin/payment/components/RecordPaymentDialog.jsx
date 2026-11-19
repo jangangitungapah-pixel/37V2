@@ -102,10 +102,10 @@ export function RecordPaymentDialog({ open, invoice, onOpenChange, onSubmitPayme
             <div className="min-w-0">
               <span className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-extrabold tracking-wider uppercase">
                 <Banknote className="h-3 w-3" aria-hidden="true" />
-                <span>RECORD CUSTOMER PAYMENT</span>
+                <span>CATAT PEMBAYARAN PELANGGAN</span>
               </span>
               <Dialog.Title className="font-display mt-1.5 text-xl leading-none font-black text-white uppercase sm:text-2xl">
-                Record Payment
+                Catat Pembayaran
               </Dialog.Title>
               <Dialog.Description className="mt-1 font-mono text-[11px] text-neutral-300">
                 <strong className="text-studio-lime">{invoice.invoiceNumber}</strong> •{' '}
@@ -172,8 +172,8 @@ export function RecordPaymentDialog({ open, invoice, onOpenChange, onSubmitPayme
               />
               {exceedsBalance ? (
                 <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
-                  Nominal melebihi sisa tagihan ({formatRupiah(currentBalance)}). Overpayment tidak
-                  diperbolehkan.
+                  Nominal melebihi sisa tagihan ({formatRupiah(currentBalance)}). Pembayaran tidak
+                  boleh lebih besar dari sisa tagihan.
                 </p>
               ) : fieldErrors.amount ? (
                 <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
@@ -281,19 +281,19 @@ export function RecordPaymentDialog({ open, invoice, onOpenChange, onSubmitPayme
               </p>
               <dl className="mt-2 space-y-1 font-mono text-xs">
                 <div className="flex justify-between gap-2">
-                  <dt className="text-studio-muted-ink">Invoice Total</dt>
+                  <dt className="text-studio-muted-ink">Total Invoice</dt>
                   <dd className="font-bold tabular-nums">{formatRupiah(invoiceTotal)}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-studio-muted-ink">Already Paid</dt>
+                  <dt className="text-studio-muted-ink">Sudah Dibayar</dt>
                   <dd className="font-bold tabular-nums">{formatRupiah(alreadyPaid)}</dd>
                 </div>
                 <div className="flex justify-between gap-2 text-emerald-800">
-                  <dt className="font-bold">This Payment</dt>
+                  <dt className="font-bold">Dibayar Sekarang</dt>
                   <dd className="font-extrabold tabular-nums">+{formatRupiah(parsedAmount)}</dd>
                 </div>
                 <div className="border-studio-ink flex justify-between gap-2 border-t pt-1.5 font-extrabold">
-                  <dt>Remaining Balance</dt>
+                  <dt>Sisa Setelah Bayar</dt>
                   <dd
                     className={`tabular-nums ${
                       remainingAfterPayment === 0 ? 'text-emerald-800' : 'text-studio-orange'

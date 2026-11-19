@@ -59,7 +59,7 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef }) {
                 {/* Section Eyebrow */}
                 <div className="px-4 pt-4 pb-1.5">
                   <p className="font-mono text-[10px] font-bold tracking-widest text-neutral-400 uppercase">
-                    WORKSPACE MODULES (08)
+                    MENU UTAMA (08)
                   </p>
                 </div>
 
@@ -85,11 +85,11 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef }) {
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="text-studio-lime h-4 w-4 shrink-0" aria-hidden="true" />
                     <span className="font-mono text-[10px] font-bold tracking-wider text-neutral-200 uppercase">
-                      STUDIO OS • PHASE 4
+                      37 STUDIO • ADMIN
                     </span>
                   </div>
                   <p className="mt-1 font-mono text-[10px] text-neutral-400">
-                    Owner &amp; Staff unified shell
+                    Akses Owner &amp; Staff studio
                   </p>
                 </div>
               </div>

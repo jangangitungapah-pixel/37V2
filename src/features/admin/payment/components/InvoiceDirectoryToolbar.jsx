@@ -82,8 +82,8 @@ export function InvoiceDirectoryToolbar({
               type="search"
               value={searchQuery}
               onChange={(event) => onSearchQueryChange(event.target.value)}
-              aria-label="Cari nomor invoice, customer, nomor HP, atau band"
-              placeholder="Cari no. invoice, customer, no. HP, atau band..."
+              aria-label="Cari nomor invoice, pelanggan, nomor HP, atau band"
+              placeholder="Cari no. invoice, pelanggan, no. HP, atau band..."
               className="border-studio-ink bg-studio-ivory text-studio-ink placeholder:text-studio-subtle-ink h-9 w-full border-2 py-1 pr-8 pl-8 text-xs font-semibold sm:h-10 sm:py-1.5"
             />
             {searchQuery ? (
@@ -107,7 +107,7 @@ export function InvoiceDirectoryToolbar({
             htmlFor="invoice-status-filter"
             className="text-studio-muted-ink mb-0.5 block font-mono text-[9px] font-extrabold uppercase sm:mb-1 sm:text-[9.5px]"
           >
-            Invoice Status
+            Status Invoice
           </label>
           <select
             id="invoice-status-filter"
@@ -138,7 +138,7 @@ export function InvoiceDirectoryToolbar({
           >
             {ROOM_FILTER_OPTIONS.map((room) => (
               <option key={room.id} value={room.id}>
-                {room.label}
+                {room.id === 'all' ? 'Semua Ruangan' : room.label}
               </option>
             ))}
           </select>

@@ -73,10 +73,10 @@ export function PaymentCorrectionDialog({
             <div className="min-w-0">
               <span className="border-studio-ivory bg-studio-orange text-studio-white inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase">
                 <RotateCcw className="h-3 w-3" aria-hidden="true" />
-                <span>APPEND-ONLY ENTRY CORRECTION</span>
+                <span>KOREKSI CATATAN PEMBAYARAN</span>
               </span>
               <Dialog.Title className="font-display mt-1.5 text-xl leading-none font-black text-white uppercase">
-                Void Payment Record / Reversal
+                Batalkan Catatan Pembayaran
               </Dialog.Title>
             </div>
 
@@ -107,19 +107,19 @@ export function PaymentCorrectionDialog({
             {/* Explicit Non-Refund Notice */}
             <div className="border-studio-ink border-2 bg-amber-100 p-3 leading-relaxed">
               <p className="font-mono text-[10px] font-extrabold uppercase">
-                Penting: Koreksi Pencatatan (Bukan Refund Fisik)
+                Penting: Koreksi Catatan (Bukan Pengembalian Uang)
               </p>
               <p className="mt-1 font-medium text-neutral-800">
-                Tindakan ini membuat record <strong>Reversal</strong> baru untuk membatalkan efek
-                pencatatan transaksi yang salah input atau duplikat tanpa menghapus riwayat asli.
-                Ini <strong>bukan</strong> proses pengembalian uang fisik (refund) ke customer.
+                Tindakan ini membuat catatan pembatalan baru untuk mengoreksi entri yang salah input
+                atau ganda tanpa menghapus riwayat lama. Ini <strong>bukan</strong> proses
+                pengembalian uang (refund) ke pelanggan.
               </p>
             </div>
 
             {/* Original Transaction Summary */}
             <dl className="border-studio-ink bg-studio-white space-y-1 border-2 p-3 font-mono text-[11px]">
               <div className="flex justify-between gap-2">
-                <dt className="text-studio-muted-ink">Transaksi Asli</dt>
+                <dt className="text-studio-muted-ink">No. Transaksi</dt>
                 <dd className="truncate font-bold">{transaction.id}</dd>
               </div>
               <div className="flex justify-between gap-2">
@@ -133,7 +133,7 @@ export function PaymentCorrectionDialog({
                 <dd className="font-bold">{getPaymentMethodLabel(transaction.paymentMethod)}</dd>
               </div>
               <div className="border-studio-ink flex justify-between gap-2 border-t pt-1 font-extrabold">
-                <dt className="text-studio-orange">Nominal Reversal</dt>
+                <dt className="text-studio-orange">Nominal Dibatalkan</dt>
                 <dd className="text-studio-orange">-{formatRupiah(transaction.amount)}</dd>
               </div>
             </dl>
@@ -143,7 +143,7 @@ export function PaymentCorrectionDialog({
                 htmlFor="reversal-reason-input"
                 className="text-studio-ink block font-mono text-[10.5px] font-extrabold uppercase"
               >
-                Alasan Koreksi / Reversal <span className="text-studio-orange">*</span>
+                Alasan Pembatalan Transaksi <span className="text-studio-orange">*</span>
               </label>
               <textarea
                 id="reversal-reason-input"
@@ -184,7 +184,7 @@ export function PaymentCorrectionDialog({
                 ) : (
                   <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
-                <span>Konfirmasi Reversal</span>
+                <span>Ya, Batalkan Catatan</span>
               </button>
             </div>
           </form>

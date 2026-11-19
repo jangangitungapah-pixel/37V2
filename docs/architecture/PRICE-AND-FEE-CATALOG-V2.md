@@ -33,12 +33,13 @@ Global Operational Settings
 
 Every Service Type declares an explicit `deliveryMode`:
 
-| Mode | Constant | Room Schedule / Calendar | Slot Lock (`bookingSlots`) | Default Services |
-| --- | --- | --- | --- | --- |
-| **Studio** | `'studio'` | Appears in `/admin/calendar` Booking Form (Room A / Room B) | Locks 30-minute slots in `bookingSlots` | `Rehearsal`, `Recording` |
-| **WFA** (Work From Anywhere) | `'wfa'` | Strictly excluded from Studio Room Calendar | Never locks Room A / Room B | `Mixing`, `Mastering` |
+| Mode                         | Constant   | Room Schedule / Calendar                                    | Slot Lock (`bookingSlots`)              | Default Services         |
+| ---------------------------- | ---------- | ----------------------------------------------------------- | --------------------------------------- | ------------------------ |
+| **Studio**                   | `'studio'` | Appears in `/admin/calendar` Booking Form (Room A / Room B) | Locks 30-minute slots in `bookingSlots` | `Rehearsal`, `Recording` |
+| **WFA** (Work From Anywhere) | `'wfa'`    | Strictly excluded from Studio Room Calendar                 | Never locks Room A / Room B             | `Mixing`, `Mastering`    |
 
 Enforcement exists at three layers:
+
 1. **UI Layer:** `usePricingSettings()` exposes `activeStudioServiceTypes` (`deliveryMode === 'studio' && isActive`) for `BookingFormDialog`.
 2. **Service / Schema Layer:** `validateBookingFormPayload()` and `createBooking()` / `updateOrRescheduleBooking()` explicitly reject any WFA service (`booking/wfa-not-bookable-in-studio-calendar`).
 3. **Firestore Security Rules Layer:** `isValidBookingV2ServiceFields(data)` enforces `data.deliveryMode == 'studio'` on every V2 booking write.
@@ -76,13 +77,13 @@ Enforcement exists at three layers:
 
 All monetary calculations use integer IDR (Rupiah) arithmetic to eliminate floating-point precision drift.
 
-| Mode | Key | Customer Subtotal Formula | Calendar Duration Behavior |
-| --- | --- | --- | --- |
-| **Hourly** | `'hourly'` | `Math.round((hourlyRate * durationMinutes) / 60)` | User selects any valid 30-min increment duration |
-| **Fixed Shift** | `'fixed_shift'` | `basePrice`, with built-in package discount `discountAmount` (`final = max(0, basePrice - discountAmount)`) | Duration is locked to `pricing.durationMinutes` |
-| **Fixed Project** | `'fixed_project'` | `projectPrice` (with optional `unitLabel`, e.g., `per lagu`, `per project`) | Primarily for WFA services; excluded from Studio Calendar |
-| **Manual Quote** | `'manual_quote'` | Staff/Owner enters negotiated customer total at booking time (`manualCustomerTotal > 0`) | Duration remains flexible for Studio scheduling |
-| **Unconfigured** | `'unconfigured'` | Not bookable (`isActive` forced `false`) | Automatically hidden from Booking Form and rejected by validation |
+| Mode              | Key               | Customer Subtotal Formula                                                                                   | Calendar Duration Behavior                                        |
+| ----------------- | ----------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Hourly**        | `'hourly'`        | `Math.round((hourlyRate * durationMinutes) / 60)`                                                           | User selects any valid 30-min increment duration                  |
+| **Fixed Shift**   | `'fixed_shift'`   | `basePrice`, with built-in package discount `discountAmount` (`final = max(0, basePrice - discountAmount)`) | Duration is locked to `pricing.durationMinutes`                   |
+| **Fixed Project** | `'fixed_project'` | `projectPrice` (with optional `unitLabel`, e.g., `per lagu`, `per project`)                                 | Primarily for WFA services; excluded from Studio Calendar         |
+| **Manual Quote**  | `'manual_quote'`  | Staff/Owner enters negotiated customer total at booking time (`manualCustomerTotal > 0`)                    | Duration remains flexible for Studio scheduling                   |
+| **Unconfigured**  | `'unconfigured'`  | Not bookable (`isActive` forced `false`)                                                                    | Automatically hidden from Booking Form and rejected by validation |
 
 ---
 
@@ -90,13 +91,14 @@ All monetary calculations use integer IDR (Rupiah) arithmetic to eliminate float
 
 Every subcategory independently configures **three internal fee roles**: `staff`, `owner`, and `recordingOperator`.
 
-| Role | Supported Modes | Calculation Formula |
-| --- | --- | --- |
-| **Staff** (`fees.staff`) | `none`, `fixed`, `hourly`, `manual` | `none`: `0` · `fixed`: `amount` · `hourly`: `Math.round((amount * durationMinutes) / 60)` · `manual`: staff-entered value at booking |
-| **Owner** (`fees.owner`) | `none`, `fixed`, `hourly`, `manual` | Same deterministic rule; never double-counted with hourly vs fixed |
-| **Recording Operator** (`fees.recordingOperator`) | `none`, `fixed`, `hourly`, `manual` | Same deterministic rule; defaults to `manual` on Recording `Others` |
+| Role                                              | Supported Modes                     | Calculation Formula                                                                                                                  |
+| ------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Staff** (`fees.staff`)                          | `none`, `fixed`, `hourly`, `manual` | `none`: `0` · `fixed`: `amount` · `hourly`: `Math.round((amount * durationMinutes) / 60)` · `manual`: staff-entered value at booking |
+| **Owner** (`fees.owner`)                          | `none`, `fixed`, `hourly`, `manual` | Same deterministic rule; never double-counted with hourly vs fixed                                                                   |
+| **Recording Operator** (`fees.recordingOperator`) | `none`, `fixed`, `hourly`, `manual` | Same deterministic rule; defaults to `manual` on Recording `Others`                                                                  |
 
 **Financial Isolation Guarantees:**
+
 - Internal fees (`staff`, `owner`, `recordingOperator`) are **strictly separated** from customer billing.
 - Internal fees **never** increase or alter `subtotal`, `discountAmount`, `totalAmount`, `initialPaidAmount` (DP), or `remainingBalance`.
 - A role has exactly one active `mode` per subcategory (`fixed` and `hourly` can never be computed simultaneously for the same role).

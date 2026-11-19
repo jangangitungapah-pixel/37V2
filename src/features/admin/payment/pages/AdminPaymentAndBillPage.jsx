@@ -318,10 +318,10 @@ export function AdminPaymentAndBillPage() {
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="border-studio-ink bg-studio-ink text-studio-lime inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold tracking-wider uppercase sm:px-2 sm:text-[9px]">
                 <ReceiptText className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
-                <span>CUSTOMER BILLING &amp; PAYMENT LEDGER</span>
+                <span>TAGIHAN &amp; PEMBAYARAN STUDIO</span>
               </span>
               <span className="border-studio-ink bg-studio-ivory text-studio-ink hidden items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-bold uppercase sm:inline-flex">
-                <span>1 BOOKING = 1 INVOICE</span>
+                <span>1 BOOKING • 1 INVOICE</span>
               </span>
             </div>
 
@@ -332,7 +332,7 @@ export function AdminPaymentAndBillPage() {
               Payment and Bill
             </h2>
             <p className="text-studio-muted-ink mt-0.5 text-[11px] font-medium sm:mt-1 sm:text-xs">
-              Invoices, customer payments, and outstanding balances.
+              Kelola tagihan, pembayaran DP atau cicilan, dan sisa tagihan pelanggan.
             </p>
           </div>
 
@@ -355,7 +355,7 @@ export function AdminPaymentAndBillPage() {
       {legacyWithoutInvoiceCount > 0 ? (
         <section
           role="region"
-          aria-label="Rekonsiliasi invoice booking lama"
+          aria-label="Buat invoice booking lama"
           className="cal-card bg-studio-lime/35 flex flex-col gap-2 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2.5 sm:px-4 sm:py-2.5"
         >
           <div className="flex items-start gap-2">
@@ -365,13 +365,13 @@ export function AdminPaymentAndBillPage() {
             />
             <div className="min-w-0">
               <p className="font-mono text-[10px] font-extrabold uppercase sm:text-[10.5px]">
-                Existing bookings are ready for invoice reconciliation.
+                Booking lama siap dibuatkan invoice.
               </p>
               <p className="text-studio-ink mt-0.5 text-[11px] leading-snug font-medium sm:text-xs">
                 Ditemukan <strong>{legacyWithoutInvoiceCount} booking lama</strong> belum punya
                 invoice
-                {legacyNeedsReviewCount > 0 ? ` (${legacyNeedsReviewCount} perlu review)` : ''}.
-                Tinjau preview sebelum import.
+                {legacyNeedsReviewCount > 0 ? ` (${legacyNeedsReviewCount} perlu dicek)` : ''}.
+                Periksa daftarnya sebelum membuat invoice otomatis.
               </p>
             </div>
           </div>
@@ -382,7 +382,7 @@ export function AdminPaymentAndBillPage() {
             className="cal-control bg-studio-ink text-studio-lime inline-flex min-h-8.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1 font-mono text-[10px] font-extrabold uppercase sm:min-h-10 sm:py-1.5 sm:text-[10.5px]"
           >
             <Database className="h-3 w-3 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
-            <span>Review Existing Bookings</span>
+            <span>Periksa Booking Lama</span>
           </button>
         </section>
       ) : null}

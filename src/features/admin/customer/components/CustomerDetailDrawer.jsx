@@ -101,7 +101,7 @@ export function CustomerDetailDrawer({
                             : 'border-studio-ivory bg-studio-lime text-studio-ink'
                       }`}
                     >
-                      {customer.status}
+                      {isArchived ? 'Diarsipkan' : isMerged ? 'Digabung' : 'Aktif'}
                     </span>
 
                     {customer.historyCustomerIds?.length > 1 ? (
@@ -117,7 +117,7 @@ export function CustomerDetailDrawer({
                   </Dialog.Title>
                   <Dialog.Description className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-neutral-300">
                     <span className="text-studio-lime font-bold">{formattedPhone}</span>
-                    <span>• ID: {customer.id}</span>
+                    <span>• {customer.bookingCount || 0} booking</span>
                   </Dialog.Description>
                 </div>
 
@@ -138,7 +138,7 @@ export function CustomerDetailDrawer({
                     className="border-studio-ivory bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase transition-colors"
                   >
                     <Edit3 className="h-3 w-3" aria-hidden="true" />
-                    <span>Edit Profile</span>
+                    <span>Edit Profil</span>
                   </button>
 
                   {!isArchived ? (
@@ -148,7 +148,7 @@ export function CustomerDetailDrawer({
                       className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase transition-colors"
                     >
                       <PhoneForwarded className="h-3 w-3" aria-hidden="true" />
-                      <span>Update Phone Number</span>
+                      <span>Ganti No. HP</span>
                     </button>
                   ) : null}
 
@@ -156,10 +156,11 @@ export function CustomerDetailDrawer({
                     <button
                       type="button"
                       onClick={() => onOpenMerge?.(samePhonePeers, customer)}
+                      aria-label="Merge History"
                       className="border-studio-ivory bg-studio-ivory text-studio-ink hover:bg-studio-lime inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase transition-colors"
                     >
                       <GitMerge className="h-3 w-3" aria-hidden="true" />
-                      <span>Merge History</span>
+                      <span>Gabung Riwayat</span>
                     </button>
                   ) : null}
 
@@ -199,13 +200,13 @@ export function CustomerDetailDrawer({
                   id="customer-identity-heading"
                   className="font-mono text-xs font-extrabold tracking-wider uppercase"
                 >
-                  Identity
+                  Data Pelanggan
                 </h3>
 
                 <dl className="mt-3 grid grid-cols-1 gap-3 border-t border-neutral-200 pt-3 text-xs sm:grid-cols-2">
                   <div>
                     <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                      Customer Name
+                      Nama Pelanggan
                     </dt>
                     <dd className="text-studio-ink mt-0.5 text-sm font-extrabold">
                       {customer.displayName}
@@ -214,29 +215,17 @@ export function CustomerDetailDrawer({
 
                   <div>
                     <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                      Primary Phone Number
+                      Nomor HP / WhatsApp Utama
                     </dt>
                     <dd className="text-studio-ink mt-0.5 flex items-center gap-1.5 font-mono text-sm font-extrabold">
                       <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       <span>{formattedPhone}</span>
                     </dd>
-                    <span className="text-studio-subtle-ink block font-mono text-[10px]">
-                      Canonical: {customer.phoneNormalized}
-                    </span>
                   </div>
 
                   <div>
                     <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                      Customer ID
-                    </dt>
-                    <dd className="text-studio-ink mt-0.5 font-mono text-[11px] font-bold break-all">
-                      {customer.id}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                      Created At
+                      Terdaftar Sejak
                     </dt>
                     <dd className="text-studio-ink mt-0.5 font-mono text-[11px] font-bold">
                       {formatIndonesianTimestamp(customer.createdAt)}
@@ -248,7 +237,7 @@ export function CustomerDetailDrawer({
                 <div className="mt-3 border-t border-neutral-200 pt-3">
                   <p className="text-studio-muted-ink flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase">
                     <Tag className="h-3 w-3" aria-hidden="true" />
-                    <span>Previous Names / Name Aliases</span>
+                    <span>Nama Lain yang Pernah Dipakai</span>
                   </p>
                   {customer.nameAliases?.length > 0 ? (
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -262,7 +251,9 @@ export function CustomerDetailDrawer({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-studio-subtle-ink mt-1 text-xs">Belum ada nama alias.</p>
+                    <p className="text-studio-subtle-ink mt-1 text-xs">
+                      Belum ada catatan nama lain.
+                    </p>
                   )}
                 </div>
 
@@ -271,7 +262,7 @@ export function CustomerDetailDrawer({
                   <div className="mt-3 border-t border-neutral-200 pt-3">
                     <p className="text-studio-muted-ink flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase">
                       <History className="h-3 w-3" aria-hidden="true" />
-                      <span>Previous Phone Number</span>
+                      <span>Riwayat Nomor HP Lama</span>
                     </p>
                     <ul className="mt-1.5 space-y-1.5">
                       {customer.previousPhones.map((prev, idx) => (
@@ -315,10 +306,10 @@ export function CustomerDetailDrawer({
                     id="customer-summary-heading"
                     className="font-mono text-xs font-extrabold tracking-wider uppercase"
                   >
-                    Booking Summary
+                    Ringkasan Booking
                   </h3>
                   <span className="text-studio-muted-ink font-mono text-[10px] font-bold">
-                    Termasuk cancelled &amp; no-show
+                    Termasuk dibatalkan &amp; tidak hadir
                   </span>
                 </div>
 
@@ -334,7 +325,7 @@ export function CustomerDetailDrawer({
 
                   <div className="border-studio-ink bg-studio-ivory border p-2.5">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Active Bookings
+                      Booking Aktif
                     </span>
                     <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
                       {isHistoryLoading ? '…' : activeBookingsCount}
@@ -343,7 +334,7 @@ export function CustomerDetailDrawer({
 
                   <div className="border-studio-ink bg-studio-ivory border p-2.5">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      First Booking
+                      Booking Pertama
                     </span>
                     <span className="text-studio-ink mt-1 block font-mono text-[11px] font-extrabold">
                       {customer.firstBookingDate
@@ -354,7 +345,7 @@ export function CustomerDetailDrawer({
 
                   <div className="border-studio-ink bg-studio-ivory border p-2.5">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Last Booking
+                      Booking Terakhir
                     </span>
                     <span className="text-studio-ink mt-1 block font-mono text-[11px] font-extrabold">
                       {customer.lastBookingDate
@@ -376,12 +367,12 @@ export function CustomerDetailDrawer({
                     id="customer-band-history-heading"
                     className="font-mono text-xs font-extrabold tracking-wider uppercase"
                   >
-                    Band / Project History
+                    Band / Project yang Pernah Dipakai
                   </h3>
                 </div>
                 <p className="text-studio-muted-ink mt-1 text-[11px] font-medium">
-                  Nama band/project adalah snapshot per booking. Satu customer dapat memiliki
-                  beberapa nama band tanpa membuat profil baru.
+                  Daftar band atau project dari setiap sesi booking. Satu pelanggan dapat mencatat
+                  banyak nama band sekaligus.
                 </p>
 
                 {bandHistory.length > 0 ? (
@@ -414,7 +405,7 @@ export function CustomerDetailDrawer({
                       id="customer-invoices-heading"
                       className="font-mono text-xs font-extrabold tracking-wider uppercase"
                     >
-                      Invoices &amp; Payments ({customerInvoices.length})
+                      Tagihan &amp; Invoice ({customerInvoices.length})
                     </h3>
                   </div>
                   <Link
@@ -432,11 +423,11 @@ export function CustomerDetailDrawer({
                   </p>
                 ) : isInvoicesLoading ? (
                   <p className="text-studio-muted-ink font-mono text-[11px] font-bold">
-                    Memuat daftar invoice customer...
+                    Memuat daftar invoice pelanggan...
                   </p>
                 ) : customerInvoices.length === 0 ? (
                   <p className="text-studio-subtle-ink text-xs">
-                    Belum ada invoice yang tertaut pada profil atau riwayat tergabung customer ini.
+                    Belum ada invoice yang tercatat untuk pelanggan ini.
                   </p>
                 ) : (
                   <ul className="space-y-2">
@@ -461,15 +452,15 @@ export function CustomerDetailDrawer({
                                   isVoid ? invMeta.badgeClass : payMeta.badgeClass
                                 }`}
                               >
-                                {isVoid ? 'VOID' : payMeta.label}
+                                {isVoid ? invMeta.label : payMeta.indoLabel || payMeta.label}
                               </span>
                             </div>
                             <p className="text-studio-muted-ink mt-0.5 font-mono text-[10px] font-semibold">
                               {inv.bookingSnapshot?.bookingDate
                                 ? formatIndonesianDateMedium(inv.bookingSnapshot.bookingDate)
                                 : '-'}{' '}
-                              • Total {formatRupiah(inv.financialSnapshot?.totalAmount || 0)} • Paid{' '}
-                              {formatRupiah(inv.amountPaid || 0)} • Sisa{' '}
+                              • Total {formatRupiah(inv.financialSnapshot?.totalAmount || 0)} •
+                              Dibayar {formatRupiah(inv.amountPaid || 0)} • Sisa{' '}
                               <strong
                                 className={
                                   inv.balanceDue > 0 && !isVoid
@@ -487,7 +478,7 @@ export function CustomerDetailDrawer({
                             aria-label={`Buka invoice ${inv.invoiceNumber}`}
                             className="border-studio-ink bg-studio-ink text-studio-lime hover:bg-studio-orange hover:text-studio-white inline-flex h-7 shrink-0 items-center gap-1 border px-2 font-mono text-[9px] font-extrabold uppercase transition-colors"
                           >
-                            <span>Open Invoice</span>
+                            <span>Lihat Invoice</span>
                             <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
                           </Link>
                         </li>
@@ -512,7 +503,7 @@ export function CustomerDetailDrawer({
                       id="customer-booking-history-heading"
                       className="font-mono text-xs font-extrabold tracking-wider uppercase"
                     >
-                      Booking History ({totalLoaded})
+                      Riwayat Booking ({totalLoaded})
                     </h3>
                   </div>
                   <span className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">

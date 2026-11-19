@@ -75,7 +75,7 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
               37 MUSIC STUDIO
             </p>
             <p className="text-studio-muted-ink mt-1 font-mono text-[10px] font-bold tracking-wider uppercase">
-              REHEARSAL • RECORDING • STUDIO OPERATIONS
+              REHEARSAL • RECORDING • STUDIO MUSIK
             </p>
           </div>
         </div>
@@ -91,7 +91,7 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
               <span
                 className={`border px-2 py-0.5 font-mono text-[9.5px] font-extrabold uppercase ${paymentMeta.badgeClass}`}
               >
-                {paymentMeta.label} • {paymentMeta.indoLabel}
+                {paymentMeta.indoLabel || paymentMeta.label}
               </span>
             ) : null}
           </div>
@@ -107,7 +107,7 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
       {isVoid ? (
         <div className="border-studio-ink text-studio-white mt-4 border-2 bg-neutral-900 px-3.5 py-2.5 text-xs">
           <p className="font-mono text-[10px] font-extrabold tracking-wider text-amber-300 uppercase">
-            INVOICE VOID — TIDAK BERLAKU UNTUK PEMBAYARAN
+            INVOICE DIBATALKAN — TIDAK BERLAKU UNTUK PEMBAYARAN
           </p>
           {invoice.voidReason ? (
             <p className="mt-0.5 text-neutral-200">Alasan: {invoice.voidReason}</p>
@@ -119,7 +119,7 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
       <section className="mt-5 grid grid-cols-1 gap-4 border-b border-neutral-300 pb-5 sm:grid-cols-2">
         <div>
           <p className="text-studio-muted-ink font-mono text-[9.5px] font-extrabold tracking-wider uppercase">
-            Bill To / Customer
+            Tagihan Kepada
           </p>
           <p className="mt-1 text-base font-extrabold">{invoice.customerSnapshot?.name || '-'}</p>
           {invoice.customerSnapshot?.bandName ? (
@@ -134,21 +134,23 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
 
         <dl className="space-y-1.5 font-mono text-xs sm:text-right">
           <div>
-            <dt className="text-studio-muted-ink text-[9.5px] font-bold uppercase">Invoice Date</dt>
+            <dt className="text-studio-muted-ink text-[9.5px] font-bold uppercase">
+              Tanggal Invoice
+            </dt>
             <dd className="font-extrabold">{formatIndonesianTimestamp(invoice.invoiceDate)}</dd>
           </div>
           {invoice.dueDate ? (
             <div>
-              <dt className="text-studio-muted-ink text-[9.5px] font-bold uppercase">Due Date</dt>
+              <dt className="text-studio-muted-ink text-[9.5px] font-bold uppercase">
+                Jatuh Tempo
+              </dt>
               <dd className="text-studio-orange font-extrabold">
                 {formatIndonesianDateMedium(invoice.dueDate)}
               </dd>
             </div>
           ) : null}
           <div>
-            <dt className="text-studio-muted-ink text-[9.5px] font-bold uppercase">
-              Booking Reference
-            </dt>
+            <dt className="text-studio-muted-ink text-[9.5px] font-bold uppercase">Kode Booking</dt>
             <dd className="font-bold">{invoice.bookingId}</dd>
           </div>
         </dl>
@@ -157,7 +159,7 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
       {/* 3. Service Description & Booking Details */}
       <section className="mt-5">
         <p className="text-studio-muted-ink font-mono text-[9.5px] font-extrabold tracking-wider uppercase">
-          Booking &amp; Service Description
+          Rincian Layanan &amp; Jadwal
         </p>
 
         <div className="border-studio-ink mt-2 border-2">
@@ -223,7 +225,7 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
             </div>
 
             <div className="flex justify-between gap-3 text-emerald-800">
-              <dt>Amount Paid</dt>
+              <dt>Sudah Dibayar</dt>
               <dd className="font-extrabold tabular-nums">
                 {formatRupiah(invoice.amountPaid || 0)}
               </dd>
@@ -231,7 +233,7 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
 
             <div className="border-studio-ink flex justify-between gap-3 border-t pt-2 text-sm font-extrabold">
               <dt className={invoice.balanceDue > 0 && !isVoid ? 'text-studio-orange' : ''}>
-                Outstanding Balance
+                Sisa Tagihan
               </dt>
               <dd
                 className={`tabular-nums ${
@@ -249,7 +251,7 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
       {transactions.length > 0 ? (
         <section className="print-avoid-break mt-5 border-t border-neutral-300 pt-4">
           <p className="text-studio-muted-ink font-mono text-[9.5px] font-extrabold tracking-wider uppercase">
-            Payment History ({transactions.length})
+            Riwayat Pembayaran ({transactions.length})
           </p>
           <div className="mt-2 space-y-1.5">
             {transactions.map((tx) => {
@@ -355,10 +357,10 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
             <div className="border-studio-ink bg-studio-ink text-studio-ivory flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-2 px-4 py-3 sm:px-5">
               <div className="min-w-0">
                 <Dialog.Title className="font-display text-lg leading-none font-black text-white uppercase sm:text-xl">
-                  Print &amp; PDF Preview — {invoice.invoiceNumber}
+                  Preview Cetak &amp; PDF — {invoice.invoiceNumber}
                 </Dialog.Title>
                 <Dialog.Description className="mt-0.5 font-mono text-[10px] text-neutral-300">
-                  Layout A4 siap cetak atau simpan PDF melalui dialog print browser.
+                  Siap dicetak atau disimpan sebagai PDF melalui dialog cetak browser.
                 </Dialog.Description>
               </div>
 
@@ -373,7 +375,7 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
                   ) : (
                     <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                   )}
-                  <span>{copied ? 'Disalin' : 'Copy Invoice Summary'}</span>
+                  <span>{copied ? 'Disalin' : 'Salin ke WhatsApp'}</span>
                 </button>
 
                 <button
@@ -382,7 +384,7 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
                   className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex h-9 cursor-pointer items-center gap-1.5 border px-3 font-mono text-[10px] font-extrabold uppercase"
                 >
                   <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Print / Save PDF</span>
+                  <span>Cetak / Simpan PDF</span>
                 </button>
 
                 <Dialog.Close

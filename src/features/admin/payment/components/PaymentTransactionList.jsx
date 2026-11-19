@@ -97,8 +97,8 @@ export function PaymentTransactionList({
                 type="search"
                 value={searchQuery}
                 onChange={(event) => onSearchQueryChange(event.target.value)}
-                aria-label="Cari ID transaksi, no. invoice, customer, atau referensi"
-                placeholder="Cari ID transaksi, no. invoice, customer, atau ref..."
+                aria-label="Cari ID transaksi, no. invoice, pelanggan, atau referensi"
+                placeholder="Cari ID transaksi, no. invoice, pelanggan, atau ref..."
                 className="border-studio-ink bg-studio-ivory text-studio-ink placeholder:text-studio-subtle-ink h-9 w-full border-2 py-1 pr-8 pl-8 text-xs font-semibold sm:h-10 sm:py-1.5"
               />
               {searchQuery ? (
@@ -130,7 +130,7 @@ export function PaymentTransactionList({
               onChange={(event) => onPaymentMethodChange(event.target.value)}
               className="border-studio-ink bg-studio-ivory text-studio-ink h-8.5 w-full cursor-pointer border-2 px-1.5 font-mono text-[9.5px] font-extrabold uppercase sm:h-10 sm:px-2 sm:text-[10px]"
             >
-              <option value="all">All Methods</option>
+              <option value="all">Semua Metode</option>
               {PAYMENT_METHOD_OPTIONS.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
@@ -205,10 +205,10 @@ export function PaymentTransactionList({
         >
           <div className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-1.5 border-b-2 px-2.5 py-1.5 sm:gap-2 sm:px-4 sm:py-2">
             <span className="text-studio-ink font-mono text-[9.5px] font-extrabold tracking-wider uppercase sm:text-[10px]">
-              APPEND-ONLY PAYMENT LEDGER
+              CATATAN PEMBAYARAN
             </span>
             <span className="text-studio-muted-ink hidden font-mono text-[9.5px] font-bold uppercase sm:inline">
-              Transaksi tidak dapat diedit/dihapus • Koreksi melalui Reversal
+              Catatan tersimpan permanen • Salah input dikoreksi lewat Pembatalan
             </span>
           </div>
 
@@ -216,10 +216,10 @@ export function PaymentTransactionList({
             <thead className="border-studio-ink bg-studio-ink text-studio-ivory hidden border-b-2 font-mono text-[10px] font-extrabold tracking-wider uppercase md:table-header-group">
               <tr>
                 <th scope="col" className="px-2.5 py-2 whitespace-nowrap xl:px-3">
-                  Waktu &amp; ID
+                  Waktu &amp; No. Transaksi
                 </th>
                 <th scope="col" className="px-2.5 py-2 xl:px-3">
-                  Invoice &amp; Customer
+                  Invoice &amp; Pelanggan
                 </th>
                 <th scope="col" className="px-2.5 py-2 whitespace-nowrap xl:px-3">
                   Jenis / Sumber
@@ -303,7 +303,7 @@ export function PaymentTransactionList({
                         </span>
                         {isReversed ? (
                           <span className="border-studio-ink border bg-neutral-200 px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold text-neutral-700 uppercase">
-                            Reversed
+                            Dibatalkan
                           </span>
                         ) : null}
                       </div>
@@ -341,7 +341,7 @@ export function PaymentTransactionList({
                         className="border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-lime inline-flex h-7.5 cursor-pointer items-center justify-center gap-1 border px-2 font-mono text-[9.5px] font-extrabold uppercase transition-colors sm:h-8 xl:px-2.5"
                       >
                         <ReceiptText className="h-3 w-3" aria-hidden="true" />
-                        <span>Receipt</span>
+                        <span>Kwitansi</span>
                       </button>
                     </td>
                   </tr>

@@ -31,11 +31,11 @@ export function InvoiceDirectoryTable({
         aria-label="Tabel daftar invoice studio"
         className="cal-card bg-studio-white overflow-hidden"
       >
-        {/* Top Legend Strip (consistent with Calendar & Customer tables) */}
+        {/* Top Legend Strip */}
         <div className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-1.5 border-b-2 px-2.5 py-1.5 sm:gap-2 sm:px-4 sm:py-2">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3">
             <span className="text-studio-ink font-mono text-[9.5px] font-extrabold tracking-wider uppercase sm:text-[10px]">
-              INVOICE LEDGER
+              DAFTAR INVOICE
             </span>
 
             <div className="flex flex-wrap items-center gap-2 font-mono text-[9px] font-bold sm:gap-2.5 sm:text-[10px]">
@@ -44,28 +44,28 @@ export function InvoiceDirectoryTable({
                   className="bg-studio-lime border-studio-ink h-2 w-2 border sm:h-2.5 sm:w-2.5"
                   aria-hidden="true"
                 />
-                <span>Paid</span>
+                <span>Lunas</span>
               </span>
               <span className="inline-flex items-center gap-1">
                 <span
                   className="border-studio-ink h-2 w-2 border bg-amber-200 sm:h-2.5 sm:w-2.5"
                   aria-hidden="true"
                 />
-                <span>Partial</span>
+                <span>DP</span>
               </span>
               <span className="inline-flex items-center gap-1">
                 <span
                   className="bg-studio-orange border-studio-ink h-2 w-2 border sm:h-2.5 sm:w-2.5"
                   aria-hidden="true"
                 />
-                <span>Overdue</span>
+                <span>Lewat Tempo</span>
               </span>
               <span className="inline-flex items-center gap-1">
                 <span
                   className="border-studio-ink bg-studio-ivory h-2 w-2 border sm:h-2.5 sm:w-2.5"
                   aria-hidden="true"
                 />
-                <span>Unpaid</span>
+                <span>Belum Bayar</span>
               </span>
             </div>
           </div>
@@ -79,10 +79,10 @@ export function InvoiceDirectoryTable({
           <thead className="border-studio-ink bg-studio-ink text-studio-ivory hidden border-b-2 font-mono text-[10px] font-extrabold tracking-wider uppercase md:table-header-group">
             <tr>
               <th scope="col" className="px-2.5 py-2 whitespace-nowrap xl:px-3">
-                Invoice / Jadwal
+                Invoice &amp; Jadwal
               </th>
               <th scope="col" className="px-2.5 py-2 xl:px-3">
-                Customer &amp; Layanan
+                Pelanggan &amp; Layanan
               </th>
               <th scope="col" className="px-2.5 py-2 whitespace-nowrap xl:px-3">
                 Status
@@ -97,7 +97,7 @@ export function InvoiceDirectoryTable({
                 scope="col"
                 className="hidden px-2.5 py-2 text-right whitespace-nowrap 2xl:table-cell 2xl:px-3"
               >
-                Terbayar
+                Dibayar
               </th>
               <th scope="col" className="px-2.5 py-2 text-right whitespace-nowrap xl:px-3">
                 Sisa Tagihan
@@ -189,7 +189,7 @@ export function InvoiceDirectoryTable({
                         <span
                           className={`border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase ${invoiceMeta.badgeClass}`}
                         >
-                          VOID
+                          DIBATALKAN
                         </span>
                       ) : (
                         <span
@@ -200,7 +200,7 @@ export function InvoiceDirectoryTable({
                       )}
                       {invoice.dueDate && !isVoid && invoice.balanceDue > 0 ? (
                         <span className="text-studio-muted-ink font-mono text-[8.5px] font-bold">
-                          Due {formatIndonesianDateMedium(invoice.dueDate)}
+                          Tempo {formatIndonesianDateMedium(invoice.dueDate)}
                         </span>
                       ) : null}
                     </div>
@@ -252,9 +252,9 @@ export function InvoiceDirectoryTable({
 
                     <span className="text-studio-subtle-ink hidden font-mono text-[9px] font-semibold tabular-nums md:block 2xl:hidden">
                       <span className="xl:hidden">
-                        Tot {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)} •{' '}
+                        Total {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)} •{' '}
                       </span>
-                      Paid {formatRupiah(invoice.amountPaid || 0)}
+                      Dibayar {formatRupiah(invoice.amountPaid || 0)}
                     </span>
                   </td>
 

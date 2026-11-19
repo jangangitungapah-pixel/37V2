@@ -155,13 +155,13 @@ export function CustomerFormDialog({
 
   const title =
     mode === 'edit'
-      ? 'Edit Customer Profile'
+      ? 'Ubah Data Pelanggan'
       : mode === 'phone'
-        ? 'Update Phone Number'
-        : 'Add Customer';
+        ? 'Ganti Nomor HP Utama'
+        : 'Tambah Pelanggan Baru';
 
   const eyebrow =
-    mode === 'edit' ? 'EDIT PROFILE' : mode === 'phone' ? 'GANTI NOMOR UTAMA' : 'NEW CUSTOMER';
+    mode === 'edit' ? 'UBAH PROFIL' : mode === 'phone' ? 'GANTI NOMOR HP' : 'PELANGGAN BARU';
 
   return (
     <Dialog.Root
@@ -187,10 +187,10 @@ export function CustomerFormDialog({
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-xs text-neutral-300">
                 {mode === 'phone'
-                  ? `Nomor lama ${formatPhoneDisplay(customer?.phoneNormalized)} akan disimpan di Previous Phone Number.`
+                  ? `Nomor lama ${formatPhoneDisplay(customer?.phoneNormalized)} tetap tersimpan di riwayat nomor lama.`
                   : mode === 'edit'
-                    ? 'Perubahan nama akan menyimpan nama lama ke alias tanpa mengubah snapshot booking lama.'
-                    : 'Tambahkan profil customer baru ke directory secara manual.'}
+                    ? 'Mengubah nama akan menyimpan nama sebelumnya ke catatan nama lain tanpa mengubah data booking lama.'
+                    : 'Tambahkan data pelanggan baru ke daftar studio.'}
               </Dialog.Description>
             </div>
 
@@ -368,7 +368,8 @@ export function CustomerFormDialog({
                 ) : null}
                 {mode === 'phone' ? (
                   <p className="text-studio-muted-ink mt-1.5 text-[11px] font-medium">
-                    Perubahan nomor utama tidak mengubah snapshot nomor pada booking historis.
+                    Mengganti nomor utama tidak mengubah catatan nomor HP pada booking yang sudah
+                    lewat.
                   </p>
                 ) : null}
               </div>

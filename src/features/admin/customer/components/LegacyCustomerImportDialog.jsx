@@ -135,14 +135,14 @@ export function LegacyCustomerImportDialog({
             <div className="min-w-0">
               <span className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
                 <Database className="h-3 w-3" aria-hidden="true" />
-                <span>LEGACY HISTORY BACKFILL</span>
+                <span>LENGKAPI DATA PELANGGAN LAMA</span>
               </span>
               <Dialog.Title className="font-display mt-1.5 text-2xl leading-none font-black text-white uppercase sm:text-3xl">
-                Import Existing Booking History
+                Hubungkan Data Booking Lama
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-xs text-neutral-300">
-                Hanya menautkan customerId &amp; phoneNormalized pada booking lama tanpa mengubah
-                harga, komisi, jadwal, atau snapshot nama.
+                Membuat data pelanggan dari booking lama secara otomatis tanpa mengubah harga,
+                komisi, jadwal, atau nama pemesan.
               </Dialog.Description>
             </div>
 
@@ -188,7 +188,7 @@ export function LegacyCustomerImportDialog({
             {isScanning ? (
               <div className="border-studio-ink bg-studio-white flex items-center gap-2.5 border-2 p-5 font-mono text-xs font-bold">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                <span>Memindai booking historis (mode preview, tanpa menulis data)...</span>
+                <span>Memeriksa daftar booking lama (belum menyimpan perubahan)...</span>
               </div>
             ) : preview ? (
               <>
@@ -196,7 +196,7 @@ export function LegacyCustomerImportDialog({
                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                   <div className="border-studio-ink bg-studio-white border-2 p-3">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Legacy Unlinked
+                      Belum Terhubung
                     </span>
                     <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
                       {preview.totalLegacyUnlinked}
@@ -205,7 +205,7 @@ export function LegacyCustomerImportDialog({
 
                   <div className="border-studio-ink bg-studio-white border-2 p-3">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Unique Phones
+                      Nomor HP Unik
                     </span>
                     <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
                       {preview.uniqueNormalizedPhones}
@@ -214,7 +214,7 @@ export function LegacyCustomerImportDialog({
 
                   <div className="border-studio-ink bg-studio-white border-2 p-3">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Estimated Profiles
+                      Perkiraan Pelanggan
                     </span>
                     <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
                       {preview.estimatedProfiles}
@@ -223,7 +223,7 @@ export function LegacyCustomerImportDialog({
 
                   <div className="border-studio-ink bg-studio-white border-2 p-3">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Same Phone / Diff Name
+                      No. Sama, Beda Nama
                     </span>
                     <span className="font-display text-studio-orange mt-0.5 block text-2xl leading-none font-black">
                       {preview.samePhoneDifferentNamesCount}
@@ -232,7 +232,7 @@ export function LegacyCustomerImportDialog({
 
                   <div className="border-studio-ink bg-studio-white border-2 p-3">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Needs Review (Invalid)
+                      Perlu Dicek (No. Invalid)
                     </span>
                     <span className="font-display text-studio-orange mt-0.5 block text-2xl leading-none font-black">
                       {preview.needsReviewCount}
@@ -241,7 +241,7 @@ export function LegacyCustomerImportDialog({
 
                   <div className="border-studio-ink bg-studio-white border-2 p-3">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Already Linked
+                      Sudah Terhubung
                     </span>
                     <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
                       {preview.alreadyLinkedCount}
@@ -285,7 +285,7 @@ export function LegacyCustomerImportDialog({
                   >
                     <div>
                       <span className="border-studio-ink bg-studio-orange text-studio-white inline-block border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                        NEEDS REVIEW ({preview.needsReviewBookings.length})
+                        PERLU DICEK ({preview.needsReviewBookings.length})
                       </span>
                       <h3
                         id="legacy-needs-review-heading"

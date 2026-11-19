@@ -827,43 +827,43 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
       const drawer = await screen.findByRole('dialog', {
         name: new RegExp(inv1.invoiceNumber, 'i'),
       });
-      await user.click(within(drawer).getByRole('button', { name: /record payment/i }));
+      await user.click(within(drawer).getByRole('button', { name: /catat pembayaran/i }));
 
-      const payDialog = await screen.findByRole('dialog', { name: /record payment/i });
+      const payDialog = await screen.findByRole('dialog', { name: /catat pembayaran/i });
       // Default prefilled amount is full remaining balance (170000); add reference and save
       await user.type(within(payDialog).getByLabelText(/no\. referensi/i), 'TRF-FINAL-88');
       await user.click(within(payDialog).getByRole('button', { name: /simpan pembayaran/i }));
 
       await waitFor(() => {
-        expect(screen.queryByRole('dialog', { name: /record payment/i })).toBeNull();
+        expect(screen.queryByRole('dialog', { name: /catat pembayaran/i })).toBeNull();
       });
 
       // Invoice 1 is now PAID (Rp 0 remaining) and displays the new transaction reference
       expect(await within(drawer).findByText(/TRF-FINAL-88/i)).toBeTruthy();
 
       // Open Print Preview & verify editorial A4 sheet renders cleanly
-      await user.click(within(drawer).getByRole('button', { name: /print \/ pdf/i }));
-      const printDlg = await screen.findByRole('dialog', { name: /print & pdf preview/i });
+      await user.click(within(drawer).getByRole('button', { name: /cetak \/ pdf/i }));
+      const printDlg = await screen.findByRole('dialog', { name: /preview cetak & pdf/i });
       expect(within(printDlg).getAllByText(/37 MUSIC STUDIO/i).length).toBeGreaterThanOrEqual(2);
       await user.click(
         within(printDlg).getByRole('button', { name: /tutup preview cetak invoice/i }),
       );
       await user.click(within(drawer).getByRole('button', { name: /tutup detail invoice/i }));
 
-      // Switch to Transactions tab and open Payment Receipt
-      await user.click(screen.getByRole('tab', { name: /transactions/i }));
+      // Switch to Transactions tab and verify reference appears
+      await user.click(screen.getByRole('tab', { name: /riwayat bayar/i }));
       expect(await screen.findByText(/TRF-FINAL-88/i)).toBeTruthy();
 
-      // 2. Navigate to Calendar -> Booking 1 Detail Drawer MUST show authoritative PAID status (NOT stale initial DP!)
+      // 2. Navigate to Calendar -> Booking 1 Detail Drawer MUST show authoritative Lunas status (NOT stale initial DP!)
       const sidebar = screen.getByRole('navigation', { name: /admin workspace navigation/i });
       await user.click(within(sidebar).getByRole('link', { name: 'Calendar' }));
-      expect(await screen.findByText(/studio booking schedule/i)).toBeTruthy();
+      expect(await screen.findByText(/jadwal studio/i)).toBeTruthy();
 
       const bookingButtons = await screen.findAllByRole('button', { name: /arief music/i });
       await user.click(bookingButtons[0]);
       const bookingDrawer = await screen.findByRole('dialog', { name: /arief music/i });
       expect(within(bookingDrawer).getByText(inv1.invoiceNumber)).toBeTruthy();
-      expect(within(bookingDrawer).getByRole('link', { name: /open invoice/i })).toBeTruthy();
+      expect(within(bookingDrawer).getByRole('link', { name: /lihat invoice/i })).toBeTruthy();
       expect(within(bookingDrawer).getAllByText(/lunas/i).length).toBeGreaterThanOrEqual(2);
       await user.click(
         within(bookingDrawer).getByRole('button', { name: /tutup detail booking/i }),

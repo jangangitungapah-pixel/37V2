@@ -165,7 +165,7 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
     ).toBeTruthy();
     expect(screen.getAllByText('Raka Pratama (Owner)').length).toBeGreaterThan(0);
     expect(screen.getAllByText('owner@37musicstudio.com').length).toBeGreaterThan(0);
-    expect(screen.getByText('ROLE: OWNER')).toBeTruthy();
+    expect(screen.getByText('AKSES: OWNER')).toBeTruthy();
 
     // Ensure no fake operational dashboard metrics appear
     expect(screen.queryByText(/total revenue|occupancy rate|monthly bookings/i)).toBeNull();
@@ -201,7 +201,7 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
       await screen.findByRole('heading', { name: /welcome back, dina audio engineer\./i }),
     ).toBeTruthy();
     expect(screen.getAllByText('Dina Audio Engineer').length).toBeGreaterThan(0);
-    expect(screen.getByText('ROLE: STAFF')).toBeTruthy();
+    expect(screen.getByText('AKSES: STAFF')).toBeTruthy();
   });
 
   it('rejects invalid credentials with a safe user-facing error message', async () => {

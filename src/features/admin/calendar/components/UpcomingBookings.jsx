@@ -14,9 +14,9 @@ export function UpcomingBookings({ bookings = [], onSelectBooking, onOpenNewBook
   return (
     <section
       aria-labelledby="upcoming-bookings-heading"
-      className="cal-card bg-studio-white p-3 sm:p-4"
+      className="cal-card bg-studio-white p-2.5 sm:p-4"
     >
-      <div className="flex items-center justify-between gap-2 border-b-2 border-neutral-200 pb-2.5">
+      <div className="flex items-center justify-between gap-2 border-b-2 border-neutral-200 pb-2 sm:pb-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="border-studio-ink bg-studio-lime text-studio-ink flex h-7 w-7 shrink-0 items-center justify-center border">
             <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
@@ -26,10 +26,10 @@ export function UpcomingBookings({ bookings = [], onSelectBooking, onOpenNewBook
               id="upcoming-bookings-heading"
               className="font-display text-studio-ink truncate text-lg leading-none font-black tracking-tight uppercase"
             >
-              Upcoming Bookings
+              Jadwal Terdekat
             </h3>
             <p className="text-studio-muted-ink mt-0.5 truncate font-mono text-[9px] font-bold uppercase">
-              Jadwal sesi terdekat periode aktif
+              Sesi aktif pada periode ini
             </p>
           </div>
         </div>

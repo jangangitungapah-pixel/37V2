@@ -535,9 +535,7 @@ describe('Duration-Based Automatic Discount (Catalog V2 Integrated)', () => {
       mockAuthenticatedUser('staff', 'staff-uid-2');
 
       renderAppAt('/admin/calendar');
-      expect(
-        await screen.findByText(/studio booking schedule/i, {}, { timeout: 5000 }),
-      ).toBeTruthy();
+      expect(await screen.findByText(/jadwal studio/i, {}, { timeout: 5000 })).toBeTruthy();
 
       await user.click(screen.getByRole('button', { name: /new booking/i }));
       const modal = await screen.findByRole('dialog', { name: /tambah booking/i });
@@ -610,7 +608,7 @@ describe('Duration-Based Automatic Discount (Catalog V2 Integrated)', () => {
       });
 
       // Open Booking Detail Drawer and confirm persisted Diskon Durasi is displayed
-      const upcomingSection = screen.getByRole('region', { name: /upcoming bookings/i });
+      const upcomingSection = screen.getByRole('region', { name: /jadwal terdekat/i });
       await user.click(
         await within(upcomingSection).findByRole('button', {
           name: /detail booking rendra pratama/i,

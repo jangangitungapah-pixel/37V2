@@ -91,14 +91,14 @@ export function SettingsSaveBar({
 
           <p className="text-studio-muted-ink font-mono text-[11px] font-semibold">
             {readOnly
-              ? 'Mode Baca Saja (Staff/Operator). Perubahan konfigurasi hanya dapat disimpan oleh Owner.'
+              ? 'Mode Baca Saja (Staff/Operator). Perubahan tarif hanya dapat disimpan oleh Owner.'
               : isDirty
-                ? 'Perubahan lokal belum tersimpan ke Firestore (settings/pricing).'
+                ? 'Ada perubahan yang belum disimpan.'
                 : migratedFromV1
-                  ? 'Draft migrasi Catalog V2 dari dokumen V1. Tinjau lalu klik Save Changes untuk menyimpan ke Firestore.'
+                  ? 'Penyesuaian tarif versi baru siap disimpan. Tinjau kembali lalu klik Save Changes.'
                   : !isPersisted
-                    ? 'Menampilkan default preset Catalog V2. Klik Save Changes untuk menyimpan ke Firestore.'
-                    : 'Semua katalog tarif V2 sinkron dengan Cloud Firestore dan Calendar.'}
+                    ? 'Menampilkan daftar tarif standar. Klik Save Changes untuk menyimpan.'
+                    : 'Daftar tarif sudah tersimpan dan aktif di Calendar.'}
           </p>
         </div>
 

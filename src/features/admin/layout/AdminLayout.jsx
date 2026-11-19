@@ -69,9 +69,9 @@ export function AdminLayout() {
         </main>
 
         <footer className="border-studio-ink bg-studio-ivory border-t px-2 py-2.5 sm:px-6 sm:py-3.5 lg:px-8">
-          <div className="flex w-full flex-col items-start justify-between gap-1 font-mono text-[11px] text-neutral-600 sm:flex-row sm:items-center">
-            <p>© 2026 37 Music Studio • Internal Administration Workspace</p>
-            <p>Phase 4 Admin Shell &amp; Navigation Foundation</p>
+          <div className="flex w-full flex-col items-start justify-between gap-1 font-mono text-[10.5px] text-neutral-600 sm:flex-row sm:items-center sm:text-[11px]">
+            <p>© 2026 37 Music Studio • Sistem Manajemen Studio</p>
+            <p>Panel Operasional Owner &amp; Staff</p>
           </div>
         </footer>
       </div>

@@ -656,9 +656,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
 
       renderCalendarAt('/admin/calendar');
 
-      expect(
-        await screen.findByText(/studio booking schedule/i, {}, { timeout: 5000 }),
-      ).toBeTruthy();
+      expect(await screen.findByText(/jadwal studio/i, {}, { timeout: 5000 })).toBeTruthy();
 
       // Switch to Day view
       const viewModeGroup = screen.getByRole('group', { name: /mode tampilan kalender/i });
@@ -695,7 +693,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
 
       // Clear search and click Upcoming Bookings item to open BookingDetailDrawer
       await user.clear(searchInput);
-      const upcomingSection = screen.getByRole('region', { name: /upcoming bookings/i });
+      const upcomingSection = screen.getByRole('region', { name: /jadwal terdekat/i });
       const upcomingItemBtn = within(upcomingSection).getByRole('button', {
         name: /detail booking farhan prakoso/i,
       });
@@ -740,9 +738,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
 
       renderCalendarAt('/admin/calendar');
 
-      expect(
-        await screen.findByText(/studio booking schedule/i, {}, { timeout: 5000 }),
-      ).toBeTruthy();
+      expect(await screen.findByText(/jadwal studio/i, {}, { timeout: 5000 })).toBeTruthy();
 
       // Switch to Day view and verify hourly timeline labels 10:00..22:00 and NO 10:30/11:30 rows
       const viewModeGroup = screen.getByRole('group', { name: /mode tampilan kalender/i });
@@ -890,9 +886,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       mockAuthenticatedStaff('owner');
       renderCalendarAt('/admin/calendar');
 
-      expect(
-        await screen.findByText(/studio booking schedule/i, {}, { timeout: 5000 }),
-      ).toBeTruthy();
+      expect(await screen.findByText(/jadwal studio/i, {}, { timeout: 5000 })).toBeTruthy();
 
       const viewModeGroup = screen.getByRole('group', { name: /mode tampilan kalender/i });
       await user.click(within(viewModeGroup).getByRole('button', { name: 'Month' }));
@@ -916,9 +910,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       mockAuthenticatedStaff('owner');
       renderCalendarAt('/admin/calendar');
 
-      expect(
-        await screen.findByText(/studio booking schedule/i, {}, { timeout: 5000 }),
-      ).toBeTruthy();
+      expect(await screen.findByText(/jadwal studio/i, {}, { timeout: 5000 })).toBeTruthy();
 
       const viewModeGroup = screen.getByRole('group', { name: /mode tampilan kalender/i });
       await user.click(within(viewModeGroup).getByRole('button', { name: 'Month' }));

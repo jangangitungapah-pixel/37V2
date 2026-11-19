@@ -52,16 +52,16 @@ export function CustomerIdentityConflictDialog({
               <span className="border-studio-ivory bg-studio-orange text-studio-white inline-flex items-center gap-1.5 border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
                 <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
                 <span>
-                  {isMultiple ? 'SHARED NUMBER • PILIH PROFIL' : 'KONFLIK IDENTITAS NOMOR'}
+                  {isMultiple ? 'NOMOR BERSAMA • PILIH PELANGGAN' : 'KONFIRMASI DATA PELANGGAN'}
                 </span>
               </span>
               <Dialog.Title className="font-display mt-2 text-2xl leading-none font-black tracking-tight text-white uppercase sm:text-3xl">
                 {isMultiple
-                  ? 'Pilih Profil Customer'
+                  ? 'Pilih Pelanggan yang Sesuai'
                   : 'Nomor telepon sudah digunakan oleh customer lain.'}
               </Dialog.Title>
               <Dialog.Description className="mt-1.5 font-mono text-xs text-neutral-300">
-                Nomor canonical: <strong className="text-studio-lime">{formattedPhone}</strong>
+                Nomor HP: <strong className="text-studio-lime">{formattedPhone}</strong>
               </Dialog.Description>
             </div>
 
@@ -81,7 +81,7 @@ export function CustomerIdentityConflictDialog({
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="border-studio-ink bg-studio-white border-2 p-3.5">
                     <span className="text-studio-muted-ink block font-mono text-[10px] font-extrabold uppercase">
-                      Terdaftar di Directory
+                      Sudah Terdaftar
                     </span>
                     <p className="font-display text-studio-ink mt-1 text-xl leading-tight font-black uppercase">
                       {singleProfile.displayName}
@@ -94,20 +94,20 @@ export function CustomerIdentityConflictDialog({
                     </p>
                     {singleProfile.nameAliases?.length > 0 ? (
                       <p className="text-studio-subtle-ink mt-1.5 text-[11px] font-medium">
-                        Alias: {singleProfile.nameAliases.join(', ')}
+                        Nama lain: {singleProfile.nameAliases.join(', ')}
                       </p>
                     ) : null}
                   </div>
 
                   <div className="border-studio-ink bg-studio-lime/25 border-2 p-3.5">
                     <span className="text-studio-muted-ink block font-mono text-[10px] font-extrabold uppercase">
-                      Nama yang Dimasukkan
+                      Nama yang Diisi
                     </span>
                     <p className="font-display text-studio-ink mt-1 text-xl leading-tight font-black uppercase">
                       {inputName || '(Belum diisi)'}
                     </p>
                     <p className="text-studio-muted-ink mt-1 text-[11px] font-semibold">
-                      Snapshot nama pada booking baru akan tetap mencatat nama ini.
+                      Nama ini tetap tercatat pada detail booking baru.
                     </p>
                   </div>
                 </div>

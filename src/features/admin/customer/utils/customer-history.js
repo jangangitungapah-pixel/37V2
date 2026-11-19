@@ -7,17 +7,17 @@ import { CUSTOMER_STATUS, normalizeCustomerName } from './customer-identity';
 import { buildPhoneSearchTokens, formatPhoneDisplay } from './phone-number';
 
 export const CUSTOMER_FILTER_OPTIONS = [
-  { id: 'all', label: 'All Customers' },
-  { id: 'shared', label: 'Shared Number' },
-  { id: 'recent', label: 'Recently Active' },
-  { id: 'archived', label: 'Archived' },
+  { id: 'all', label: 'Semua Pelanggan', compactLabel: 'Semua' },
+  { id: 'shared', label: 'Nomor Bersama', compactLabel: 'No. Bersama' },
+  { id: 'recent', label: 'Baru Aktif', compactLabel: 'Baru Aktif' },
+  { id: 'archived', label: 'Diarsipkan', compactLabel: 'Arsip' },
 ];
 
 export const CUSTOMER_SORT_OPTIONS = [
-  { id: 'latest_booking', label: 'Latest Booking' },
-  { id: 'oldest_booking', label: 'Oldest Booking' },
-  { id: 'most_bookings', label: 'Most Bookings' },
-  { id: 'name_asc', label: 'Name A–Z' },
+  { id: 'latest_booking', label: 'Urut: Booking Terbaru' },
+  { id: 'oldest_booking', label: 'Urut: Booking Terlama' },
+  { id: 'most_bookings', label: 'Urut: Booking Terbanyak' },
+  { id: 'name_asc', label: 'Urut: Nama A–Z' },
 ];
 
 export const FIRESTORE_IN_QUERY_CHUNK_SIZE = 10;

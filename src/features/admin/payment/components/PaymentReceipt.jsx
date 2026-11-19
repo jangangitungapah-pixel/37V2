@@ -45,7 +45,7 @@ export function PaymentReceiptSheet({ transaction, invoice }) {
               37 MUSIC STUDIO
             </p>
             <p className="text-studio-muted-ink font-mono text-[9px] font-bold uppercase">
-              {isReversal ? 'PAYMENT REVERSAL RECORD' : 'PAYMENT RECEIPT'}
+              {isReversal ? 'BUKTI KOREKSI PEMBAYARAN' : 'BUKTI PEMBAYARAN (KWITANSI)'}
             </p>
           </div>
         </div>
@@ -58,7 +58,7 @@ export function PaymentReceiptSheet({ transaction, invoice }) {
 
       <div className="border-studio-ink bg-studio-ivory mt-4 border-2 p-3 text-center">
         <p className="text-studio-muted-ink font-mono text-[9.5px] font-bold uppercase">
-          {isReversal ? 'Nominal Koreksi (Reversal)' : 'Jumlah Pembayaran Diterima'}
+          {isReversal ? 'Nominal Pembatalan Catatan' : 'Jumlah Pembayaran Diterima'}
         </p>
         <p
           className={`font-display mt-1 text-3xl leading-none font-black tabular-nums ${
@@ -72,63 +72,59 @@ export function PaymentReceiptSheet({ transaction, invoice }) {
 
       <dl className="mt-4 space-y-2 font-mono text-[11px]">
         <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
-          <dt className="text-studio-muted-ink">Receipt / Tx ID</dt>
+          <dt className="text-studio-muted-ink">No. Transaksi</dt>
           <dd className="text-right font-extrabold break-all">{transaction.id}</dd>
         </div>
         <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
-          <dt className="text-studio-muted-ink">Invoice Number</dt>
+          <dt className="text-studio-muted-ink">Nomor Invoice</dt>
           <dd className="text-right font-extrabold">
             {transaction.invoiceNumber || invoice?.invoiceNumber || '-'}
           </dd>
         </div>
         <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
-          <dt className="text-studio-muted-ink">Customer</dt>
+          <dt className="text-studio-muted-ink">Pelanggan</dt>
           <dd className="text-right font-bold">{invoice?.customerSnapshot?.name || '-'}</dd>
         </div>
         <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
-          <dt className="text-studio-muted-ink">Payment Date</dt>
+          <dt className="text-studio-muted-ink">Tanggal Bayar</dt>
           <dd className="text-right font-bold">
             {formatIndonesianTimestamp(transaction.receivedAt || transaction.createdAt)}
           </dd>
         </div>
         <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
-          <dt className="text-studio-muted-ink">Method</dt>
+          <dt className="text-studio-muted-ink">Metode</dt>
           <dd className="text-right font-extrabold">
             {getPaymentMethodLabel(transaction.paymentMethod)}
           </dd>
         </div>
         <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
-          <dt className="text-studio-muted-ink">Source</dt>
+          <dt className="text-studio-muted-ink">Keterangan</dt>
           <dd className="text-right font-bold">{sourceMeta.label}</dd>
         </div>
         {transaction.referenceNumber ? (
           <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
-            <dt className="text-studio-muted-ink">Reference</dt>
+            <dt className="text-studio-muted-ink">No. Referensi</dt>
             <dd className="text-right font-bold">{transaction.referenceNumber}</dd>
           </div>
         ) : null}
         {transaction.reversalOfTransactionId ? (
           <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
-            <dt className="text-studio-muted-ink">Reversal Of</dt>
+            <dt className="text-studio-muted-ink">Koreksi Dari</dt>
             <dd className="text-right font-bold break-all">
               {transaction.reversalOfTransactionId}
             </dd>
           </div>
         ) : null}
-        <div className="flex justify-between gap-2 border-b border-neutral-200 pb-1.5">
-          <dt className="text-studio-muted-ink">Recorded By</dt>
-          <dd className="text-right font-bold">{transaction.recordedByUid || '-'}</dd>
-        </div>
         {transaction.notes ? (
           <div className="pt-1">
-            <dt className="text-studio-muted-ink text-[9.5px] uppercase">Notes</dt>
+            <dt className="text-studio-muted-ink text-[9.5px] uppercase">Catatan</dt>
             <dd className="mt-0.5 font-sans text-xs font-medium">{transaction.notes}</dd>
           </div>
         ) : null}
       </dl>
 
       <footer className="border-studio-ink mt-5 border-t pt-2.5 text-center font-mono text-[9.5px] text-neutral-600">
-        37 MUSIC STUDIO • Bukti Pencatatan Transaksi Pembayaran
+        37 MUSIC STUDIO • Bukti Pembayaran Resmi Studio
       </footer>
     </article>
   );
@@ -190,7 +186,7 @@ export function PaymentReceipt({ open, transaction, invoice, onOpenChange }) {
               <div className="flex min-w-0 items-center gap-2">
                 <ReceiptText className="text-studio-lime h-4 w-4 shrink-0" aria-hidden="true" />
                 <Dialog.Title className="font-display truncate text-lg leading-none font-black text-white uppercase">
-                  Payment Receipt
+                  Bukti Pembayaran
                 </Dialog.Title>
               </div>
 
@@ -217,7 +213,7 @@ export function PaymentReceipt({ open, transaction, invoice, onOpenChange }) {
                 ) : (
                   <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
-                <span>{copied ? 'Disalin' : 'Copy Receipt Summary'}</span>
+                <span>{copied ? 'Disalin' : 'Salin ke WhatsApp'}</span>
               </button>
 
               <button
@@ -226,7 +222,7 @@ export function PaymentReceipt({ open, transaction, invoice, onOpenChange }) {
                 className="cal-control bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 font-mono text-[10px] font-extrabold uppercase"
               >
                 <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Print Receipt</span>
+                <span>Cetak Bukti</span>
               </button>
             </div>
           </Dialog.Popup>

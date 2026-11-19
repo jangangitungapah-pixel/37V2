@@ -359,8 +359,8 @@ export function BookingFormDialog({
         ...activeStudio,
         {
           id: historicalServiceId,
-          name: `${editingBooking.serviceTypeName || editingBooking.serviceLabel || historicalServiceId} (Snapshot Eksisting)`,
-          description: 'Layanan eksisting dari booking lama',
+          name: `${editingBooking.serviceTypeName || editingBooking.serviceLabel || historicalServiceId} (Tarif Lama)`,
+          description: 'Layanan dari data booking lama',
           deliveryMode: editingBooking.deliveryMode || DELIVERY_MODES.STUDIO,
           isHistoricalFallback: true,
           bookableOptions: [
@@ -370,8 +370,8 @@ export function BookingFormDialog({
                 editingBooking.serviceOptionName ||
                 editingBooking.packageLabel ||
                 editingBooking.recordingTypeLabel ||
-                'Snapshot Eksisting',
-              description: 'Subcategory dari snapshot booking lama',
+                'Tarif Lama',
+              description: 'Pilihan layanan dari data booking lama',
               isActive: true,
               isHistoricalFallback: true,
               pricing: {
@@ -425,8 +425,8 @@ export function BookingFormDialog({
         ...activeOpts,
         {
           id: historicalOptionId,
-          name: `${editingBooking.serviceOptionName || editingBooking.packageLabel || editingBooking.recordingTypeLabel || historicalOptionId} (Snapshot Eksisting)`,
-          description: 'Subcategory non-aktif dari booking lama',
+          name: `${editingBooking.serviceOptionName || editingBooking.packageLabel || editingBooking.recordingTypeLabel || historicalOptionId} (Tarif Lama)`,
+          description: 'Layanan nonaktif dari data booking lama',
           isActive: true,
           isHistoricalFallback: true,
           pricing: {
@@ -569,9 +569,9 @@ export function BookingFormDialog({
       appliedDiscountName: preservedAutomaticDiscount
         ? 'Diskon Durasi'
         : editingBooking.packageId && Number(editingBooking.discountAmount) > 0
-          ? 'Diskon Paket (Snapshot)'
+          ? 'Diskon Paket'
           : Number(editingBooking.discountAmount) > 0
-            ? 'Diskon (Snapshot)'
+            ? 'Diskon'
             : '',
       totalAmount,
       initialPaidAmount,
@@ -1031,7 +1031,7 @@ export function BookingFormDialog({
                         id="step-customer-heading"
                         className="font-display text-studio-ink text-xl font-black uppercase"
                       >
-                        Customer Snapshot
+                        Data Pemesan
                       </h3>
                     </div>
                     {liveValidation.stepStatus.customer ? (
@@ -1116,11 +1116,11 @@ export function BookingFormDialog({
                         />
                         <div className="min-w-0">
                           <p className="font-mono text-[10px] font-extrabold uppercase">
-                            Profil Customer Tetap Terjaga
+                            Data Utama Pelanggan Tetap Terjaga
                           </p>
                           <p className="text-studio-muted-ink mt-0.5 leading-relaxed font-medium">
-                            Perubahan nama atau nomor HP pada form ini hanya memperbarui snapshot
-                            kontak booking. Perubahan nomor utama customer dilakukan melalui halaman{' '}
+                            Perubahan nama atau nomor HP di sini hanya berlaku untuk booking ini.
+                            Untuk mengganti nomor utama pelanggan, ubah di halaman{' '}
                             <strong>Customer</strong>.
                           </p>
                         </div>
@@ -1131,7 +1131,7 @@ export function BookingFormDialog({
                         className="border-studio-ink bg-studio-ivory flex items-center gap-2 border px-3 py-2.5 font-mono text-[11px] font-bold sm:col-span-2"
                       >
                         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                        <span>Memeriksa nomor HP pada Customer Directory...</span>
+                        <span>Memeriksa nomor HP di daftar pelanggan...</span>
                       </div>
                     ) : lookupState.status === 'error' ? (
                       <div
@@ -1175,13 +1175,13 @@ export function BookingFormDialog({
                           <div className="min-w-0">
                             <span className="border-studio-ink bg-studio-lime text-studio-ink inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
                               {activeManualChoice.mode === CUSTOMER_RESOLUTION_MODE.CREATE_SEPARATE
-                                ? 'PROFIL TERPISAH (SHARED NUMBER)'
-                                : 'DIGABUNGKAN KE PROFIL EXISTING'}
+                                ? 'PROFIL TERPISAH (NOMOR BERSAMA)'
+                                : 'GABUNG KE PELANGGAN TERDAFTAR'}
                             </span>
                             <p className="text-studio-ink mt-1 font-semibold">
                               {activeManualChoice.mode === CUSTOMER_RESOLUTION_MODE.CREATE_SEPARATE
                                 ? `Akan membuat profil terpisah untuk "${formValues.customerName || '-'}" dengan nomor ${formatPhoneDisplay(currentPhoneNormalized)}.`
-                                : `Booking akan masuk ke riwayat "${activeManualChoice.profileName}" dan nama baru dicatat sebagai alias.`}
+                                : `Booking akan masuk ke riwayat "${activeManualChoice.profileName}" dan nama baru ikut tersimpan sebagai nama lain.`}
                             </p>
                           </div>
                         </div>
@@ -1202,10 +1202,10 @@ export function BookingFormDialog({
                         />
                         <div className="min-w-0">
                           <span className="border-studio-ink bg-studio-lime text-studio-ink inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                            CUSTOMER EXISTING
+                            PELANGGAN TERDAFTAR
                           </span>
                           <p className="text-studio-ink mt-1 font-semibold">
-                            Cocok dengan profil{' '}
+                            Cocok dengan pelanggan{' '}
                             <strong>{effectiveIdentity.matchedProfile.displayName}</strong> (
                             {effectiveIdentity.matchedProfile.bookingCount} booking) •{' '}
                             <span className="font-mono">
@@ -1222,14 +1222,14 @@ export function BookingFormDialog({
                         />
                         <div className="min-w-0">
                           <span className="border-studio-ink bg-studio-white text-studio-ink inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                            NEW CUSTOMER
+                            PELANGGAN BARU
                           </span>
                           <p className="text-studio-muted-ink mt-1 font-semibold">
                             Nomor{' '}
                             <span className="text-studio-ink font-mono font-bold">
                               {formatPhoneDisplay(currentPhoneNormalized)}
                             </span>{' '}
-                            belum terdaftar. Profil customer akan otomatis dibuat saat booking
+                            belum terdaftar. Data pelanggan baru akan dibuat otomatis saat booking
                             disimpan.
                           </p>
                         </div>
@@ -1242,12 +1242,11 @@ export function BookingFormDialog({
                         />
                         <div className="min-w-0">
                           <span className="border-studio-ink bg-studio-ink text-studio-lime inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                            NOMOR HISTORIS (RECYCLED)
+                            NOMOR LAMA PERNAH TERCATAT
                           </span>
                           <p className="text-studio-ink mt-1 font-semibold">
-                            Nomor ini pernah tercatat sebagai nomor lama / arsip customer lain.
-                            Booking baru akan membuat <strong>profil customer terpisah</strong>{' '}
-                            tanpa menggabungkan riwayat lama.
+                            Nomor ini pernah tercatat sebagai nomor lama atau arsip pelanggan lain.
+                            Booking baru akan dibuat terpisah tanpa mencampur riwayat lama.
                           </p>
                         </div>
                       </div>
@@ -1265,7 +1264,7 @@ export function BookingFormDialog({
                           <div className="min-w-0">
                             <span className="border-studio-ink bg-studio-orange text-studio-white inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
                               {effectiveIdentity.status === IDENTITY_MATCH_STATUS.MULTIPLE_MATCHES
-                                ? `SHARED NUMBER (${effectiveIdentity.activeProfiles.length} PROFIL)`
+                                ? `NOMOR BERSAMA (${effectiveIdentity.activeProfiles.length} PROFIL)`
                                 : 'NOMOR SUDAH TERDAFTAR'}
                             </span>
                             <p className="text-studio-ink mt-1 font-semibold">
@@ -1873,25 +1872,23 @@ export function BookingFormDialog({
                     </div>
 
                     <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
-                      Pricing Snapshot
+                      Ringkasan Harga
                     </span>
                   </div>
 
                   {isEditingOrRescheduling ? (
                     <div className="border-studio-ink bg-studio-ivory mt-4 border-2 p-3.5">
                       <p className="font-mono text-xs font-extrabold uppercase">
-                        Snapshot Pembayaran Awal Terkunci
+                        Pembayaran Awal Sudah Tercatat
                       </p>
                       <p className="text-studio-muted-ink mt-1 text-xs leading-relaxed font-medium">
-                        Sesuai aturan integritas data, status pembayaran awal yang tercatat saat
-                        booking dibuat (
+                        Untuk menjaga catatan tetap rapi, pembayaran awal saat booking dibuat (
                         <strong>
                           {getInitialPaymentStatusMeta(editingBooking?.initialPaymentStatus).label}
                         </strong>{' '}
-                        • <strong>{formatRupiah(editingBooking?.initialPaidAmount)}</strong> •
-                        Metode:{' '}
+                        • <strong>{formatRupiah(editingBooking?.initialPaidAmount)}</strong> •{' '}
                         <strong>{getPaymentMethodLabel(editingBooking?.paymentMethod)}</strong>)
-                        tidak diubah melalui jalur edit jadwal.
+                        hanya diubah lewat halaman Payment and Bill, bukan dari ubah jadwal.
                       </p>
                     </div>
                   ) : (
@@ -2023,15 +2020,15 @@ export function BookingFormDialog({
                   {isEditingOrRescheduling && isServiceScopeChanged ? (
                     <div className="border-studio-ink mt-4 border-2 bg-amber-100 p-3.5">
                       <p className="font-mono text-xs font-extrabold uppercase">
-                        Konfirmasi Perubahan Harga &amp; Fee Snapshot
+                        Konfirmasi Perubahan Tarif &amp; Komisi
                       </p>
                       <p className="text-studio-ink mt-1 text-xs leading-relaxed font-medium">
-                        Anda mengubah jenis jasa, subcategory, atau durasi pada booking lama. Secara
-                        default snapshot harga &amp; fee sebelumnya tetap dipertahankan (
+                        Anda mengubah layanan atau durasi pada booking lama. Secara bawaan tarif
+                        sebelumnya tetap dipakai (
                         <strong>{formatRupiah(editingBooking?.totalAmount)}</strong>). Centang opsi
-                        di bawah hanya jika Anda ingin menerapkan preset harga &amp; fee terbaru (
-                        <strong>{formatRupiah(livePricing.totalAmount)}</strong>) — snapshot fee
-                        internal juga akan diperbarui.
+                        di bawah hanya jika ingin memakai tarif baru (
+                        <strong>{formatRupiah(livePricing.totalAmount)}</strong>) beserta komisi tim
+                        terbaru.
                       </p>
                       <label className="mt-2.5 flex cursor-pointer items-center gap-2 font-mono text-xs font-extrabold">
                         <input
@@ -2042,13 +2039,13 @@ export function BookingFormDialog({
                           }
                           className="accent-studio-ink h-4 w-4 cursor-pointer"
                         />
-                        <span>Terapkan harga &amp; fee preset terbaru</span>
+                        <span>Pakai harga &amp; komisi terbaru</span>
                       </label>
                       {formValues.applyUpdatedPricing ? (
                         <p className="border-studio-ink bg-studio-white mt-2 border px-2.5 py-1.5 font-mono text-[10px] font-bold text-[#9a3412]">
-                          Catatan Invoice: Invoice yang sudah diterbitkan (Issued) tidak berubah
-                          otomatis akibat repricing. Jika nominal tagihan perlu disesuaikan, tinjau
-                          melalui halaman Payment and Bill secara eksplisit.
+                          Catatan: Invoice yang sudah dibuat tidak berubah otomatis jika harga
+                          booking diubah. Periksa tagihan melalui halaman Payment and Bill bila
+                          perlu.
                         </p>
                       ) : null}
                     </div>
@@ -2167,7 +2164,7 @@ export function BookingFormDialog({
                         </dl>
                       ) : (
                         <p className="text-studio-muted-ink mt-2.5 font-mono text-[11px]">
-                          Booking historis Phase 5 (tidak memiliki snapshot komisi internal).
+                          Booking versi lama tanpa catatan pembagian komisi tim.
                         </p>
                       )}
                     </div>

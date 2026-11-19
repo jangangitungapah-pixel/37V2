@@ -17,8 +17,8 @@ export function CalendarViewSwitcher({ viewMode, onViewModeChange }) {
             aria-pressed={isActive}
             className={
               isActive
-                ? 'border-studio-ink bg-studio-lime text-studio-ink min-h-11 w-full cursor-pointer border px-2 py-1 text-center font-mono text-[11px] font-extrabold tracking-wider uppercase transition-colors'
-                : 'text-studio-ink hover:bg-studio-white min-h-11 w-full cursor-pointer border border-transparent px-2 py-1 text-center font-mono text-[11px] font-bold tracking-wider uppercase transition-colors'
+                ? 'border-studio-ink bg-studio-lime text-studio-ink min-h-8.5 w-full cursor-pointer border px-2 py-1 text-center font-mono text-[10px] font-extrabold tracking-wider uppercase transition-colors sm:min-h-11 sm:text-[11px]'
+                : 'text-studio-ink hover:bg-studio-white min-h-8.5 w-full cursor-pointer border border-transparent px-2 py-1 text-center font-mono text-[10px] font-bold tracking-wider uppercase transition-colors sm:min-h-11 sm:text-[11px]'
             }
           >
             {mode.label}

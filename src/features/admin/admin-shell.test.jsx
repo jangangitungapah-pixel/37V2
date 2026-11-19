@@ -135,13 +135,13 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     const sidebarNav = screen.getByRole('navigation', { name: /admin workspace navigation/i });
 
     const nonDashboardModules = [
-      { label: 'Calendar', path: '/admin/calendar' },
-      { label: 'Customer', path: '/admin/customer' },
-      { label: 'Payment and Bill', path: '/admin/payment-and-bill' },
-      { label: 'Commission and Fee', path: '/admin/commission-and-fee' },
-      { label: 'Inventory', path: '/admin/inventory' },
-      { label: 'Pembukuan', path: '/admin/pembukuan' },
-      { label: 'Settings', path: '/admin/settings' },
+      { label: 'Calendar', path: '/admin/calendar', order: '02' },
+      { label: 'Customer', path: '/admin/customer', order: '03' },
+      { label: 'Payment and Bill', path: '/admin/payment-and-bill', order: '04' },
+      { label: 'Commission and Fee', path: '/admin/commission-and-fee', order: '05' },
+      { label: 'Inventory', path: '/admin/inventory', order: '06' },
+      { label: 'Pembukuan', path: '/admin/pembukuan', order: '07' },
+      { label: 'Settings', path: '/admin/settings', order: '08' },
     ];
 
     for (const mod of nonDashboardModules) {
@@ -152,20 +152,22 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
       expect(screen.getByRole('heading', { level: 1, name: mod.label })).toBeTruthy();
 
       if (mod.label === 'Calendar') {
-        expect(screen.getByText(/studio booking schedule/i)).toBeTruthy();
+        expect(screen.getByText(/jadwal studio/i)).toBeTruthy();
       } else if (mod.label === 'Customer') {
-        expect(screen.getByText(/customer directory & booking history/i)).toBeTruthy();
+        expect(screen.getByText(/daftar pelanggan & riwayat booking/i)).toBeTruthy();
       } else if (mod.label === 'Payment and Bill') {
         expect(
-          screen.getByText(/invoices, customer payments, and outstanding balances\./i),
+          screen.getByText(
+            /kelola tagihan, pembayaran dp atau cicilan, dan sisa tagihan pelanggan\./i,
+          ),
         ).toBeTruthy();
       } else if (mod.label === 'Settings') {
         expect(screen.getByRole('heading', { name: /price and fee settings/i })).toBeTruthy();
       } else {
-        expect(screen.getByText(`ROUTE: ${mod.path}`)).toBeTruthy();
+        expect(screen.getByText(`MENU ${mod.order} • DALAM PERSIAPAN`)).toBeTruthy();
         expect(
           screen.getByText(
-            /this workspace is ready\. the module's operational features will be implemented in its dedicated development phase\./i,
+            /halaman ini sedang disiapkan dan fitur lengkapnya akan segera hadir pada pembaruan berikutnya\./i,
           ),
         ).toBeTruthy();
       }

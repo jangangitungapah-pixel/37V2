@@ -586,11 +586,11 @@ describe('Phase 7 — Customer Management (Phone-Based Identity & Booking Histor
       renderAppAt('/admin/customer');
 
       expect(
-        await screen.findByText(/shared number • 2 profil/i, {}, { timeout: 5000 }),
+        await screen.findByText(/nomor bersama • 2 orang/i, {}, { timeout: 5000 }),
       ).toBeTruthy();
 
       // Shared number metrics: 2 Customer Profiles, 1 Unique Phone Number, 1 Shared Number!
-      const summary = screen.getByLabelText(/ringkasan customer directory/i);
+      const summary = screen.getByLabelText(/ringkasan daftar pelanggan/i);
       expect(within(summary).getByText('2')).toBeTruthy();
       expect(within(summary).getAllByText('1').length).toBeGreaterThanOrEqual(2);
 
@@ -633,7 +633,7 @@ describe('Phase 7 — Customer Management (Phone-Based Identity & Booking Histor
 
       // After merge, only 1 active profile remains with 2 bookings
       await waitFor(() => {
-        expect(screen.queryByText(/shared number • 2 profil/i)).toBeNull();
+        expect(screen.queryByText(/nomor bersama • 2 orang/i)).toBeNull();
       });
     });
 
@@ -650,9 +650,7 @@ describe('Phase 7 — Customer Management (Phone-Based Identity & Booking Histor
       mockAuthenticatedStaff('owner', 'owner-uid-1');
       renderAppAt('/admin/calendar');
 
-      expect(
-        await screen.findByText(/studio booking schedule/i, {}, { timeout: 5000 }),
-      ).toBeTruthy();
+      expect(await screen.findByText(/jadwal studio/i, {}, { timeout: 5000 })).toBeTruthy();
 
       await user.click(screen.getByRole('button', { name: /new booking/i }));
       const formDlg = await screen.findByRole('dialog', { name: /tambah booking/i });
@@ -685,7 +683,7 @@ describe('Phase 7 — Customer Management (Phone-Based Identity & Booking Histor
         ).toBeNull();
       });
 
-      expect(within(formDlg).getByText(/digabungkan ke profil existing/i)).toBeTruthy();
+      expect(within(formDlg).getByText(/gabung ke pelanggan terdaftar/i)).toBeTruthy();
 
       // Save Booking -> commits atomically linked to cust-existing-arief with alias added!
       await user.click(within(formDlg).getByRole('button', { name: /simpan booking/i }));

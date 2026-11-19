@@ -198,99 +198,101 @@ export function AdminCustomersPage() {
   };
 
   return (
-    <div data-customer-scoped="true" className="relative isolate z-0 space-y-3.5 sm:space-y-4">
-      {/* Page Header & Compact Metrics Strip (matches CalendarToolbar.jsx scale) */}
+    <div data-customer-scoped="true" className="relative isolate z-0 space-y-2.5 sm:space-y-4">
+      {/* Page Header & Compact Metrics Strip */}
       <section
         aria-labelledby="customer-page-heading"
-        className="cal-card bg-studio-white p-3 sm:p-4"
+        className="cal-card bg-studio-white p-2.5 sm:p-4"
       >
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 min-[340px]:flex-row min-[340px]:items-center min-[340px]:justify-between sm:gap-2.5">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="border-studio-ink bg-studio-ink text-studio-lime inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-extrabold tracking-wider uppercase">
-                <UsersRound className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span>PHONE-BASED CUSTOMER IDENTITY</span>
+            <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
+              <span className="border-studio-ink bg-studio-ink text-studio-lime inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold tracking-wider uppercase sm:px-2 sm:text-[9px]">
+                <UsersRound className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
+                <span>DATA PELANGGAN STUDIO</span>
               </span>
-              <span className="border-studio-ink bg-studio-ivory text-studio-ink inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-bold uppercase">
+              <span className="border-studio-ink bg-studio-ivory text-studio-ink hidden items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-bold uppercase sm:inline-flex">
                 <Phone className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span>CANONICAL +62 / INTL</span>
+                <span>FORMAT NOMOR +62 / INTL</span>
               </span>
             </div>
 
             <h2
               id="customer-page-heading"
-              className="font-display text-studio-ink mt-1.5 truncate text-xl leading-none font-black tracking-tight uppercase sm:text-3xl"
+              className="font-display text-studio-ink mt-1 truncate text-lg leading-none font-black tracking-tight uppercase sm:mt-1.5 sm:text-3xl"
             >
               Customer
             </h2>
             <p className="text-studio-muted-ink mt-1 hidden text-xs font-medium sm:block">
-              Customer Directory &amp; Booking History berbasis nomor HP yang terpisah maupun
-              tergabung.
+              Daftar pelanggan &amp; riwayat booking berdasarkan nomor HP (mendukung nomor yang
+              dipakai bersama maupun terpisah).
             </p>
           </div>
 
           <button
             type="button"
             onClick={() => openFormDialog('create')}
-            className="cal-control bg-studio-orange text-studio-white inline-flex min-h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3.5 py-1.5 font-mono text-[11px] font-extrabold tracking-wider uppercase sm:min-h-11 sm:w-auto sm:px-4"
+            aria-label="Add Customer"
+            className="cal-control bg-studio-orange text-studio-white inline-flex min-h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 font-mono text-[10px] font-extrabold tracking-wider uppercase min-[340px]:w-auto sm:min-h-11 sm:gap-1.5 sm:px-4 sm:text-[11px]"
           >
             <Plus className="h-3.5 w-3.5 stroke-[2.5]" aria-hidden="true" />
-            <span>Add Customer</span>
+            <span>Tambah</span>
+            <span className="hidden sm:inline">Pelanggan</span>
           </button>
         </div>
 
-        {/* Compact Horizontal Directory Metrics Strip */}
+        {/* Compact Horizontal Directory Metrics Strip (3 cols cleanly on mobile + desktop) */}
         <dl
-          aria-label="Ringkasan Customer Directory"
-          className="mt-3 grid grid-cols-1 gap-2 border-t border-neutral-200 pt-2.5 sm:grid-cols-3"
+          aria-label="Ringkasan daftar pelanggan"
+          className="mt-2.5 grid grid-cols-3 gap-1.5 border-t border-neutral-200 pt-2 sm:mt-3 sm:gap-2 sm:pt-2.5"
         >
-          <div className="border-studio-ink bg-studio-ivory flex items-center justify-between gap-2.5 border-2 px-3 py-2 shadow-[2px_2px_0px_#151515]">
+          <div className="border-studio-ink bg-studio-ivory flex flex-col justify-between gap-0.5 border-2 px-2 py-1.5 shadow-[2px_2px_0px_#151515] sm:flex-row sm:items-center sm:gap-2.5 sm:px-3 sm:py-2">
             <div className="min-w-0">
-              <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase">
-                <UsersRound className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span className="truncate">Customer Profiles</span>
+              <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
+                <UsersRound className="hidden h-3 w-3 shrink-0 sm:inline" aria-hidden="true" />
+                <span className="truncate">Pelanggan</span>
               </dt>
-              <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[9px] font-semibold">
-                Profil aktif terdaftar
+              <p className="text-studio-subtle-ink mt-0.5 hidden truncate font-mono text-[9px] font-semibold sm:block">
+                Pelanggan aktif terdaftar
               </p>
             </div>
-            <dd className="font-display text-studio-ink shrink-0 text-2xl leading-none font-black tabular-nums">
+            <dd className="font-display text-studio-ink shrink-0 text-xl leading-none font-black tabular-nums sm:text-2xl">
               {metrics.totalActiveProfiles}
             </dd>
           </div>
 
-          <div className="border-studio-ink bg-studio-ivory flex items-center justify-between gap-2.5 border-2 px-3 py-2 shadow-[2px_2px_0px_#151515]">
+          <div className="border-studio-ink bg-studio-ivory flex flex-col justify-between gap-0.5 border-2 px-2 py-1.5 shadow-[2px_2px_0px_#151515] sm:flex-row sm:items-center sm:gap-2.5 sm:px-3 sm:py-2">
             <div className="min-w-0">
-              <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase">
-                <Phone className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span className="truncate">Unique Phone Numbers</span>
+              <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
+                <Phone className="hidden h-3 w-3 shrink-0 sm:inline" aria-hidden="true" />
+                <span className="truncate">No. HP Unik</span>
               </dt>
-              <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[9px] font-semibold">
-                Nomor canonical (+62 / intl)
+              <p className="text-studio-subtle-ink mt-0.5 hidden truncate font-mono text-[9px] font-semibold sm:block">
+                Nomor HP terdaftar
               </p>
             </div>
-            <dd className="font-display text-studio-ink shrink-0 text-2xl leading-none font-black tabular-nums">
+            <dd className="font-display text-studio-ink shrink-0 text-xl leading-none font-black tabular-nums sm:text-2xl">
               {metrics.uniqueActivePhones}
             </dd>
           </div>
 
           <div
-            className={`border-studio-ink flex items-center justify-between gap-2.5 border-2 px-3 py-2 shadow-[2px_2px_0px_#151515] ${
+            className={`border-studio-ink flex flex-col justify-between gap-0.5 border-2 px-2 py-1.5 shadow-[2px_2px_0px_#151515] sm:flex-row sm:items-center sm:gap-2.5 sm:px-3 sm:py-2 ${
               metrics.sharedPhoneCount > 0 ? 'bg-amber-100' : 'bg-studio-ivory'
             }`}
           >
             <div className="min-w-0">
-              <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase">
-                <Users className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span className="truncate">Duplicate / Shared Numbers</span>
+              <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
+                <Users className="hidden h-3 w-3 shrink-0 sm:inline" aria-hidden="true" />
+                <span className="truncate">No. Bersama</span>
               </dt>
-              <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[9px] font-semibold">
+              <p className="text-studio-subtle-ink mt-0.5 hidden truncate font-mono text-[9px] font-semibold sm:block">
                 {metrics.sharedPhoneCount > 0
-                  ? `${metrics.sharedProfileCount} profil berbagi nomor`
-                  : 'Tidak ada nomor berbagi saat ini'}
+                  ? `${metrics.sharedProfileCount} orang berbagi nomor`
+                  : 'Belum ada nomor bersama'}
               </p>
             </div>
-            <dd className="font-display text-studio-ink shrink-0 text-2xl leading-none font-black tabular-nums">
+            <dd className="font-display text-studio-ink shrink-0 text-xl leading-none font-black tabular-nums sm:text-2xl">
               {metrics.sharedPhoneCount}
             </dd>
           </div>
@@ -301,22 +303,25 @@ export function AdminCustomersPage() {
       {legacyUnlinkedCount > 0 ? (
         <section
           role="region"
-          aria-label="Import histori booking lama"
-          className="cal-card bg-studio-lime/35 flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2.5"
+          aria-label="Lengkapi data pelanggan booking lama"
+          className="cal-card bg-studio-lime/35 flex flex-col gap-2 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2.5 sm:px-4 sm:py-2.5"
         >
           <div className="flex items-start gap-2">
-            <Database className="text-studio-ink mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <Database
+              className="text-studio-ink mt-0.5 h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
+              aria-hidden="true"
+            />
             <div className="min-w-0">
-              <p className="font-mono text-[10.5px] font-extrabold uppercase">
-                Existing booking records need to be linked to Customer Directory.
+              <p className="font-mono text-[10px] font-extrabold uppercase sm:text-[10.5px]">
+                Booking lama perlu dihubungkan ke daftar pelanggan.
               </p>
-              <p className="text-studio-ink mt-0.5 text-xs font-medium">
-                Ditemukan <strong>{legacyUnlinkedCount} booking historis</strong> yang belum
-                memiliki profil customer
+              <p className="text-studio-ink mt-0.5 text-[11px] leading-snug font-medium sm:text-xs">
+                Ditemukan <strong>{legacyUnlinkedCount} booking lama</strong> yang belum memiliki
+                data pelanggan
                 {legacyNeedsReviewCount > 0
-                  ? ` (${legacyNeedsReviewCount} perlu review nomor HP)`
+                  ? ` (${legacyNeedsReviewCount} nomor HP perlu dicek)`
                   : ''}
-                . Tinjau preview sebelum menjalankan import.
+                . Tinjau daftarnya sebelum menghubungkan data.
               </p>
             </div>
           </div>
@@ -324,10 +329,10 @@ export function AdminCustomersPage() {
           <button
             type="button"
             onClick={() => setLegacyImportOpen(true)}
-            className="cal-control bg-studio-ink text-studio-lime inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
+            className="cal-control bg-studio-ink text-studio-lime inline-flex min-h-8.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1 font-mono text-[10px] font-extrabold uppercase sm:min-h-10 sm:py-1.5 sm:text-[10.5px]"
           >
-            <Database className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Review &amp; Import History</span>
+            <Database className="h-3 w-3 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+            <span>Periksa &amp; Hubungkan</span>
           </button>
         </section>
       ) : null}

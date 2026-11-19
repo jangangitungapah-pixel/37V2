@@ -218,9 +218,9 @@ export function PriceAndFeeSettingsPage() {
       serviceTypes: draft.serviceTypes.map((svc) =>
         svc.id === serviceTypeId
           ? {
-              ...svc,
-              options: upsertById(svc.options || [], nextOption),
-            }
+            ...svc,
+            options: upsertById(svc.options || [], nextOption),
+          }
           : svc,
       ),
     }));
@@ -233,11 +233,11 @@ export function PriceAndFeeSettingsPage() {
       serviceTypes: draft.serviceTypes.map((svc) =>
         svc.id === serviceType.id
           ? {
-              ...svc,
-              options: (svc.options || []).map((opt) =>
-                opt.id === targetOption.id ? { ...opt, isActive: !(opt.isActive !== false) } : opt,
-              ),
-            }
+            ...svc,
+            options: (svc.options || []).map((opt) =>
+              opt.id === targetOption.id ? { ...opt, isActive: !(opt.isActive !== false) } : opt,
+            ),
+          }
           : svc,
       ),
     }));
@@ -286,9 +286,9 @@ export function PriceAndFeeSettingsPage() {
         serviceTypes: draft.serviceTypes.map((svc) =>
           svc.id === serviceTypeId
             ? {
-                ...svc,
-                options: (svc.options || []).filter((opt) => opt.id !== optionId),
-              }
+              ...svc,
+              options: (svc.options || []).filter((opt) => opt.id !== optionId),
+            }
             : svc,
         ),
       }));
@@ -419,8 +419,8 @@ export function PriceAndFeeSettingsPage() {
         </h2>
 
         <p className="text-studio-muted-ink mt-2 max-w-2xl text-sm leading-relaxed font-semibold sm:text-base">
-          Kelola katalog jasa bertingkat: Jenis Jasa &rarr; Subcategory &rarr; Tarif Customer &amp;
-          Fee Internal (Staff, Owner, Recording Operator).
+          Kelola daftar layanan, tarif sewa studio, diskon, dan komisi tim (Staff, Owner, Recording
+          Operator).
         </p>
 
         {isLoading ? (
@@ -430,7 +430,7 @@ export function PriceAndFeeSettingsPage() {
             className="border-studio-ink bg-studio-ivory mt-4 flex items-center gap-2 border px-3 py-2 font-mono text-xs font-bold"
           >
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            <span>Memuat konfigurasi settings/pricing dari Firestore...</span>
+            <span>Memuat pengaturan tarif studio...</span>
           </div>
         ) : null}
 
@@ -452,9 +452,9 @@ export function PriceAndFeeSettingsPage() {
           >
             <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>
-              Konfigurasi legacy (Schema V1) telah dimigrasikan ke tampilan Catalog V2 tanpa
-              menghapus tarif lama. Tinjau seluruh subcategory lalu klik{' '}
-              <strong>Save Changes</strong> untuk menyimpan Schema V2 ke Firestore.
+              Daftar tarif lama telah disesuaikan ke format terbaru tanpa menghapus tarif
+              sebelumnya. Periksa kategori layanan lalu klik <strong>Save Changes</strong> untuk
+              menyimpan.
             </span>
           </div>
         ) : null}

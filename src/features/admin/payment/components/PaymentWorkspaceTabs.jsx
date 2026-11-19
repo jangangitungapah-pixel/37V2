@@ -9,13 +9,13 @@ export function PaymentWorkspaceTabs({
   const tabs = [
     {
       id: 'invoices',
-      label: 'Invoices',
+      label: 'Daftar Invoice',
       count: invoicesCount,
       icon: FileText,
     },
     {
       id: 'transactions',
-      label: 'Transactions',
+      label: 'Riwayat Bayar',
       count: transactionsCount,
       icon: ArrowLeftRight,
     },

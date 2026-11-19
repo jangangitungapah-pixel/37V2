@@ -69,13 +69,14 @@ export function CustomerMergeDialog({
             <div className="min-w-0">
               <span className="border-studio-ivory bg-studio-orange text-studio-white inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
                 <GitMerge className="h-3 w-3" aria-hidden="true" />
-                <span>MERGE CUSTOMER HISTORY</span>
+                <span>GABUNGKAN DATA PELANGGAN</span>
               </span>
               <Dialog.Title className="font-display mt-1.5 text-2xl leading-none font-black text-white uppercase sm:text-3xl">
                 Gabungkan Riwayat Profil
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-xs text-neutral-300">
-                Penggabungan bersifat virtual: booking historis tetap menjaga snapshot aslinya.
+                Riwayat booking kedua profil tampil jadi satu, sementara data booking lama tetap
+                tersimpan aman.
               </Dialog.Description>
             </div>
 
@@ -106,7 +107,7 @@ export function CustomerMergeDialog({
                   htmlFor="merge-target-select"
                   className="text-studio-ink block font-mono text-[10px] font-extrabold uppercase"
                 >
-                  Target Profile (Profil Utama)
+                  Profil Utama (Yang Dipakai Selanjutnya)
                 </label>
                 <select
                   id="merge-target-select"
@@ -130,7 +131,7 @@ export function CustomerMergeDialog({
                 {targetProfile ? (
                   <p className="text-studio-muted-ink mt-1.5 font-mono text-[11px] font-bold">
                     {formatPhoneDisplay(targetProfile.phoneNormalized)} •{' '}
-                    {targetProfile.bookingCount} bookings
+                    {targetProfile.bookingCount} booking
                   </p>
                 ) : null}
               </div>
@@ -140,7 +141,7 @@ export function CustomerMergeDialog({
                   htmlFor="merge-source-select"
                   className="text-studio-ink block font-mono text-[10px] font-extrabold uppercase"
                 >
-                  Source Profile (Akan Berstatus Merged)
+                  Profil Kedua (Akan Digabungkan)
                 </label>
                 <select
                   id="merge-source-select"
@@ -159,7 +160,7 @@ export function CustomerMergeDialog({
                 {sourceProfile ? (
                   <p className="text-studio-muted-ink mt-1.5 font-mono text-[11px] font-bold">
                     {formatPhoneDisplay(sourceProfile.phoneNormalized)} •{' '}
-                    {sourceProfile.bookingCount} bookings
+                    {sourceProfile.bookingCount} booking
                   </p>
                 ) : null}
               </div>
@@ -173,7 +174,7 @@ export function CustomerMergeDialog({
                 className="border-studio-ink bg-studio-white hover:bg-studio-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1 font-mono text-[10px] font-extrabold uppercase"
               >
                 <ArrowDownUp className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Tukar Target &amp; Source</span>
+                <span>Tukar Posisi Profil</span>
               </button>
             </div>
 
@@ -181,7 +182,7 @@ export function CustomerMergeDialog({
             {targetProfile && sourceProfile ? (
               <div className="border-studio-ink bg-studio-lime/25 border-2 p-4">
                 <span className="text-studio-ink block font-mono text-[10px] font-extrabold uppercase">
-                  RESULT PREVIEW
+                  HASIL PENGGABUNGAN
                 </span>
                 <p className="font-display text-studio-ink mt-1 text-2xl leading-none font-black uppercase">
                   {targetProfile.displayName}
@@ -190,14 +191,15 @@ export function CustomerMergeDialog({
                   {combinedBookings} total bookings
                 </p>
                 <ul className="text-studio-ink mt-2.5 list-disc space-y-1 pl-4 text-xs font-medium">
-                  <li>Semua riwayat booking akan tampil dalam satu profil target.</li>
+                  <li>Semua riwayat booking akan tampil dalam satu profil utama.</li>
                   <li>
-                    Nama <strong>{sourceProfile.displayName}</strong> dipertahankan sebagai alias.
+                    Nama <strong>{sourceProfile.displayName}</strong> tetap dicatat sebagai nama
+                    lain.
                   </li>
-                  <li>Booking historis tidak kehilangan snapshot customerName aslinya.</li>
+                  <li>Data booking yang sudah lewat tidak berubah.</li>
                   <li>
-                    Profil sumber berubah menjadi status <strong>Merged</strong> dan booking baru
-                    menggunakan profil target.
+                    Booking berikutnya akan otomatis memakai profil{' '}
+                    <strong>{targetProfile.displayName}</strong>.
                   </li>
                 </ul>
               </div>
@@ -211,12 +213,13 @@ export function CustomerMergeDialog({
               onClick={() => onOpenChange?.(false)}
               className="brutal-btn bg-studio-ivory text-studio-ink min-h-11 cursor-pointer px-4 py-2 font-mono text-xs font-extrabold uppercase"
             >
-              Cancel
+              Batal
             </button>
             <button
               type="button"
               disabled={isMerging || !targetProfile || !sourceProfile}
               onClick={handleConfirm}
+              aria-label="Confirm Merge"
               className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-11 cursor-pointer items-center gap-2 px-5 py-2 font-mono text-xs font-extrabold uppercase disabled:opacity-60"
             >
               {isMerging ? (
@@ -224,7 +227,7 @@ export function CustomerMergeDialog({
               ) : (
                 <GitMerge className="h-4 w-4" aria-hidden="true" />
               )}
-              <span>Confirm Merge</span>
+              <span>Ya, Gabungkan</span>
             </button>
           </div>
         </Dialog.Popup>

@@ -810,9 +810,7 @@ describe('Phase 6 V2 — Service Catalog & Tariff Model Redesign', () => {
 
       // 2. Open Calendar Booking Form -> select Recording -> Others -> enter manual price & fees
       renderAppAt('/admin/calendar');
-      expect(
-        await screen.findByText(/studio booking schedule/i, {}, { timeout: 5000 }),
-      ).toBeTruthy();
+      expect(await screen.findByText(/jadwal studio/i, {}, { timeout: 5000 })).toBeTruthy();
 
       await user.click(screen.getByRole('button', { name: /new booking/i }));
       const modal = await screen.findByRole('dialog', { name: /tambah booking/i });

@@ -128,14 +128,14 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
             <div className="min-w-0">
               <span className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-extrabold tracking-wider uppercase">
                 <Database className="h-3 w-3" aria-hidden="true" />
-                <span>LEGACY INVOICE RECONCILIATION</span>
+                <span>BUAT INVOICE DATA LAMA</span>
               </span>
               <Dialog.Title className="font-display mt-1.5 text-xl leading-none font-black text-white uppercase sm:text-2xl">
-                Import Existing Booking Invoices
+                Buat Invoice untuk Booking Lama
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-xs text-neutral-300">
-                Membuat invoice &amp; transaksi `Legacy Initial Payment` dari snapshot booking lama
-                tanpa mengubah dokumen booking, slot, event, atau profil customer.
+                Membuat invoice dan catatan pembayaran awal dari booking lama secara aman tanpa
+                mengubah jadwal atau data pelanggan.
               </Dialog.Description>
             </div>
 
@@ -189,7 +189,7 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div className="border-studio-ink bg-studio-white border-2 p-2.5">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Tanpa Invoice
+                      Belum Ada Invoice
                     </span>
                     <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
                       {preview.totalWithoutInvoice}
@@ -197,7 +197,7 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                   </div>
                   <div className="border-studio-ink bg-studio-white border-2 p-2.5">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Siap Import
+                      Siap Dibuatkan
                     </span>
                     <span className="font-display mt-0.5 block text-2xl leading-none font-black text-emerald-800">
                       {preview.importableCount}
@@ -205,19 +205,18 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                   </div>
                   <div className="border-studio-ink bg-studio-white border-2 p-2.5">
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      With Initial Pay
+                      Ada Bayar Awal
                     </span>
                     <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
                       {preview.withInitialPaymentCount}
                     </span>
                   </div>
                   <div
-                    className={`border-studio-ink border-2 p-2.5 ${
-                      preview.needsReviewCount > 0 ? 'bg-amber-100' : 'bg-studio-white'
-                    }`}
+                    className={`border-studio-ink border-2 p-2.5 ${preview.needsReviewCount > 0 ? 'bg-amber-100' : 'bg-studio-white'
+                      }`}
                   >
                     <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
-                      Needs Review
+                      Perlu Dicek
                     </span>
                     <span className="font-display text-studio-orange mt-0.5 block text-2xl leading-none font-black">
                       {preview.needsReviewCount}
@@ -227,35 +226,34 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
 
                 {/* Status Distribution Strip */}
                 <div className="border-studio-ink bg-studio-white flex flex-wrap items-center gap-x-4 gap-y-1 border px-3 py-2 font-mono text-[10px] font-bold">
-                  <span>Unpaid: {preview.unpaidCount}</span>
-                  <span>Partial/DP: {preview.partialCount}</span>
-                  <span>Paid: {preview.paidCount}</span>
-                  <span>Cancelled/No-Show: {preview.cancelledOrNoShowCount}</span>
+                  <span>Belum Bayar: {preview.unpaidCount}</span>
+                  <span>DP / Sebagian: {preview.partialCount}</span>
+                  <span>Lunas: {preview.paidCount}</span>
+                  <span>Batal / Tidak Hadir: {preview.cancelledOrNoShowCount}</span>
                   <span className="text-studio-muted-ink">
-                    Sudah Ber-Invoice: {preview.alreadyHasInvoiceCount}
+                    Sudah Ada Invoice: {preview.alreadyHasInvoiceCount}
                   </span>
                 </div>
 
                 {/* No Double Counting Guarantee Note */}
                 <div className="border-studio-ink bg-studio-lime/25 border px-3 py-2 text-[11px] font-medium">
-                  <strong>Anti Double-Counting:</strong> Setiap booking menghasilkan maksimal satu
-                  invoice deterministik (<code>inv_{'{bookingId}'}</code>) dan satu initial payment
-                  (<code>pay_initial_{'{bookingId}'}</code>). Menjalankan ulang import tidak akan
-                  menduplikasi pembayaran awal.
+                  <strong>Aman dari Duplikasi:</strong> Setiap booking maksimal hanya dibuatkan 1
+                  invoice dan 1 catatan pembayaran awal, sehingga aman jika proses ini dijalankan
+                  ulang.
                 </div>
 
                 {progress ? (
                   <div className="border-studio-ink bg-studio-white border-2 p-3 font-mono text-xs font-bold">
-                    Memproses batch {progress.batchesCommitted}... ({progress.processedOperations} /{' '}
-                    {progress.totalOperations} operasi)
+                    Memproses bagian ke-{progress.batchesCommitted}... (
+                    {progress.processedOperations} / {progress.totalOperations} data)
                   </div>
                 ) : null}
 
-                {/* Needs Review Queue (Inconsistent Payments + Cancelled / No-Show) */}
+                {/* Needs Review Queue */}
                 {preview.needsReviewItems.length > 0 ? (
                   <section className="space-y-2">
                     <h4 className="font-mono text-[10.5px] font-extrabold text-[#b92b0c] uppercase">
-                      Perlu Review Eksplisit ({preview.needsReviewItems.length})
+                      Perlu Dicek Manual ({preview.needsReviewItems.length})
                     </h4>
                     <div className="space-y-2">
                       {preview.needsReviewItems.map((item) => {
