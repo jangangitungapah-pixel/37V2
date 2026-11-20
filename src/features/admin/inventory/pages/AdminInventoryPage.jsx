@@ -56,6 +56,7 @@ export function AdminInventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [locationFilter, setLocationFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Activity tab filters
   const [actSearch, setActSearch] = useState('');
@@ -209,6 +210,13 @@ export function AdminInventoryPage() {
 
   const activeItemId = selectedItemIdState || urlItemId;
   const selectedItem = activeItemId ? itemsById.get(activeItemId) || null : null;
+
+  const activeDropdownFilterCount = [
+    workspaceTab === 'all' && typeFilter !== 'all',
+    categoryFilter !== 'all',
+    locationFilter !== 'all',
+    statusFilter !== 'all' && statusFilter !== 'archived',
+  ].filter(Boolean).length;
 
   const hasActiveDirectoryFilters = Boolean(
     searchQuery ||
@@ -386,27 +394,40 @@ export function AdminInventoryPage() {
   const activeError = workspaceTab === 'activity' ? movementsError : itemsError;
 
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <div className="space-y-3 sm:space-y-5">
       {/* Header + 4 Deduplicated Summary Metrics */}
       <AdminPageHeader
+        compactMobile
         eyebrow="PERALATAN & PERLENGKAPAN STUDIO"
         icon={Boxes}
         title="Inventory"
         titleId="inventory-page-heading"
         description="Manage studio equipment, supplies, and maintenance status."
         meta={
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
             <AdminStatusBadge tone="ivory" size="sm" className="font-mono">
-              {effectiveSummary.activeItemsCount} Active Items
+              {effectiveSummary.activeItemsCount}{' '}
+              <span className="hidden sm:inline">Active Items</span>
+              <span className="sm:hidden">Aktif</span>
             </AdminStatusBadge>
-            <AdminStatusBadge tone="neutral" size="sm" className="font-mono">
-              Last activity: {lastActivityLabel}
+            <AdminStatusBadge
+              tone="neutral"
+              size="sm"
+              className={`font-mono ${movements[0] ? '' : 'hidden sm:inline-flex'}`}
+            >
+              <span className="hidden sm:inline">Last activity: </span>
+              {lastActivityLabel}
             </AdminStatusBadge>
           </div>
         }
         actions={
-          <AdminButton variant="orange" size="md" onClick={openCreateDialog}>
-            <Plus className="h-4 w-4" aria-hidden="true" />
+          <AdminButton
+            variant="orange"
+            size="xs"
+            onClick={openCreateDialog}
+            className="gap-1.5 px-2.5 py-1 text-xs sm:min-h-10 sm:gap-2 sm:px-4 sm:py-2 sm:text-[13px]"
+          >
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
             <span>Add Item</span>
           </AdminButton>
         }
@@ -433,7 +454,7 @@ export function AdminInventoryPage() {
       ) : null}
 
       {/* Segmented Workspace Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
         <InventoryWorkspaceTabs
           activeTab={workspaceTab}
           onTabChange={handleTabChange}
@@ -472,12 +493,12 @@ export function AdminInventoryPage() {
           }}
         />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <AdminSurface
             as="section"
             variant="card"
             aria-label="Pencarian dan filter inventory"
-            className="space-y-3 p-4 sm:p-5"
+            className="space-y-2.5 p-3 sm:space-y-3 sm:p-5"
           >
             <InventoryToolbar
               searchQuery={searchQuery}
@@ -486,6 +507,9 @@ export function AdminInventoryPage() {
               onToggleArchived={(next) => setStatusFilter(next ? 'archived' : 'all')}
               visibleCount={filteredItems.length}
               archivedCount={effectiveSummary.archivedItemsCount || archivedItems.length}
+              filtersExpanded={mobileFiltersOpen}
+              onToggleFilters={() => setMobileFiltersOpen((prev) => !prev)}
+              activeFilterCount={activeDropdownFilterCount}
             />
 
             <InventoryFilters
@@ -499,6 +523,7 @@ export function AdminInventoryPage() {
               statusFilter={statusFilter}
               onStatusFilterChange={setStatusFilter}
               hasActiveFilters={hasActiveDirectoryFilters}
+              mobileExpanded={mobileFiltersOpen}
               onClearFilters={handleClearDirectoryFilters}
             />
           </AdminSurface>
@@ -507,7 +532,7 @@ export function AdminInventoryPage() {
           (showingArchived && isArchivedLoading && archivedItems.length === 0) ? (
             <AdminSurface
               variant="card"
-              className="flex items-center justify-center gap-2.5 p-10 text-xs text-[#666159]"
+              className="flex items-center justify-center gap-2.5 p-6 text-xs text-[#666159] sm:p-10"
             >
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               <span>Memuat data inventory studio...</span>
@@ -525,6 +550,7 @@ export function AdminInventoryPage() {
                   ? 'Coba ubah kata kunci pencarian atau reset filter yang sedang aktif.'
                   : 'Tambahkan Consumables (senar, stik drum, tape) atau Equipment (mic, ampli, kabel) studio pertama Anda.'
               }
+              className="!px-3.5 !py-5 sm:!px-6 sm:!py-10"
               action={
                 hasActiveDirectoryFilters ? (
                   <AdminButton variant="secondary" onClick={handleClearDirectoryFilters}>

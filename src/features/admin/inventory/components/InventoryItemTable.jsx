@@ -29,9 +29,9 @@ export function InventoryItemTable({
   const todayIso = getJakartaTodayIso();
 
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-2.5 sm:space-y-3.5">
       {/* Mobile Stacked Cards */}
-      <div className="space-y-2.5 md:hidden">
+      <div className="space-y-2 md:hidden">
         {items.map((item) => (
           <InventoryItemCard
             key={item.id}

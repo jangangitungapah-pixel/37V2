@@ -59,6 +59,7 @@ export function AdminMetricCard({
   hint,
   icon: Icon,
   tone = 'neutral',
+  compactMobile = false,
   className = '',
   children,
 }) {
@@ -67,35 +68,59 @@ export function AdminMetricCard({
   return (
     <div
       className={cn(
-        'rounded-2xl border p-3.5 shadow-[0_1px_2px_rgba(21,21,21,0.035),0_8px_22px_-8px_rgba(21,21,21,0.06)] transition-shadow duration-200 hover:shadow-[0_2px_6px_rgba(21,21,21,0.05),0_12px_28px_-8px_rgba(21,21,21,0.09)] sm:p-4',
+        'rounded-2xl border shadow-[0_1px_2px_rgba(21,21,21,0.035),0_8px_22px_-8px_rgba(21,21,21,0.06)] transition-shadow duration-200 hover:shadow-[0_2px_6px_rgba(21,21,21,0.05),0_12px_28px_-8px_rgba(21,21,21,0.09)]',
+        compactMobile ? 'p-2.5 sm:p-4' : 'p-3.5 sm:p-4',
         styles.container,
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className={cn('text-[11px] font-semibold tracking-wide', styles.label)}>{label}</p>
+      <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+        <p
+          className={cn(
+            'min-w-0 leading-tight font-semibold tracking-wide',
+            compactMobile ? 'text-[10.5px] sm:text-[11px]' : 'text-[11px]',
+            styles.label,
+          )}
+        >
+          {label}
+        </p>
         {Icon ? (
           <span
             className={cn(
-              'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+              'inline-flex shrink-0 items-center justify-center rounded-lg',
+              compactMobile ? 'h-6 w-6 sm:h-7 sm:w-7' : 'h-7 w-7',
               styles.iconWrap,
             )}
           >
-            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            <Icon
+              className={compactMobile ? 'h-3 w-3 sm:h-3.5 sm:w-3.5' : 'h-3.5 w-3.5'}
+              aria-hidden="true"
+            />
           </span>
         ) : null}
       </div>
 
       <p
         className={cn(
-          'mt-2 font-mono text-lg font-bold tracking-tight tabular-nums sm:text-xl',
+          'font-mono font-bold tracking-tight tabular-nums',
+          compactMobile ? 'mt-1 text-base sm:mt-2 sm:text-xl' : 'mt-2 text-lg sm:text-xl',
           styles.value,
         )}
       >
         {value}
       </p>
 
-      {hint ? <p className={cn('mt-1 text-[11px] leading-snug', styles.hint)}>{hint}</p> : null}
+      {hint ? (
+        <p
+          className={cn(
+            'mt-1 text-[11px] leading-snug',
+            compactMobile ? 'hidden sm:block' : '',
+            styles.hint,
+          )}
+        >
+          {hint}
+        </p>
+      ) : null}
       {children}
     </div>
   );

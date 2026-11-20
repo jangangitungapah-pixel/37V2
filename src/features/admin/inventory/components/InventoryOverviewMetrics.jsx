@@ -20,12 +20,13 @@ export function InventoryOverviewMetrics({
   const damagedRetiredCount = summary?.damagedRetiredCount ?? 0;
 
   return (
-    <div className="mt-4 space-y-3 border-t border-[#151515]/[0.07] pt-4 sm:mt-5 sm:pt-5">
+    <div className="space-y-2.5 border-t border-[#151515]/[0.07] pt-2.5 sm:space-y-3 sm:pt-4">
       <dl
         aria-label="Ringkasan Inventory Studio"
-        className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4"
+        className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4"
       >
         <AdminMetricCard
+          compactMobile
           label="Active Items"
           value={activeCount}
           hint={
@@ -38,6 +39,7 @@ export function InventoryOverviewMetrics({
         />
 
         <AdminMetricCard
+          compactMobile
           label="Low Stock"
           value={lowStockCount}
           hint={
@@ -50,6 +52,7 @@ export function InventoryOverviewMetrics({
         />
 
         <AdminMetricCard
+          compactMobile
           label="Maintenance"
           value={maintenanceCount}
           hint="Sedang servis atau jadwal perawatan jatuh tempo"
@@ -58,6 +61,7 @@ export function InventoryOverviewMetrics({
         />
 
         <AdminMetricCard
+          compactMobile
           label="Damaged / Retired"
           value={damagedRetiredCount}
           hint="Item dengan unit rusak atau pensiun/hilang"
