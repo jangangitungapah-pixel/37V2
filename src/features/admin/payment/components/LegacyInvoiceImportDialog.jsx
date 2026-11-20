@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, Database, Loader2, RefreshCw, X } from 'lu
 import { PAYMENT_METHOD_OPTIONS } from '@/features/admin/calendar/config/calendar-config';
 import { formatRupiah, parseMoneyInput } from '@/features/admin/calendar/utils/booking-pricing';
 import { formatIndonesianDateMedium } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminStatusBadge } from '@/features/admin/design-system';
 
 import { mapPaymentErrorToMessage } from '../services/invoice-service';
 import {
@@ -116,24 +117,27 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
   return (
     <Dialog.Root open={open} onOpenChange={(next) => (!isImporting ? onOpenChange?.(next) : null)}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-[60]"
+        />
 
         <Dialog.Popup
+          data-admin-portal-layer="true"
           aria-label="Import dan rekonsiliasi invoice booking lama"
           data-payment-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-[70] mx-auto flex h-[95dvh] w-full max-w-3xl flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[90dvh] sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:border-2"
+          className="sa-dialog fixed inset-x-0 bottom-0 z-[70] mx-auto flex h-[95dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[90dvh] sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
         >
           {/* Header */}
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory flex shrink-0 items-start justify-between gap-3 border-b-2 px-4 py-3.5 sm:px-5">
+          <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 sm:gap-3 sm:px-5 sm:py-4">
             <div className="min-w-0">
-              <span className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-extrabold tracking-wider uppercase">
-                <Database className="h-3 w-3" aria-hidden="true" />
-                <span>BUAT INVOICE DATA LAMA</span>
-              </span>
-              <Dialog.Title className="font-display mt-1.5 text-xl leading-none font-black text-white uppercase sm:text-2xl">
+              <AdminStatusBadge tone="lime" icon={Database} size="sm" className="uppercase">
+                Buat Invoice Data Lama
+              </AdminStatusBadge>
+              <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
                 Buat Invoice untuk Booking Lama
               </Dialog.Title>
-              <Dialog.Description className="mt-1 text-xs text-neutral-300">
+              <Dialog.Description className="sr-only sm:not-sr-only sm:mt-0.5 sm:block sm:text-xs sm:text-[#666159]">
                 Membuat invoice dan catatan pembayaran awal dari booking lama secara aman tanpa
                 mengubah jadwal atau data pelanggan.
               </Dialog.Description>
@@ -142,17 +146,17 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
             <Dialog.Close
               aria-label="Tutup dialog rekonsiliasi invoice legacy"
               disabled={isImporting}
-              className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white"
+              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
             >
-              <X className="h-4 w-4" aria-hidden="true" />
+              <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
             </Dialog.Close>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-3.5 sm:px-5 sm:py-4">
+          <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-white px-4 py-3.5 sm:space-y-4 sm:px-5 sm:py-4">
             {error ? (
               <div
                 role="alert"
-                className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2 border-2 p-2.5 text-xs font-bold"
+                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 text-xs font-medium text-[#B92B0C]"
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
@@ -162,11 +166,11 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
             {importSummary ? (
               <div
                 role="status"
-                className="border-studio-ink bg-studio-lime text-studio-ink flex items-start gap-2 border-2 p-3 text-xs font-bold"
+                className="flex items-start gap-2.5 rounded-xl border border-[#8BAD12]/35 bg-[#EDF8C2] p-3.5 text-xs text-[#243300]"
               >
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <div>
-                  <p className="font-mono text-[10.5px] font-extrabold uppercase">
+                  <p className="font-semibold">
                     Rekonsiliasi Selesai ({importSummary.batchesCommitted} batch)
                   </p>
                   <p className="mt-0.5">
@@ -179,72 +183,74 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
             ) : null}
 
             {isScanning || !preview ? (
-              <div className="border-studio-ink bg-studio-white flex items-center gap-2 border-2 p-4 font-mono text-xs font-bold">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              <div className="sa-panel-ivory flex items-center gap-2.5 p-4 text-xs font-medium text-[#666159]">
+                <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
                 <span>Memindai booking tanpa invoice (mode preview, tanpa menulis data)...</span>
               </div>
             ) : (
               <>
                 {/* Preview Breakdown Grid */}
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div className="border-studio-ink bg-studio-white border-2 p-2.5">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                  <div className="sa-panel-ivory p-3">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Belum Ada Invoice
                     </span>
-                    <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#151515]">
                       {preview.totalWithoutInvoice}
                     </span>
                   </div>
-                  <div className="border-studio-ink bg-studio-white border-2 p-2.5">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Siap Dibuatkan
                     </span>
-                    <span className="font-display mt-0.5 block text-2xl leading-none font-black text-emerald-800">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#0F6246]">
                       {preview.importableCount}
                     </span>
                   </div>
-                  <div className="border-studio-ink bg-studio-white border-2 p-2.5">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Ada Bayar Awal
                     </span>
-                    <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#151515]">
                       {preview.withInitialPaymentCount}
                     </span>
                   </div>
                   <div
-                    className={`border-studio-ink border-2 p-2.5 ${
-                      preview.needsReviewCount > 0 ? 'bg-amber-100' : 'bg-studio-white'
+                    className={`rounded-[14px] border p-3 ${
+                      preview.needsReviewCount > 0
+                        ? 'border-amber-500/25 bg-[#FEF4DD]'
+                        : 'border-[#151515]/[0.085] bg-[#F8F6EF]'
                     }`}
                   >
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Perlu Dicek
                     </span>
-                    <span className="font-display text-studio-orange mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#FF4B22]">
                       {preview.needsReviewCount}
                     </span>
                   </div>
                 </div>
 
                 {/* Status Distribution Strip */}
-                <div className="border-studio-ink bg-studio-white flex flex-wrap items-center gap-x-4 gap-y-1 border px-3 py-2 font-mono text-[10px] font-bold">
+                <div className="sa-panel-ivory flex flex-wrap items-center gap-x-4 gap-y-1 px-3.5 py-2.5 font-mono text-xs text-[#46433D]">
                   <span>Belum Bayar: {preview.unpaidCount}</span>
                   <span>DP / Sebagian: {preview.partialCount}</span>
                   <span>Lunas: {preview.paidCount}</span>
                   <span>Batal / Tidak Hadir: {preview.cancelledOrNoShowCount}</span>
-                  <span className="text-studio-muted-ink">
+                  <span className="text-[#8B857B]">
                     Sudah Ada Invoice: {preview.alreadyHasInvoiceCount}
                   </span>
                 </div>
 
                 {/* No Double Counting Guarantee Note */}
-                <div className="border-studio-ink bg-studio-lime/25 border px-3 py-2 text-[11px] font-medium">
+                <div className="rounded-xl border border-[#8BAD12]/30 bg-[#EDF8C2]/45 px-3.5 py-2.5 text-xs text-[#243300]">
                   <strong>Aman dari Duplikasi:</strong> Setiap booking maksimal hanya dibuatkan 1
                   invoice dan 1 catatan pembayaran awal, sehingga aman jika proses ini dijalankan
                   ulang.
                 </div>
 
                 {progress ? (
-                  <div className="border-studio-ink bg-studio-white border-2 p-3 font-mono text-xs font-bold">
+                  <div className="sa-panel-ivory p-3 font-mono text-xs font-medium text-[#46433D]">
                     Memproses bagian ke-{progress.batchesCommitted}... (
                     {progress.processedOperations} / {progress.totalOperations} data)
                   </div>
@@ -252,11 +258,11 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
 
                 {/* Needs Review Queue */}
                 {preview.needsReviewItems.length > 0 ? (
-                  <section className="space-y-2">
-                    <h4 className="font-mono text-[10.5px] font-extrabold text-[#b92b0c] uppercase">
+                  <section className="space-y-2.5">
+                    <h4 className="text-xs font-semibold text-[#B92B0C]">
                       Perlu Dicek Manual ({preview.needsReviewItems.length})
                     </h4>
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {preview.needsReviewItems.map((item) => {
                         const booking = item.booking;
                         const draft = reviewDrafts[booking.id] || {
@@ -266,19 +272,16 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                         const isBusy = reconcilingBookingId === booking.id;
 
                         return (
-                          <div
-                            key={booking.id}
-                            className="border-studio-ink bg-studio-white space-y-2 border-2 p-3 text-xs"
-                          >
+                          <div key={booking.id} className="sa-subcard space-y-2.5 p-3.5 text-xs">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div>
-                                <p className="font-extrabold">
+                                <p className="font-semibold text-[#151515]">
                                   {booking.customerName}{' '}
-                                  <span className="text-studio-muted-ink font-mono text-[10.5px]">
+                                  <span className="font-mono text-[11px] font-normal text-[#666159]">
                                     • {formatIndonesianDateMedium(booking.date)} • {booking.id}
                                   </span>
                                 </p>
-                                <p className="text-studio-muted-ink font-mono text-[10px]">
+                                <p className="mt-0.5 font-mono text-[11px] text-[#666159]">
                                   Total: {formatRupiah(item.totalAmount)} • Snapshot Awal:{' '}
                                   {formatRupiah(item.initialPaidAmount)} (
                                   {item.initialPaymentStatus}) • Sesi: {booking.sessionStatus}
@@ -286,17 +289,17 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                               </div>
                             </div>
 
-                            <ul className="list-disc pl-4 text-[11px] font-semibold text-[#b92b0c]">
+                            <ul className="list-disc pl-4 text-xs text-[#B92B0C]">
                               {item.reasons.map((r, i) => (
                                 <li key={`${r.code}-${i}`}>{r.message}</li>
                               ))}
                             </ul>
 
-                            <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-12 sm:items-end">
+                            <div className="grid grid-cols-1 gap-2.5 pt-1 sm:grid-cols-12 sm:items-end">
                               <div className="sm:col-span-5">
                                 <label
                                   htmlFor={`rev-paid-${booking.id}`}
-                                  className="text-studio-muted-ink block font-mono text-[9.5px] font-bold uppercase"
+                                  className="block text-[11px] font-medium text-[#666159]"
                                 >
                                   Nominal Terbayar Terverifikasi (Rp)
                                 </label>
@@ -314,14 +317,14 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                                       },
                                     }))
                                   }
-                                  className="border-studio-ink bg-studio-ivory mt-0.5 h-9 w-full border px-2 font-mono text-xs font-bold"
+                                  className="sa-input mt-1 h-9.5 w-full px-2.5 font-mono text-xs font-semibold"
                                 />
                               </div>
 
                               <div className="sm:col-span-3">
                                 <label
                                   htmlFor={`rev-method-${booking.id}`}
-                                  className="text-studio-muted-ink block font-mono text-[9.5px] font-bold uppercase"
+                                  className="block text-[11px] font-medium text-[#666159]"
                                 >
                                   Metode
                                 </label>
@@ -337,7 +340,7 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                                       },
                                     }))
                                   }
-                                  className="border-studio-ink bg-studio-ivory mt-0.5 h-9 w-full border px-2 font-mono text-[10.5px] font-bold uppercase"
+                                  className="sa-input mt-1 h-9.5 w-full px-2.5 text-xs font-medium"
                                 >
                                   {PAYMENT_METHOD_OPTIONS.map((m) => (
                                     <option key={m.id} value={m.id}>
@@ -352,7 +355,7 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                                   type="button"
                                   disabled={isBusy}
                                   onClick={() => handleReconcileReviewItem(item)}
-                                  className="cal-control bg-studio-ink text-studio-lime inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 px-3 font-mono text-[10px] font-extrabold uppercase"
+                                  className="sa-control sa-btn-primary inline-flex h-9.5 w-full cursor-pointer items-center justify-center gap-1.5 px-3 text-xs font-semibold"
                                 >
                                   {isBusy ? (
                                     <Loader2
@@ -375,12 +378,12 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
           </div>
 
           {/* Sticky Footer */}
-          <div className="border-studio-ink bg-studio-white flex shrink-0 flex-wrap items-center justify-between gap-2 border-t-2 px-4 py-3 sm:px-5">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-3.5 sm:pb-[max(0.875rem,env(safe-area-inset-bottom))]">
             <button
               type="button"
               disabled={isScanning || isImporting}
               onClick={loadPreview}
-              className="cal-control bg-studio-ivory text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase"
+              className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:min-h-10 sm:px-3.5 sm:py-2"
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Scan Ulang</span>
@@ -391,7 +394,7 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                 type="button"
                 disabled={isImporting}
                 onClick={() => onOpenChange?.(false)}
-                className="cal-control bg-studio-white text-studio-ink min-h-10 cursor-pointer px-3.5 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
+                className="sa-control sa-btn-secondary min-h-9.5 cursor-pointer px-3.5 py-1.5 text-xs font-semibold sm:min-h-10 sm:px-4 sm:py-2"
               >
                 Tutup
               </button>
@@ -401,7 +404,7 @@ export function LegacyInvoiceImportDialog({ open, onOpenChange, actorUid, onImpo
                   type="button"
                   disabled={isImporting}
                   onClick={handleRunImport}
-                  className="cal-control bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
+                  className="sa-control sa-btn-lime inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold sm:min-h-10 sm:px-4 sm:py-2"
                 >
                   {isImporting ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />

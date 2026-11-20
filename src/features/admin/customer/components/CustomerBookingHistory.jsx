@@ -10,6 +10,7 @@ import {
   formatMinuteRange,
 } from '@/features/admin/calendar/utils/booking-time';
 import { formatIndonesianDateMedium } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminEmptyState, AdminStatusBadge } from '@/features/admin/design-system';
 
 export function CustomerBookingHistory({
   bookings = [],
@@ -25,9 +26,9 @@ export function CustomerBookingHistory({
     return (
       <div
         role="status"
-        className="border-studio-ink bg-studio-ivory flex items-center gap-2 border p-4 font-mono text-xs font-bold"
+        className="sa-panel-ivory flex items-center gap-2 p-4 text-xs font-medium text-[#666159]"
       >
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
         <span>Memuat riwayat booking customer...</span>
       </div>
     );
@@ -37,7 +38,7 @@ export function CustomerBookingHistory({
     return (
       <div
         role="alert"
-        className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2.5 border-2 p-3.5 text-xs font-bold"
+        className="flex items-start gap-2.5 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-xs font-medium text-[#B92B0C]"
       >
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <span>{error}</span>
@@ -47,27 +48,22 @@ export function CustomerBookingHistory({
 
   if (bookings.length === 0) {
     return (
-      <div className="border-studio-ink bg-studio-ivory border-2 border-dashed p-5 text-center">
-        <p className="font-display text-studio-ink text-lg font-black uppercase">
-          Belum Ada Riwayat Booking
-        </p>
-        <p className="text-studio-muted-ink mt-1 text-xs font-medium">
-          Booking baru dari halaman Calendar yang tertaut ke profil ini akan muncul otomatis di
-          sini.
-        </p>
-      </div>
+      <AdminEmptyState
+        title="Belum Ada Riwayat Booking"
+        description="Booking baru dari halaman Calendar yang tertaut ke profil ini akan muncul otomatis di sini."
+      />
     );
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {isTruncated ? (
-        <div className="border-studio-ink border bg-amber-100 px-3 py-2 font-mono text-[10px] font-bold text-neutral-800">
+        <div className="rounded-xl border border-amber-500/25 bg-[#FEF4DD] px-3 py-2 text-xs font-medium text-[#8A4B08]">
           Menampilkan 100 booking terbaru per ID histori yang tergabung.
         </div>
       ) : null}
 
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {bookings.map((booking) => {
           const room = getStudioRoomById(booking.studioId);
           const sessionMeta = getSessionStatusMeta(booking.sessionStatus);
@@ -86,57 +82,51 @@ export function CustomerBookingHistory({
               type="button"
               onClick={() => onSelectBooking?.(booking)}
               aria-label={`Buka detail booking ${booking.customerName} tanggal ${booking.date}`}
-              className="border-studio-ink bg-studio-white hover:bg-studio-ivory/70 group block w-full cursor-pointer border-2 p-3 text-left transition-colors"
+              className="group block w-full cursor-pointer rounded-xl border border-[#151515]/10 bg-[#FAF8F3]/75 p-3.5 text-left transition-all hover:border-[#151515]/20 hover:bg-white hover:shadow-xs"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="border-studio-ink bg-studio-ink text-studio-lime inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[10px] font-extrabold uppercase">
-                    <CalendarDays className="h-3 w-3 shrink-0" aria-hidden="true" />
-                    <span>{formatIndonesianDateMedium(booking.date)}</span>
-                  </span>
+                  <AdminStatusBadge tone="ink" icon={CalendarDays} size="sm" className="font-mono">
+                    {formatIndonesianDateMedium(booking.date)}
+                  </AdminStatusBadge>
                   <span
-                    className={`border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase ${room.badgeClass}`}
+                    className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${room.badgeClass}`}
                   >
                     {room.shortLabel}
                   </span>
                   <span
-                    className={`border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase ${sessionMeta.badgeClass}`}
+                    className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${sessionMeta.badgeClass}`}
                   >
                     {sessionMeta.label}
                   </span>
                   <span
-                    className={`border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase ${paymentMeta.badgeClass}`}
+                    className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${paymentMeta.badgeClass}`}
                   >
                     {paymentMeta.shortLabel}
                   </span>
                 </div>
 
                 <ChevronRight
-                  className="text-studio-muted-ink group-hover:text-studio-orange h-4 w-4 shrink-0 transition-colors"
+                  className="h-4 w-4 shrink-0 text-[#8B857B] transition-colors group-hover:text-[#FF4B22]"
                   aria-hidden="true"
                 />
               </div>
 
-              <div className="mt-2 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+              <div className="mt-2.5 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-studio-ink truncate text-sm font-extrabold">
+                  <p className="truncate text-sm font-semibold text-[#151515]">
                     {booking.customerName}
                     {booking.bandName ? (
-                      <span className="text-studio-muted-ink font-semibold">
-                        {' '}
-                        • {booking.bandName}
-                      </span>
+                      <span className="font-normal text-[#666159]"> • {booking.bandName}</span>
                     ) : null}
                   </p>
-                  <p className="text-studio-muted-ink truncate text-xs font-semibold">
-                    {serviceDisplay}
-                  </p>
+                  <p className="truncate text-xs text-[#666159]">{serviceDisplay}</p>
                 </div>
 
-                <div className="text-studio-ink inline-flex shrink-0 items-center gap-1 font-mono text-[11px] font-bold">
-                  <Clock3 className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <div className="inline-flex shrink-0 items-center gap-1 font-mono text-xs font-medium text-[#151515]">
+                  <Clock3 className="h-3.5 w-3.5 shrink-0 text-[#8B857B]" aria-hidden="true" />
                   <span>{formatMinuteRange(booking.startMinute, booking.endMinute, false)}</span>
-                  <span className="text-studio-muted-ink">
+                  <span className="text-[#666159]">
                     ({formatDurationMinutes(booking.durationMinutes)})
                   </span>
                 </div>
@@ -151,7 +141,7 @@ export function CustomerBookingHistory({
           <button
             type="button"
             onClick={onLoadMore}
-            className="brutal-btn bg-studio-ivory text-studio-ink inline-flex min-h-11 w-full cursor-pointer items-center justify-center px-4 py-2 font-mono text-xs font-extrabold uppercase sm:w-auto"
+            className="sa-control sa-btn-secondary inline-flex min-h-10 w-full cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold sm:w-auto"
           >
             Load More ({bookings.length} / {totalLoaded})
           </button>

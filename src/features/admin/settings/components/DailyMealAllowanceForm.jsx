@@ -1,5 +1,7 @@
 import { UtensilsCrossed } from 'lucide-react';
 
+import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
+
 import { formatRupiah, parseMoneyInput } from '../pricing/utils/calculate-pricing-settings';
 
 export function DailyMealAllowanceForm({
@@ -10,38 +12,40 @@ export function DailyMealAllowanceForm({
   const dailyMealAllowance = operationalSettings?.dailyMealAllowancePerStaff ?? 0;
 
   return (
-    <section
+    <AdminSurface
+      as="section"
+      variant="card"
       aria-labelledby="section-global-operational-heading"
-      className="brutal-card bg-studio-white p-4 sm:p-6"
+      className="p-4 sm:p-6"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-neutral-200 pb-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#151515]/[0.07] pb-4">
         <div>
-          <span className="border-studio-ink bg-studio-ink text-studio-lime inline-block border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
-            GLOBAL OPERATIONAL SETTINGS
-          </span>
+          <AdminStatusBadge tone="ink" size="sm" className="font-mono uppercase">
+            Global Operational Settings
+          </AdminStatusBadge>
           <h3
             id="section-global-operational-heading"
-            className="font-display text-studio-ink mt-2 text-2xl leading-none font-black tracking-tight uppercase sm:text-3xl"
+            className="mt-2 text-lg font-bold tracking-tight text-[#151515] sm:text-xl"
           >
             Daily Meal Allowance per Staff
           </h3>
         </div>
 
-        <span className="border-studio-ink bg-studio-lime text-studio-ink border px-2.5 py-1 font-mono text-xs font-extrabold whitespace-nowrap">
+        <AdminStatusBadge tone="lime" className="font-mono font-bold tabular-nums">
           {formatRupiah(dailyMealAllowance)} / hari
-        </span>
+        </AdminStatusBadge>
       </div>
 
-      <div className="border-studio-ink bg-studio-ivory mt-4 border-2 p-4">
-        <div className="flex items-start gap-3">
-          <span className="border-studio-ink bg-studio-white flex h-10 w-10 shrink-0 items-center justify-center border-2">
-            <UtensilsCrossed className="h-5 w-5" aria-hidden="true" />
+      <div className="sa-panel-ivory mt-4 p-4 sm:p-5">
+        <div className="flex items-start gap-3.5">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#151515]/10 bg-white text-[#151515]">
+            <UtensilsCrossed className="h-4.5 w-4.5" aria-hidden="true" />
           </span>
 
           <div className="min-w-0 flex-1">
             <label
               htmlFor="global-daily-meal-allowance"
-              className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+              className="block text-xs font-semibold text-[#151515] sm:text-[13px]"
             >
               Daily Meal Allowance per Staff (IDR)
             </label>
@@ -58,9 +62,9 @@ export function DailyMealAllowanceForm({
                 })
               }
               placeholder="0"
-              className="border-studio-ink bg-studio-white text-studio-ink mt-1.5 min-h-11 w-full max-w-sm border-2 px-3 py-2 font-mono text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-60"
+              className="sa-input mt-2 min-h-10.5 w-full max-w-sm px-3.5 py-2 font-mono text-sm font-semibold tabular-nums disabled:cursor-not-allowed disabled:opacity-60"
             />
-            <p className="text-studio-muted-ink mt-2 text-xs leading-relaxed">
+            <p className="mt-2 text-xs leading-relaxed text-[#666159]">
               Preset nominal uang makan harian per satu Staff yang bertugas. Nilai ini tidak
               memengaruhi total tagihan customer dan tidak otomatis membuat data absensi atau
               payroll.
@@ -68,6 +72,6 @@ export function DailyMealAllowanceForm({
           </div>
         </div>
       </div>
-    </section>
+    </AdminSurface>
   );
 }

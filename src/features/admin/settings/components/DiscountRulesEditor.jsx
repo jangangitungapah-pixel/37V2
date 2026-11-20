@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 import { formatDurationMinutes } from '@/features/admin/calendar/utils/booking-time';
+import { AdminStatusBadge } from '@/features/admin/design-system';
 
 import { DISCOUNT_RULE_MODES } from '../pricing/config/default-pricing-settings';
 import { formatRupiah, parseMoneyInput } from '../pricing/utils/calculate-pricing-settings';
@@ -68,15 +69,16 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
 
   return (
     <div className="space-y-3">
-      <p className="text-studio-muted-ink text-xs leading-relaxed font-medium">
-        Aturan diskon otomatis khusus subcategory <strong>Hourly</strong>. Jika beberapa aturan
-        memenuhi syarat, sistem memilih <strong>1 diskon valid terbesar</strong> tanpa stacking dan
+      <p className="text-xs leading-relaxed text-[#666159]">
+        Aturan diskon otomatis khusus subcategory <strong className="text-[#151515]">Hourly</strong>
+        . Jika beberapa aturan memenuhi syarat, sistem memilih{' '}
+        <strong className="text-[#151515]">1 diskon valid terbesar</strong> tanpa stacking dan
         dibatasi maksimal subtotal.
       </p>
 
       {/* Existing Discount Rules */}
       {discountRules.length === 0 ? (
-        <div className="border-studio-ink bg-studio-ivory border border-dashed p-3 text-center font-mono text-[11px]">
+        <div className="sa-panel border-dashed p-3.5 text-center text-xs text-[#666159]">
           Belum ada aturan diskon pada subcategory ini.
         </div>
       ) : (
@@ -86,18 +88,18 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
             return (
               <li
                 key={rule.id}
-                className={`border-studio-ink flex flex-wrap items-center justify-between gap-2 border p-2.5 ${
-                  rule.isActive ? 'bg-studio-ivory' : 'bg-neutral-100 opacity-75'
+                className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#151515]/10 p-3 ${
+                  rule.isActive ? 'bg-[#FAF8F3]' : 'bg-neutral-100 opacity-75'
                 }`}
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="border-studio-ink bg-studio-white border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
+                    <AdminStatusBadge tone="ivory" size="sm">
                       {isPerBlock ? 'Per Kelipatan' : 'Min. Durasi'}
-                    </span>
-                    <span className="font-mono text-xs font-extrabold">{rule.name}</span>
+                    </AdminStatusBadge>
+                    <span className="text-xs font-semibold text-[#151515]">{rule.name}</span>
                   </div>
-                  <p className="text-studio-muted-ink mt-1 font-mono text-[11px] font-semibold">
+                  <p className="mt-1 font-mono text-[11px] font-medium text-[#666159]">
                     {isPerBlock
                       ? `Setiap ${formatDurationMinutes(rule.intervalMinutes)} hemat ${formatRupiah(rule.discountAmount)}`
                       : `Min. ${formatDurationMinutes(rule.minimumDurationMinutes)} hemat ${formatRupiah(rule.discountAmount)}`}
@@ -109,10 +111,10 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
                     type="button"
                     aria-pressed={rule.isActive}
                     onClick={() => handleToggleRule(rule.id)}
-                    className={`border-studio-ink min-h-9 cursor-pointer border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase ${
+                    className={`min-h-8.5 cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                       rule.isActive
-                        ? 'bg-studio-lime text-studio-ink'
-                        : 'bg-studio-white text-studio-muted-ink'
+                        ? 'border-[#8BAD12]/35 bg-[#EDF8C2] text-[#243300]'
+                        : 'border-[#151515]/12 bg-white text-[#666159]'
                     }`}
                   >
                     {rule.isActive ? 'Active' : 'Inactive'}
@@ -121,7 +123,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
                     type="button"
                     aria-label={`Hapus aturan diskon ${rule.name}`}
                     onClick={() => handleRemoveRule(rule.id)}
-                    className="border-studio-ink bg-studio-white text-studio-error-ink hover:bg-studio-orange hover:text-studio-white inline-flex h-9 w-9 cursor-pointer items-center justify-center border"
+                    className="inline-flex h-8.5 w-8.5 cursor-pointer items-center justify-center rounded-lg border border-[#FF4B22]/20 bg-[#FFEDE8] text-[#B92B0C] transition-colors hover:bg-[#FF4B22] hover:text-white"
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
@@ -133,14 +135,14 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
       )}
 
       {/* Compact Inline Rule Adder */}
-      <div className="border-studio-ink bg-studio-ivory space-y-2.5 border p-3">
-        <p className="font-mono text-[11px] font-extrabold uppercase">Tambah Aturan Diskon</p>
+      <div className="sa-panel-ivory space-y-3 p-3.5">
+        <p className="text-xs font-semibold text-[#151515]">Tambah Aturan Diskon</p>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <div>
             <label
               htmlFor="opt-disc-rule-mode"
-              className="text-studio-ink block font-mono text-[10px] font-extrabold uppercase"
+              className="block text-[11px] font-semibold text-[#151515]"
             >
               Jenis Aturan
             </label>
@@ -158,7 +160,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
                       : 'Promo Durasi',
                 }));
               }}
-              className="border-studio-ink bg-studio-white text-studio-ink mt-1 min-h-10 w-full border px-2.5 py-1.5 text-xs font-bold"
+              className="sa-input mt-1 min-h-9.5 w-full px-2.5 py-1.5 text-xs font-medium"
             >
               <option value={DISCOUNT_RULE_MODES.PER_COMPLETED_BLOCK}>
                 Per Completed Block (Kelipatan)
@@ -170,7 +172,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
           <div>
             <label
               htmlFor="opt-disc-rule-name"
-              className="text-studio-ink block font-mono text-[10px] font-extrabold uppercase"
+              className="block text-[11px] font-semibold text-[#151515]"
             >
               Label Diskon
             </label>
@@ -180,7 +182,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
               value={draftRule.name}
               onChange={(e) => setDraftRule((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="Diskon Durasi"
-              className="border-studio-ink bg-studio-white text-studio-ink mt-1 min-h-10 w-full border px-2.5 py-1.5 text-xs font-semibold"
+              className="sa-input mt-1 min-h-9.5 w-full px-2.5 py-1.5 text-xs"
             />
           </div>
 
@@ -188,13 +190,13 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
             <div className="flex items-center justify-between gap-1">
               <label
                 htmlFor="opt-disc-rule-duration"
-                className="text-studio-ink block font-mono text-[10px] font-extrabold uppercase"
+                className="block text-[11px] font-semibold text-[#151515]"
               >
                 {draftRule.mode === DISCOUNT_RULE_MODES.PER_COMPLETED_BLOCK
                   ? 'Interval Blok (Menit)'
                   : 'Min. Durasi (Menit)'}
               </label>
-              <span className="font-mono text-[10px] font-bold">
+              <span className="font-mono text-[10.5px] text-[#666159]">
                 {parsedDraftMinutes > 0 ? formatDurationMinutes(parsedDraftMinutes) : '-'}
               </span>
             </div>
@@ -207,7 +209,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
               onChange={(e) =>
                 setDraftRule((prev) => ({ ...prev, durationMinutes: e.target.value }))
               }
-              className="border-studio-ink bg-studio-white text-studio-ink mt-1 min-h-10 w-full border px-2.5 py-1.5 font-mono text-xs font-extrabold"
+              className="sa-input mt-1 min-h-9.5 w-full px-2.5 py-1.5 font-mono text-xs font-semibold tabular-nums"
             />
           </div>
 
@@ -215,11 +217,11 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
             <div className="flex items-center justify-between gap-1">
               <label
                 htmlFor="opt-disc-rule-amount"
-                className="text-studio-ink block font-mono text-[10px] font-extrabold uppercase"
+                className="block text-[11px] font-semibold text-[#151515]"
               >
                 Nominal Diskon (IDR)
               </label>
-              <span className="font-mono text-[10px] font-extrabold text-emerald-800">
+              <span className="font-mono text-[10.5px] font-semibold text-[#0F6246] tabular-nums">
                 -{formatRupiah(parsedDraftAmount)}
               </span>
             </div>
@@ -234,13 +236,13 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
                   discountAmount: e.target.value.replace(/\D/g, ''),
                 }))
               }
-              className="border-studio-ink bg-studio-white text-studio-ink mt-1 min-h-10 w-full border px-2.5 py-1.5 font-mono text-xs font-extrabold"
+              className="sa-input mt-1 min-h-9.5 w-full px-2.5 py-1.5 font-mono text-xs font-semibold tabular-nums"
             />
           </div>
         </div>
 
         {draftError ? (
-          <p role="alert" className="text-studio-error-ink text-xs font-bold">
+          <p role="alert" className="text-xs font-medium text-[#B92B0C]">
             {draftError}
           </p>
         ) : null}
@@ -248,7 +250,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
         <button
           type="button"
           onClick={handleAddRule}
-          className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 font-mono text-[11px] font-extrabold uppercase"
+          className="sa-control sa-btn-lime inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
         >
           <Plus className="h-3.5 w-3.5" aria-hidden="true" />
           <span>Tambah Aturan Diskon</span>
@@ -256,7 +258,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
       </div>
 
       {errors.discountRules ? (
-        <p role="alert" className="text-studio-error-ink text-xs font-bold">
+        <p role="alert" className="text-xs font-medium text-[#B92B0C]">
           {errors.discountRules}
         </p>
       ) : null}

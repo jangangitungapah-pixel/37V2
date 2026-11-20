@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
 import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminEmptyState, AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 import { useAuth } from '@/features/auth/AuthContext';
 
 import { InvoiceDetailDrawer } from '../components/InvoiceDetailDrawer';
@@ -307,31 +308,32 @@ export function AdminPaymentAndBillPage() {
   const activeError = activeTab === 'transactions' ? transactionsError : invoicesError;
 
   return (
-    <div data-payment-scoped="true" className="relative isolate z-0 space-y-2.5 sm:space-y-4">
+    <div data-payment-scoped="true" className="relative isolate z-0 space-y-4 sm:space-y-6">
       {/* Page Header, Primary Tab Switcher & Compact Overview Metrics */}
-      <section
+      <AdminSurface
+        as="section"
+        variant="hero"
         aria-labelledby="payment-page-heading"
-        className="cal-card bg-studio-white p-2.5 sm:p-4"
+        className="p-4 sm:p-6"
       >
-        <div className="flex flex-col gap-2 sm:gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="border-studio-ink bg-studio-ink text-studio-lime inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold tracking-wider uppercase sm:px-2 sm:text-[9px]">
-                <ReceiptText className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
-                <span>TAGIHAN &amp; PEMBAYARAN STUDIO</span>
-              </span>
-              <span className="border-studio-ink bg-studio-ivory text-studio-ink hidden items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-bold uppercase sm:inline-flex">
-                <span>1 BOOKING • 1 INVOICE</span>
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <AdminStatusBadge tone="ink" icon={ReceiptText} size="sm" className="uppercase">
+                Tagihan &amp; Pembayaran Studio
+              </AdminStatusBadge>
+              <AdminStatusBadge tone="ivory" size="sm" className="hidden sm:inline-flex">
+                1 Booking • 1 Invoice
+              </AdminStatusBadge>
             </div>
 
             <h2
               id="payment-page-heading"
-              className="font-display text-studio-ink mt-1 truncate text-lg leading-none font-black tracking-tight uppercase sm:mt-1.5 sm:text-3xl"
+              className="mt-2.5 truncate text-xl font-bold tracking-[-0.025em] text-[#151515] sm:text-2xl lg:text-[28px]"
             >
               Payment and Bill
             </h2>
-            <p className="text-studio-muted-ink mt-0.5 text-[11px] font-medium sm:mt-1 sm:text-xs">
+            <p className="mt-1 text-xs leading-relaxed text-[#666159] sm:text-sm">
               Kelola tagihan, pembayaran DP atau cicilan, dan sisa tagihan pelanggan.
             </p>
           </div>
@@ -349,25 +351,24 @@ export function AdminPaymentAndBillPage() {
           metrics={overviewMetrics}
           hasActivePeriodFilter={hasActivePeriodFilter}
         />
-      </section>
+      </AdminSurface>
 
-      {/* Legacy Booking Invoice Reconciliation Banner (Zero Auto-Writes on Render!) */}
+      {/* Legacy Booking Invoice Reconciliation Banner */}
       {legacyWithoutInvoiceCount > 0 ? (
         <section
           role="region"
           aria-label="Buat invoice booking lama"
-          className="cal-card bg-studio-lime/35 flex flex-col gap-2 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2.5 sm:px-4 sm:py-2.5"
+          className="flex flex-col gap-3 rounded-2xl border border-[#8BAD12]/30 bg-[#EDF8C2]/55 p-3.5 shadow-[0_1px_2px_rgba(21,21,21,0.03)] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5"
         >
-          <div className="flex items-start gap-2">
-            <Database
-              className="text-studio-ink mt-0.5 h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
-              aria-hidden="true"
-            />
+          <div className="flex items-start gap-2.5">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/80 text-[#243300]">
+              <Database className="h-4 w-4" aria-hidden="true" />
+            </span>
             <div className="min-w-0">
-              <p className="font-mono text-[10px] font-extrabold uppercase sm:text-[10.5px]">
+              <p className="text-xs font-semibold text-[#151515]">
                 Booking lama siap dibuatkan invoice.
               </p>
-              <p className="text-studio-ink mt-0.5 text-[11px] leading-snug font-medium sm:text-xs">
+              <p className="mt-0.5 text-xs leading-snug text-[#46433D]">
                 Ditemukan <strong>{legacyWithoutInvoiceCount} booking lama</strong> belum punya
                 invoice
                 {legacyNeedsReviewCount > 0 ? ` (${legacyNeedsReviewCount} perlu dicek)` : ''}.
@@ -379,9 +380,9 @@ export function AdminPaymentAndBillPage() {
           <button
             type="button"
             onClick={() => setLegacyImportOpen(true)}
-            className="cal-control bg-studio-ink text-studio-lime inline-flex min-h-8.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1 font-mono text-[10px] font-extrabold uppercase sm:min-h-10 sm:py-1.5 sm:text-[10.5px]"
+            className="sa-control sa-btn-primary inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold"
           >
-            <Database className="h-3 w-3 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+            <Database className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
             <span>Periksa Booking Lama</span>
           </button>
         </section>
@@ -391,7 +392,7 @@ export function AdminPaymentAndBillPage() {
       {activeError ? (
         <div
           role="alert"
-          className="cal-card bg-studio-orange text-studio-white flex items-start gap-2 p-3 text-xs font-bold"
+          className="flex items-start gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-xs font-medium text-[#B92B0C]"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{activeError}</span>
@@ -400,7 +401,7 @@ export function AdminPaymentAndBillPage() {
 
       {/* Active Workspace Tab Content */}
       {activeTab === 'invoices' ? (
-        <div className="space-y-3.5">
+        <div className="space-y-4">
           <InvoiceDirectoryToolbar
             searchQuery={invoiceSearch}
             onSearchQueryChange={setInvoiceSearch}
@@ -420,44 +421,50 @@ export function AdminPaymentAndBillPage() {
           />
 
           {isInvoicesLoading ? (
-            <div
+            <AdminSurface
               role="status"
-              className="cal-card bg-studio-white flex items-center gap-2 p-4 font-mono text-xs font-bold"
+              variant="card"
+              className="flex items-center gap-2.5 p-5 text-xs font-medium text-[#666159]"
             >
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
               <span>Memuat daftar invoice dari Firestore...</span>
-            </div>
+            </AdminSurface>
           ) : filteredInvoices.length === 0 ? (
-            <section className="cal-card bg-studio-white p-6 text-center">
-              <p className="font-display text-studio-ink text-xl font-black uppercase">
-                {hasActiveInvoiceFilters
-                  ? 'Tidak Ada Invoice yang Cocok'
-                  : 'Belum Ada Invoice Tercatat'}
-              </p>
-              <p className="text-studio-muted-ink mx-auto mt-1 max-w-md text-xs font-medium">
-                {hasActiveInvoiceFilters
-                  ? 'Coba ubah filter status, ruangan, tanggal, atau kata kunci pencarian.'
-                  : 'Invoice akan diterbitkan otomatis setiap kali booking baru dibuat melalui halaman Calendar.'}
-              </p>
-              {hasActiveInvoiceFilters ? (
-                <button
-                  type="button"
-                  onClick={handleClearInvoiceFilters}
-                  className="cal-control bg-studio-lime text-studio-ink mt-3 inline-flex min-h-10 cursor-pointer items-center justify-center px-3.5 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
-                >
-                  Clear Filters
-                </button>
-              ) : legacyWithoutInvoiceCount > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setLegacyImportOpen(true)}
-                  className="cal-control bg-studio-lime text-studio-ink mt-3 inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
-                >
-                  <Database className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Review Existing Bookings</span>
-                </button>
-              ) : null}
-            </section>
+            <AdminSurface as="section" variant="card" className="p-5 sm:p-6">
+              <AdminEmptyState
+                icon={ReceiptText}
+                title={
+                  hasActiveInvoiceFilters
+                    ? 'Tidak Ada Invoice yang Cocok'
+                    : 'Belum Ada Invoice Tercatat'
+                }
+                description={
+                  hasActiveInvoiceFilters
+                    ? 'Coba ubah filter status, ruangan, tanggal, atau kata kunci pencarian.'
+                    : 'Invoice akan diterbitkan otomatis setiap kali booking baru dibuat melalui halaman Calendar.'
+                }
+                action={
+                  hasActiveInvoiceFilters ? (
+                    <button
+                      type="button"
+                      onClick={handleClearInvoiceFilters}
+                      className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold"
+                    >
+                      Clear Filters
+                    </button>
+                  ) : legacyWithoutInvoiceCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setLegacyImportOpen(true)}
+                      className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                    >
+                      <Database className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Review Existing Bookings</span>
+                    </button>
+                  ) : null
+                }
+              />
+            </AdminSurface>
           ) : (
             <InvoiceDirectoryTable
               invoices={filteredInvoices}
@@ -475,13 +482,14 @@ export function AdminPaymentAndBillPage() {
           )}
         </div>
       ) : isTransactionsLoading ? (
-        <div
+        <AdminSurface
           role="status"
-          className="cal-card bg-studio-white flex items-center gap-2 p-4 font-mono text-xs font-bold"
+          variant="card"
+          className="flex items-center gap-2.5 p-5 text-xs font-medium text-[#666159]"
         >
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
           <span>Memuat riwayat transaksi pembayaran...</span>
-        </div>
+        </AdminSurface>
       ) : (
         <PaymentTransactionList
           transactions={filteredTransactions}

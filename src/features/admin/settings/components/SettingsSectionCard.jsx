@@ -1,5 +1,7 @@
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 
+import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
+
 export function SettingsStatusToggle({ isActive, label, onToggle, disabled = false }) {
   return (
     <button
@@ -10,13 +12,13 @@ export function SettingsStatusToggle({ isActive, label, onToggle, disabled = fal
       aria-label={`Toggle status ${label}`}
       className={
         isActive
-          ? 'border-studio-ink bg-studio-lime text-studio-ink inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[11px] font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-60'
-          : 'border-studio-ink bg-studio-muted text-studio-muted-ink inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[11px] font-bold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-60'
+          ? 'sa-control inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-[#8BAD12]/40 bg-[#EDF8C2] px-3 py-1 text-xs font-semibold text-[#243300] disabled:cursor-not-allowed disabled:opacity-55'
+          : 'sa-control inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-[#151515]/12 bg-[#151515]/[0.04] px-3 py-1 text-xs font-medium text-[#666159] disabled:cursor-not-allowed disabled:opacity-55'
       }
     >
       <span
         aria-hidden="true"
-        className={`border-studio-ink h-2 w-2 border ${isActive ? 'bg-studio-ink' : 'bg-transparent'}`}
+        className={`h-2 w-2 rounded-full ${isActive ? 'bg-[#658800]' : 'bg-[#8B857B]'}`}
       />
       <span>{isActive ? 'Active' : 'Inactive'}</span>
     </button>
@@ -42,9 +44,9 @@ export function SettingsItemActions({
         disabled={isEditDisabled}
         onClick={onEdit}
         aria-label={`Edit ${itemName}`}
-        className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 font-mono text-[11px] font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+        className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+        <Pencil className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
         <span>Edit</span>
       </button>
 
@@ -54,7 +56,7 @@ export function SettingsItemActions({
         disabled={isDeleteDisabled}
         title={deleteTitle || `Delete ${itemName}`}
         aria-label={`Delete ${itemName}`}
-        className="brutal-btn bg-studio-ivory text-studio-error-ink hover:bg-studio-orange hover:text-studio-white inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 font-mono text-[11px] font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+        className="sa-control inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[#FF4B22]/20 bg-[#FFEDE8]/80 px-3 py-1.5 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
         <span>Delete</span>
@@ -76,29 +78,29 @@ export function SettingsSectionCard({
   children,
 }) {
   return (
-    <section aria-labelledby={sectionId} className="brutal-card bg-studio-white p-4 sm:p-6">
-      <div className="flex flex-col gap-3 border-b-2 border-neutral-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+    <AdminSurface as="section" variant="card" aria-labelledby={sectionId} className="p-4 sm:p-6">
+      <div className="flex flex-col gap-3 border-b border-[#151515]/[0.07] pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="border-studio-ink bg-studio-ink text-studio-lime border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
+            <AdminStatusBadge tone="ink" size="sm" className="font-mono uppercase">
               SECTION {order}
-            </span>
+            </AdminStatusBadge>
             {countLabel ? (
-              <span className="border-studio-ink bg-studio-ivory text-studio-ink border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase">
+              <AdminStatusBadge tone="ivory" size="sm" className="font-mono">
                 {countLabel}
-              </span>
+              </AdminStatusBadge>
             ) : null}
           </div>
 
           <h3
             id={sectionId}
-            className="font-display text-studio-ink mt-2 text-2xl leading-none font-black tracking-tight uppercase sm:text-3xl"
+            className="mt-2.5 text-lg font-bold tracking-tight text-[#151515] sm:text-xl"
           >
             {title}
           </h3>
 
           {description ? (
-            <p className="text-studio-muted-ink mt-1.5 max-w-2xl text-xs leading-relaxed font-medium sm:text-sm">
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[#666159] sm:text-sm">
               {description}
             </p>
           ) : null}
@@ -108,21 +110,21 @@ export function SettingsSectionCard({
           <button
             type="button"
             onClick={onAction}
-            className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold tracking-wider uppercase"
+            className="sa-control sa-btn-lime inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold"
           >
-            <Plus className="h-4 w-4 shrink-0 stroke-[2.5]" aria-hidden="true" />
+            <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{actionLabel}</span>
           </button>
         ) : null}
       </div>
 
       {headerNote ? (
-        <div className="border-studio-ink bg-studio-ivory text-studio-muted-ink mt-4 border px-3 py-2 font-mono text-[11px] font-semibold">
+        <div className="sa-panel-ivory mt-4 px-3.5 py-2.5 text-xs font-medium text-[#46433D]">
           {headerNote}
         </div>
       ) : null}
 
       <div className="mt-4">{children}</div>
-    </section>
+    </AdminSurface>
   );
 }

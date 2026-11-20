@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 import { generateOperationId } from '@/features/admin/calendar/repositories/calendar-booking-repository';
 import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 import { useAuth } from '@/features/auth/AuthContext';
 
 import { CommissionBatchDetailDrawer } from '../components/CommissionBatchDetailDrawer';
@@ -270,25 +271,24 @@ export function AdminCommissionAndFeePage() {
   };
 
   return (
-    <div data-commission-scoped="true" className="space-y-3 sm:space-y-4">
+    <div data-commission-scoped="true" className="space-y-4 sm:space-y-6">
       {/* Header & Workspace Summary */}
-      <header className="cal-card bg-studio-white p-3 sm:p-5">
-        <div className="flex flex-col justify-between gap-2.5 lg:flex-row lg:items-center">
+      <AdminSurface as="header" variant="hero" className="p-4 sm:p-6">
+        <div className="flex flex-col justify-between gap-3.5 lg:flex-row lg:items-center">
           <div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="bg-studio-ink text-studio-lime inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[9.5px] font-bold tracking-wider uppercase sm:px-2.5">
-                <HandCoins className="h-3 w-3" aria-hidden="true" />
-                <span>KOMISI &amp; FEE SESI STUDIO</span>
-              </span>
-              <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[9.5px] font-bold uppercase">
+            <div className="flex flex-wrap items-center gap-2">
+              <AdminStatusBadge tone="ink" icon={HandCoins} size="sm" className="uppercase">
+                Komisi &amp; Fee Sesi Studio
+              </AdminStatusBadge>
+              <AdminStatusBadge tone="ivory" size="sm">
                 Owner Only
-              </span>
+              </AdminStatusBadge>
             </div>
 
-            <h2 className="font-display text-studio-ink mt-1.5 text-xl leading-none font-black tracking-tight uppercase sm:mt-2 sm:text-3xl">
+            <h2 className="mt-2.5 text-xl font-bold tracking-[-0.025em] text-[#151515] sm:text-2xl lg:text-[28px]">
               Commission and Fee
             </h2>
-            <p className="text-studio-muted-ink mt-1 text-xs leading-snug font-medium">
+            <p className="mt-1 text-xs leading-relaxed text-[#666159] sm:text-sm">
               Review completed session fees before posting them to bookkeeping.
             </p>
           </div>
@@ -312,58 +312,55 @@ export function AdminCommissionAndFeePage() {
             zeroPayableCount={reviewDataset.zeroPayableItems.length}
           />
         ) : null}
-      </header>
+      </AdminSurface>
 
-      {/* Active Staff Access Restriction Card (Section 13) */}
+      {/* Active Staff Access Restriction Card */}
       {!isOwner ? (
-        <section
+        <AdminSurface
+          as="section"
+          variant="card"
           aria-label="Pembatasan akses halaman Commission and Fee"
-          className="cal-card border-studio-ink bg-studio-white p-4 sm:p-6"
+          className="p-5 sm:p-7"
         >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-            <span className="border-studio-ink bg-studio-orange text-studio-white flex h-11 w-11 shrink-0 items-center justify-center border-2">
+          <div className="flex flex-col gap-3.5 sm:flex-row sm:items-start">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFEDE8] text-[#B92B0C]">
               <ShieldAlert className="h-5 w-5" aria-hidden="true" />
             </span>
 
-            <div className="min-w-0 space-y-1.5">
+            <div className="min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-display text-studio-ink text-xl font-black uppercase">
-                  Owner Access Required
-                </h3>
-                <span className="border-studio-ink bg-studio-ivory text-studio-muted-ink border px-2 py-0.5 font-mono text-[9.5px] font-extrabold uppercase">
+                <h3 className="text-lg font-bold text-[#151515]">Owner Access Required</h3>
+                <AdminStatusBadge tone="ivory" size="sm">
                   Read Only — Owner Approval Required
-                </span>
+                </AdminStatusBadge>
               </div>
 
-              <p className="text-studio-muted-ink text-sm leading-relaxed">
-                Halaman <strong>Commission and Fee</strong> berisi rekap komisi tim dan pembagian
-                internal studio yang hanya dapat dibuka serta diposting oleh{' '}
-                <strong>Owner aktif</strong>.
+              <p className="text-xs leading-relaxed text-[#46433D] sm:text-sm">
+                Halaman <strong className="text-[#151515]">Commission and Fee</strong> berisi rekap
+                komisi tim dan pembagian internal studio yang hanya dapat dibuka serta diposting
+                oleh <strong className="text-[#151515]">Owner aktif</strong>.
               </p>
-              <p className="text-studio-subtle-ink font-mono text-xs">
+              <p className="text-xs text-[#666159]">
                 Operasional harian seperti Calendar, Customer, dan Payment and Bill tetap dapat Anda
                 gunakan seperti biasa.
               </p>
             </div>
           </div>
-        </section>
+        </AdminSurface>
       ) : (
         <>
           {reviewError || batchesError ? (
             <div
               role="alert"
-              className="cal-card border-studio-ink bg-studio-orange/15 text-studio-ink flex items-start gap-2.5 p-3 font-mono text-xs font-bold"
+              className="flex items-start gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-xs font-medium text-[#B92B0C]"
             >
-              <AlertTriangle
-                className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
-                aria-hidden="true"
-              />
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{reviewError || batchesError}</span>
             </div>
           ) : null}
 
           {activeTab === 'to_review' ? (
-            <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-4 sm:space-y-5">
               <CommissionPeriodFilter
                 preset={preset}
                 onPresetChange={handlePresetChange}

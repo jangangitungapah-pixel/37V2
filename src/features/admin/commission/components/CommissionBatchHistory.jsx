@@ -2,12 +2,12 @@ import { CalendarRange, CheckCircle2, ChevronRight } from 'lucide-react';
 
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
 import { formatIndonesianTimestamp } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminEmptyState, AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 
 import { getBatchPeriodDisplay } from '../services/commission-review-service';
 
 /**
  * Displays posted Commission Batches (`Posted` tab) ordered newest first with Load More pagination.
- * Clearly distinguishes "Posted to Pembukuan (Unpaid)" from actual payout (`Paid`).
  */
 export function CommissionBatchHistory({
   batches = [],
@@ -17,41 +17,40 @@ export function CommissionBatchHistory({
   isLoading = false,
 }) {
   return (
-    <section
+    <AdminSurface
+      as="section"
+      variant="card"
       aria-label="Riwayat batch komisi yang sudah diposting"
-      className="cal-card bg-studio-white overflow-hidden"
+      className="overflow-hidden"
     >
-      <div className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-2 border-b-2 px-3 py-2 sm:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#151515]/[0.07] bg-[#FAF8F3]/80 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-studio-ink font-mono text-[10px] font-extrabold tracking-wider uppercase">
-            POSTED COMMISSION BATCHES
+          <span className="text-xs font-semibold tracking-tight text-[#151515] sm:text-sm">
+            Posted Commission Batches
           </span>
-          <span className="border-studio-ink bg-studio-white text-studio-ink border px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold tabular-nums">
+          <AdminStatusBadge tone="neutral" size="sm" className="font-mono">
             {batches.length} batch
-          </span>
+          </AdminStatusBadge>
         </div>
 
-        <span className="text-studio-muted-ink hidden font-mono text-[9.5px] font-bold uppercase sm:inline">
+        <span className="hidden text-xs text-[#666159] sm:inline">
           Klik batch untuk melihat rincian booking &amp; catatan Pembukuan
         </span>
       </div>
 
       {isLoading ? (
-        <div className="text-studio-muted-ink px-4 py-10 text-center font-mono text-xs font-bold uppercase">
+        <div className="px-4 py-12 text-center text-xs font-medium text-[#666159]">
           Memuat riwayat posting komisi...
         </div>
       ) : batches.length === 0 ? (
-        <div className="px-4 py-10 text-center">
-          <p className="text-studio-ink font-mono text-xs font-extrabold uppercase">
-            Belum ada batch komisi yang diposting
-          </p>
-          <p className="text-studio-muted-ink mt-1 text-xs">
-            Setelah Anda menyetujui dan mem-posting sesi dari tab To Review, batch audit akan tampil
-            di sini.
-          </p>
+        <div className="p-4 sm:p-6">
+          <AdminEmptyState
+            title="Belum ada batch komisi yang diposting"
+            description="Setelah Anda menyetujui dan mem-posting sesi dari tab To Review, batch audit akan tampil di sini."
+          />
         </div>
       ) : (
-        <div className="divide-y divide-neutral-200">
+        <div className="divide-y divide-[#151515]/[0.06]">
           {batches.map((batch) => {
             const periodText = getBatchPeriodDisplay(batch);
             const postedText = formatIndonesianTimestamp(batch.postedAt);
@@ -59,42 +58,46 @@ export function CommissionBatchHistory({
             return (
               <article
                 key={batch.id}
-                className="hover:bg-studio-ivory/50 flex flex-col justify-between gap-3 p-3 transition-colors sm:p-4 lg:flex-row lg:items-center"
+                className="flex flex-col justify-between gap-3.5 p-4 transition-colors hover:bg-[#FAF8F3]/70 sm:p-5 lg:flex-row lg:items-center"
               >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px]">
-                    <span className="border-studio-ink bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-1.5 py-0.5 font-extrabold uppercase">
-                      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                      <span>Posted • Belum Dibayar di Pembukuan</span>
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <AdminStatusBadge tone="lime" icon={CheckCircle2} size="sm">
+                      Posted • Belum Dibayar di Pembukuan
+                    </AdminStatusBadge>
+                    <span className="font-mono text-xs font-semibold text-[#46433D]">
+                      {batch.id}
                     </span>
-                    <span className="text-studio-ink font-extrabold">{batch.id}</span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <p className="text-studio-ink inline-flex items-center gap-1 text-sm font-extrabold">
-                      <CalendarRange className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#151515]">
+                      <CalendarRange
+                        className="h-4 w-4 shrink-0 text-[#666159]"
+                        aria-hidden="true"
+                      />
                       <span>Periode: {periodText}</span>
                     </p>
-                    <span className="text-studio-muted-ink font-mono text-[10.5px] font-semibold">
+                    <span className="text-xs text-[#666159]">
                       • {batch.bookingCount} sesi • Diposting: {postedText}
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px]">
-                    <span className="text-studio-muted-ink">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-[#666159]">
+                    <span>
                       Staff:{' '}
-                      <strong className="text-studio-ink">
+                      <strong className="font-semibold text-[#151515]">
                         {formatRupiah(batch.staffCommissionTotal)}
                       </strong>
                     </span>
-                    <span className="text-studio-muted-ink">
+                    <span>
                       Operator:{' '}
-                      <strong className="text-studio-ink">
+                      <strong className="font-semibold text-[#151515]">
                         {formatRupiah(batch.recordingOperatorFeeTotal)}
                       </strong>
                     </span>
                     {batch.ownerAllocationReferenceTotal > 0 ? (
-                      <span className="text-studio-subtle-ink">
+                      <span className="text-[#8B857B]">
                         Owner Ref:{' '}
                         <strong>{formatRupiah(batch.ownerAllocationReferenceTotal)}</strong>
                       </span>
@@ -102,12 +105,12 @@ export function CommissionBatchHistory({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-3 border-t border-neutral-200 pt-2.5 lg:shrink-0 lg:border-t-0 lg:pt-0">
-                  <div className="font-mono lg:text-right">
-                    <span className="text-studio-muted-ink block text-[9px] font-bold uppercase">
+                <div className="flex items-center justify-between gap-4 border-t border-[#151515]/[0.06] pt-3 lg:shrink-0 lg:border-t-0 lg:pt-0">
+                  <div className="lg:text-right">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Total Diposting (Payable)
                     </span>
-                    <span className="font-display text-studio-ink text-lg font-black tabular-nums sm:text-xl">
+                    <span className="font-mono text-base font-bold text-[#151515] tabular-nums sm:text-lg">
                       {formatRupiah(batch.payableTotal)}
                     </span>
                   </div>
@@ -115,10 +118,10 @@ export function CommissionBatchHistory({
                   <button
                     type="button"
                     onClick={() => onSelectBatch?.(batch)}
-                    className="cal-control border-studio-ink bg-studio-ink text-studio-white hover:bg-studio-lime hover:text-studio-ink inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-1 px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase"
+                    className="sa-control sa-btn-primary inline-flex min-h-9.5 shrink-0 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold"
                   >
                     <span>Detail Batch</span>
-                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    <ChevronRight className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
                   </button>
                 </div>
               </article>
@@ -128,16 +131,16 @@ export function CommissionBatchHistory({
       )}
 
       {hasMore ? (
-        <div className="border-studio-ink bg-studio-ivory flex justify-center border-t-2 p-3">
+        <div className="flex justify-center border-t border-[#151515]/[0.07] bg-[#FAF8F3] p-3.5">
           <button
             type="button"
             onClick={onLoadMore}
-            className="cal-control border-studio-ink bg-studio-white text-studio-ink hover:bg-studio-lime min-h-9 cursor-pointer px-4 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
+            className="sa-control sa-btn-secondary min-h-9.5 cursor-pointer px-4 py-1.5 text-xs font-semibold"
           >
             Muat Batch Lebih Lama
           </button>
         </div>
       ) : null}
-    </section>
+    </AdminSurface>
   );
 }

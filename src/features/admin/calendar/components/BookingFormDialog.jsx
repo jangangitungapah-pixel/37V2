@@ -70,10 +70,10 @@ import { formatDurationMinutes, formatMinuteOfDay, formatMinuteRange } from '../
 import { formatIndonesianDateFull, getJakartaTodayIso } from '../utils/calendar-date';
 
 const FORM_STEPS = [
-  { id: 'customer', order: '01', label: 'Customer', icon: UserRound },
-  { id: 'service', order: '02', label: 'Layanan', icon: Music2 },
-  { id: 'schedule', order: '03', label: 'Jadwal', icon: CalendarDays },
-  { id: 'payment', order: '04', label: 'Pembayaran', icon: CreditCard },
+  { id: 'customer', order: '01', label: 'Customer', shortLabel: 'Data', icon: UserRound },
+  { id: 'service', order: '02', label: 'Layanan', shortLabel: 'Jasa', icon: Music2 },
+  { id: 'schedule', order: '03', label: 'Jadwal', shortLabel: 'Jadwal', icon: CalendarDays },
+  { id: 'payment', order: '04', label: 'Pembayaran', shortLabel: 'Bayar', icon: CreditCard },
 ];
 
 const PRESET_MINUTE_SET = new Set([60, 120, 180, 240, 300, 360]);
@@ -917,24 +917,30 @@ export function BookingFormDialog({
     <>
       <Dialog.Root open={open} onOpenChange={handleDialogOpenChange}>
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/70 backdrop-blur-[1px]" />
+          <Dialog.Backdrop
+            data-admin-portal-layer="true"
+            className="sa-overlay-backdrop fixed inset-0 z-40 transition-opacity"
+          />
 
           <Dialog.Popup
             aria-label={dialogTitle}
             data-calendar-scoped="true"
-            className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-4xl flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-y-4 sm:h-auto sm:max-h-[92dvh] sm:w-[95vw] sm:border-2"
+            data-admin-portal-layer="true"
+            className="sa-dialog fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden sm:inset-y-4 sm:h-auto sm:max-h-[92dvh] sm:w-[95vw] sm:rounded-[22px]"
           >
-            {/* Sticky Header + 4-Stage Stepper */}
-            <div className="border-studio-ink bg-studio-ink text-studio-ivory shrink-0 border-b-2 px-4 py-3.5 sm:px-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="border-studio-ivory bg-studio-lime text-studio-ink inline-block border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
-                    {dialogEyebrow}
-                  </span>
-                  <Dialog.Title className="font-display mt-1.5 text-2xl leading-none font-black tracking-tight text-white uppercase sm:text-3xl">
-                    {dialogTitle}
-                  </Dialog.Title>
-                  <Dialog.Description className="mt-1 text-xs text-neutral-300">
+            {/* Sticky Header + Compact Mobile 4-Stage Stepper */}
+            <div className="shrink-0 border-b border-white/10 bg-[#151515] px-3.5 py-2.5 text-[#F1EEE4] sm:px-6 sm:py-4">
+              <div className="flex items-start justify-between gap-2.5 sm:gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 sm:block">
+                    <span className="bg-studio-lime text-studio-ink inline-block rounded-full px-2 py-0.5 text-[9.5px] font-semibold sm:px-2.5 sm:text-[10.5px]">
+                      {dialogEyebrow}
+                    </span>
+                    <Dialog.Title className="truncate text-base font-bold tracking-tight text-white sm:mt-1.5 sm:text-2xl">
+                      {dialogTitle}
+                    </Dialog.Title>
+                  </div>
+                  <Dialog.Description className="sr-only sm:not-sr-only sm:mt-1 sm:block sm:text-xs sm:text-neutral-400">
                     Lengkapi empat tahap operasional di bawah. Konflik jadwal, harga, dan fee
                     internal dihitung secara otomatis.
                   </Dialog.Description>
@@ -943,16 +949,16 @@ export function BookingFormDialog({
                 <Dialog.Close
                   aria-label="Tutup form booking"
                   disabled={isSubmitting}
-                  className="hover:border-studio-lime hover:text-studio-lime inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white transition-colors"
+                  className="hover:border-studio-lime hover:text-studio-lime inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-white/12 bg-white/6 text-white transition-colors sm:h-10 sm:w-10 sm:rounded-xl"
                 >
-                  <X className="h-5 w-5" aria-hidden="true" />
+                  <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
                 </Dialog.Close>
               </div>
 
-              {/* Functional 4-Stage Stepper */}
+              {/* Functional 4-Stage Stepper (single compact row on phones, rich tiles on sm+) */}
               <nav
                 aria-label="Tahapan form booking"
-                className="mt-3.5 grid grid-cols-2 gap-1.5 sm:grid-cols-4"
+                className="mt-2 grid grid-cols-4 gap-1 sm:mt-3.5 sm:gap-2"
               >
                 {FORM_STEPS.map((step) => {
                   const isStepValid = Boolean(liveValidation.stepStatus[step.id]);
@@ -964,16 +970,23 @@ export function BookingFormDialog({
                       key={step.id}
                       type="button"
                       onClick={() => handleStepSelect(step.id)}
+                      aria-label={`${step.order}. ${step.label}`}
                       aria-current={isStepActive ? 'step' : undefined}
-                      className={`flex min-h-11 cursor-pointer items-center justify-between gap-2 border px-2.5 py-1.5 text-left transition-colors ${
+                      className={`flex min-h-8 cursor-pointer items-center justify-center gap-1 rounded-lg border px-1.5 py-1 text-center transition-all sm:min-h-10.5 sm:justify-between sm:gap-2 sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-left ${
                         isStepActive
-                          ? 'border-studio-ivory bg-studio-lime text-studio-ink font-extrabold'
-                          : 'border-neutral-700 bg-neutral-900 text-neutral-200 hover:border-neutral-500'
+                          ? 'border-studio-lime bg-studio-lime text-studio-ink font-semibold shadow-xs'
+                          : 'border-white/10 bg-white/6 text-neutral-200 hover:border-white/20 hover:bg-white/10'
                       }`}
                     >
                       <div className="flex min-w-0 items-center gap-1.5">
-                        <StepIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                        <span className="truncate font-mono text-[11px] uppercase">
+                        <StepIcon
+                          className="hidden h-3.5 w-3.5 shrink-0 sm:block"
+                          aria-hidden="true"
+                        />
+                        <span className="truncate text-[11px] sm:hidden">
+                          {Number(step.order)}. {step.shortLabel}
+                        </span>
+                        <span className="hidden truncate text-xs sm:inline">
                           {step.order}. {step.label}
                         </span>
                       </div>
@@ -981,13 +994,16 @@ export function BookingFormDialog({
                       {isStepValid ? (
                         <span
                           title={`Tahap ${step.label} lengkap`}
-                          className={`flex h-4 w-4 shrink-0 items-center justify-center border ${
+                          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full sm:h-4 sm:w-4 ${
                             isStepActive
-                              ? 'border-studio-ink bg-studio-ink text-studio-lime'
-                              : 'border-studio-lime bg-studio-lime text-studio-ink'
+                              ? 'bg-studio-ink text-studio-lime'
+                              : 'bg-studio-lime text-studio-ink'
                           }`}
                         >
-                          <Check className="h-3 w-3 stroke-[3]" aria-hidden="true" />
+                          <Check
+                            className="h-2 w-2 stroke-[3] sm:h-2.5 sm:w-2.5"
+                            aria-hidden="true"
+                          />
                         </span>
                       ) : null}
                     </button>
@@ -1001,41 +1017,41 @@ export function BookingFormDialog({
               id="studio-booking-form"
               onSubmit={handleSubmit}
               noValidate
-              className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-8 sm:px-6 sm:py-5"
+              className="min-h-0 flex-1 overflow-y-auto bg-[#FAF8F1] px-3 py-3 pb-6 sm:px-6 sm:py-5 sm:pb-8"
             >
               {/* Global Submission Error Banner */}
               {submitError ? (
                 <div
                   role="alert"
-                  className="border-studio-ink bg-studio-orange text-studio-white mb-5 flex items-start gap-2.5 border-2 p-3.5 shadow-[3px_3px_0px_#151515]"
+                  className="mb-3.5 flex items-start gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 text-[#B92B0C] shadow-xs sm:mb-5 sm:p-3.5"
                 >
                   <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-                  <div className="min-w-0 text-xs font-bold sm:text-sm">{submitError}</div>
+                  <div className="min-w-0 text-xs font-medium sm:text-sm">{submitError}</div>
                 </div>
               ) : null}
 
-              <div className="space-y-6">
+              <div className="space-y-3.5 sm:space-y-5">
                 {/* STEP 01: CUSTOMER SECTION */}
                 <section
                   ref={customerSectionRef}
                   aria-labelledby="step-customer-heading"
                   onFocusCapture={() => setActiveStep('customer')}
-                  className="brutal-card bg-studio-white p-4 sm:p-5"
+                  className="sa-card p-3.5 sm:p-6"
                 >
-                  <div className="flex items-center justify-between gap-2 border-b border-neutral-200 pb-3">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
-                      <span className="text-studio-orange font-mono text-[10px] font-extrabold uppercase">
-                        TAHAP 01 • DATA PEMESAN
+                      <span className="text-[11px] font-semibold text-[#B92B0C]">
+                        Tahap 01 · Data Pemesan
                       </span>
                       <h3
                         id="step-customer-heading"
-                        className="font-display text-studio-ink text-xl font-black uppercase"
+                        className="text-studio-ink mt-0.5 text-lg font-bold tracking-tight"
                       >
                         Data Pemesan
                       </h3>
                     </div>
                     {liveValidation.stepStatus.customer ? (
-                      <span className="border-studio-ink bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[#8BAD12]/35 bg-[#EDF8C2] px-2.5 py-0.5 text-[11px] font-medium text-[#243300]">
                         <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
                         <span>Valid</span>
                       </span>
@@ -1046,7 +1062,7 @@ export function BookingFormDialog({
                     <div>
                       <label
                         htmlFor="booking-customer-name"
-                        className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                        className="text-studio-ink block text-xs font-semibold"
                       >
                         Nama Customer <span className="text-studio-orange">*</span>
                       </label>
@@ -1058,10 +1074,10 @@ export function BookingFormDialog({
                         value={formValues.customerName}
                         onChange={(e) => handleFieldChange('customerName', e.target.value)}
                         placeholder="Contoh: Raka Pratama"
-                        className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
+                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
                       />
                       {shouldShowFieldError('customerName') ? (
-                        <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                        <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                           {liveValidation.errors.customerName}
                         </p>
                       ) : null}
@@ -1070,7 +1086,7 @@ export function BookingFormDialog({
                     <div>
                       <label
                         htmlFor="booking-customer-phone"
-                        className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                        className="text-studio-ink block text-xs font-semibold"
                       >
                         Nomor HP / WhatsApp <span className="text-studio-orange">*</span>
                       </label>
@@ -1098,10 +1114,10 @@ export function BookingFormDialog({
                           }
                         }}
                         placeholder="Contoh: 081234567890"
-                        className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-bold"
+                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
                       />
                       {shouldShowFieldError('phone') ? (
-                        <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                        <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                           {liveValidation.errors.phone}
                         </p>
                       ) : null}
@@ -1109,26 +1125,26 @@ export function BookingFormDialog({
 
                     {/* Customer Identity Resolution Status Panel (Phase 7) */}
                     {isEditingOrRescheduling ? (
-                      <div className="border-studio-ink bg-studio-ivory flex items-start gap-2.5 border p-3 text-xs sm:col-span-2">
+                      <div className="sa-panel-ivory flex items-start gap-2.5 p-3.5 text-xs sm:col-span-2">
                         <Info
-                          className="text-studio-ink mt-0.5 h-4 w-4 shrink-0"
+                          className="mt-0.5 h-4 w-4 shrink-0 text-[#46433D]"
                           aria-hidden="true"
                         />
                         <div className="min-w-0">
-                          <p className="font-mono text-[10px] font-extrabold uppercase">
+                          <p className="text-studio-ink font-semibold">
                             Data Utama Pelanggan Tetap Terjaga
                           </p>
-                          <p className="text-studio-muted-ink mt-0.5 leading-relaxed font-medium">
+                          <p className="mt-0.5 leading-relaxed text-[#666159]">
                             Perubahan nama atau nomor HP di sini hanya berlaku untuk booking ini.
                             Untuk mengganti nomor utama pelanggan, ubah di halaman{' '}
-                            <strong>Customer</strong>.
+                            <strong className="text-studio-ink">Customer</strong>.
                           </p>
                         </div>
                       </div>
                     ) : lookupState.status === 'loading' ? (
                       <div
                         role="status"
-                        className="border-studio-ink bg-studio-ivory flex items-center gap-2 border px-3 py-2.5 font-mono text-[11px] font-bold sm:col-span-2"
+                        className="sa-panel-ivory flex items-center gap-2 px-3.5 py-2.5 text-xs font-medium text-[#46433D] sm:col-span-2"
                       >
                         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                         <span>Memeriksa nomor HP di daftar pelanggan...</span>
@@ -1136,20 +1152,16 @@ export function BookingFormDialog({
                     ) : lookupState.status === 'error' ? (
                       <div
                         role="alert"
-                        className="border-studio-ink bg-studio-orange/15 flex flex-wrap items-center justify-between gap-2 border-2 p-3 text-xs sm:col-span-2"
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-xs sm:col-span-2"
                       >
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-2.5">
                           <AlertTriangle
                             className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
                             aria-hidden="true"
                           />
                           <div className="min-w-0">
-                            <p className="font-mono text-[10px] font-extrabold text-[#b92b0c] uppercase">
-                              Gagal Memeriksa Nomor HP
-                            </p>
-                            <p className="text-studio-ink mt-0.5 font-semibold">
-                              {lookupState.error}
-                            </p>
+                            <p className="font-semibold text-[#B92B0C]">Gagal Memeriksa Nomor HP</p>
+                            <p className="text-studio-ink mt-0.5">{lookupState.error}</p>
                           </div>
                         </div>
                         <button
@@ -1159,26 +1171,26 @@ export function BookingFormDialog({
                               openDialogOnConflict: true,
                             })
                           }
-                          className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-9 cursor-pointer items-center gap-1.5 px-3 py-1 font-mono text-[10px] font-extrabold uppercase"
+                          className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold"
                         >
                           <RefreshCw className="h-3 w-3" aria-hidden="true" />
                           <span>Coba Cek Lagi</span>
                         </button>
                       </div>
                     ) : activeManualChoice ? (
-                      <div className="border-studio-ink bg-studio-lime/25 flex flex-wrap items-center justify-between gap-2 border-2 p-3 text-xs sm:col-span-2">
-                        <div className="flex items-start gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-[#8BAD12]/35 bg-[#EDF8C2]/55 p-3.5 text-xs sm:col-span-2">
+                        <div className="flex items-start gap-2.5">
                           <UserCheck
-                            className="text-studio-ink mt-0.5 h-4 w-4 shrink-0"
+                            className="mt-0.5 h-4 w-4 shrink-0 text-[#243300]"
                             aria-hidden="true"
                           />
                           <div className="min-w-0">
-                            <span className="border-studio-ink bg-studio-lime text-studio-ink inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
+                            <span className="inline-block rounded-full border border-[#8BAD12]/40 bg-[#EDF8C2] px-2.5 py-0.5 text-[10.5px] font-semibold text-[#243300]">
                               {activeManualChoice.mode === CUSTOMER_RESOLUTION_MODE.CREATE_SEPARATE
-                                ? 'PROFIL TERPISAH (NOMOR BERSAMA)'
-                                : 'GABUNG KE PELANGGAN TERDAFTAR'}
+                                ? 'Profil Terpisah (Nomor Bersama)'
+                                : 'Gabung ke Pelanggan Terdaftar'}
                             </span>
-                            <p className="text-studio-ink mt-1 font-semibold">
+                            <p className="text-studio-ink mt-1.5 font-medium">
                               {activeManualChoice.mode === CUSTOMER_RESOLUTION_MODE.CREATE_SEPARATE
                                 ? `Akan membuat profil terpisah untuk "${formValues.customerName || '-'}" dengan nomor ${formatPhoneDisplay(currentPhoneNormalized)}.`
                                 : `Booking akan masuk ke riwayat "${activeManualChoice.profileName}" dan nama baru ikut tersimpan sebagai nama lain.`}
@@ -1188,23 +1200,23 @@ export function BookingFormDialog({
                         <button
                           type="button"
                           onClick={() => setConflictDialogOpen(true)}
-                          className="border-studio-ink bg-studio-white text-studio-ink min-h-9 cursor-pointer border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase"
+                          className="sa-control sa-btn-secondary min-h-9 cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold"
                         >
                           Ubah Pilihan
                         </button>
                       </div>
                     ) : effectiveIdentity?.status === IDENTITY_MATCH_STATUS.EXACT_MATCH &&
                       effectiveIdentity.matchedProfile ? (
-                      <div className="border-studio-ink bg-studio-lime/25 flex items-start gap-2.5 border-2 p-3 text-xs sm:col-span-2">
+                      <div className="flex items-start gap-2.5 rounded-2xl border border-[#8BAD12]/35 bg-[#EDF8C2]/55 p-3.5 text-xs sm:col-span-2">
                         <UserCheck
-                          className="text-studio-ink mt-0.5 h-4 w-4 shrink-0"
+                          className="mt-0.5 h-4 w-4 shrink-0 text-[#243300]"
                           aria-hidden="true"
                         />
                         <div className="min-w-0">
-                          <span className="border-studio-ink bg-studio-lime text-studio-ink inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                            PELANGGAN TERDAFTAR
+                          <span className="inline-block rounded-full border border-[#8BAD12]/40 bg-[#EDF8C2] px-2.5 py-0.5 text-[10.5px] font-semibold text-[#243300]">
+                            Pelanggan Terdaftar
                           </span>
-                          <p className="text-studio-ink mt-1 font-semibold">
+                          <p className="text-studio-ink mt-1.5 font-medium">
                             Cocok dengan pelanggan{' '}
                             <strong>{effectiveIdentity.matchedProfile.displayName}</strong> (
                             {effectiveIdentity.matchedProfile.bookingCount} booking) •{' '}
@@ -1215,18 +1227,18 @@ export function BookingFormDialog({
                         </div>
                       </div>
                     ) : effectiveIdentity?.status === IDENTITY_MATCH_STATUS.NO_MATCH ? (
-                      <div className="border-studio-ink bg-studio-ivory flex items-start gap-2.5 border p-3 text-xs sm:col-span-2">
+                      <div className="sa-panel-ivory flex items-start gap-2.5 p-3.5 text-xs sm:col-span-2">
                         <UserPlus
-                          className="text-studio-ink mt-0.5 h-4 w-4 shrink-0"
+                          className="mt-0.5 h-4 w-4 shrink-0 text-[#46433D]"
                           aria-hidden="true"
                         />
                         <div className="min-w-0">
-                          <span className="border-studio-ink bg-studio-white text-studio-ink inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                            PELANGGAN BARU
+                          <span className="inline-block rounded-full border border-[#151515]/12 bg-white px-2.5 py-0.5 text-[10.5px] font-semibold text-[#46433D]">
+                            Pelanggan Baru
                           </span>
-                          <p className="text-studio-muted-ink mt-1 font-semibold">
+                          <p className="mt-1.5 text-[#46433D]">
                             Nomor{' '}
-                            <span className="text-studio-ink font-mono font-bold">
+                            <span className="text-studio-ink font-mono font-semibold">
                               {formatPhoneDisplay(currentPhoneNormalized)}
                             </span>{' '}
                             belum terdaftar. Data pelanggan baru akan dibuat otomatis saat booking
@@ -1235,16 +1247,16 @@ export function BookingFormDialog({
                         </div>
                       </div>
                     ) : effectiveIdentity?.status === IDENTITY_MATCH_STATUS.HISTORICAL_ONLY ? (
-                      <div className="border-studio-ink flex items-start gap-2.5 border-2 bg-amber-100 p-3 text-xs sm:col-span-2">
+                      <div className="flex items-start gap-2.5 rounded-2xl border border-amber-500/25 bg-[#FEF4DD] p-3.5 text-xs sm:col-span-2">
                         <AlertTriangle
-                          className="text-studio-ink mt-0.5 h-4 w-4 shrink-0"
+                          className="mt-0.5 h-4 w-4 shrink-0 text-[#8A4B08]"
                           aria-hidden="true"
                         />
                         <div className="min-w-0">
-                          <span className="border-studio-ink bg-studio-ink text-studio-lime inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                            NOMOR LAMA PERNAH TERCATAT
+                          <span className="inline-block rounded-full bg-[#151515] px-2.5 py-0.5 text-[10.5px] font-semibold text-[#C8F13A]">
+                            Nomor Lama Pernah Tercatat
                           </span>
-                          <p className="text-studio-ink mt-1 font-semibold">
+                          <p className="mt-1.5 font-medium text-[#8A4B08]">
                             Nomor ini pernah tercatat sebagai nomor lama atau arsip pelanggan lain.
                             Booking baru akan dibuat terpisah tanpa mencampur riwayat lama.
                           </p>
@@ -1254,20 +1266,20 @@ export function BookingFormDialog({
                       effectiveIdentity?.status === IDENTITY_MATCH_STATUS.MULTIPLE_MATCHES ? (
                       <div
                         role="alert"
-                        className="border-studio-ink bg-studio-orange/15 flex flex-wrap items-center justify-between gap-2.5 border-2 p-3 text-xs sm:col-span-2"
+                        className="flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-xs sm:col-span-2"
                       >
-                        <div className="flex items-start gap-2">
+                        <div className="flex items-start gap-2.5">
                           <Users
                             className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
                             aria-hidden="true"
                           />
                           <div className="min-w-0">
-                            <span className="border-studio-ink bg-studio-orange text-studio-white inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
+                            <span className="inline-block rounded-full border border-[#FF4B22]/30 bg-white px-2.5 py-0.5 text-[10.5px] font-semibold text-[#B92B0C]">
                               {effectiveIdentity.status === IDENTITY_MATCH_STATUS.MULTIPLE_MATCHES
-                                ? `NOMOR BERSAMA (${effectiveIdentity.activeProfiles.length} PROFIL)`
-                                : 'NOMOR SUDAH TERDAFTAR'}
+                                ? `Nomor Bersama (${effectiveIdentity.activeProfiles.length} Profil)`
+                                : 'Nomor Sudah Terdaftar'}
                             </span>
-                            <p className="text-studio-ink mt-1 font-semibold">
+                            <p className="text-studio-ink mt-1.5 font-medium">
                               {effectiveIdentity.status === IDENTITY_MATCH_STATUS.MULTIPLE_MATCHES
                                 ? 'Nomor ini dipakai beberapa profil customer. Pilih profil atau buat profil terpisah.'
                                 : `Nomor ini digunakan oleh "${effectiveIdentity.matchedProfile?.displayName}". Konfirmasi apakah ingin menggabungkan riwayat atau memisahkan profil.`}
@@ -1278,7 +1290,7 @@ export function BookingFormDialog({
                         <button
                           type="button"
                           onClick={() => setConflictDialogOpen(true)}
-                          className="brutal-btn bg-studio-lime text-studio-ink min-h-10 cursor-pointer px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase"
+                          className="sa-control sa-btn-lime min-h-9.5 cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-semibold"
                         >
                           Pilih Profil
                         </button>
@@ -1288,10 +1300,10 @@ export function BookingFormDialog({
                     <div className="sm:col-span-2">
                       <label
                         htmlFor="booking-band-name"
-                        className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                        className="text-studio-ink block text-xs font-semibold"
                       >
                         Nama Band / Project{' '}
-                        <span className="text-studio-muted-ink">(Opsional)</span>
+                        <span className="font-normal text-[#666159]">(Opsional)</span>
                       </label>
                       <input
                         id="booking-band-name"
@@ -1300,7 +1312,7 @@ export function BookingFormDialog({
                         value={formValues.bandName}
                         onChange={(e) => handleFieldChange('bandName', e.target.value)}
                         placeholder="Contoh: The Velvet Echo / Solo Project"
-                        className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
+                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
                       />
                     </div>
                   </div>
@@ -1311,22 +1323,22 @@ export function BookingFormDialog({
                   ref={serviceSectionRef}
                   aria-labelledby="step-service-heading"
                   onFocusCapture={() => setActiveStep('service')}
-                  className="brutal-card bg-studio-white p-4 sm:p-5"
+                  className="sa-card p-5 sm:p-6"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
-                      <span className="text-studio-orange font-mono text-[10px] font-extrabold uppercase">
-                        TAHAP 02 • JENIS JASA &amp; SUBCATEGORY
+                      <span className="text-[11px] font-semibold text-[#B92B0C]">
+                        Tahap 02 · Jenis Jasa &amp; Subcategory
                       </span>
                       <h3
                         id="step-service-heading"
-                        className="font-display text-studio-ink text-xl font-black uppercase"
+                        className="text-studio-ink mt-0.5 text-lg font-bold tracking-tight"
                       >
                         Layanan Studio
                       </h3>
                     </div>
 
-                    <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase">
+                    <span className="rounded-full border border-[#151515]/10 bg-[#F8F6EF] px-2.5 py-0.5 font-mono text-[11px] font-semibold text-[#46433D]">
                       {isManualQuoteOption
                         ? 'Manual Quote'
                         : `Tarif: ${formatRupiah(displayedPricing.unitRate)}/jam`}
@@ -1335,7 +1347,7 @@ export function BookingFormDialog({
 
                   {/* Step 02A: Jenis Jasa (Studio Services Only) */}
                   <div className="mt-4">
-                    <span className="text-studio-ink block font-mono text-xs font-extrabold uppercase">
+                    <span className="text-studio-ink block text-xs font-semibold">
                       1. Pilih Jenis Jasa (Studio) <span className="text-studio-orange">*</span>
                     </span>
 
@@ -1352,22 +1364,30 @@ export function BookingFormDialog({
                             type="button"
                             onClick={() => handleSelectServiceType(service.id)}
                             aria-pressed={isSelected}
-                            className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${
+                            className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${
                               isSelected
-                                ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
-                                : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                                ? 'border-[#8BAD12]/50 bg-[#EDF8C2] text-[#243300] shadow-xs'
+                                : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="font-display text-lg leading-none font-black uppercase">
+                              <span className="text-base font-bold tracking-tight">
                                 {service.name}
                               </span>
-                              <span className="font-mono text-[10px] font-extrabold uppercase">
+                              <span
+                                className={`font-mono text-[11px] font-semibold ${
+                                  isSelected ? 'text-[#243300]' : 'text-[#666159]'
+                                }`}
+                              >
                                 {service.bookableOptions.length} opsi
                               </span>
                             </div>
                             {service.description ? (
-                              <span className="text-studio-muted-ink mt-1 text-xs font-medium">
+                              <span
+                                className={`mt-1 text-xs ${
+                                  isSelected ? 'text-[#243300]/80' : 'text-[#666159]'
+                                }`}
+                              >
                                 {service.description}
                               </span>
                             ) : null}
@@ -1377,7 +1397,7 @@ export function BookingFormDialog({
                     </div>
 
                     {shouldShowFieldError('serviceId') ? (
-                      <p role="alert" className="text-studio-error-ink mt-1.5 text-xs font-bold">
+                      <p role="alert" className="mt-1.5 text-xs font-medium text-[#B92B0C]">
                         {liveValidation.errors.serviceId}
                       </p>
                     ) : null}
@@ -1385,7 +1405,7 @@ export function BookingFormDialog({
 
                   {/* Step 02B: Subcategory / Paket under selected Jenis Jasa */}
                   <div className="mt-4">
-                    <span className="text-studio-ink block font-mono text-xs font-extrabold uppercase">
+                    <span className="text-studio-ink block text-xs font-semibold">
                       2. Pilih Subcategory / Paket ({selectedServiceType?.name || 'Studio'}){' '}
                       <span className="text-studio-orange">*</span>
                     </span>
@@ -1412,18 +1432,16 @@ export function BookingFormDialog({
                             type="button"
                             onClick={() => handleSelectSubcategory(option.id)}
                             aria-pressed={isSelected}
-                            className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${
+                            className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${
                               isSelected
-                                ? 'border-studio-ink bg-studio-ink text-studio-white shadow-[2px_2px_0px_#151515]'
-                                : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                                ? 'border-studio-ink bg-studio-ink text-white shadow-sm'
+                                : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <span className="font-display text-lg leading-none font-black uppercase">
-                                {option.name}
-                              </span>
+                              <span className="text-sm font-semibold">{option.name}</span>
                               <span
-                                className={`shrink-0 font-mono text-[11px] font-extrabold ${
+                                className={`shrink-0 font-mono text-xs font-semibold ${
                                   isSelected ? 'text-studio-lime' : 'text-studio-ink'
                                 }`}
                               >
@@ -1433,8 +1451,8 @@ export function BookingFormDialog({
 
                             {option.description ? (
                               <span
-                                className={`mt-1 text-xs font-medium ${
-                                  isSelected ? 'text-neutral-300' : 'text-studio-muted-ink'
+                                className={`mt-1 text-xs ${
+                                  isSelected ? 'text-neutral-300' : 'text-[#666159]'
                                 }`}
                               >
                                 {option.description}
@@ -1443,8 +1461,8 @@ export function BookingFormDialog({
 
                             {activeBlockRule ? (
                               <span
-                                className={`mt-1.5 inline-block font-mono text-[10px] font-extrabold ${
-                                  isSelected ? 'text-studio-lime' : 'text-emerald-800'
+                                className={`mt-2 inline-block font-mono text-[11px] font-medium ${
+                                  isSelected ? 'text-studio-lime' : 'text-[#0F6246]'
                                 }`}
                               >
                                 Diskon Durasi -{formatRupiah(activeBlockRule.discountAmount)} /{' '}
@@ -1457,7 +1475,7 @@ export function BookingFormDialog({
                     </div>
 
                     {shouldShowFieldError('serviceOptionId') ? (
-                      <p role="alert" className="text-studio-error-ink mt-1.5 text-xs font-bold">
+                      <p role="alert" className="mt-1.5 text-xs font-medium text-[#B92B0C]">
                         {liveValidation.errors.serviceOptionId}
                       </p>
                     ) : null}
@@ -1465,16 +1483,16 @@ export function BookingFormDialog({
 
                   {/* Manual Quote & Manual Internal Fee Inputs (e.g. Recording Others) */}
                   {hasAnyManualInputs ? (
-                    <div className="border-studio-ink bg-studio-ivory mt-4 space-y-4 border-2 p-4">
+                    <div className="sa-panel-ivory mt-4 space-y-4 p-4">
                       {isManualQuoteOption ? (
                         <div>
-                          <p className="font-mono text-[11px] font-extrabold tracking-wider uppercase">
-                            CUSTOMER PRICE (MANUAL QUOTE)
+                          <p className="text-studio-ink text-xs font-semibold">
+                            Customer Price (Manual Quote)
                           </p>
                           <div className="mt-2">
                             <label
                               htmlFor="booking-manual-customer-price"
-                              className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                              className="text-studio-ink block text-xs font-medium"
                             >
                               Harga Manual (IDR) <span className="text-studio-orange">*</span>
                             </label>
@@ -1490,13 +1508,10 @@ export function BookingFormDialog({
                                 )
                               }
                               placeholder="Contoh: 350000"
-                              className="border-studio-ink bg-studio-white text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-extrabold"
+                              className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
                             />
                             {shouldShowFieldError('manualCustomerPrice') ? (
-                              <p
-                                role="alert"
-                                className="text-studio-error-ink mt-1 text-xs font-bold"
-                              >
+                              <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                                 {liveValidation.errors.manualCustomerPrice}
                               </p>
                             ) : null}
@@ -1506,17 +1521,19 @@ export function BookingFormDialog({
 
                       {hasManualStaffFee || hasManualOwnerFee || hasManualOperatorFee ? (
                         <div
-                          className={isManualQuoteOption ? 'border-t border-neutral-300 pt-3' : ''}
+                          className={
+                            isManualQuoteOption ? 'border-t border-[#151515]/10 pt-3.5' : ''
+                          }
                         >
-                          <p className="font-mono text-[11px] font-extrabold tracking-wider uppercase">
-                            INTERNAL FEES (INPUT MANUAL — TIDAK MASUK TAGIHAN CUSTOMER)
+                          <p className="text-studio-ink text-xs font-semibold">
+                            Internal Fees (Input Manual — Tidak Masuk Tagihan Customer)
                           </p>
                           <div className="mt-2.5 grid grid-cols-1 gap-3 sm:grid-cols-3">
                             {hasManualStaffFee ? (
                               <div>
                                 <label
                                   htmlFor="booking-manual-staff-fee"
-                                  className="text-studio-ink block font-mono text-[11px] font-extrabold uppercase"
+                                  className="text-studio-ink block text-xs font-medium"
                                 >
                                   Staff Fee (IDR)
                                 </label>
@@ -1532,7 +1549,7 @@ export function BookingFormDialog({
                                     )
                                   }
                                   placeholder="0"
-                                  className="border-studio-ink bg-studio-white text-studio-ink mt-1 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-extrabold"
+                                  className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
                                 />
                               </div>
                             ) : null}
@@ -1541,7 +1558,7 @@ export function BookingFormDialog({
                               <div>
                                 <label
                                   htmlFor="booking-manual-owner-fee"
-                                  className="text-studio-ink block font-mono text-[11px] font-extrabold uppercase"
+                                  className="text-studio-ink block text-xs font-medium"
                                 >
                                   Owner Fee (IDR)
                                 </label>
@@ -1557,7 +1574,7 @@ export function BookingFormDialog({
                                     )
                                   }
                                   placeholder="0"
-                                  className="border-studio-ink bg-studio-white text-studio-ink mt-1 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-extrabold"
+                                  className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
                                 />
                               </div>
                             ) : null}
@@ -1566,7 +1583,7 @@ export function BookingFormDialog({
                               <div>
                                 <label
                                   htmlFor="booking-manual-operator-fee"
-                                  className="text-studio-ink block font-mono text-[11px] font-extrabold uppercase"
+                                  className="text-studio-ink block text-xs font-medium"
                                 >
                                   Recording Operator Fee (IDR)
                                 </label>
@@ -1582,7 +1599,7 @@ export function BookingFormDialog({
                                     )
                                   }
                                   placeholder="0"
-                                  className="border-studio-ink bg-studio-white text-studio-ink mt-1 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-extrabold"
+                                  className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
                                 />
                               </div>
                             ) : null}
@@ -1598,29 +1615,29 @@ export function BookingFormDialog({
                   ref={scheduleSectionRef}
                   aria-labelledby="step-schedule-heading"
                   onFocusCapture={() => setActiveStep('schedule')}
-                  className="brutal-card bg-studio-white p-4 sm:p-5"
+                  className="sa-card p-5 sm:p-6"
                 >
-                  <div className="flex items-center justify-between gap-2 border-b border-neutral-200 pb-3">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
-                      <span className="text-studio-orange font-mono text-[10px] font-extrabold uppercase">
-                        TAHAP 03 • RUANGAN &amp; WAKTU SESI
+                      <span className="text-[11px] font-semibold text-[#B92B0C]">
+                        Tahap 03 · Ruangan &amp; Waktu Sesi
                       </span>
                       <h3
                         id="step-schedule-heading"
-                        className="font-display text-studio-ink text-xl font-black uppercase"
+                        className="text-studio-ink mt-0.5 text-lg font-bold tracking-tight"
                       >
                         Jadwal &amp; Ketersediaan Slot
                       </h3>
                     </div>
 
-                    <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-bold">
+                    <span className="rounded-full border border-[#151515]/10 bg-[#F8F6EF] px-2.5 py-0.5 font-mono text-[11px] font-medium text-[#46433D]">
                       Asia/Jakarta (WIB)
                     </span>
                   </div>
 
                   {/* Studio Room Selector */}
                   <div className="mt-4">
-                    <span className="text-studio-ink block font-mono text-xs font-extrabold uppercase">
+                    <span className="text-studio-ink block text-xs font-semibold">
                       Pilih Studio Room <span className="text-studio-orange">*</span>
                     </span>
 
@@ -1637,25 +1654,25 @@ export function BookingFormDialog({
                             type="button"
                             onClick={() => handleFieldChange('studioId', room.id)}
                             aria-pressed={isSelected}
-                            className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${
+                            className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${
                               isSelected
-                                ? 'border-studio-ink bg-studio-ink text-studio-lime shadow-[2px_2px_0px_#151515]'
-                                : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                                ? 'border-studio-ink bg-studio-ink text-studio-lime shadow-sm'
+                                : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="font-display text-lg leading-none font-black uppercase">
+                              <span className="text-base font-bold tracking-tight">
                                 {room.label}
                               </span>
                               <span
-                                className={`border px-1.5 py-0.5 font-mono text-[10px] font-extrabold uppercase ${room.badgeClass}`}
+                                className={`rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${room.badgeClass}`}
                               >
                                 {room.shortLabel}
                               </span>
                             </div>
                             <span
-                              className={`mt-1 text-xs font-medium ${
-                                isSelected ? 'text-neutral-300' : 'text-studio-muted-ink'
+                              className={`mt-1 text-xs ${
+                                isSelected ? 'text-neutral-300' : 'text-[#666159]'
                               }`}
                             >
                               {room.subtitle}
@@ -1671,7 +1688,7 @@ export function BookingFormDialog({
                     <div>
                       <label
                         htmlFor="booking-schedule-date"
-                        className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                        className="text-studio-ink block text-xs font-semibold"
                       >
                         Tanggal Sesi <span className="text-studio-orange">*</span>
                       </label>
@@ -1681,10 +1698,10 @@ export function BookingFormDialog({
                         required
                         value={formValues.date}
                         onChange={(e) => handleFieldChange('date', e.target.value)}
-                        className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-bold"
+                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
                       />
                       {shouldShowFieldError('date') ? (
-                        <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                        <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                           {liveValidation.errors.date}
                         </p>
                       ) : null}
@@ -1693,7 +1710,7 @@ export function BookingFormDialog({
                     <div>
                       <label
                         htmlFor="booking-start-minute"
-                        className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                        className="text-studio-ink block text-xs font-semibold"
                       >
                         Jam Mulai (10:00 – 21:00 WIB) <span className="text-studio-orange">*</span>
                       </label>
@@ -1701,7 +1718,7 @@ export function BookingFormDialog({
                         id="booking-start-minute"
                         value={formValues.startMinute}
                         onChange={(e) => handleFieldChange('startMinute', e.target.value)}
-                        className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-bold"
+                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
                       >
                         {startTimeOptions.map((slot) => (
                           <option key={slot.startMinute} value={slot.value}>
@@ -1710,7 +1727,7 @@ export function BookingFormDialog({
                         ))}
                       </select>
                       {shouldShowFieldError('startMinute') ? (
-                        <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                        <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                           {liveValidation.errors.startMinute}
                         </p>
                       ) : null}
@@ -1719,7 +1736,7 @@ export function BookingFormDialog({
                     <div>
                       <label
                         htmlFor="booking-end-minute"
-                        className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                        className="text-studio-ink block text-xs font-semibold"
                       >
                         Jam Selesai (Maks. 23:00 WIB)
                       </label>
@@ -1728,7 +1745,7 @@ export function BookingFormDialog({
                         disabled={isDurationLockedByFixedShift}
                         value={String(computedEndMinute)}
                         onChange={(e) => handleEndTimeChange(e.target.value)}
-                        className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
+                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {endTimeOptions.map((slot) => (
                           <option key={slot.endMinute} value={slot.value} disabled={slot.disabled}>
@@ -1768,10 +1785,10 @@ export function BookingFormDialog({
                             disabled={isDurationLockedByFixedShift}
                             onClick={() => handleFieldChange('durationPreset', option.key)}
                             aria-pressed={isSelected}
-                            className={`min-h-11 cursor-pointer border-2 px-2.5 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                            className={`min-h-10.5 cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
                               isSelected
-                                ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
-                                : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                                ? 'border-[#8BAD12]/50 bg-[#EDF8C2] text-[#243300] shadow-xs'
+                                : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
                             }`}
                           >
                             {option.label}
@@ -1784,7 +1801,7 @@ export function BookingFormDialog({
                       <div className="mt-3">
                         <label
                           htmlFor="booking-custom-duration"
-                          className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                          className="text-studio-ink block text-xs font-semibold"
                         >
                           Durasi Custom (Menit — Kelipatan 30 Menit)
                         </label>
@@ -1798,16 +1815,16 @@ export function BookingFormDialog({
                           onChange={(e) =>
                             handleFieldChange('customDurationMinutes', e.target.value)
                           }
-                          className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full max-w-xs border-2 px-3 py-2 font-mono text-sm font-bold"
+                          className="sa-input mt-1.5 min-h-10.5 w-full max-w-xs rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
                         />
-                        <p className="text-studio-muted-ink mt-1 font-mono text-[11px]">
+                        <p className="mt-1 text-xs text-[#666159]">
                           Contoh: 90 = 1 jam 30 menit, 150 = 2 jam 30 menit.
                         </p>
                       </div>
                     ) : null}
 
                     {liveValidation.errors.durationMinutes ? (
-                      <p role="alert" className="text-studio-error-ink mt-1.5 text-xs font-bold">
+                      <p role="alert" className="mt-1.5 text-xs font-medium text-[#B92B0C]">
                         {liveValidation.errors.durationMinutes}
                       </p>
                     ) : null}
@@ -1820,11 +1837,11 @@ export function BookingFormDialog({
                     liveValidation.errors.durationMinutes ? (
                       <div
                         role="alert"
-                        className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2.5 border-2 p-3 shadow-[2px_2px_0px_#151515]"
+                        className="flex items-start gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-[#B92B0C] shadow-xs"
                       >
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                        <div className="text-xs font-bold">
-                          <p className="font-mono uppercase">KONFLIK ATAU BATAS JAM OPERASIONAL</p>
+                        <div className="text-xs">
+                          <p className="font-semibold">Konflik atau Batas Jam Operasional</p>
                           <p className="mt-0.5">
                             {liveValidation.errors.scheduleConflict ||
                               liveValidation.errors.startMinute ||
@@ -1835,13 +1852,13 @@ export function BookingFormDialog({
                     ) : (
                       <div
                         role="status"
-                        className="border-studio-ink bg-studio-lime/40 text-studio-ink flex flex-wrap items-center justify-between gap-2 border-2 px-3.5 py-2.5 font-mono text-xs font-extrabold"
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#8BAD12]/35 bg-[#EDF8C2] px-4 py-3 text-xs font-medium text-[#243300]"
                       >
-                        <span className="inline-flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1.5 font-semibold">
                           <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
                           <span>SLOT TERSEDIA</span>
                         </span>
-                        <span>
+                        <span className="font-mono">
                           {formatIndonesianDateFull(formValues.date)} •{' '}
                           {formatMinuteRange(computedStartMinute, computedEndMinute)} (
                           {formatDurationMinutes(effectiveDurationMinutes)})
@@ -1856,46 +1873,52 @@ export function BookingFormDialog({
                   ref={paymentSectionRef}
                   aria-labelledby="step-payment-heading"
                   onFocusCapture={() => setActiveStep('payment')}
-                  className="brutal-card bg-studio-white p-4 sm:p-5"
+                  className="sa-card p-5 sm:p-6"
                 >
-                  <div className="flex items-center justify-between gap-2 border-b border-neutral-200 pb-3">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
-                      <span className="text-studio-orange font-mono text-[10px] font-extrabold uppercase">
-                        TAHAP 04 • PEMBAYARAN AWAL &amp; CATATAN
+                      <span className="text-[11px] font-semibold text-[#B92B0C]">
+                        Tahap 04 · Pembayaran Awal &amp; Catatan
                       </span>
                       <h3
                         id="step-payment-heading"
-                        className="font-display text-studio-ink text-xl font-black uppercase"
+                        className="text-studio-ink mt-0.5 text-lg font-bold tracking-tight"
                       >
                         Informasi Pembayaran Awal
                       </h3>
                     </div>
 
-                    <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
+                    <span className="rounded-full border border-[#151515]/10 bg-[#F8F6EF] px-2.5 py-0.5 text-[11px] font-medium text-[#46433D]">
                       Ringkasan Harga
                     </span>
                   </div>
 
                   {isEditingOrRescheduling ? (
-                    <div className="border-studio-ink bg-studio-ivory mt-4 border-2 p-3.5">
-                      <p className="font-mono text-xs font-extrabold uppercase">
+                    <div className="sa-panel-ivory mt-4 p-4">
+                      <p className="text-studio-ink text-xs font-semibold">
                         Pembayaran Awal Sudah Tercatat
                       </p>
-                      <p className="text-studio-muted-ink mt-1 text-xs leading-relaxed font-medium">
+                      <p className="mt-1 text-xs leading-relaxed text-[#666159]">
                         Untuk menjaga catatan tetap rapi, pembayaran awal saat booking dibuat (
-                        <strong>
+                        <strong className="text-studio-ink">
                           {getInitialPaymentStatusMeta(editingBooking?.initialPaymentStatus).label}
                         </strong>{' '}
-                        • <strong>{formatRupiah(editingBooking?.initialPaidAmount)}</strong> •{' '}
-                        <strong>{getPaymentMethodLabel(editingBooking?.paymentMethod)}</strong>)
-                        hanya diubah lewat halaman Payment and Bill, bukan dari ubah jadwal.
+                        •{' '}
+                        <strong className="text-studio-ink">
+                          {formatRupiah(editingBooking?.initialPaidAmount)}
+                        </strong>{' '}
+                        •{' '}
+                        <strong className="text-studio-ink">
+                          {getPaymentMethodLabel(editingBooking?.paymentMethod)}
+                        </strong>
+                        ) hanya diubah lewat halaman Payment and Bill, bukan dari ubah jadwal.
                       </p>
                     </div>
                   ) : (
                     <>
                       {/* Initial Payment Status Selector */}
                       <div className="mt-4">
-                        <span className="text-studio-ink block font-mono text-xs font-extrabold uppercase">
+                        <span className="text-studio-ink block text-xs font-semibold">
                           Status Pembayaran Awal <span className="text-studio-orange">*</span>
                         </span>
 
@@ -1914,16 +1937,18 @@ export function BookingFormDialog({
                                   handleFieldChange('initialPaymentStatus', statusOption.id)
                                 }
                                 aria-pressed={isSelected}
-                                className={`flex min-h-14 cursor-pointer flex-col justify-between border-2 p-3 text-left transition-colors ${
+                                className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${
                                   isSelected
-                                    ? 'border-studio-ink bg-studio-lime text-studio-ink shadow-[2px_2px_0px_#151515]'
-                                    : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                                    ? 'border-[#8BAD12]/50 bg-[#EDF8C2] text-[#243300] shadow-xs'
+                                    : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
                                 }`}
                               >
-                                <span className="font-display text-lg leading-none font-black uppercase">
+                                <span className="text-base font-bold tracking-tight">
                                   {statusOption.shortLabel}
                                 </span>
-                                <span className="text-studio-muted-ink mt-1 text-[11px] font-medium">
+                                <span
+                                  className={`mt-1 text-xs ${isSelected ? 'text-[#243300]/80' : 'text-[#666159]'}`}
+                                >
                                   {statusOption.description}
                                 </span>
                               </button>
@@ -1939,7 +1964,7 @@ export function BookingFormDialog({
                           <div>
                             <label
                               htmlFor="booking-payment-method"
-                              className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                              className="text-studio-ink block text-xs font-semibold"
                             >
                               Metode Pembayaran <span className="text-studio-orange">*</span>
                             </label>
@@ -1947,7 +1972,7 @@ export function BookingFormDialog({
                               id="booking-payment-method"
                               value={formValues.paymentMethod}
                               onChange={(e) => handleFieldChange('paymentMethod', e.target.value)}
-                              className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-bold"
+                              className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
                             >
                               {PAYMENT_METHOD_OPTIONS.map((method) => (
                                 <option key={method.id} value={method.id}>
@@ -1956,10 +1981,7 @@ export function BookingFormDialog({
                               ))}
                             </select>
                             {shouldShowFieldError('paymentMethod') ? (
-                              <p
-                                role="alert"
-                                className="text-studio-error-ink mt-1 text-xs font-bold"
-                              >
+                              <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                                 {liveValidation.errors.paymentMethod}
                               </p>
                             ) : null}
@@ -1969,7 +1991,7 @@ export function BookingFormDialog({
                             <div>
                               <label
                                 htmlFor="booking-dp-amount"
-                                className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                                className="text-studio-ink block text-xs font-semibold"
                               >
                                 Nominal DP (IDR) <span className="text-studio-orange">*</span>
                               </label>
@@ -1980,13 +2002,10 @@ export function BookingFormDialog({
                                 value={formValues.dpAmount}
                                 onChange={(e) => handleFieldChange('dpAmount', e.target.value)}
                                 placeholder="Contoh: 50000"
-                                className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-bold"
+                                className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
                               />
                               {shouldShowFieldError('dpAmount') ? (
-                                <p
-                                  role="alert"
-                                  className="text-studio-error-ink mt-1 text-xs font-bold"
-                                >
+                                <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                                   {liveValidation.errors.dpAmount}
                                 </p>
                               ) : null}
@@ -2001,9 +2020,9 @@ export function BookingFormDialog({
                   <div className="mt-4">
                     <label
                       htmlFor="booking-notes"
-                      className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                      className="text-studio-ink block text-xs font-semibold"
                     >
-                      Catatan Sesi <span className="text-studio-muted-ink">(Opsional)</span>
+                      Catatan Sesi <span className="font-normal text-[#666159]">(Opsional)</span>
                     </label>
                     <textarea
                       id="booking-notes"
@@ -2012,17 +2031,17 @@ export function BookingFormDialog({
                       value={formValues.notes}
                       onChange={(e) => handleFieldChange('notes', e.target.value)}
                       placeholder="Kebutuhan ampli, jumlah mic vokal, atau catatan khusus sesi..."
-                      className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 w-full border-2 p-3 text-sm font-medium"
+                      className="sa-input mt-1.5 w-full rounded-xl p-3.5 text-sm"
                     />
                   </div>
 
                   {/* Historical Price Protection Banner when Service/Subcategory/Duration changed on Edit */}
                   {isEditingOrRescheduling && isServiceScopeChanged ? (
-                    <div className="border-studio-ink mt-4 border-2 bg-amber-100 p-3.5">
-                      <p className="font-mono text-xs font-extrabold uppercase">
+                    <div className="mt-4 rounded-2xl border border-amber-500/25 bg-[#FEF4DD] p-4">
+                      <p className="text-xs font-semibold text-[#8A4B08]">
                         Konfirmasi Perubahan Tarif &amp; Komisi
                       </p>
-                      <p className="text-studio-ink mt-1 text-xs leading-relaxed font-medium">
+                      <p className="text-studio-ink mt-1 text-xs leading-relaxed">
                         Anda mengubah layanan atau durasi pada booking lama. Secara bawaan tarif
                         sebelumnya tetap dipakai (
                         <strong>{formatRupiah(editingBooking?.totalAmount)}</strong>). Centang opsi
@@ -2030,19 +2049,19 @@ export function BookingFormDialog({
                         <strong>{formatRupiah(livePricing.totalAmount)}</strong>) beserta komisi tim
                         terbaru.
                       </p>
-                      <label className="mt-2.5 flex cursor-pointer items-center gap-2 font-mono text-xs font-extrabold">
+                      <label className="text-studio-ink mt-3 flex cursor-pointer items-center gap-2 text-xs font-semibold">
                         <input
                           type="checkbox"
                           checked={Boolean(formValues.applyUpdatedPricing)}
                           onChange={(e) =>
                             handleFieldChange('applyUpdatedPricing', e.target.checked)
                           }
-                          className="accent-studio-ink h-4 w-4 cursor-pointer"
+                          className="accent-studio-ink h-4 w-4 cursor-pointer rounded"
                         />
                         <span>Pakai harga &amp; komisi terbaru</span>
                       </label>
                       {formValues.applyUpdatedPricing ? (
-                        <p className="border-studio-ink bg-studio-white mt-2 border px-2.5 py-1.5 font-mono text-[10px] font-bold text-[#9a3412]">
+                        <p className="mt-2.5 rounded-xl border border-amber-500/25 bg-white px-3 py-2 text-xs text-[#8A4B08]">
                           Catatan: Invoice yang sudah dibuat tidak berubah otomatis jika harga
                           booking diubah. Periksa tagihan melalui halaman Payment and Bill bila
                           perlu.
@@ -2052,37 +2071,39 @@ export function BookingFormDialog({
                   ) : null}
 
                   {/* Live Pricing Breakdown Summary Card: CUSTOMER BILL + INTERNAL FEE ESTIMATE */}
-                  <div className="border-studio-ink bg-studio-ivory mt-4 grid grid-cols-1 gap-4 border-2 p-4 md:grid-cols-2">
+                  <div className="sa-panel-ivory mt-4 grid grid-cols-1 gap-5 p-4 sm:p-5 md:grid-cols-2">
                     <div>
-                      <p className="font-mono text-xs font-extrabold tracking-wider uppercase">
+                      <p className="text-studio-ink text-[11px] font-semibold tracking-wider">
                         CUSTOMER BILL
                       </p>
 
-                      <dl className="mt-2.5 space-y-1.5 font-mono text-xs">
+                      <dl className="mt-3 space-y-1.5 text-xs">
                         <div className="flex items-center justify-between">
-                          <dt className="text-studio-muted-ink">
+                          <dt className="text-[#666159]">
                             {displayedPricing.serviceId === 'rehearsal'
                               ? 'Durasi Latihan'
                               : 'Durasi Sesi'}
                           </dt>
-                          <dd className="font-bold">
+                          <dd className="font-mono font-semibold tabular-nums">
                             {formatDurationMinutes(displayedPricing.durationMinutes)}
                           </dd>
                         </div>
                         <div className="flex items-center justify-between">
-                          <dt className="text-studio-muted-ink">Harga Normal</dt>
-                          <dd className="font-bold">{formatRupiah(displayedPricing.subtotal)}</dd>
+                          <dt className="text-[#666159]">Harga Normal</dt>
+                          <dd className="font-mono font-semibold tabular-nums">
+                            {formatRupiah(displayedPricing.subtotal)}
+                          </dd>
                         </div>
                         {displayedPricing.discountAmount > 0 ? (
-                          <div className="space-y-0.5 text-emerald-800">
+                          <div className="space-y-0.5 text-[#0F6246]">
                             <div className="flex items-center justify-between">
                               <dt>{displayedPricing.appliedDiscountName || 'Diskon Durasi'}</dt>
-                              <dd className="font-bold">
+                              <dd className="font-mono font-semibold tabular-nums">
                                 -{formatRupiah(displayedPricing.discountAmount)}
                               </dd>
                             </div>
                             {displayedPricing.automaticDiscount ? (
-                              <p className="text-[10px] font-semibold text-emerald-900">
+                              <p className="text-[11px] font-medium text-[#0F6246]">
                                 {displayedPricing.automaticDiscount.eligibleBlocks}x kelipatan{' '}
                                 {formatDurationMinutes(
                                   displayedPricing.automaticDiscount.intervalMinutes,
@@ -2093,19 +2114,21 @@ export function BookingFormDialog({
                             ) : null}
                           </div>
                         ) : null}
-                        <div className="border-studio-ink flex items-center justify-between border-t pt-1.5 text-sm font-extrabold">
+                        <div className="flex items-center justify-between border-t border-[#151515]/10 pt-2 text-sm font-semibold">
                           <dt>Total Pembayaran</dt>
-                          <dd>{formatRupiah(displayedPricing.totalAmount)}</dd>
+                          <dd className="font-mono tabular-nums">
+                            {formatRupiah(displayedPricing.totalAmount)}
+                          </dd>
                         </div>
                         <div className="flex items-center justify-between">
-                          <dt className="text-studio-muted-ink">Pembayaran Awal</dt>
-                          <dd className="font-bold">
+                          <dt className="text-[#666159]">Pembayaran Awal</dt>
+                          <dd className="font-mono font-semibold tabular-nums">
                             {formatRupiah(displayedPricing.initialPaidAmount)}
                           </dd>
                         </div>
-                        <div className="flex items-center justify-between font-extrabold">
-                          <dt className="text-studio-orange">Sisa Tagihan</dt>
-                          <dd className="text-studio-orange">
+                        <div className="flex items-center justify-between font-semibold">
+                          <dt className="text-[#B92B0C]">Sisa Tagihan</dt>
+                          <dd className="font-mono text-[#B92B0C] tabular-nums">
                             {formatRupiah(displayedPricing.remainingBalance)}
                           </dd>
                         </div>
@@ -2114,9 +2137,9 @@ export function BookingFormDialog({
                       {displayedPricing.durationDiscountConfig?.enabled &&
                       displayedPricing.durationDiscountConfig?.intervalMinutes > 0 &&
                       displayedPricing.durationDiscountConfig?.discountAmount > 0 ? (
-                        <p className="border-studio-ink bg-studio-white text-studio-ink mt-3 border px-2.5 py-2 font-mono text-[10px] leading-relaxed font-semibold">
+                        <p className="sa-subcard mt-3 px-3 py-2 text-xs leading-relaxed text-[#46433D]">
                           Diskon Durasi otomatis:{' '}
-                          <strong className="text-emerald-800">
+                          <strong className="text-[#0F6246]">
                             hemat{' '}
                             {formatRupiah(displayedPricing.durationDiscountConfig.discountAmount)}
                           </strong>{' '}
@@ -2131,39 +2154,39 @@ export function BookingFormDialog({
                       ) : null}
                     </div>
 
-                    <div className="border-studio-ink border-t pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-4">
-                      <p className="font-mono text-xs font-extrabold tracking-wider uppercase">
+                    <div className="border-t border-[#151515]/10 pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-5">
+                      <p className="text-studio-ink text-[11px] font-semibold tracking-wider">
                         INTERNAL FEE ESTIMATE
                       </p>
-                      <p className="text-studio-muted-ink mt-0.5 text-[11px] font-medium">
+                      <p className="mt-0.5 text-xs text-[#666159]">
                         Estimasi operasional internal studio (tidak memengaruhi tagihan customer).
                       </p>
 
                       {displayedCommission ? (
-                        <dl className="mt-2.5 space-y-1.5 font-mono text-xs">
+                        <dl className="mt-3 space-y-1.5 text-xs">
                           <div className="flex items-center justify-between">
-                            <dt className="text-studio-muted-ink">Staff Fee</dt>
-                            <dd className="font-bold">
+                            <dt className="text-[#666159]">Staff Fee</dt>
+                            <dd className="font-mono font-semibold tabular-nums">
                               {formatRupiah(displayedCommission.staff.amount)}
                             </dd>
                           </div>
                           {displayedCommission.owner ? (
                             <div className="flex items-center justify-between">
-                              <dt className="text-studio-muted-ink">Owner Fee</dt>
-                              <dd className="font-bold">
+                              <dt className="text-[#666159]">Owner Fee</dt>
+                              <dd className="font-mono font-semibold tabular-nums">
                                 {formatRupiah(displayedCommission.owner.amount)}
                               </dd>
                             </div>
                           ) : null}
                           <div className="flex items-center justify-between">
-                            <dt className="text-studio-muted-ink">Recording Operator Fee</dt>
-                            <dd className="font-bold">
+                            <dt className="text-[#666159]">Recording Operator Fee</dt>
+                            <dd className="font-mono font-semibold tabular-nums">
                               {formatRupiah(displayedCommission.recordingOperator.amount)}
                             </dd>
                           </div>
                         </dl>
                       ) : (
-                        <p className="text-studio-muted-ink mt-2.5 font-mono text-[11px]">
+                        <p className="mt-2.5 text-xs text-[#666159]">
                           Booking versi lama tanpa catatan pembagian komisi tim.
                         </p>
                       )}
@@ -2173,34 +2196,35 @@ export function BookingFormDialog({
               </div>
             </form>
 
-            {/* Sticky Action Footer */}
-            <div className="border-studio-ink bg-studio-white shrink-0 border-t-2 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                  <div>
-                    <span className="text-studio-muted-ink block font-mono text-[10px] font-bold uppercase">
-                      ESTIMASI TOTAL
+            {/* Sticky Action Footer (compact single-row summary + actions on phones) */}
+            <div className="shrink-0 border-t border-[#151515]/10 bg-white/95 px-3.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-6 sm:py-3.5 sm:pb-[max(0.875rem,env(safe-area-inset-bottom))]">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 sm:justify-start sm:gap-x-4 sm:gap-y-1">
+                  <div className="flex items-baseline gap-1.5 sm:block">
+                    <span className="text-[11px] font-medium text-[#666159] sm:block">
+                      <span className="sm:hidden">Total</span>
+                      <span className="hidden sm:inline">Estimasi Total</span>
                     </span>
-                    <span className="font-display text-studio-ink text-2xl leading-none font-black">
+                    <span className="text-studio-ink font-mono text-base font-bold tracking-tight tabular-nums sm:text-xl">
                       {formatRupiah(displayedPricing.totalAmount)}
                     </span>
                   </div>
 
-                  <div className="text-studio-muted-ink font-mono text-[11px] font-bold">
+                  <div className="font-mono text-[11px] text-[#666159] sm:text-xs">
                     <span className="inline-flex items-center gap-1">
-                      <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
+                      <Clock3 className="h-3 w-3 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
                       <span>{formatDurationMinutes(effectiveDurationMinutes)}</span>
                     </span>
                     <span> • Sisa: {formatRupiah(displayedPricing.remainingBalance)}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5">
+                <div className="flex items-center justify-end gap-2 sm:gap-2.5">
                   <button
                     type="button"
                     disabled={isSubmitting}
                     onClick={() => handleDialogOpenChange(false)}
-                    className="brutal-btn bg-studio-ivory text-studio-ink min-h-11 flex-1 cursor-pointer px-4 py-2 font-mono text-xs font-extrabold uppercase sm:flex-initial"
+                    className="sa-control sa-btn-secondary min-h-9.5 flex-1 cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-semibold sm:min-h-10.5 sm:flex-initial sm:px-4 sm:py-2"
                   >
                     Batal
                   </button>
@@ -2209,7 +2233,7 @@ export function BookingFormDialog({
                     type="submit"
                     form="studio-booking-form"
                     disabled={isSubmitting || Boolean(liveValidation.errors.scheduleConflict)}
-                    className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 px-5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-60 sm:flex-initial"
+                    className="sa-control sa-btn-orange inline-flex min-h-9.5 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-10.5 sm:flex-initial sm:px-5 sm:py-2"
                   >
                     {isSubmitting ? (
                       <>

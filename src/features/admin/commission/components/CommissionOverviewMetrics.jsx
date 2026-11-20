@@ -1,9 +1,10 @@
 import { AlertTriangle, Banknote, CalendarCheck2, Info, Mic2, UsersRound } from 'lucide-react';
 
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
+import { AdminMetricCard, AdminStatusBadge } from '@/features/admin/design-system';
 
 /**
- * Top 4 Commission Summary Metrics + Separate Reference-Only Owner Allocation Strip (Section 6.C).
+ * Top 4 Commission Summary Metrics + Separate Reference-Only Owner Allocation Strip.
  * Formula locked: Total To Pay = Staff Commission + Recording Operator Fee (Owner Allocation excluded).
  */
 export function CommissionOverviewMetrics({
@@ -18,98 +19,60 @@ export function CommissionOverviewMetrics({
     : periodLabel || 'Periode aktif';
 
   return (
-    <div className="mt-2.5 space-y-2 border-t border-neutral-200 pt-2 sm:mt-3 sm:pt-2.5">
+    <div className="mt-5 space-y-3.5 border-t border-[#151515]/[0.07] pt-5">
       <dl
         aria-label="Ringkasan Commission and Fee"
-        className="grid grid-cols-2 gap-1.5 sm:gap-2 xl:grid-cols-4"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
       >
-        {/* 1. Completed Sessions */}
-        <div className="border-studio-ink bg-studio-ivory flex items-center justify-between gap-1.5 border-2 px-2.5 py-2 shadow-[2px_2px_0px_#151515] sm:px-3">
-          <div className="min-w-0">
-            <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
-              <CalendarCheck2 className="h-3 w-3 shrink-0" aria-hidden="true" />
-              <span className="truncate">Completed Sessions</span>
-            </dt>
-            <dd className="font-display text-studio-ink mt-0.5 text-lg leading-tight font-black tabular-nums sm:mt-1 sm:text-2xl">
-              {metrics.completedSessionsCount}
-            </dd>
-            <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[8.5px] font-semibold sm:text-[9px]">
-              <span className="sm:hidden">Sesi siap posting</span>
-              <span className="hidden sm:inline">Sesi selesai siap diposting ({scopeNote})</span>
-            </p>
-          </div>
-        </div>
+        <AdminMetricCard
+          label="Completed Sessions"
+          value={metrics.completedSessionsCount}
+          hint={`Sesi selesai siap posting (${scopeNote})`}
+          icon={CalendarCheck2}
+          tone="neutral"
+        />
 
-        {/* 2. Staff Commission */}
-        <div className="border-studio-ink bg-studio-ivory flex items-center justify-between gap-1.5 border-2 px-2.5 py-2 shadow-[2px_2px_0px_#151515] sm:px-3">
-          <div className="min-w-0">
-            <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
-              <UsersRound className="h-3 w-3 shrink-0" aria-hidden="true" />
-              <span className="truncate">Staff Commission</span>
-            </dt>
-            <dd className="font-display text-studio-ink mt-0.5 truncate text-lg leading-tight font-black tabular-nums sm:mt-1 sm:text-2xl">
-              {formatRupiah(metrics.staffCommissionTotal)}
-            </dd>
-            <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[8.5px] font-semibold sm:text-[9px]">
-              Staff / Studio Guard
-            </p>
-          </div>
-        </div>
+        <AdminMetricCard
+          label="Staff Commission"
+          value={formatRupiah(metrics.staffCommissionTotal)}
+          hint="Staff / penjaga studio"
+          icon={UsersRound}
+          tone="neutral"
+        />
 
-        {/* 3. Recording Operator Fee */}
-        <div className="border-studio-ink bg-studio-ivory flex items-center justify-between gap-1.5 border-2 px-2.5 py-2 shadow-[2px_2px_0px_#151515] sm:px-3">
-          <div className="min-w-0">
-            <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
-              <Mic2 className="h-3 w-3 shrink-0" aria-hidden="true" />
-              <span className="truncate">
-                <span className="sm:hidden">Operator Fee</span>
-                <span className="hidden sm:inline">Recording Operator Fee</span>
-              </span>
-            </dt>
-            <dd className="font-display text-studio-ink mt-0.5 truncate text-lg leading-tight font-black tabular-nums sm:mt-1 sm:text-2xl">
-              {formatRupiah(metrics.recordingOperatorFeeTotal)}
-            </dd>
-            <p className="text-studio-subtle-ink mt-0.5 truncate font-mono text-[8.5px] font-semibold sm:text-[9px]">
-              <span className="sm:hidden">Operator / External PIC</span>
-              <span className="hidden sm:inline">Recording Operator / External PIC</span>
-            </p>
-          </div>
-        </div>
+        <AdminMetricCard
+          label="Recording Operator Fee"
+          value={formatRupiah(metrics.recordingOperatorFeeTotal)}
+          hint="Recording Operator / External PIC"
+          icon={Mic2}
+          tone="neutral"
+        />
 
-        {/* 4. Total To Pay (Staff + Operator ONLY) */}
-        <div className="border-studio-ink bg-studio-lime/40 flex items-center justify-between gap-1.5 border-2 px-2.5 py-2 shadow-[2px_2px_0px_#151515] sm:px-3">
-          <div className="min-w-0">
-            <dt className="text-studio-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
-              <Banknote className="h-3 w-3 shrink-0" aria-hidden="true" />
-              <span className="truncate">Total To Pay</span>
-            </dt>
-            <dd className="font-display text-studio-ink mt-0.5 truncate text-lg leading-tight font-black tabular-nums sm:mt-1 sm:text-2xl">
-              {formatRupiah(metrics.payableTotal)}
-            </dd>
-            <p className="text-studio-ink mt-0.5 truncate font-mono text-[8.5px] font-bold sm:text-[9px]">
-              <span className="sm:hidden">Staff + Operator</span>
-              <span className="hidden sm:inline">Total dibayar ke Staff &amp; Operator</span>
-            </p>
-          </div>
-        </div>
+        <AdminMetricCard
+          label="Total To Pay"
+          value={formatRupiah(metrics.payableTotal)}
+          hint="Total dibayar ke Staff & Operator"
+          icon={Banknote}
+          tone="lime"
+        />
       </dl>
 
       {/* Separate Reference-Only Owner Allocation Strip */}
-      <div className="border-studio-ink bg-studio-ivory/80 flex flex-col gap-1 border border-dashed px-2.5 py-1.5 font-mono text-[10px] sm:flex-row sm:items-center sm:justify-between sm:px-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Info className="text-studio-muted-ink h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <span className="text-studio-ink font-extrabold uppercase">Owner Allocation:</span>
-          <span className="border-studio-ink bg-studio-white text-studio-ink border px-1.5 py-0.5 font-black tabular-nums">
+      <div className="sa-panel-ivory flex flex-col gap-2 px-3.5 py-2.5 text-xs sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <Info className="h-3.5 w-3.5 shrink-0 text-[#666159]" aria-hidden="true" />
+          <span className="font-semibold text-[#151515]">Owner Allocation:</span>
+          <AdminStatusBadge tone="neutral" className="font-mono font-bold tabular-nums">
             {formatRupiah(metrics.ownerAllocationReferenceTotal)}
-          </span>
-          <span className="text-studio-muted-ink font-semibold">
+          </AdminStatusBadge>
+          <span className="text-[11px] text-[#666159]">
             (Referensi internal saja — tidak masuk Total To Pay &amp; tidak diposting sebagai hutang
             biaya)
           </span>
         </div>
 
         {zeroPayableCount > 0 ? (
-          <span className="text-studio-subtle-ink shrink-0 font-bold">
+          <span className="shrink-0 font-mono text-[11px] font-medium text-[#666159]">
             +{zeroPayableCount} sesi fee Rp 0 dilewati
           </span>
         ) : null}
@@ -119,16 +82,13 @@ export function CommissionOverviewMetrics({
       {hasMoreSessions ? (
         <div
           role="status"
-          className="border-studio-ink flex flex-col gap-2 border-2 bg-amber-100 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-2.5 rounded-2xl border border-amber-500/25 bg-[#FEF4DD] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div className="flex items-start gap-2">
-            <AlertTriangle
-              className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
-              aria-hidden="true"
-            />
-            <div className="min-w-0 font-mono text-[10.5px]">
-              <p className="text-studio-ink font-extrabold uppercase">More sessions available</p>
-              <p className="text-studio-muted-ink mt-0.5 text-[10px] font-semibold">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#FF4B22]" aria-hidden="true" />
+            <div className="min-w-0 text-xs">
+              <p className="font-semibold text-[#8A4B08]">More sessions available</p>
+              <p className="mt-0.5 text-[11px] text-[#8A4B08]/90">
                 Masih ada sesi selesai lain pada periode ini. Angka ringkasan di atas hanya
                 menghitung sesi yang sudah dimuat.
               </p>
@@ -138,7 +98,7 @@ export function CommissionOverviewMetrics({
           <button
             type="button"
             onClick={onLoadMoreSessions}
-            className="cal-control border-studio-ink bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center px-3 py-1 font-mono text-[10px] font-extrabold uppercase"
+            className="sa-control sa-btn-secondary inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center px-3.5 py-1.5 text-xs font-semibold"
           >
             Load More Sessions
           </button>

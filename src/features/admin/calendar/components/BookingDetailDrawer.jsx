@@ -128,61 +128,63 @@ export function BookingDetailDrawer({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop
-          className={`fixed inset-0 bg-black/65 backdrop-blur-[1px] ${overlayZIndexClass ? 'z-[60]' : 'z-40'}`}
+          data-admin-portal-layer="true"
+          className={`sa-overlay-backdrop fixed inset-0 transition-opacity ${overlayZIndexClass ? 'z-[60]' : 'z-40'}`}
         />
 
         <Dialog.Popup
           aria-label={`Detail booking ${booking.customerName}`}
           data-calendar-scoped="true"
-          className={`border-studio-ink bg-studio-ivory text-studio-ink fixed inset-y-0 right-0 flex h-[100dvh] w-full max-w-xl flex-col border-l-2 shadow-[-6px_0px_0px_#151515] ${overlayZIndexClass || 'z-50'}`}
+          data-admin-portal-layer="true"
+          className={`sa-drawer fixed inset-y-0 right-0 flex h-[100dvh] w-full max-w-xl flex-col ${overlayZIndexClass || 'z-50'}`}
         >
           {/* Sticky Drawer Header */}
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory shrink-0 border-b-2 px-4 py-4 sm:px-6">
-            <div className="flex items-start justify-between gap-3">
+          <div className="shrink-0 border-b border-white/10 bg-[#151515] px-4 py-3 text-[#F1EEE4] sm:px-6 sm:py-5">
+            <div className="flex items-start justify-between gap-2.5 sm:gap-3">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
                   <span
-                    className={`border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase ${room.badgeClass}`}
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold sm:px-2.5 sm:text-[11px] ${room.badgeClass}`}
                   >
                     {room.label}
                   </span>
                   <span
-                    className={`border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase ${sessionMeta.badgeClass}`}
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-medium sm:px-2.5 sm:text-[11px] ${sessionMeta.badgeClass}`}
                   >
                     Sesi: {sessionMeta.label}
                   </span>
                   <span
-                    className={`border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase ${paymentMeta.badgeClass}`}
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-medium sm:px-2.5 sm:text-[11px] ${paymentMeta.badgeClass}`}
                   >
                     Bayar: {paymentMeta.shortLabel}
                   </span>
                 </div>
 
-                <Dialog.Title className="font-display mt-2 truncate text-2xl leading-none font-black tracking-tight text-white uppercase sm:text-3xl">
+                <Dialog.Title className="mt-1.5 truncate text-lg font-bold tracking-tight text-white sm:mt-2.5 sm:text-2xl">
                   {booking.customerName}
                 </Dialog.Title>
-                <Dialog.Description className="mt-1 font-mono text-xs text-neutral-300">
+                <Dialog.Description className="mt-0.5 truncate font-mono text-[11px] text-neutral-400 sm:mt-1 sm:text-xs">
                   {booking.bandName ? `${booking.bandName} • ` : ''}ID: {booking.id}
                 </Dialog.Description>
               </div>
 
               <Dialog.Close
                 aria-label="Tutup detail booking"
-                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white transition-colors"
+                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-8.5 w-8.5 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-white/12 bg-white/6 text-white transition-colors sm:h-10 sm:w-10 sm:rounded-xl"
               >
-                <X className="h-5 w-5" aria-hidden="true" />
+                <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
               </Dialog.Close>
             </div>
 
             {/* Quick Booking Actions Bar: Edit, Reschedule, Cancel */}
             {isInteractive ? (
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-neutral-800 pt-3">
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-2.5 sm:mt-4 sm:gap-2 sm:pt-3.5">
                 {onEditBooking ? (
                   <button
                     type="button"
                     disabled={!capabilities.canEditOrReschedule || Boolean(actionLoading)}
                     onClick={() => onEditBooking(booking)}
-                    className="border-studio-ivory bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    className="text-studio-ink hover:bg-studio-lime inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9.5 sm:rounded-xl sm:px-3.5 sm:py-1.5 sm:text-xs"
                   >
                     <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Edit Booking</span>
@@ -194,7 +196,7 @@ export function BookingDetailDrawer({
                     type="button"
                     disabled={!capabilities.canEditOrReschedule || Boolean(actionLoading)}
                     onClick={() => onRescheduleBooking(booking)}
-                    className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    className="bg-studio-lime text-studio-ink inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors hover:bg-[#d3f752] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9.5 sm:rounded-xl sm:px-3.5 sm:py-1.5 sm:text-xs"
                   >
                     <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Reschedule</span>
@@ -206,7 +208,7 @@ export function BookingDetailDrawer({
                     type="button"
                     disabled={!capabilities.canCancel || Boolean(actionLoading)}
                     onClick={() => setShowCancelConfirm((prev) => !prev)}
-                    className="border-studio-ivory bg-studio-orange text-studio-white inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-extrabold uppercase transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    className="bg-studio-orange hover:bg-studio-orange-hover inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9.5 sm:rounded-xl sm:px-3.5 sm:py-1.5 sm:text-xs"
                   >
                     <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Cancel Booking</span>
@@ -217,11 +219,11 @@ export function BookingDetailDrawer({
           </div>
 
           {/* Scrollable Drawer Content */}
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 pb-8 sm:px-6 sm:py-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3.5 py-3.5 pb-8 sm:space-y-5 sm:px-6 sm:py-5">
             {actionError ? (
               <div
                 role="alert"
-                className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2.5 border-2 p-3 text-xs font-bold shadow-[2px_2px_0px_#151515]"
+                className="flex items-start gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-xs font-medium text-[#B92B0C] shadow-xs"
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{actionError}</span>
@@ -230,18 +232,18 @@ export function BookingDetailDrawer({
 
             {/* Inline Cancel Confirmation Box */}
             {showCancelConfirm && capabilities.canCancel ? (
-              <div className="border-studio-ink bg-studio-white border-2 p-4 shadow-[3px_3px_0px_#151515]">
-                <p className="font-mono text-xs font-extrabold text-[#b92b0c] uppercase">
+              <div className="sa-card p-4 sm:p-5">
+                <p className="text-sm font-semibold text-[#B92B0C]">
                   Konfirmasi Pembatalan Booking
                 </p>
-                <p className="text-studio-muted-ink mt-1 text-xs leading-relaxed font-medium">
+                <p className="mt-1 text-xs leading-relaxed text-[#666159]">
                   Slot ruangan akan langsung dikosongkan agar dapat dipakai booking lain, sedangkan
                   catatan booking ini tetap tersimpan.
                 </p>
 
                 <label
                   htmlFor="cancel-booking-reason"
-                  className="text-studio-ink mt-3 block font-mono text-[11px] font-bold uppercase"
+                  className="text-studio-ink mt-3 block text-xs font-medium"
                 >
                   Alasan Pembatalan (Opsional)
                 </label>
@@ -251,14 +253,14 @@ export function BookingDetailDrawer({
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
                   placeholder="Contoh: Permintaan perubahan jadwal dari band"
-                  className="border-studio-ink bg-studio-ivory mt-1 min-h-10 w-full border px-3 py-1.5 text-xs font-semibold"
+                  className="sa-input mt-1.5 min-h-10 w-full rounded-xl px-3 py-2 text-xs font-medium"
                 />
 
-                <div className="mt-3 flex items-center justify-end gap-2">
+                <div className="mt-3.5 flex items-center justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setShowCancelConfirm(false)}
-                    className="border-studio-ink bg-studio-ivory min-h-10 cursor-pointer border px-3 py-1.5 font-mono text-xs font-bold uppercase"
+                    className="sa-control sa-btn-secondary min-h-10 cursor-pointer rounded-xl px-3.5 py-2 text-xs font-semibold"
                   >
                     Urungkan
                   </button>
@@ -266,7 +268,7 @@ export function BookingDetailDrawer({
                     type="button"
                     disabled={Boolean(actionLoading)}
                     onClick={() => handleRunAction('cancel_session', cancelReason)}
-                    className="border-studio-ink bg-studio-orange text-studio-white inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3.5 py-1.5 font-mono text-xs font-extrabold uppercase"
+                    className="sa-control sa-btn-orange inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold"
                   >
                     {actionLoading === 'cancel_session' ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -278,78 +280,63 @@ export function BookingDetailDrawer({
             ) : null}
 
             {/* SECTION 1: BOOKING OVERVIEW */}
-            <section
-              aria-labelledby="drawer-overview-heading"
-              className="brutal-card bg-studio-white p-4 sm:p-5"
-            >
+            <section aria-labelledby="drawer-overview-heading" className="sa-card p-4 sm:p-5">
               <h3
                 id="drawer-overview-heading"
-                className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                className="text-studio-ink text-sm font-semibold tracking-tight"
               >
                 Booking Overview
               </h3>
 
-              <dl className="mt-3 grid grid-cols-1 gap-3 border-t border-neutral-200 pt-3 text-xs sm:grid-cols-2">
+              <dl className="mt-3.5 grid grid-cols-1 gap-3.5 border-t border-[#151515]/8 pt-3.5 text-xs sm:grid-cols-2">
                 <div>
-                  <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                    Customer
-                  </dt>
-                  <dd className="text-studio-ink mt-0.5 text-sm font-extrabold">
+                  <dt className="text-[11px] font-medium text-[#666159]">Customer</dt>
+                  <dd className="text-studio-ink mt-0.5 text-sm font-semibold">
                     {booking.customerName}
                   </dd>
                 </div>
 
                 <div>
-                  <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                    Band / Project
-                  </dt>
-                  <dd className="text-studio-ink mt-0.5 text-sm font-bold">
+                  <dt className="text-[11px] font-medium text-[#666159]">Band / Project</dt>
+                  <dd className="text-studio-ink mt-0.5 text-sm font-medium">
                     {booking.bandName || '-'}
                   </dd>
                 </div>
 
                 <div>
-                  <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                    Nomor HP / WhatsApp
-                  </dt>
-                  <dd className="text-studio-ink mt-0.5 inline-flex items-center gap-1.5 font-mono text-sm font-extrabold">
-                    <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                  <dt className="text-[11px] font-medium text-[#666159]">Nomor HP / WhatsApp</dt>
+                  <dd className="text-studio-ink mt-0.5 inline-flex items-center gap-1.5 font-mono text-sm font-semibold tabular-nums">
+                    <Phone className="h-3.5 w-3.5 text-[#8B857B]" aria-hidden="true" />
                     <span>{booking.phone}</span>
                   </dd>
                 </div>
 
                 <div>
-                  <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                    Studio Room
-                  </dt>
-                  <dd className="text-studio-ink mt-0.5 text-sm font-extrabold">{room.label}</dd>
+                  <dt className="text-[11px] font-medium text-[#666159]">Studio Room</dt>
+                  <dd className="text-studio-ink mt-0.5 text-sm font-semibold">{room.label}</dd>
                 </div>
 
                 <div>
-                  <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
+                  <dt className="text-[11px] font-medium text-[#666159]">
                     Layanan &amp; Subcategory
                   </dt>
-                  <dd className="text-studio-ink mt-0.5 text-sm font-extrabold">
+                  <dd className="text-studio-ink mt-0.5 text-sm font-semibold">
                     {serviceTitle}
                     {optionTitle ? ` • ${optionTitle}` : ''}
                   </dd>
                 </div>
 
                 <div>
-                  <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                    Tanggal Sesi
-                  </dt>
-                  <dd className="text-studio-ink mt-0.5 text-sm font-extrabold">
+                  <dt className="text-[11px] font-medium text-[#666159]">Tanggal Sesi</dt>
+                  <dd className="text-studio-ink mt-0.5 text-sm font-semibold">
                     {formatIndonesianDateFull(booking.date)}
                   </dd>
                 </div>
 
                 <div className="sm:col-span-2">
-                  <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                    Jam &amp; Durasi
-                  </dt>
-                  <dd className="text-studio-ink mt-0.5 inline-flex items-center gap-1.5 font-mono text-sm font-extrabold">
-                    <Clock3 className="h-4 w-4" aria-hidden="true" />
+                  <dt className="text-[11px] font-medium text-[#666159]">Jam &amp; Durasi</dt>
+                  <dd className="text-studio-ink mt-0.5 inline-flex items-center gap-1.5 font-mono text-sm font-semibold tabular-nums">
+                    <Clock3 className="h-4 w-4 text-[#8B857B]" aria-hidden="true" />
                     <span>
                       {formatMinuteRange(booking.startMinute, booking.endMinute)} (
                       {formatDurationMinutes(booking.durationMinutes)})
@@ -359,26 +346,26 @@ export function BookingDetailDrawer({
               </dl>
 
               {/* Financial & Authoritative Invoice Ledger Subcard */}
-              <div className="border-studio-ink bg-studio-ivory mt-4 border p-3.5">
+              <div className="sa-panel-ivory mt-4 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-extrabold uppercase">
-                    <ReceiptText className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="text-studio-ink inline-flex items-center gap-1.5 text-xs font-semibold">
+                    <ReceiptText className="h-3.5 w-3.5 text-[#666159]" aria-hidden="true" />
                     <span>
                       {latestPayment.hasInvoice
                         ? 'Status Invoice & Pembayaran Terkini'
                         : 'Informasi Pembayaran Awal'}
                     </span>
                   </span>
-                  <div className="flex flex-wrap items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {invoiceStatusMeta ? (
                       <span
-                        className={`border px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold uppercase ${invoiceStatusMeta.badgeClass}`}
+                        className={`rounded-full border px-2 py-0.5 text-[10.5px] font-medium ${invoiceStatusMeta.badgeClass}`}
                       >
                         {invoiceStatusMeta.label}
                       </span>
                     ) : null}
                     <span
-                      className={`border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase ${paymentMeta.badgeClass}`}
+                      className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${paymentMeta.badgeClass}`}
                     >
                       {paymentMeta.indoLabel || paymentMeta.label}
                     </span>
@@ -386,18 +373,18 @@ export function BookingDetailDrawer({
                 </div>
 
                 {latestPayment.hasInvoice ? (
-                  <div className="border-studio-ink/40 bg-studio-white mt-2.5 flex flex-wrap items-center justify-between gap-2 border px-2.5 py-2">
-                    <div className="min-w-0 font-mono text-[11px]">
-                      <span className="text-studio-muted-ink block text-[9px] font-bold uppercase">
-                        Invoice Number
+                  <div className="sa-subcard mt-3 flex flex-wrap items-center justify-between gap-2.5 px-3 py-2.5">
+                    <div className="min-w-0 font-mono text-xs">
+                      <span className="block font-sans text-[10.5px] text-[#666159]">
+                        Nomor Invoice
                       </span>
-                      <span className="text-studio-ink font-extrabold">
+                      <span className="text-studio-ink font-semibold">
                         {latestPayment.invoiceNumber}
                       </span>
                     </div>
                     <Link
                       to={`/admin/payment-and-bill?invoiceId=${encodeURIComponent(latestPayment.invoiceId)}`}
-                      className="border-studio-ink bg-studio-ink text-studio-lime hover:bg-studio-orange hover:text-studio-white inline-flex h-8 shrink-0 items-center gap-1 border px-2.5 font-mono text-[9.5px] font-extrabold uppercase transition-colors"
+                      className="sa-control sa-btn-primary hover:bg-studio-orange inline-flex h-8.5 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold"
                     >
                       <span>Lihat Invoice</span>
                       <ExternalLink className="h-3 w-3" aria-hidden="true" />
@@ -406,21 +393,23 @@ export function BookingDetailDrawer({
                 ) : null}
 
                 {latestPayment.isSnapshotMismatch ? (
-                  <p className="border-studio-ink mt-2 border bg-amber-100 px-2.5 py-1.5 font-mono text-[10px] font-bold text-[#9a3412]">
+                  <p className="mt-2.5 rounded-xl border border-amber-500/25 bg-[#FEF4DD] px-3 py-2 text-xs font-medium text-[#8A4B08]">
                     Perhatian: Total booking terbaru ({formatRupiah(financial.totalAmount)}) berbeda
                     dari total di invoice ({formatRupiah(latestPayment.totalAmount)}). Sesuaikan
                     tagihan melalui halaman Payment and Bill.
                   </p>
                 ) : null}
 
-                <dl className="mt-2.5 space-y-1 font-mono text-xs">
+                <dl className="mt-3 space-y-1.5 text-xs">
                   {financial.discountAmount > 0 ? (
                     <>
                       <div className="flex justify-between">
-                        <dt className="text-studio-muted-ink">Harga Normal</dt>
-                        <dd className="font-bold">{formatRupiah(financial.subtotal)}</dd>
+                        <dt className="text-[#666159]">Harga Normal</dt>
+                        <dd className="font-mono font-semibold tabular-nums">
+                          {formatRupiah(financial.subtotal)}
+                        </dd>
                       </div>
-                      <div className="flex justify-between text-emerald-800">
+                      <div className="flex justify-between text-[#0F6246]">
                         <dt>
                           {financial.automaticDiscount
                             ? 'Diskon Durasi'
@@ -428,10 +417,12 @@ export function BookingDetailDrawer({
                               ? 'Diskon Paket'
                               : 'Diskon'}
                         </dt>
-                        <dd className="font-bold">-{formatRupiah(financial.discountAmount)}</dd>
+                        <dd className="font-mono font-semibold tabular-nums">
+                          -{formatRupiah(financial.discountAmount)}
+                        </dd>
                       </div>
                       {financial.automaticDiscount ? (
-                        <p className="text-[10px] font-semibold text-emerald-900">
+                        <p className="text-[11px] font-medium text-[#0F6246]">
                           {financial.automaticDiscount.eligibleBlocks}x kelipatan{' '}
                           {formatDurationMinutes(financial.automaticDiscount.intervalMinutes)} (-
                           {formatRupiah(financial.automaticDiscount.discountPerBlock)})
@@ -440,134 +431,129 @@ export function BookingDetailDrawer({
                     </>
                   ) : null}
                   <div className="flex justify-between">
-                    <dt className="text-studio-muted-ink">Total Tagihan</dt>
-                    <dd className="font-extrabold">{formatRupiah(displayedTotalAmount)}</dd>
+                    <dt className="text-[#666159]">Total Tagihan</dt>
+                    <dd className="text-studio-ink font-mono font-semibold tabular-nums">
+                      {formatRupiah(displayedTotalAmount)}
+                    </dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-studio-muted-ink">
+                    <dt className="text-[#666159]">
                       {latestPayment.hasInvoice ? 'Sudah Dibayar' : 'Pembayaran Awal'}
                     </dt>
-                    <dd className="font-bold">
+                    <dd className="text-studio-ink font-mono font-semibold tabular-nums">
                       {formatRupiah(displayedPaidAmount)}
                       {!latestPayment.hasInvoice && booking.paymentMethod
                         ? ` (${getPaymentMethodLabel(booking.paymentMethod)})`
                         : ''}
                     </dd>
                   </div>
-                  <div className="border-studio-ink flex justify-between border-t pt-1 font-extrabold">
-                    <dt className="text-studio-orange">Sisa Tagihan</dt>
-                    <dd className="text-studio-orange">{formatRupiah(remainingBalance)}</dd>
+                  <div className="flex justify-between border-t border-[#151515]/10 pt-2 font-semibold">
+                    <dt className="text-[#B92B0C]">Sisa Tagihan</dt>
+                    <dd className="font-mono text-[#B92B0C] tabular-nums">
+                      {formatRupiah(remainingBalance)}
+                    </dd>
                   </div>
                 </dl>
               </div>
 
               {/* Internal Operational Fee Breakdown */}
-              <div className="border-studio-ink bg-studio-white mt-3 border p-3.5">
+              <div className="sa-subcard mt-3.5 p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-[11px] font-extrabold uppercase">
+                  <span className="text-studio-ink text-xs font-semibold">
                     Pembagian Komisi Tim
                   </span>
                   {commissionDisplay ? (
-                    <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
+                    <span className="rounded-full border border-[#151515]/10 bg-[#F8F6EF] px-2.5 py-0.5 font-mono text-[10.5px] font-medium text-[#46433D]">
                       Tarif v{commissionDisplay.settingsVersion}
                     </span>
                   ) : null}
                 </div>
 
                 {commissionDisplay ? (
-                  <dl className="mt-2 space-y-1 font-mono text-xs">
+                  <dl className="mt-2.5 space-y-1.5 text-xs">
                     <div className="flex justify-between">
-                      <dt className="text-studio-muted-ink">Staff Fee</dt>
-                      <dd className="font-bold">{formatRupiah(commissionDisplay.staff.amount)}</dd>
+                      <dt className="text-[#666159]">Staff Fee</dt>
+                      <dd className="font-mono font-semibold tabular-nums">
+                        {formatRupiah(commissionDisplay.staff.amount)}
+                      </dd>
                     </div>
                     {commissionDisplay.owner ? (
                       <div className="flex justify-between">
-                        <dt className="text-studio-muted-ink">Owner Fee</dt>
-                        <dd className="font-bold">
+                        <dt className="text-[#666159]">Owner Fee</dt>
+                        <dd className="font-mono font-semibold tabular-nums">
                           {formatRupiah(commissionDisplay.owner.amount)}
                         </dd>
                       </div>
                     ) : null}
                     <div className="flex justify-between">
-                      <dt className="text-studio-muted-ink">Recording Operator Fee</dt>
-                      <dd className="font-bold">
+                      <dt className="text-[#666159]">Recording Operator Fee</dt>
+                      <dd className="font-mono font-semibold tabular-nums">
                         {formatRupiah(commissionDisplay.recordingOperator.amount)}
                       </dd>
                     </div>
                   </dl>
                 ) : (
-                  <p className="text-studio-muted-ink mt-1.5 font-mono text-[11px]">
+                  <p className="mt-1.5 text-xs text-[#666159]">
                     Belum ada catatan komisi tim untuk booking lama ini.
                   </p>
                 )}
               </div>
 
               {booking.notes ? (
-                <div className="mt-3 border-t border-neutral-200 pt-3">
-                  <p className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                    Catatan Sesi
-                  </p>
-                  <p className="text-studio-ink mt-1 text-xs leading-relaxed font-medium">
-                    {booking.notes}
-                  </p>
+                <div className="mt-3.5 border-t border-[#151515]/8 pt-3.5">
+                  <p className="text-[11px] font-medium text-[#666159]">Catatan Sesi</p>
+                  <p className="text-studio-ink mt-1 text-xs leading-relaxed">{booking.notes}</p>
                 </div>
               ) : null}
             </section>
 
             {/* SECTION 2: SESSION STATUS */}
-            <section
-              aria-labelledby="drawer-lifecycle-heading"
-              className="brutal-card bg-studio-white p-4 sm:p-5"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-3">
+            <section aria-labelledby="drawer-lifecycle-heading" className="sa-card p-4 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/8 pb-3">
                 <div>
                   <h3
                     id="drawer-lifecycle-heading"
-                    className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                    className="text-studio-ink text-sm font-semibold tracking-tight"
                   >
                     Status Sesi Studio
                   </h3>
-                  <p className="text-studio-muted-ink mt-0.5 text-xs">
+                  <p className="mt-0.5 text-xs text-[#666159]">
                     Status sesi operasional terpisah dari status pembayaran.
                   </p>
                 </div>
 
                 <span
-                  className={`border px-2.5 py-1 font-mono text-xs font-extrabold uppercase ${sessionMeta.badgeClass}`}
+                  className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${sessionMeta.badgeClass}`}
                 >
                   {sessionMeta.label} ({sessionMeta.indoLabel})
                 </span>
               </div>
 
               {/* Check-in & Execution Timestamps */}
-              <div className="mt-3 grid grid-cols-1 gap-2 font-mono text-[11px] sm:grid-cols-3">
-                <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                  <span className="text-studio-muted-ink block text-[9px] font-bold uppercase">
-                    Check-in
-                  </span>
-                  <span className="mt-0.5 block font-extrabold">
+              <div className="mt-3.5 grid grid-cols-1 gap-2.5 text-xs sm:grid-cols-3">
+                <div className="sa-panel-ivory p-3">
+                  <span className="block text-[10.5px] font-medium text-[#666159]">Check-in</span>
+                  <span className="text-studio-ink mt-1 block font-mono text-xs font-semibold">
                     {booking.checkedInAt
                       ? formatIndonesianTimestamp(booking.checkedInAt)
                       : 'Belum Check-in'}
                   </span>
                 </div>
 
-                <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                  <span className="text-studio-muted-ink block text-[9px] font-bold uppercase">
-                    Mulai Sesi
-                  </span>
-                  <span className="mt-0.5 block font-extrabold">
+                <div className="sa-panel-ivory p-3">
+                  <span className="block text-[10.5px] font-medium text-[#666159]">Mulai Sesi</span>
+                  <span className="text-studio-ink mt-1 block font-mono text-xs font-semibold">
                     {booking.actualStartedAt
                       ? formatIndonesianTimestamp(booking.actualStartedAt)
                       : '-'}
                   </span>
                 </div>
 
-                <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                  <span className="text-studio-muted-ink block text-[9px] font-bold uppercase">
+                <div className="sa-panel-ivory p-3">
+                  <span className="block text-[10.5px] font-medium text-[#666159]">
                     Selesai Sesi
                   </span>
-                  <span className="mt-0.5 block font-extrabold">
+                  <span className="text-studio-ink mt-1 block font-mono text-xs font-semibold">
                     {booking.actualCompletedAt
                       ? formatIndonesianTimestamp(booking.actualCompletedAt)
                       : '-'}
@@ -582,7 +568,7 @@ export function BookingDetailDrawer({
                     type="button"
                     disabled={!capabilities.canCheckIn || Boolean(actionLoading)}
                     onClick={() => handleRunAction('check_in')}
-                    className="brutal-btn bg-studio-ivory text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                    className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {actionLoading === 'check_in' ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -596,7 +582,7 @@ export function BookingDetailDrawer({
                     type="button"
                     disabled={!capabilities.canStart || Boolean(actionLoading)}
                     onClick={() => handleRunAction('start_session')}
-                    className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                    className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {actionLoading === 'start_session' ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -610,7 +596,7 @@ export function BookingDetailDrawer({
                     type="button"
                     disabled={!capabilities.canComplete || Boolean(actionLoading)}
                     onClick={() => handleRunAction('complete_session')}
-                    className="brutal-btn text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 bg-emerald-300 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                    className="sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-[#E6F6EC] px-3.5 py-2 text-xs font-semibold text-[#0F6246] transition-all hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {actionLoading === 'complete_session' ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -625,7 +611,7 @@ export function BookingDetailDrawer({
                     disabled={!capabilities.canMarkNoShow || Boolean(actionLoading)}
                     title={capabilities.noShowReason || 'Tandai customer tidak hadir (No Show)'}
                     onClick={() => setShowNoShowConfirm((prev) => !prev)}
-                    className="brutal-btn bg-studio-ivory text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-3.5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                    className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <UserX className="h-4 w-4" aria-hidden="true" />
                     <span>Mark No Show</span>
@@ -637,16 +623,16 @@ export function BookingDetailDrawer({
               !capabilities.canMarkNoShow &&
               booking.sessionStatus === 'upcoming' &&
               capabilities.noShowReason ? (
-                <p className="text-studio-muted-ink mt-2.5 font-mono text-[11px]">
+                <p className="mt-2.5 text-xs text-[#666159]">
                   Info No Show: {capabilities.noShowReason}
                 </p>
               ) : null}
 
               {showNoShowConfirm && capabilities.canMarkNoShow ? (
-                <div className="border-studio-ink bg-studio-ivory mt-3 border-2 p-3.5">
+                <div className="sa-panel-ivory mt-3.5 p-4">
                   <label
                     htmlFor="no-show-reason-input"
-                    className="text-studio-ink block font-mono text-[11px] font-extrabold uppercase"
+                    className="text-studio-ink block text-xs font-semibold"
                   >
                     Catatan / Alasan No Show
                   </label>
@@ -656,13 +642,13 @@ export function BookingDetailDrawer({
                     value={noShowReason}
                     onChange={(e) => setNoShowReason(e.target.value)}
                     placeholder="Contoh: Tidak hadir >15 menit setelah jam mulai dan nomor tidak aktif"
-                    className="border-studio-ink bg-studio-white mt-1.5 min-h-10 w-full border px-3 py-1.5 text-xs font-semibold"
+                    className="sa-input mt-1.5 min-h-10 w-full rounded-xl px-3 py-2 text-xs font-medium"
                   />
-                  <div className="mt-2.5 flex justify-end gap-2">
+                  <div className="mt-3 flex justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => setShowNoShowConfirm(false)}
-                      className="border-studio-ink bg-studio-white min-h-9 cursor-pointer border px-3 py-1 font-mono text-xs font-bold uppercase"
+                      className="sa-control sa-btn-secondary min-h-9 cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold"
                     >
                       Batal
                     </button>
@@ -670,7 +656,7 @@ export function BookingDetailDrawer({
                       type="button"
                       disabled={Boolean(actionLoading)}
                       onClick={() => handleRunAction('mark_no_show', noShowReason)}
-                      className="border-studio-ink bg-studio-orange text-studio-white inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-3 py-1 font-mono text-xs font-extrabold uppercase"
+                      className="sa-control sa-btn-orange inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold"
                     >
                       {actionLoading === 'mark_no_show' ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -683,30 +669,29 @@ export function BookingDetailDrawer({
             </section>
 
             {/* SECTION 3: ACTIVITY HISTORY (FIRESTORE BOOKING EVENTS) */}
-            <section
-              aria-labelledby="drawer-activity-heading"
-              className="brutal-card bg-studio-white p-4 sm:p-5"
-            >
-              <div className="flex items-center justify-between gap-2 border-b border-neutral-200 pb-3">
+            <section aria-labelledby="drawer-activity-heading" className="sa-card p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3">
                 <div className="flex items-center gap-2">
                   <History className="text-studio-orange h-4 w-4" aria-hidden="true" />
                   <h3
                     id="drawer-activity-heading"
-                    className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                    className="text-studio-ink text-sm font-semibold tracking-tight"
                   >
                     Activity History (Firestore)
                   </h3>
                 </div>
-                <span className="font-mono text-[11px] font-bold">{events.length} log</span>
+                <span className="rounded-full border border-[#151515]/10 bg-[#F8F6EF] px-2.5 py-0.5 font-mono text-[11px] font-medium text-[#46433D] tabular-nums">
+                  {events.length} log
+                </span>
               </div>
 
               {isEventsLoading ? (
-                <div className="text-studio-muted-ink mt-3 flex items-center gap-2 font-mono text-xs">
+                <div className="mt-3.5 flex items-center gap-2 text-xs text-[#666159]">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   <span>Memuat riwayat aktivitas...</span>
                 </div>
               ) : events.length === 0 ? (
-                <p className="text-studio-muted-ink mt-3 font-mono text-xs">
+                <p className="mt-3.5 text-xs text-[#666159]">
                   Belum ada riwayat aktivitas yang tercatat untuk booking ini.
                 </p>
               ) : (
@@ -714,24 +699,17 @@ export function BookingDetailDrawer({
                   {events.map((evt) => {
                     const eventLabel = BOOKING_EVENT_LABELS[evt.eventType] || evt.eventType;
                     return (
-                      <li
-                        key={evt.id}
-                        className="border-studio-ink bg-studio-ivory border p-3 text-xs"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-1">
-                          <span className="font-mono text-[11px] font-extrabold uppercase">
-                            {eventLabel}
-                          </span>
-                          <span className="text-studio-muted-ink font-mono text-[10px]">
+                      <li key={evt.id} className="sa-panel-ivory p-3.5 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-1.5">
+                          <span className="text-studio-ink font-semibold">{eventLabel}</span>
+                          <span className="font-mono text-[11px] text-[#666159]">
                             {formatIndonesianTimestamp(evt.createdAt)}
                           </span>
                         </div>
                         {evt.note ? (
-                          <p className="text-studio-ink mt-1 leading-relaxed font-semibold">
-                            {evt.note}
-                          </p>
+                          <p className="mt-1.5 leading-relaxed text-[#46433D]">{evt.note}</p>
                         ) : null}
-                        <p className="text-studio-muted-ink mt-1 font-mono text-[10px]">
+                        <p className="mt-1.5 font-mono text-[10.5px] text-[#8B857B]">
                           Actor UID: {evt.actorUid || '-'}
                         </p>
                       </li>

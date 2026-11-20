@@ -13,6 +13,7 @@ import {
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 
+import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 import { useAuth } from '@/features/auth/AuthContext';
 
 import { DailyMealAllowanceForm } from '../components/DailyMealAllowanceForm';
@@ -362,40 +363,42 @@ export function PriceAndFeeSettingsPage() {
     : null;
 
   return (
-    <div data-calendar-scoped="true" className="space-y-5 sm:space-y-6">
+    <div data-calendar-scoped="true" className="space-y-6 sm:space-y-7">
       {/* Header & Breadcrumb Card */}
-      <section
+      <AdminSurface
+        as="section"
+        variant="hero"
         aria-labelledby="price-and-fee-heading"
-        className="brutal-card-lg bg-studio-white p-4 sm:p-7"
+        className="p-4 sm:p-6 lg:p-7"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <nav aria-label="Settings breadcrumb">
-            <ol className="text-studio-muted-ink flex flex-wrap items-center gap-1.5 font-mono text-[11px] font-extrabold uppercase">
+            <ol className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-[#666159]">
               <li>
                 <button
                   type="button"
                   onClick={() => handleGuardedNavigate('/admin/dashboard')}
-                  className="hover:text-studio-orange cursor-pointer underline-offset-2 hover:underline"
+                  className="cursor-pointer transition-colors hover:text-[#FF4B22]"
                 >
                   Admin
                 </button>
               </li>
               <li aria-hidden="true">
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-3.5 w-3.5 text-[#8B857B]" />
               </li>
               <li>
                 <button
                   type="button"
                   onClick={() => handleGuardedNavigate('/admin/settings')}
-                  className="hover:text-studio-orange cursor-pointer underline-offset-2 hover:underline"
+                  className="cursor-pointer transition-colors hover:text-[#FF4B22]"
                 >
                   Settings
                 </button>
               </li>
               <li aria-hidden="true">
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-3.5 w-3.5 text-[#8B857B]" />
               </li>
-              <li aria-current="page" className="text-studio-ink">
+              <li aria-current="page" className="font-semibold text-[#151515]">
                 Price and Fee Settings
               </li>
             </ol>
@@ -404,7 +407,7 @@ export function PriceAndFeeSettingsPage() {
           <button
             type="button"
             onClick={() => handleGuardedNavigate('/admin/settings')}
-            className="brutal-btn bg-studio-ivory text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 font-mono text-[11px] font-extrabold uppercase"
+            className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Back to Settings</span>
@@ -413,12 +416,12 @@ export function PriceAndFeeSettingsPage() {
 
         <h2
           id="price-and-fee-heading"
-          className="font-display text-studio-ink mt-4 text-3xl leading-none font-black tracking-tight uppercase sm:text-5xl"
+          className="mt-4 text-2xl font-bold tracking-[-0.025em] text-[#151515] sm:text-3xl lg:text-4xl"
         >
           Price and Fee Settings
         </h2>
 
-        <p className="text-studio-muted-ink mt-2 max-w-2xl text-sm leading-relaxed font-semibold sm:text-base">
+        <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-[#666159] sm:text-sm">
           Kelola daftar layanan, tarif sewa studio, diskon, dan komisi tim (Staff, Owner, Recording
           Operator).
         </p>
@@ -427,9 +430,9 @@ export function PriceAndFeeSettingsPage() {
           <div
             role="status"
             aria-live="polite"
-            className="border-studio-ink bg-studio-ivory mt-4 flex items-center gap-2 border px-3 py-2 font-mono text-xs font-bold"
+            className="sa-panel-ivory mt-4 flex items-center gap-2 px-3.5 py-2.5 text-xs font-medium text-[#46433D]"
           >
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
             <span>Memuat pengaturan tarif studio...</span>
           </div>
         ) : null}
@@ -437,7 +440,7 @@ export function PriceAndFeeSettingsPage() {
         {loadError ? (
           <div
             role="alert"
-            className="border-studio-ink bg-studio-orange text-studio-white mt-4 flex items-start gap-2 border-2 p-3 text-xs font-bold"
+            className="mt-4 flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-xs font-medium text-[#B92B0C]"
           >
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{loadError}</span>
@@ -448,7 +451,7 @@ export function PriceAndFeeSettingsPage() {
           <div
             role="status"
             aria-live="polite"
-            className="border-studio-ink mt-4 flex items-start gap-2.5 border-2 bg-amber-100 p-3 text-xs font-bold"
+            className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-[#FEF4DD] p-3.5 text-xs text-[#8A4B08]"
           >
             <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>
@@ -463,35 +466,31 @@ export function PriceAndFeeSettingsPage() {
           <div
             role="status"
             aria-live="polite"
-            className="border-studio-ink bg-studio-ivory text-studio-ink mt-4 flex items-start gap-2.5 border-2 p-3 text-xs font-bold"
+            className="sa-panel-ivory mt-4 flex items-start gap-2.5 p-3.5 text-xs text-[#46433D]"
           >
-            <ShieldAlert
-              className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
-              aria-hidden="true"
-            />
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#FF4B22]" aria-hidden="true" />
             <span>
               Mode Baca Saja (Staff / Operator): Konfigurasi katalog layanan, tarif customer, fee
               internal, dan uang makan hanya dapat diubah oleh Owner.
             </span>
           </div>
         ) : null}
-      </section>
+      </AdminSurface>
 
       {/* GROUP 1: STUDIO SESSIONS */}
       <section aria-labelledby="group-studio-sessions-heading" className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <span className="border-studio-ink bg-studio-lime text-studio-ink inline-flex items-center gap-1.5 border px-2.5 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
-              <Music2 className="h-3 w-3" aria-hidden="true" />
-              <span>STUDIO SESSIONS</span>
-            </span>
+            <AdminStatusBadge tone="lime" icon={Music2} size="sm" className="font-mono uppercase">
+              Studio Sessions
+            </AdminStatusBadge>
             <h3
               id="group-studio-sessions-heading"
-              className="font-display text-studio-ink mt-1.5 text-2xl leading-none font-black uppercase sm:text-3xl"
+              className="mt-2 text-lg font-bold tracking-tight text-[#151515] sm:text-xl"
             >
               Layanan Ruangan Studio ({studioServices.length})
             </h3>
-            <p className="text-studio-muted-ink mt-1 text-xs font-medium">
+            <p className="mt-1 text-xs text-[#666159]">
               Tampil pada Studio Calendar (Room A &amp; Room B). Subcategory berstatus Belum
               Dikonfigurasi otomatis disembunyikan dari Booking Form.
             </p>
@@ -501,9 +500,9 @@ export function PriceAndFeeSettingsPage() {
             <button
               type="button"
               onClick={() => openServiceDialog('add', null, DELIVERY_MODES.STUDIO)}
-              className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold uppercase"
+              className="sa-control sa-btn-secondary inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold"
             >
-              <Plus className="h-4 w-4 stroke-[2.5]" aria-hidden="true" />
+              <Plus className="h-4 w-4" aria-hidden="true" />
               <span>Add Studio Service</span>
             </button>
           ) : null}
@@ -532,17 +531,16 @@ export function PriceAndFeeSettingsPage() {
       <section aria-labelledby="group-wfa-services-heading" className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <span className="border-studio-ink bg-studio-ink text-studio-ivory inline-flex items-center gap-1.5 border px-2.5 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
-              <Globe className="h-3 w-3" aria-hidden="true" />
-              <span>WFA SERVICES</span>
-            </span>
+            <AdminStatusBadge tone="ink" icon={Globe} size="sm" className="font-mono uppercase">
+              WFA Services
+            </AdminStatusBadge>
             <h3
               id="group-wfa-services-heading"
-              className="font-display text-studio-ink mt-1.5 text-2xl leading-none font-black uppercase sm:text-3xl"
+              className="mt-2 text-lg font-bold tracking-tight text-[#151515] sm:text-xl"
             >
               Layanan Work From Anywhere ({wfaServices.length})
             </h3>
-            <p className="text-studio-muted-ink mt-1 text-xs font-medium">
+            <p className="mt-1 text-xs text-[#666159]">
               Tarif dan fee untuk layanan Mixing, Mastering, atau pekerjaan jarak jauh. Layanan WFA
               tidak mengunci jadwal Room A / Room B di Studio Calendar.
             </p>
@@ -552,9 +550,9 @@ export function PriceAndFeeSettingsPage() {
             <button
               type="button"
               onClick={() => openServiceDialog('add', null, DELIVERY_MODES.WFA)}
-              className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold uppercase"
+              className="sa-control sa-btn-secondary inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold"
             >
-              <Plus className="h-4 w-4 stroke-[2.5]" aria-hidden="true" />
+              <Plus className="h-4 w-4" aria-hidden="true" />
               <span>Add WFA Service</span>
             </button>
           ) : null}
@@ -562,7 +560,7 @@ export function PriceAndFeeSettingsPage() {
 
         <div className="space-y-4">
           {wfaServices.length === 0 ? (
-            <div className="border-studio-ink bg-studio-white border-2 border-dashed p-5 text-center font-mono text-xs">
+            <div className="sa-panel border-dashed p-6 text-center text-xs text-[#666159]">
               Belum ada layanan WFA yang terdaftar.
             </div>
           ) : (

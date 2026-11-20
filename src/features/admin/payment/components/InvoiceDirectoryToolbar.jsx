@@ -1,6 +1,7 @@
 import { Filter, RotateCcw, Search, X } from 'lucide-react';
 
 import { ROOM_FILTER_OPTIONS } from '@/features/admin/calendar/config/calendar-config';
+import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 
 import { INVOICE_PAYMENT_STATUS_OPTIONS, INVOICE_STATUS_OPTIONS } from '../utils/invoice-status';
 
@@ -22,27 +23,29 @@ export function InvoiceDirectoryToolbar({
   visibleCount = 0,
 }) {
   return (
-    <section
+    <AdminSurface
+      as="section"
+      variant="card"
       aria-label="Filter dan pencarian invoice"
-      className="cal-card bg-studio-white space-y-2 p-2.5 sm:space-y-2.5 sm:p-4"
+      className="space-y-3.5 p-4 sm:p-5"
     >
       {/* Row 1: Payment Status Pills + Visible Counter & Primary Search */}
-      <div className="flex flex-col gap-2 sm:gap-2.5 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between xl:gap-x-3 xl:gap-y-2">
+      <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between">
         <div className="min-w-0">
-          <div className="mb-1 flex min-h-4 items-center justify-between gap-2 sm:min-h-5">
-            <span className="text-studio-muted-ink flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase sm:text-[10px]">
-              <Filter className="h-3 w-3 shrink-0" aria-hidden="true" />
+          <div className="mb-1.5 flex min-h-5 items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-[#666159]">
+              <Filter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span>Status Pembayaran</span>
             </span>
-            <span className="border-studio-ink bg-studio-ivory text-studio-ink border px-1.5 py-0.5 font-mono text-[9px] font-extrabold whitespace-nowrap uppercase xl:hidden">
+            <AdminStatusBadge tone="ivory" size="sm" className="font-mono xl:hidden">
               {visibleCount} invoice
-            </span>
+            </AdminStatusBadge>
           </div>
 
           <div
             role="group"
             aria-label="Filter status pembayaran invoice"
-            className="flex flex-wrap gap-1 sm:inline-flex sm:w-auto sm:gap-1.5"
+            className="sa-pill-track flex flex-wrap gap-1 sm:inline-flex sm:w-auto"
           >
             {INVOICE_PAYMENT_STATUS_OPTIONS.map((option) => {
               const isSelected = paymentStatus === option.id;
@@ -54,8 +57,8 @@ export function InvoiceDirectoryToolbar({
                   aria-pressed={isSelected}
                   className={
                     isSelected
-                      ? 'border-studio-ink bg-studio-lime text-studio-ink inline-flex min-h-8 cursor-pointer items-center justify-center border-2 px-2 py-1 font-mono text-[9.5px] leading-none font-extrabold whitespace-nowrap uppercase shadow-[2px_2px_0px_#151515] sm:min-h-10 sm:px-2.5 sm:text-[10px] md:text-[10.5px]'
-                      : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white inline-flex min-h-8 cursor-pointer items-center justify-center border-2 px-2 py-1 font-mono text-[9.5px] leading-none font-bold whitespace-nowrap uppercase sm:min-h-10 sm:px-2.5 sm:text-[10px] md:text-[10.5px]'
+                      ? 'inline-flex min-h-9 cursor-pointer items-center justify-center rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-9.5 sm:px-3.5'
+                      : 'inline-flex min-h-9 cursor-pointer items-center justify-center rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:min-h-9.5 sm:px-3.5'
                   }
                 >
                   {option.compactLabel || option.label}
@@ -66,16 +69,16 @@ export function InvoiceDirectoryToolbar({
         </div>
 
         <div className="flex w-full min-w-0 flex-col xl:min-w-[320px] xl:flex-1">
-          <div className="mb-1 hidden min-h-5 items-center justify-end gap-2 font-mono text-[10px] font-bold uppercase xl:flex">
-            <span className="text-studio-muted-ink">Hasil Tampil:</span>
-            <span className="border-studio-ink bg-studio-ivory text-studio-ink border px-2 py-0.5 font-extrabold whitespace-nowrap">
+          <div className="mb-1.5 hidden min-h-5 items-center justify-end gap-2 text-xs xl:flex">
+            <span className="text-[#666159]">Hasil Tampil:</span>
+            <AdminStatusBadge tone="ivory" size="sm" className="font-mono font-semibold">
               {visibleCount} invoice
-            </span>
+            </AdminStatusBadge>
           </div>
 
           <div className="relative w-full min-w-0">
             <Search
-              className="text-studio-muted-ink pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2"
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#8B857B]"
               aria-hidden="true"
             />
             <input
@@ -84,14 +87,14 @@ export function InvoiceDirectoryToolbar({
               onChange={(event) => onSearchQueryChange(event.target.value)}
               aria-label="Cari nomor invoice, pelanggan, nomor HP, atau band"
               placeholder="Cari no. invoice, pelanggan, no. HP, atau band..."
-              className="border-studio-ink bg-studio-ivory text-studio-ink placeholder:text-studio-subtle-ink h-9 w-full border-2 py-1 pr-8 pl-8 text-xs font-semibold sm:h-10 sm:py-1.5"
+              className="sa-input h-10 w-full py-2 pr-9 pl-9.5 text-xs font-medium sm:text-[13px]"
             />
             {searchQuery ? (
               <button
                 type="button"
                 onClick={() => onSearchQueryChange('')}
                 aria-label="Bersihkan pencarian invoice"
-                className="text-studio-ink hover:text-studio-orange absolute top-1/2 right-1 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center sm:h-8 sm:w-8"
+                className="absolute top-1/2 right-1.5 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
@@ -101,11 +104,11 @@ export function InvoiceDirectoryToolbar({
       </div>
 
       {/* Row 2: Invoice Status, Room, Date Range & Clear Filters */}
-      <div className="grid grid-cols-1 gap-1.5 border-t border-neutral-200 pt-2 min-[320px]:grid-cols-2 sm:gap-2 sm:pt-2.5 lg:flex lg:flex-wrap lg:items-end">
-        <div className="min-w-0 lg:w-40">
+      <div className="grid grid-cols-1 gap-2.5 border-t border-[#151515]/[0.07] pt-3.5 min-[320px]:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
+        <div className="min-w-0 lg:w-44">
           <label
             htmlFor="invoice-status-filter"
-            className="text-studio-muted-ink mb-0.5 block font-mono text-[9px] font-extrabold uppercase sm:mb-1 sm:text-[9.5px]"
+            className="mb-1 block text-xs font-medium text-[#666159]"
           >
             Status Invoice
           </label>
@@ -113,7 +116,7 @@ export function InvoiceDirectoryToolbar({
             id="invoice-status-filter"
             value={invoiceStatus}
             onChange={(event) => onInvoiceStatusChange(event.target.value)}
-            className="border-studio-ink bg-studio-ivory text-studio-ink h-8.5 w-full cursor-pointer border-2 px-1.5 font-mono text-[9.5px] font-extrabold uppercase sm:h-10 sm:px-2 sm:text-[10px]"
+            className="sa-input h-10 w-full cursor-pointer px-3 text-xs font-medium"
           >
             {INVOICE_STATUS_OPTIONS.map((opt) => (
               <option key={opt.id} value={opt.id}>
@@ -123,10 +126,10 @@ export function InvoiceDirectoryToolbar({
           </select>
         </div>
 
-        <div className="min-w-0 lg:w-36">
+        <div className="min-w-0 lg:w-40">
           <label
             htmlFor="invoice-room-filter"
-            className="text-studio-muted-ink mb-0.5 block font-mono text-[9px] font-extrabold uppercase sm:mb-1 sm:text-[9.5px]"
+            className="mb-1 block text-xs font-medium text-[#666159]"
           >
             Ruangan
           </label>
@@ -134,7 +137,7 @@ export function InvoiceDirectoryToolbar({
             id="invoice-room-filter"
             value={studioId}
             onChange={(event) => onStudioIdChange(event.target.value)}
-            className="border-studio-ink bg-studio-ivory text-studio-ink h-8.5 w-full cursor-pointer border-2 px-1.5 font-mono text-[9.5px] font-extrabold uppercase sm:h-10 sm:px-2 sm:text-[10px]"
+            className="sa-input h-10 w-full cursor-pointer px-3 text-xs font-medium"
           >
             {ROOM_FILTER_OPTIONS.map((room) => (
               <option key={room.id} value={room.id}>
@@ -144,10 +147,10 @@ export function InvoiceDirectoryToolbar({
           </select>
         </div>
 
-        <div className="min-w-0 lg:w-40">
+        <div className="min-w-0 lg:w-44">
           <label
             htmlFor="invoice-date-from"
-            className="text-studio-muted-ink mb-0.5 block font-mono text-[9px] font-extrabold uppercase sm:mb-1 sm:text-[9.5px]"
+            className="mb-1 block text-xs font-medium text-[#666159]"
           >
             Dari Tanggal
           </label>
@@ -156,14 +159,14 @@ export function InvoiceDirectoryToolbar({
             type="date"
             value={dateFrom}
             onChange={(event) => onDateFromChange(event.target.value)}
-            className="border-studio-ink bg-studio-ivory text-studio-ink h-8.5 w-full min-w-0 border-2 px-1.5 font-mono text-[9.5px] font-bold sm:h-10 sm:px-2 sm:text-[10.5px]"
+            className="sa-input h-10 w-full min-w-0 px-3 font-mono text-xs font-medium"
           />
         </div>
 
-        <div className="min-w-0 lg:w-40">
+        <div className="min-w-0 lg:w-44">
           <label
             htmlFor="invoice-date-to"
-            className="text-studio-muted-ink mb-0.5 block font-mono text-[9px] font-extrabold uppercase sm:mb-1 sm:text-[9.5px]"
+            className="mb-1 block text-xs font-medium text-[#666159]"
           >
             Sampai Tanggal
           </label>
@@ -172,7 +175,7 @@ export function InvoiceDirectoryToolbar({
             type="date"
             value={dateTo}
             onChange={(event) => onDateToChange(event.target.value)}
-            className="border-studio-ink bg-studio-ivory text-studio-ink h-8.5 w-full min-w-0 border-2 px-1.5 font-mono text-[9.5px] font-bold sm:h-10 sm:px-2 sm:text-[10.5px]"
+            className="sa-input h-10 w-full min-w-0 px-3 font-mono text-xs font-medium"
           />
         </div>
 
@@ -181,14 +184,14 @@ export function InvoiceDirectoryToolbar({
             <button
               type="button"
               onClick={onClearFilters}
-              className="cal-control bg-studio-ivory text-studio-ink hover:bg-studio-white inline-flex h-8.5 w-full cursor-pointer items-center justify-center gap-1.5 px-3 font-mono text-[10px] font-extrabold uppercase sm:h-10 lg:w-auto"
+              className="sa-control sa-btn-secondary inline-flex h-10 w-full cursor-pointer items-center justify-center gap-1.5 px-3.5 text-xs font-semibold lg:w-auto"
             >
-              <RotateCcw className="h-3 w-3" aria-hidden="true" />
+              <RotateCcw className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
               <span>Clear Filters</span>
             </button>
           </div>
         ) : null}
       </div>
-    </section>
+    </AdminSurface>
   );
 }

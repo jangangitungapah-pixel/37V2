@@ -1,0 +1,90 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+PHASE 10: ADMIN PORTAL SPATIAL AMBIENT UI OVERHAUL
+Date: 2026-11-19
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: d:\PROJECT VS\37V2
+Branch: main
+
+============================================================
+1. STARTING HEAD
+============================================================
+
+- Audited baseline HEAD:
+  a98af8a9354e1b357772f90e78092ce3d05dcc98
+  (feat: implement Phase 9 commission and fee management system for admin review and bookkeeping posting)
+
+============================================================
+2. FINAL IMPLEMENTATION STATUS
+============================================================
+
+- Status: Uncommitted working tree on branch `main` cleanly layered on top of
+  `a98af8a9354e1b357772f90e78092ce3d05dcc98` (no commit, push, reset, checkout,
+  or deploy performed per repository safety constraints).
+
+============================================================
+3. FILES CREATED & MODIFIED (PHASE 10)
+============================================================
+
+Created:
+- `src/features/admin/design-system/admin-design-tokens.css`
+- `src/features/admin/design-system/AdminButton.jsx`
+- `src/features/admin/design-system/AdminEmptyState.jsx`
+- `src/features/admin/design-system/AdminMetricCard.jsx`
+- `src/features/admin/design-system/AdminPageHeader.jsx`
+- `src/features/admin/design-system/AdminStatusBadge.jsx`
+- `src/features/admin/design-system/AdminSurface.jsx`
+- `src/features/admin/design-system/index.js`
+- `scripts/verify-admin-spatial-ambient-overhaul.ps1`
+- `docs/architecture/ADMIN-PORTAL-SPATIAL-AMBIENT-DESIGN-SYSTEM.md`
+- `docs/handoffs/HANDOFF-ADMIN-PORTAL-SPATIAL-AMBIENT-OVERHAUL-2026-11-19.txt`
+
+Modified (Scoped Strictly to Admin Portal UI & Input Exclusions):
+- `src/styles/index.css` (added `[data-admin-portal] *` & `[data-admin-portal-layer] *` font reset exclusions)
+- Admin Shell & Placeholders: `AdminLayout.jsx`, `AdminSidebar.jsx`, `AdminSidebarNavItem.jsx`, `AdminMobileDrawer.jsx`, `AdminTopbar.jsx`, `AdminDashboardPage.jsx`, `AdminModulePlaceholderPage.jsx`
+- Settings Module: `AdminSettingsPage.jsx`, `PriceAndFeeSettingsPage.jsx`, `SettingsModuleCard.jsx`, `SettingsSectionCard.jsx`, `SettingsSaveBar.jsx`, `SettingsConfirmDialog.jsx`, `DailyMealAllowanceForm.jsx`, `ServiceTypeCard.jsx`, `ServiceOptionList.jsx`, `ServiceTypeDialog.jsx`, `ServiceOptionDialog.jsx`, `PricingModeFields.jsx`, `InternalFeeEditor.jsx`, `DiscountRulesEditor.jsx`
+- Commission & Fee Module: `AdminCommissionAndFeePage.jsx`, `CommissionWorkspaceTabs.jsx`, `CommissionOverviewMetrics.jsx`, `CommissionPeriodFilter.jsx`, `CommissionSelectedSummary.jsx`, `CommissionReviewTable.jsx`, `CommissionReviewCard.jsx`, `CommissionNeedsReviewList.jsx`, `CommissionBatchHistory.jsx`, `CommissionBookingDetailDrawer.jsx`, `CommissionBatchDetailDrawer.jsx`, `CommissionPostConfirmDialog.jsx`, `CommissionResolveNeedsReviewDialog.jsx`
+- Customer Module: `AdminCustomersPage.jsx`, `CustomerDirectoryToolbar.jsx`, `CustomerDirectoryTable.jsx`, `CustomerBookingHistory.jsx`, `CustomerDetailDrawer.jsx`, `CustomerFormDialog.jsx`, `CustomerArchiveDialog.jsx`, `CustomerMergeDialog.jsx`, `CustomerIdentityConflictDialog.jsx`, `LegacyCustomerImportDialog.jsx`
+- Payment & Bill Module: `payment/utils/invoice-status.js`, `AdminPaymentAndBillPage.jsx`, `PaymentWorkspaceTabs.jsx`, `PaymentOverviewMetrics.jsx`, `InvoiceDirectoryToolbar.jsx`, `InvoiceDirectoryTable.jsx`, `PaymentTransactionList.jsx`, `InvoiceDetailDrawer.jsx`, `RecordPaymentDialog.jsx`, `PaymentCorrectionDialog.jsx`, `VoidInvoiceDialog.jsx`, `LegacyInvoiceImportDialog.jsx`, `InvoicePrintable.jsx` (screen dialog frame only), `PaymentReceipt.jsx` (screen dialog frame only)
+- Calendar Module: `calendar-config.js`, `AdminCalendarPage.jsx`, `CalendarViewSwitcher.jsx`, `CalendarToolbar.jsx`, `CalendarFilters.jsx`, `CalendarGrid.jsx`, `CalendarDayView.jsx`, `CalendarWeekView.jsx`, `CalendarMonthView.jsx`, `CalendarTimelineGrid.jsx`, `CalendarBookingCard.jsx`, `UpcomingBookings.jsx`, `BookingDetailDrawer.jsx`, `BookingFormDialog.jsx`
+
+Untouched Protected Areas:
+- Public Landing Page (`/` / `src/pages/LandingPage.jsx`, `src/components/landing/*`)
+- Staff Login (`/staff/login` / `src/pages/StaffLoginPage.jsx`), `RequireStaff.jsx`, `NotFoundPage.jsx`
+- `.brutal-card`, `.brutal-btn`, and print sheet CSS (`#studio-print-portal`, `InvoiceDocumentSheet`, `PaymentReceiptSheet`)
+- All repositories, Firestore services, schemas, calculations, security rules, and earlier phase docs/handoffs
+
+============================================================
+4. VERIFICATION SUMMARY
+============================================================
+
+1. Automated Verification Script (`scripts/verify-admin-spatial-ambient-overhaul.ps1`):
+   - `npm run format:check`: PASSED (All matched files use Prettier code style)
+   - `npm run lint`: PASSED (0 errors)
+   - `npm run test:run`: PASSED (10/10 test files, 83/83 tests passing)
+   - `npm run build`: PASSED (Vite production bundle built cleanly)
+   - Detailed logs stored under `.logs/admin-spatial-ambient-overhaul-*.txt`
+
+2. Headless Chrome CDP Responsive & Interactive QA (`10` viewports x `11` routes):
+   - Viewports tested: 286, 320, 360, 375, 390, 430, 768, 1024, 1280, 1440 px
+   - Routes verified: All 9 Admin Portal routes (`/admin/dashboard`, `/admin/calendar`, `/admin/customer`, `/admin/payment-and-bill`, `/admin/commission-and-fee`, `/admin/inventory`, `/admin/pembukuan`, `/admin/settings`, `/admin/settings/price-and-fee`) plus Landing (`/`) and Staff Login (`/staff/login`)
+   - Result: PASSED=110/110, FAILURES=0, RUNTIME_ERRORS=0
+   - Interactive checks verified:
+     * Landing Page has zero `[data-admin-portal="true"]` leak and retains `.brutal-card`/`.brutal-btn` (`borderTopWidth: 2px`)
+     * Admin Canvas activates `sa-card`/`sa-card-hero` Spatial Ambient tokens (`borderRadius: 20px`, `borderTopWidth: 1px`)
+     * Sidebar desktop collapse/expand toggles cleanly without layout shift
+     * Mobile Drawer (`375px`), Booking Form Dialog (`1440px`), Booking Detail Drawer (`1440px`) render with `data-admin-portal-layer="true"` and 0 overflow offenders
+     * Payment print portal `#studio-print-portal` stays isolated off-screen unless printing
+   - Post-QA responsive polish verified via screenshot inspection:
+     * Added horizontal table overflow safety (`overflow-x-auto`) on `InvoiceDirectoryTable` & `CustomerDirectoryTable` for tablet breakpoints (`768px`/`1024px`)
+     * Adjusted `CalendarToolbar` mobile title wrapping (`sm:flex-row`) so active week range renders in full at `375px`
+     * Stacked `AdminCustomersPage` metric cards vertically (`grid-cols-1 sm:grid-cols-3`) on narrow screens
+     * Tuned `CommissionReviewTable` column visibility & horizontal padding so the full review table and `Detail >` action button fit cleanly at `1440px` without horizontal scroll
+     * Moved `admin-design-tokens.css` import into `src/styles/index.css` right after `@import 'tailwindcss'` so production Vite CSS bundles always emit `@layer components` after `@layer base` (fixing Preflight button/input overrides on `.sa-btn-*` & `.sa-input`)
+     * Compacted sticky headers, steppers, and footers across `BookingFormDialog`, `BookingDetailDrawer`, `CustomerFormDialog`, `CustomerDetailDrawer`, `CustomerIdentityConflictDialog`, `LegacyCustomerImportDialog`, `RecordPaymentDialog`, `LegacyInvoiceImportDialog`, `InvoiceDetailDrawer`, `ServiceOptionDialog`, `ServiceTypeDialog`, `CommissionPostConfirmDialog`, and `CommissionResolveNeedsReviewDialog` (verified at `360x720`: `BookingFormDialog` header `93px`, footer `87px`, scrollable form body `538px` / `75%` height, `Simpan Booking` `rgb(255, 75, 34)`)
+
+============================================================
+5. RECOMMENDED NEXT ACTIONS
+============================================================
+
+- Review visual changes in dev server (`npm run dev`) across `/admin/*` and verify `/` Landing Page remains untouched.
+- Commit and push changes once visual review is approved by user.

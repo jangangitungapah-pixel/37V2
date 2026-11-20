@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
 import { AlertTriangle, GitMerge, Loader2, PhoneForwarded, UserPlus, X } from 'lucide-react';
 
+import { AdminStatusBadge } from '@/features/admin/design-system';
+
 import {
   validateCustomerCreateInput,
   validateCustomerEditInput,
@@ -169,23 +171,27 @@ export function CustomerFormDialog({
       onOpenChange={(next) => (!next ? handleClose() : onOpenChange?.(true))}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-[60]"
+        />
 
         <Dialog.Popup
+          data-admin-portal-layer="true"
           aria-label={title}
           data-customer-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[92dvh] w-full max-w-lg flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:border-2"
+          className="sa-dialog fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
         >
           {/* Header */}
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory flex shrink-0 items-start justify-between gap-3 border-b-2 px-4 py-4 sm:px-6">
+          <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-4">
             <div className="min-w-0">
-              <span className="border-studio-ivory bg-studio-lime text-studio-ink inline-block border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
+              <AdminStatusBadge tone="lime" size="sm" className="uppercase">
                 {eyebrow}
-              </span>
-              <Dialog.Title className="font-display mt-1.5 text-2xl leading-none font-black text-white uppercase sm:text-3xl">
+              </AdminStatusBadge>
+              <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
                 {title}
               </Dialog.Title>
-              <Dialog.Description className="mt-1 text-xs text-neutral-300">
+              <Dialog.Description className="sr-only sm:not-sr-only sm:mt-0.5 sm:block sm:text-xs sm:text-[#666159]">
                 {mode === 'phone'
                   ? `Nomor lama ${formatPhoneDisplay(customer?.phoneNormalized)} tetap tersimpan di riwayat nomor lama.`
                   : mode === 'edit'
@@ -197,21 +203,21 @@ export function CustomerFormDialog({
             <Dialog.Close
               aria-label="Tutup dialog customer"
               disabled={isSubmitting}
-              className="hover:border-studio-lime hover:text-studio-lime inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white"
+              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] disabled:opacity-50 sm:h-9 sm:w-9 sm:rounded-xl"
             >
-              <X className="h-5 w-5" aria-hidden="true" />
+              <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
             </Dialog.Close>
           </div>
 
           <form
             onSubmit={handleSubmit}
             noValidate
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5"
+            className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-white px-4 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:space-y-4 sm:px-6 sm:py-5"
           >
             {submitError ? (
               <div
                 role="alert"
-                className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2 border-2 p-3 text-xs font-bold"
+                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 text-xs font-medium text-[#B92B0C]"
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{submitError}</span>
@@ -222,18 +228,18 @@ export function CustomerFormDialog({
             {duplicateCheck && !duplicateCheck.confirmedSeparate ? (
               <div
                 role="alert"
-                className="border-studio-ink text-studio-ink space-y-2.5 border-2 bg-amber-100 p-3.5 text-xs"
+                className="space-y-3 rounded-xl border border-amber-500/25 bg-[#FEF4DD] p-4 text-xs text-[#8A4B08]"
               >
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2.5">
                   <AlertTriangle
-                    className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
+                    className="mt-0.5 h-4 w-4 shrink-0 text-[#FF4B22]"
                     aria-hidden="true"
                   />
                   <div>
-                    <p className="font-mono text-[10px] font-extrabold uppercase">
+                    <p className="font-mono text-[11px] font-semibold text-[#151515] uppercase">
                       Nomor Sudah Terdaftar ({formatPhoneDisplay(duplicateCheck.phoneNormalized)})
                     </p>
-                    <p className="mt-1 font-semibold">
+                    <p className="mt-1">
                       Profil aktif pada nomor ini:{' '}
                       <strong>
                         {duplicateCheck.activeProfiles.map((p) => p.displayName).join(', ')}
@@ -249,7 +255,7 @@ export function CustomerFormDialog({
                     onClick={() => {
                       setDuplicateCheck((prev) => ({ ...prev, confirmedSeparate: true }));
                     }}
-                    className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase"
+                    className="sa-control sa-btn-lime inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                   >
                     <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Konfirmasi Buat Profil Terpisah</span>
@@ -257,7 +263,7 @@ export function CustomerFormDialog({
                   <button
                     type="button"
                     onClick={() => setDuplicateCheck(null)}
-                    className="border-studio-ink bg-studio-white text-studio-ink min-h-10 cursor-pointer border px-3 py-1.5 font-mono text-[10px] font-bold uppercase"
+                    className="sa-control sa-btn-secondary min-h-9.5 cursor-pointer px-3 py-1.5 text-xs font-semibold"
                   >
                     Periksa Ulang
                   </button>
@@ -269,12 +275,10 @@ export function CustomerFormDialog({
             {phoneConflict ? (
               <div
                 role="alert"
-                className="border-studio-ink bg-studio-orange/15 text-studio-ink space-y-2.5 border-2 p-3.5 text-xs"
+                className="space-y-3 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-4 text-xs text-[#B92B0C]"
               >
-                <p className="font-mono text-[10px] font-extrabold text-[#b92b0c] uppercase">
-                  Nomor Baru Sudah Digunakan Profil Lain
-                </p>
-                <p className="font-semibold">
+                <p className="font-semibold uppercase">Nomor Baru Sudah Digunakan Profil Lain</p>
+                <p>
                   Nomor <strong>{phoneConflict.newPhoneDisplay}</strong> saat ini digunakan oleh:{' '}
                   <strong>
                     {phoneConflict.conflictingProfiles.map((p) => p.displayName).join(', ')}
@@ -293,7 +297,7 @@ export function CustomerFormDialog({
                         });
                         onOpenChange?.(false);
                       }}
-                      className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] font-extrabold uppercase"
+                      className="sa-control sa-btn-lime inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                     >
                       <GitMerge className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Merge ke {conflictTarget.displayName}</span>
@@ -302,7 +306,7 @@ export function CustomerFormDialog({
                   <button
                     type="button"
                     onClick={() => setPhoneConflict(null)}
-                    className="border-studio-ink bg-studio-white text-studio-ink min-h-10 cursor-pointer border px-3 py-1.5 font-mono text-[10px] font-bold uppercase"
+                    className="sa-control sa-btn-secondary min-h-9.5 cursor-pointer px-3 py-1.5 text-xs font-semibold"
                   >
                     Batal
                   </button>
@@ -314,9 +318,9 @@ export function CustomerFormDialog({
               <div>
                 <label
                   htmlFor="customer-form-name"
-                  className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                  className="block text-xs font-semibold text-[#151515]"
                 >
-                  Nama Customer <span className="text-studio-orange">*</span>
+                  Nama Customer <span className="text-[#FF4B22]">*</span>
                 </label>
                 <input
                   id="customer-form-name"
@@ -328,10 +332,10 @@ export function CustomerFormDialog({
                     setDuplicateCheck(null);
                   }}
                   placeholder="Contoh: Arief Music"
-                  className="border-studio-ink bg-studio-white text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
+                  className="sa-input mt-1.5 min-h-10.5 w-full px-3.5 py-2 text-sm font-medium"
                 />
                 {fieldErrors.displayName ? (
-                  <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                  <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                     {fieldErrors.displayName}
                   </p>
                 ) : null}
@@ -342,10 +346,10 @@ export function CustomerFormDialog({
               <div>
                 <label
                   htmlFor="customer-form-phone"
-                  className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                  className="block text-xs font-semibold text-[#151515]"
                 >
                   {mode === 'phone' ? 'Nomor HP / WhatsApp Baru' : 'Nomor HP / WhatsApp'}{' '}
-                  <span className="text-studio-orange">*</span>
+                  <span className="text-[#FF4B22]">*</span>
                 </label>
                 <input
                   id="customer-form-phone"
@@ -359,15 +363,15 @@ export function CustomerFormDialog({
                     setPhoneConflict(null);
                   }}
                   placeholder="Contoh: 081234567890 atau +6281234567890"
-                  className="border-studio-ink bg-studio-white text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-bold"
+                  className="sa-input mt-1.5 min-h-10.5 w-full px-3.5 py-2 font-mono text-sm font-semibold"
                 />
                 {fieldErrors.phone ? (
-                  <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                  <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                     {fieldErrors.phone}
                   </p>
                 ) : null}
                 {mode === 'phone' ? (
-                  <p className="text-studio-muted-ink mt-1.5 text-[11px] font-medium">
+                  <p className="mt-1.5 text-[11px] text-[#666159]">
                     Mengganti nomor utama tidak mengubah catatan nomor HP pada booking yang sudah
                     lewat.
                   </p>
@@ -379,9 +383,9 @@ export function CustomerFormDialog({
               <div>
                 <label
                   htmlFor="customer-form-notes"
-                  className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                  className="block text-xs font-semibold text-[#151515]"
                 >
-                  Catatan Profil <span className="text-studio-muted-ink">(Opsional)</span>
+                  Catatan Profil <span className="font-normal text-[#666159]">(Opsional)</span>
                 </label>
                 <textarea
                   id="customer-form-notes"
@@ -389,29 +393,29 @@ export function CustomerFormDialog({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Contoh: Manager band / kontak utama studio"
-                  className="border-studio-ink bg-studio-white text-studio-ink mt-1.5 w-full border-2 px-3 py-2 text-xs font-medium"
+                  className="sa-input mt-1.5 w-full px-3.5 py-2.5 text-xs"
                 />
                 {fieldErrors.notes ? (
-                  <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                  <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                     {fieldErrors.notes}
                   </p>
                 ) : null}
               </div>
             ) : null}
 
-            <div className="border-studio-ink flex items-center justify-end gap-2.5 border-t pt-4">
+            <div className="flex items-center justify-end gap-2.5 border-t border-[#151515]/[0.08] pt-4">
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleClose}
-                className="brutal-btn bg-studio-white text-studio-ink min-h-11 cursor-pointer px-4 py-2 font-mono text-xs font-extrabold uppercase"
+                className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-4 py-2 text-xs font-semibold"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-2 px-5 py-2 font-mono text-xs font-extrabold uppercase disabled:opacity-60"
+                className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-2 px-5 py-2 text-xs font-semibold disabled:opacity-60"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

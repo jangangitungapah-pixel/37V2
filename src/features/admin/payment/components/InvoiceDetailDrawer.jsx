@@ -32,6 +32,7 @@ import {
   formatIndonesianTimestamp,
 } from '@/features/admin/calendar/utils/calendar-date';
 import { formatPhoneDisplay } from '@/features/admin/customer/utils/phone-number';
+import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 
 import { useInvoiceDetail } from '../hooks/useInvoiceDetail';
 import { buildWhatsAppInvoiceSummary } from '../utils/invoice-format';
@@ -115,39 +116,43 @@ export function InvoiceDetailDrawer({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/65 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-40"
+        />
 
         <Dialog.Popup
+          data-admin-portal-layer="true"
           aria-label={invoice ? `Detail invoice ${invoice.invoiceNumber}` : 'Detail invoice'}
           data-payment-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col border-l-2 shadow-[-6px_0px_0px_#151515]"
+          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col outline-none"
         >
-          {/* Sticky Dark Header */}
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory shrink-0 border-b-2 px-4 py-3.5 sm:px-5">
-            <div className="flex items-start justify-between gap-3">
+          {/* Sticky Header */}
+          <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3 sm:px-5 sm:py-4">
+            <div className="flex items-start justify-between gap-2.5 sm:gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span
-                    className={`border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase ${invoiceMeta.badgeClass}`}
+                    className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${invoiceMeta.badgeClass}`}
                   >
                     {invoiceMeta.label}
                   </span>
                   {!isVoid ? (
                     <span
-                      className={`border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase ${paymentMeta.badgeClass}`}
+                      className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${paymentMeta.badgeClass}`}
                     >
                       {paymentMeta.label}
                     </span>
                   ) : null}
                 </div>
 
-                <Dialog.Title className="font-display mt-1.5 truncate text-xl leading-none font-black tracking-tight text-white uppercase sm:text-2xl">
+                <Dialog.Title className="mt-1.5 truncate font-mono text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
                   {invoice?.invoiceNumber || 'Memuat Invoice...'}
                 </Dialog.Title>
-                <Dialog.Description className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10.5px] text-neutral-300">
+                <Dialog.Description className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-[#666159] sm:text-xs">
                   <span>Dibuat: {formatIndonesianTimestamp(invoice?.invoiceDate)}</span>
                   {invoice?.dueDate ? (
-                    <span className="text-studio-lime font-bold">
+                    <span className="font-semibold text-[#151515]">
                       • Jatuh Tempo: {formatIndonesianDateMedium(invoice.dueDate)}
                     </span>
                   ) : null}
@@ -156,20 +161,20 @@ export function InvoiceDetailDrawer({
 
               <Dialog.Close
                 aria-label="Tutup detail invoice"
-                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white transition-colors"
+                className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
               </Dialog.Close>
             </div>
 
             {/* Action Bar */}
             {invoice ? (
-              <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-neutral-800 pt-2.5">
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-[#151515]/[0.07] pt-2.5 sm:mt-3.5 sm:gap-2 sm:pt-3">
                 {canRecordPayment ? (
                   <button
                     type="button"
                     onClick={() => onOpenRecordPayment?.(invoice)}
-                    className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase"
+                    className="sa-control sa-btn-lime inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
                   >
                     <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Catat Pembayaran</span>
@@ -179,21 +184,21 @@ export function InvoiceDetailDrawer({
                 <button
                   type="button"
                   onClick={() => onOpenPrintPreview?.(invoice, transactions)}
-                  className="border-studio-ivory bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase"
+                  className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
                 >
-                  <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                  <Printer className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                   <span>Cetak / PDF</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleCopySummary}
-                  className="border-studio-ivory bg-studio-ivory text-studio-ink hover:bg-studio-white inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase"
+                  className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
                 >
                   {copiedSummary ? (
-                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                    <Check className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
                   ) : (
-                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                    <Copy className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                   )}
                   <span>{copiedSummary ? 'Disalin' : 'Salin WA'}</span>
                 </button>
@@ -202,7 +207,7 @@ export function InvoiceDetailDrawer({
                   <button
                     type="button"
                     onClick={() => onOpenVoidInvoice?.(invoice)}
-                    className="border-studio-ivory bg-studio-orange text-studio-white inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase"
+                    className="sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[#FF4B22]/25 bg-[#FFEDE8]/85 px-3 py-1 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white"
                   >
                     <Ban className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Batalkan Invoice</span>
@@ -213,11 +218,11 @@ export function InvoiceDetailDrawer({
           </div>
 
           {/* Scrollable Body */}
-          <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-3.5 pb-7 sm:px-5 sm:py-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-8 sm:px-5">
             {error ? (
               <div
                 role="alert"
-                className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2 border-2 p-3 text-xs font-bold"
+                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 text-xs font-medium text-[#B92B0C]"
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
@@ -225,38 +230,41 @@ export function InvoiceDetailDrawer({
             ) : null}
 
             {!invoice ? (
-              <div className="cal-card bg-studio-white flex items-center gap-2 p-4 font-mono text-xs font-bold">
+              <AdminSurface
+                variant="card"
+                className="flex items-center gap-2 p-4 text-xs font-medium text-[#666159]"
+              >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
                     <span>Memuat dokumen invoice...</span>
                   </>
                 ) : (
                   <span>Dokumen invoice tidak ditemukan.</span>
                 )}
-              </div>
+              </AdminSurface>
             ) : (
               <>
                 {isVoid && invoice.voidReason ? (
-                  <div className="border-studio-ink text-studio-white border-2 bg-neutral-900 p-3 text-xs">
-                    <p className="font-mono text-[9.5px] font-extrabold text-amber-300 uppercase">
+                  <div className="rounded-2xl border border-white/10 bg-[#151515] p-3.5 text-xs text-white">
+                    <p className="font-mono text-[10.5px] font-semibold text-[#C8F13A] uppercase">
                       Invoice Dibatalkan — Tidak Menerima Pembayaran Baru
                     </p>
-                    <p className="mt-1 font-medium text-neutral-200">
-                      Alasan: {invoice.voidReason}
-                    </p>
+                    <p className="mt-1 text-neutral-300">Alasan: {invoice.voidReason}</p>
                   </div>
                 ) : null}
 
-                {/* 1. Financial Breakdown (Strict Customer Billing — Zero Internal Fees) */}
-                <section
+                {/* 1. Financial Breakdown */}
+                <AdminSurface
+                  as="section"
+                  variant="card"
                   aria-labelledby="invoice-financial-heading"
-                  className="cal-card bg-studio-white p-3.5 sm:p-4"
+                  className="p-4"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3
                       id="invoice-financial-heading"
-                      className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                      className="text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
                     >
                       Rincian Tagihan
                     </h3>
@@ -269,20 +277,20 @@ export function InvoiceDetailDrawer({
                             aria-label="Tanggal jatuh tempo invoice"
                             value={dueDateInput}
                             onChange={(e) => setDueDateInput(e.target.value)}
-                            className="border-studio-ink bg-studio-ivory h-8 border px-2 font-mono text-[10px] font-bold"
+                            className="sa-input h-8.5 px-2.5 font-mono text-xs font-medium"
                           />
                           <button
                             type="button"
                             disabled={savingDueDate}
                             onClick={handleCommitDueDate}
-                            className="border-studio-ink bg-studio-lime text-studio-ink h-8 cursor-pointer border px-2 font-mono text-[9.5px] font-extrabold uppercase"
+                            className="sa-control sa-btn-lime h-8.5 cursor-pointer px-2.5 text-xs font-semibold"
                           >
                             Simpan
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingDueDate(false)}
-                            className="border-studio-ink bg-studio-ivory text-studio-ink h-8 cursor-pointer border px-2 font-mono text-[9.5px] font-bold uppercase"
+                            className="sa-control sa-btn-secondary h-8.5 cursor-pointer px-2.5 text-xs font-medium"
                           >
                             Batal
                           </button>
@@ -294,7 +302,7 @@ export function InvoiceDetailDrawer({
                             setDueDateInput(invoice.dueDate || '');
                             setEditingDueDate(true);
                           }}
-                          className="text-studio-muted-ink hover:text-studio-orange cursor-pointer font-mono text-[10px] font-extrabold uppercase underline"
+                          className="cursor-pointer text-xs font-semibold text-[#666159] underline-offset-2 transition-colors hover:text-[#FF4B22] hover:underline"
                         >
                           {invoice.dueDate ? 'Ubah Jatuh Tempo' : '+ Atur Jatuh Tempo'}
                         </button>
@@ -302,128 +310,128 @@ export function InvoiceDetailDrawer({
                     ) : null}
                   </div>
 
-                  <dl className="mt-3 space-y-1.5 border-t border-neutral-200 pt-3 font-mono text-xs">
+                  <dl className="mt-3 space-y-2 border-t border-[#151515]/[0.07] pt-3 font-mono text-xs">
                     <div className="flex justify-between gap-2">
-                      <dt className="text-studio-muted-ink">Subtotal</dt>
-                      <dd className="font-bold tabular-nums">
+                      <dt className="text-[#666159]">Subtotal</dt>
+                      <dd className="font-semibold text-[#151515] tabular-nums">
                         {formatRupiah(invoice.financialSnapshot?.subtotal || 0)}
                       </dd>
                     </div>
                     {Number(invoice.financialSnapshot?.discountAmount) > 0 ? (
-                      <div className="flex justify-between gap-2 text-emerald-800">
+                      <div className="flex justify-between gap-2 text-[#0F6246]">
                         <dt>Diskon</dt>
-                        <dd className="font-bold tabular-nums">
+                        <dd className="font-semibold tabular-nums">
                           -{formatRupiah(invoice.financialSnapshot.discountAmount)}
                         </dd>
                       </div>
                     ) : null}
-                    <div className="border-studio-ink flex justify-between gap-2 border-t pt-1.5 text-sm font-extrabold">
+                    <div className="flex justify-between gap-2 border-t border-[#151515]/[0.08] pt-2 text-sm font-bold text-[#151515]">
                       <dt>Total Invoice</dt>
                       <dd className="tabular-nums">
                         {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)}
                       </dd>
                     </div>
-                    <div className="flex justify-between gap-2 text-emerald-800">
+                    <div className="flex justify-between gap-2 text-[#0F6246]">
                       <dt>Sudah Dibayar</dt>
-                      <dd className="font-extrabold tabular-nums">
+                      <dd className="font-bold tabular-nums">
                         {formatRupiah(invoice.amountPaid || 0)}
                       </dd>
                     </div>
-                    <div className="border-studio-ink flex justify-between gap-2 border-t pt-1.5 text-sm font-extrabold">
-                      <dt className={invoice.balanceDue > 0 && !isVoid ? 'text-studio-orange' : ''}>
+                    <div className="flex justify-between gap-2 border-t border-[#151515]/[0.08] pt-2 text-sm font-bold">
+                      <dt
+                        className={
+                          invoice.balanceDue > 0 && !isVoid ? 'text-[#FF4B22]' : 'text-[#151515]'
+                        }
+                      >
                         Sisa Tagihan
                       </dt>
                       <dd
                         className={`tabular-nums ${
-                          invoice.balanceDue > 0 && !isVoid
-                            ? 'text-studio-orange'
-                            : 'text-emerald-800'
+                          invoice.balanceDue > 0 && !isVoid ? 'text-[#FF4B22]' : 'text-[#0F6246]'
                         }`}
                       >
                         {formatRupiah(invoice.balanceDue || 0)}
                       </dd>
                     </div>
                   </dl>
-                </section>
+                </AdminSurface>
 
                 {/* 2. Customer Info */}
-                <section
+                <AdminSurface
+                  as="section"
+                  variant="card"
                   aria-labelledby="invoice-customer-heading"
-                  className="cal-card bg-studio-white p-3.5 sm:p-4"
+                  className="p-4"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <h3
                       id="invoice-customer-heading"
-                      className="flex items-center gap-1.5 font-mono text-xs font-extrabold tracking-wider uppercase"
+                      className="flex items-center gap-1.5 text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
                     >
-                      <UserRound className="h-3.5 w-3.5" aria-hidden="true" />
+                      <UserRound className="h-4 w-4 text-[#666159]" aria-hidden="true" />
                       <span>Data Pelanggan</span>
                     </h3>
                     {invoice.customerId ? (
                       <Link
                         to={`/admin/customer?customerId=${encodeURIComponent(invoice.customerId)}`}
-                        className="text-studio-ink hover:text-studio-orange inline-flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#666159] transition-colors hover:text-[#FF4B22]"
                       >
                         <span>Lihat Pelanggan</span>
-                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                       </Link>
                     ) : null}
                   </div>
 
-                  <dl className="mt-2.5 grid grid-cols-1 gap-2.5 border-t border-neutral-200 pt-2.5 text-xs sm:grid-cols-2">
+                  <dl className="mt-3 grid grid-cols-1 gap-3 border-t border-[#151515]/[0.07] pt-3 text-xs sm:grid-cols-2">
                     <div>
-                      <dt className="text-studio-muted-ink font-mono text-[9.5px] font-bold uppercase">
-                        Nama Pelanggan
-                      </dt>
-                      <dd className="mt-0.5 font-extrabold">
+                      <dt className="text-[11px] font-medium text-[#666159]">Nama Pelanggan</dt>
+                      <dd className="mt-0.5 font-semibold text-[#151515]">
                         {invoice.customerSnapshot?.name || '-'}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-studio-muted-ink font-mono text-[9.5px] font-bold uppercase">
-                        No. HP / WhatsApp
-                      </dt>
-                      <dd className="mt-0.5 font-mono font-extrabold">
+                      <dt className="text-[11px] font-medium text-[#666159]">No. HP / WhatsApp</dt>
+                      <dd className="mt-0.5 font-mono font-semibold text-[#151515]">
                         {formatPhoneDisplay(invoice.customerSnapshot?.phone || '') || '-'}
                       </dd>
                     </div>
                     {invoice.customerSnapshot?.bandName ? (
                       <div className="sm:col-span-2">
-                        <dt className="text-studio-muted-ink font-mono text-[9.5px] font-bold uppercase">
-                          Band / Project
-                        </dt>
-                        <dd className="mt-0.5 font-bold">{invoice.customerSnapshot.bandName}</dd>
+                        <dt className="text-[11px] font-medium text-[#666159]">Band / Project</dt>
+                        <dd className="mt-0.5 font-medium text-[#151515]">
+                          {invoice.customerSnapshot.bandName}
+                        </dd>
                       </div>
                     ) : null}
                   </dl>
-                </section>
+                </AdminSurface>
 
                 {/* 3. Booking Info */}
-                <section
+                <AdminSurface
+                  as="section"
+                  variant="card"
                   aria-labelledby="invoice-booking-heading"
-                  className="cal-card bg-studio-white p-3.5 sm:p-4"
+                  className="p-4"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <h3
                       id="invoice-booking-heading"
-                      className="flex items-center gap-1.5 font-mono text-xs font-extrabold tracking-wider uppercase"
+                      className="flex items-center gap-1.5 text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
                     >
-                      <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+                      <CalendarClock className="h-4 w-4 text-[#666159]" aria-hidden="true" />
                       <span>Detail Booking</span>
                     </h3>
                     <span
-                      className={`border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase ${room.badgeClass}`}
+                      className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${room.badgeClass}`}
                     >
                       {room.label}
                     </span>
                   </div>
 
-                  <dl className="mt-2.5 grid grid-cols-1 gap-2.5 border-t border-neutral-200 pt-2.5 text-xs sm:grid-cols-2">
+                  <dl className="mt-3 grid grid-cols-1 gap-3 border-t border-[#151515]/[0.07] pt-3 text-xs sm:grid-cols-2">
                     <div>
-                      <dt className="text-studio-muted-ink font-mono text-[9.5px] font-bold uppercase">
-                        Layanan
-                      </dt>
-                      <dd className="mt-0.5 font-extrabold">
+                      <dt className="text-[11px] font-medium text-[#666159]">Layanan</dt>
+                      <dd className="mt-0.5 font-semibold text-[#151515]">
                         {invoice.bookingSnapshot?.serviceTypeName}
                         {invoice.bookingSnapshot?.serviceOptionName
                           ? ` • ${invoice.bookingSnapshot.serviceOptionName}`
@@ -431,10 +439,8 @@ export function InvoiceDetailDrawer({
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-studio-muted-ink font-mono text-[9.5px] font-bold uppercase">
-                        Tanggal &amp; Jam
-                      </dt>
-                      <dd className="mt-0.5 font-mono font-bold">
+                      <dt className="text-[11px] font-medium text-[#666159]">Tanggal &amp; Jam</dt>
+                      <dd className="mt-0.5 font-mono font-medium text-[#151515]">
                         {invoice.bookingSnapshot?.bookingDate
                           ? formatIndonesianDateMedium(invoice.bookingSnapshot.bookingDate)
                           : '-'}{' '}
@@ -448,51 +454,49 @@ export function InvoiceDetailDrawer({
                       </dd>
                     </div>
                     <div className="sm:col-span-2">
-                      <dt className="text-studio-muted-ink font-mono text-[9.5px] font-bold uppercase">
-                        Kode Booking
-                      </dt>
-                      <dd className="mt-0.5 font-mono text-[11px] font-bold break-all">
+                      <dt className="text-[11px] font-medium text-[#666159]">Kode Booking</dt>
+                      <dd className="mt-0.5 font-mono text-xs break-all text-[#46433D]">
                         {invoice.bookingId}
                       </dd>
                     </div>
                   </dl>
-                </section>
+                </AdminSurface>
 
                 {/* 4. Payment History */}
-                <section
+                <AdminSurface
+                  as="section"
+                  variant="card"
                   aria-labelledby="invoice-payments-heading"
-                  className="cal-card bg-studio-white p-3.5 sm:p-4"
+                  className="p-4"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.07] pb-2.5">
                     <h3
                       id="invoice-payments-heading"
-                      className="flex items-center gap-1.5 font-mono text-xs font-extrabold tracking-wider uppercase"
+                      className="flex items-center gap-1.5 text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
                     >
-                      <ReceiptText className="h-3.5 w-3.5" aria-hidden="true" />
+                      <ReceiptText className="h-4 w-4 text-[#666159]" aria-hidden="true" />
                       <span>Riwayat Pembayaran ({transactions.length})</span>
                     </h3>
-                    <span className="text-studio-muted-ink font-mono text-[9.5px] font-bold uppercase">
-                      Tercatat Permanen
-                    </span>
+                    <span className="text-[11px] text-[#666159]">Tercatat Permanen</span>
                   </div>
 
                   {isLoading && transactions.length === 0 ? (
-                    <div className="mt-3 flex items-center gap-2 font-mono text-xs font-bold">
+                    <div className="mt-3 flex items-center gap-2 text-xs text-[#666159]">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                       <span>Memuat riwayat transaksi...</span>
                     </div>
                   ) : transactions.length === 0 ? (
-                    <div className="border-studio-ink bg-studio-ivory mt-3 border border-dashed p-4 text-center">
-                      <p className="font-mono text-xs font-extrabold uppercase">
+                    <div className="sa-panel mt-3 border-dashed p-5 text-center">
+                      <p className="text-xs font-semibold text-[#151515]">
                         Belum Ada Pembayaran Tercatat
                       </p>
-                      <p className="text-studio-muted-ink mt-1 text-xs">
+                      <p className="mt-1 text-xs text-[#666159]">
                         Klik <strong>Catat Pembayaran</strong> untuk mencatat DP, cicilan, atau
                         pelunasan.
                       </p>
                     </div>
                   ) : (
-                    <ul className="mt-3 space-y-2">
+                    <ul className="mt-3 space-y-2.5">
                       {transactions.map((tx) => {
                         const isReversal = tx.transactionType === TRANSACTION_TYPE.REVERSAL;
                         const isReversed = reversedTransactionIds.has(tx.id);
@@ -503,70 +507,76 @@ export function InvoiceDetailDrawer({
                         return (
                           <li
                             key={tx.id}
-                            className={`border-studio-ink border-2 p-2.5 text-xs ${
+                            className={`rounded-xl border border-[#151515]/10 p-3 text-xs ${
                               isReversal
-                                ? 'border-l-studio-orange border-l-4 bg-orange-50/50'
-                                : 'bg-studio-ivory/50'
+                                ? 'border-l-[3px] border-l-[#FF4B22] bg-[#FFEDE8]/45'
+                                : 'bg-[#FAF8F3]/75'
                             }`}
                           >
                             <div className="flex flex-wrap items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   <span
-                                    className={`border px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold uppercase ${typeMeta.badgeClass}`}
+                                    className={`rounded-full border px-2 py-0.5 font-mono text-[9.5px] font-semibold uppercase ${typeMeta.badgeClass}`}
                                   >
                                     {typeMeta.label}
                                   </span>
-                                  <span className="border-studio-ink bg-studio-white border px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase">
+                                  <AdminStatusBadge
+                                    tone="ivory"
+                                    size="sm"
+                                    className="font-mono uppercase"
+                                  >
                                     {getPaymentMethodLabel(tx.paymentMethod)}
-                                  </span>
-                                  <span className="text-studio-muted-ink font-mono text-[9.5px] font-bold">
+                                  </AdminStatusBadge>
+                                  <span className="text-[11px] font-medium text-[#666159]">
                                     {sourceMeta.shortLabel}
                                   </span>
                                   {isReversed ? (
-                                    <span className="border-studio-ink border bg-neutral-200 px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold text-neutral-700 uppercase">
+                                    <AdminStatusBadge
+                                      tone="neutral"
+                                      size="sm"
+                                      className="uppercase"
+                                    >
                                       Dibatalkan
-                                    </span>
+                                    </AdminStatusBadge>
                                   ) : null}
                                 </div>
 
-                                <p className="mt-1 font-mono text-[10.5px] font-bold">
+                                <p className="mt-1.5 font-mono text-[11px] font-medium text-[#151515]">
                                   {formatIndonesianTimestamp(tx.receivedAt || tx.createdAt)}
                                 </p>
                                 {tx.referenceNumber ? (
-                                  <p className="text-studio-muted-ink font-mono text-[10px]">
+                                  <p className="font-mono text-[11px] text-[#666159]">
                                     Ref: {tx.referenceNumber}
                                   </p>
                                 ) : null}
                                 {tx.notes ? (
-                                  <p className="text-studio-ink mt-0.5 text-[11px] font-medium">
-                                    {tx.notes}
-                                  </p>
+                                  <p className="mt-0.5 text-xs text-[#46433D]">{tx.notes}</p>
                                 ) : null}
-                                <p className="text-studio-subtle-ink mt-0.5 font-mono text-[9.5px]">
+                                <p className="mt-0.5 font-mono text-[10px] text-[#8B857B]">
                                   No. Transaksi: {tx.id}
                                 </p>
                               </div>
 
                               <div className="shrink-0 text-right">
                                 <p
-                                  className={`font-mono text-sm font-extrabold tabular-nums ${
+                                  className={`font-mono text-sm font-bold tabular-nums ${
                                     isReversal
-                                      ? 'text-studio-orange'
+                                      ? 'text-[#FF4B22]'
                                       : isReversed
-                                        ? 'text-neutral-500 line-through'
-                                        : 'text-emerald-800'
+                                        ? 'text-[#8B857B] line-through'
+                                        : 'text-[#0F6246]'
                                   }`}
                                 >
                                   {isReversal ? '-' : '+'}
                                   {formatRupiah(tx.amount)}
                                 </p>
 
-                                <div className="mt-1.5 flex items-center justify-end gap-1">
+                                <div className="mt-2 flex items-center justify-end gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() => onOpenReceipt?.(tx, invoice)}
-                                    className="border-studio-ink bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex h-7 cursor-pointer items-center gap-1 border px-2 font-mono text-[9px] font-extrabold uppercase"
+                                    className="sa-control sa-btn-secondary inline-flex h-7.5 cursor-pointer items-center gap-1 px-2.5 text-[11px] font-semibold hover:bg-[#C8F13A]"
                                   >
                                     <ReceiptText className="h-3 w-3" aria-hidden="true" />
                                     <span>Kwitansi</span>
@@ -577,7 +587,7 @@ export function InvoiceDetailDrawer({
                                       type="button"
                                       onClick={() => onOpenCorrection?.(invoice, tx)}
                                       aria-label={`Koreksi atau batalkan transaksi ${tx.id}`}
-                                      className="border-studio-ink bg-studio-ivory text-studio-orange hover:bg-studio-orange hover:text-studio-white inline-flex h-7 cursor-pointer items-center gap-1 border px-2 font-mono text-[9px] font-extrabold uppercase"
+                                      className="sa-control inline-flex h-7.5 cursor-pointer items-center gap-1 rounded-lg border border-[#FF4B22]/25 bg-[#FFEDE8]/85 px-2.5 text-[11px] font-semibold text-[#B92B0C] transition-colors hover:bg-[#FF4B22] hover:text-white"
                                     >
                                       <RotateCcw className="h-3 w-3" aria-hidden="true" />
                                       <span>Batalkan</span>
@@ -591,7 +601,7 @@ export function InvoiceDetailDrawer({
                       })}
                     </ul>
                   )}
-                </section>
+                </AdminSurface>
               </>
             )}
           </div>

@@ -113,20 +113,20 @@ export function getInvoiceStatusMeta(invoiceStatus) {
       return {
         id: INVOICE_STATUS.DRAFT,
         label: 'Draf',
-        badgeClass: 'bg-neutral-200 text-neutral-800 border-studio-ink',
+        badgeClass: 'bg-[#151515]/[0.06] text-[#46433D] border-[#151515]/12',
       };
     case INVOICE_STATUS.VOID:
       return {
         id: INVOICE_STATUS.VOID,
         label: 'Dibatalkan',
-        badgeClass: 'bg-neutral-800 text-neutral-100 border-studio-ink',
+        badgeClass: 'bg-[#151515] text-[#F1EEE4] border-[#151515]',
       };
     case INVOICE_STATUS.ISSUED:
     default:
       return {
         id: INVOICE_STATUS.ISSUED,
         label: 'Aktif',
-        badgeClass: 'bg-studio-white text-studio-ink border-studio-ink',
+        badgeClass: 'bg-white text-[#151515] border-[#151515]/14',
       };
   }
 }
@@ -139,7 +139,7 @@ export function getPaymentStatusMeta(paymentStatus) {
         label: 'Lunas',
         indoLabel: 'Lunas',
         shortLabel: 'Lunas',
-        badgeClass: 'bg-studio-lime text-studio-ink border-studio-ink',
+        badgeClass: 'bg-[#EDF8C2] text-[#243300] border-[#8BAD12]/35',
       };
     case PAYMENT_STATUS.PARTIAL:
       return {
@@ -147,7 +147,7 @@ export function getPaymentStatusMeta(paymentStatus) {
         label: 'DP / Sebagian',
         indoLabel: 'DP / Sebagian',
         shortLabel: 'DP',
-        badgeClass: 'bg-amber-200 text-studio-ink border-studio-ink',
+        badgeClass: 'bg-[#FEF4DD] text-[#8A4B08] border-amber-500/25',
       };
     case PAYMENT_STATUS.OVERDUE:
       return {
@@ -155,7 +155,7 @@ export function getPaymentStatusMeta(paymentStatus) {
         label: 'Lewat Tempo',
         indoLabel: 'Lewat Jatuh Tempo',
         shortLabel: 'Lewat Tempo',
-        badgeClass: 'bg-studio-orange text-studio-white border-studio-ink',
+        badgeClass: 'bg-[#FFEDE8] text-[#B92B0C] border-[#FF4B22]/25',
       };
     case PAYMENT_STATUS.UNPAID:
     default:
@@ -164,7 +164,7 @@ export function getPaymentStatusMeta(paymentStatus) {
         label: 'Belum Bayar',
         indoLabel: 'Belum Bayar',
         shortLabel: 'Belum Bayar',
-        badgeClass: 'bg-studio-ivory text-studio-ink border-studio-ink',
+        badgeClass: 'bg-[#F8F6EF] text-[#46433D] border-[#151515]/12',
       };
   }
 }
@@ -175,14 +175,14 @@ export function getTransactionTypeMeta(transactionType) {
       id: TRANSACTION_TYPE.REVERSAL,
       label: 'Pembatalan',
       indoLabel: 'Koreksi / Pembatalan',
-      badgeClass: 'bg-studio-orange text-studio-white border-studio-ink',
+      badgeClass: 'bg-[#FFEDE8] text-[#B92B0C] border-[#FF4B22]/25',
     };
   }
   return {
     id: TRANSACTION_TYPE.PAYMENT,
     label: 'Pembayaran',
     indoLabel: 'Pembayaran Masuk',
-    badgeClass: 'bg-studio-lime text-studio-ink border-studio-ink',
+    badgeClass: 'bg-[#EDF8C2] text-[#243300] border-[#8BAD12]/35',
   };
 }
 

@@ -3,6 +3,7 @@ import { Dialog } from '@base-ui/react/dialog';
 import { AlertTriangle, CheckCircle2, Database, Link2, Loader2, RefreshCw, X } from 'lucide-react';
 
 import { formatIndonesianDateMedium } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminStatusBadge } from '@/features/admin/design-system';
 
 import {
   importLegacyBookingHistory,
@@ -123,24 +124,27 @@ export function LegacyCustomerImportDialog({
   return (
     <Dialog.Root open={open} onOpenChange={(next) => (!isImporting ? onOpenChange?.(next) : null)}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-[60]"
+        />
 
         <Dialog.Popup
+          data-admin-portal-layer="true"
           aria-label="Import existing booking history"
           data-customer-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-[70] mx-auto flex h-[95dvh] w-full max-w-3xl flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[90dvh] sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:border-2"
+          className="sa-dialog fixed inset-x-0 bottom-0 z-[70] mx-auto flex h-[95dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[90dvh] sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
         >
           {/* Header */}
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory flex shrink-0 items-start justify-between gap-3 border-b-2 px-4 py-4 sm:px-6">
+          <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-4">
             <div className="min-w-0">
-              <span className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
-                <Database className="h-3 w-3" aria-hidden="true" />
-                <span>LENGKAPI DATA PELANGGAN LAMA</span>
-              </span>
-              <Dialog.Title className="font-display mt-1.5 text-2xl leading-none font-black text-white uppercase sm:text-3xl">
+              <AdminStatusBadge tone="lime" icon={Database} size="sm" className="uppercase">
+                Lengkapi Data Pelanggan Lama
+              </AdminStatusBadge>
+              <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
                 Hubungkan Data Booking Lama
               </Dialog.Title>
-              <Dialog.Description className="mt-1 text-xs text-neutral-300">
+              <Dialog.Description className="sr-only sm:not-sr-only sm:mt-0.5 sm:block sm:text-xs sm:text-[#666159]">
                 Membuat data pelanggan dari booking lama secara otomatis tanpa mengubah harga,
                 komisi, jadwal, atau nama pemesan.
               </Dialog.Description>
@@ -149,17 +153,17 @@ export function LegacyCustomerImportDialog({
             <Dialog.Close
               aria-label="Tutup dialog import legacy"
               disabled={isImporting}
-              className="hover:border-studio-lime hover:text-studio-lime inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white"
+              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
             >
-              <X className="h-5 w-5" aria-hidden="true" />
+              <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
             </Dialog.Close>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-white px-5 py-5 sm:px-6">
             {error ? (
               <div
                 role="alert"
-                className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2 border-2 p-3 text-xs font-bold"
+                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 text-xs font-medium text-[#B92B0C]"
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
@@ -169,11 +173,11 @@ export function LegacyCustomerImportDialog({
             {importSummary ? (
               <div
                 role="status"
-                className="border-studio-ink bg-studio-lime text-studio-ink flex items-start gap-2.5 border-2 p-3.5 text-xs font-bold"
+                className="flex items-start gap-2.5 rounded-xl border border-[#8BAD12]/35 bg-[#EDF8C2] p-3.5 text-xs text-[#243300]"
               >
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <div>
-                  <p className="font-mono text-[11px] font-extrabold uppercase">
+                  <p className="font-semibold">
                     Import Batch Selesai ({importSummary.batchesCommitted} batch)
                   </p>
                   <p className="mt-0.5">
@@ -186,64 +190,64 @@ export function LegacyCustomerImportDialog({
             ) : null}
 
             {isScanning ? (
-              <div className="border-studio-ink bg-studio-white flex items-center gap-2.5 border-2 p-5 font-mono text-xs font-bold">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              <div className="sa-panel-ivory flex items-center gap-2.5 p-5 text-xs font-medium text-[#666159]">
+                <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
                 <span>Memeriksa daftar booking lama (belum menyimpan perubahan)...</span>
               </div>
             ) : preview ? (
               <>
                 {/* Preview Metrics Grid */}
                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                  <div className="border-studio-ink bg-studio-white border-2 p-3">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3.5">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Belum Terhubung
                     </span>
-                    <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#151515]">
                       {preview.totalLegacyUnlinked}
                     </span>
                   </div>
 
-                  <div className="border-studio-ink bg-studio-white border-2 p-3">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3.5">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Nomor HP Unik
                     </span>
-                    <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#151515]">
                       {preview.uniqueNormalizedPhones}
                     </span>
                   </div>
 
-                  <div className="border-studio-ink bg-studio-white border-2 p-3">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3.5">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Perkiraan Pelanggan
                     </span>
-                    <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#151515]">
                       {preview.estimatedProfiles}
                     </span>
                   </div>
 
-                  <div className="border-studio-ink bg-studio-white border-2 p-3">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3.5">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       No. Sama, Beda Nama
                     </span>
-                    <span className="font-display text-studio-orange mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#FF4B22]">
                       {preview.samePhoneDifferentNamesCount}
                     </span>
                   </div>
 
-                  <div className="border-studio-ink bg-studio-white border-2 p-3">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3.5">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Perlu Dicek (No. Invalid)
                     </span>
-                    <span className="font-display text-studio-orange mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#FF4B22]">
                       {preview.needsReviewCount}
                     </span>
                   </div>
 
-                  <div className="border-studio-ink bg-studio-white border-2 p-3">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3.5">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Sudah Terhubung
                     </span>
-                    <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#151515]">
                       {preview.alreadyLinkedCount}
                     </span>
                   </div>
@@ -251,15 +255,17 @@ export function LegacyCustomerImportDialog({
 
                 {/* Same-phone different-name explanation */}
                 {preview.sharedNumberGroups?.length > 0 ? (
-                  <div className="border-studio-ink border-2 bg-amber-100 p-3.5 text-xs">
-                    <p className="font-mono text-[10px] font-extrabold uppercase">
+                  <div className="rounded-xl border border-amber-500/25 bg-[#FEF4DD] p-3.5 text-xs text-[#8A4B08]">
+                    <p className="font-semibold">
                       Nomor Sama dengan Nama Berbeda (Tetap Dipisahkan, Tidak Auto-Merge)
                     </p>
-                    <ul className="mt-2 space-y-1 font-medium">
+                    <ul className="mt-2 space-y-1">
                       {preview.sharedNumberGroups.map((item) => (
                         <li key={item.phoneNormalized}>
-                          <span className="font-mono font-extrabold">{item.phoneDisplay}</span>:{' '}
-                          {item.profileNames.join(' • ')}
+                          <span className="font-mono font-semibold text-[#151515]">
+                            {item.phoneDisplay}
+                          </span>
+                          : {item.profileNames.join(' • ')}
                         </li>
                       ))}
                     </ul>
@@ -268,8 +274,8 @@ export function LegacyCustomerImportDialog({
 
                 {/* Import Progress */}
                 {isImporting && progress ? (
-                  <div className="border-studio-ink bg-studio-white flex items-center gap-2 border-2 p-3 font-mono text-xs font-bold">
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  <div className="sa-panel-ivory flex items-center gap-2 p-3 text-xs font-medium text-[#46433D]">
+                    <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
                     <span>
                       Memproses batch ({progress.processedOperations} /{' '}
                       {progress.totalOperations || '...'} operasi)...
@@ -281,19 +287,19 @@ export function LegacyCustomerImportDialog({
                 {preview.needsReviewBookings?.length > 0 ? (
                   <section
                     aria-labelledby="legacy-needs-review-heading"
-                    className="border-studio-ink bg-studio-white space-y-3 border-2 p-4"
+                    className="sa-card space-y-3 p-4"
                   >
                     <div>
-                      <span className="border-studio-ink bg-studio-orange text-studio-white inline-block border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                        PERLU DICEK ({preview.needsReviewBookings.length})
-                      </span>
+                      <AdminStatusBadge tone="orange" size="sm" className="uppercase">
+                        Perlu Dicek ({preview.needsReviewBookings.length})
+                      </AdminStatusBadge>
                       <h3
                         id="legacy-needs-review-heading"
-                        className="font-display text-studio-ink mt-1 text-lg leading-none font-black uppercase"
+                        className="mt-1.5 text-base font-bold text-[#151515]"
                       >
                         Booking Lama dengan Nomor Tidak Valid / Kosong
                       </h3>
-                      <p className="text-studio-muted-ink mt-1 text-xs font-medium">
+                      <p className="mt-1 text-xs text-[#666159]">
                         Booking ini tidak otomatis dihapus atau digabung berdasarkan nama. Masukkan
                         nomor HP valid atau tautkan ke profil customer yang sudah ada.
                       </p>
@@ -307,15 +313,15 @@ export function LegacyCustomerImportDialog({
                         return (
                           <div
                             key={booking.id}
-                            className="border-studio-ink bg-studio-ivory space-y-2 border p-3 text-xs"
+                            className="sa-panel-ivory space-y-2.5 p-3.5 text-xs"
                           >
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
                               <div>
-                                <p className="text-studio-ink font-extrabold">
+                                <p className="font-semibold text-[#151515]">
                                   {booking.customerName || '(Tanpa Nama)'}{' '}
                                   {booking.bandName ? `• ${booking.bandName}` : ''}
                                 </p>
-                                <p className="text-studio-muted-ink font-mono text-[10px]">
+                                <p className="mt-0.5 font-mono text-[11px] text-[#666159]">
                                   {formatIndonesianDateMedium(booking.date)} • Raw HP: &ldquo;
                                   {booking.phone || '-'}&rdquo; • {reason}
                                 </p>
@@ -337,7 +343,7 @@ export function LegacyCustomerImportDialog({
                                   }))
                                 }
                                 placeholder="Input nomor HP valid (08...)"
-                                className="border-studio-ink bg-studio-white h-10 w-full border px-2.5 font-mono text-xs font-bold"
+                                className="sa-input h-10 w-full px-3 font-mono text-xs font-medium"
                               />
 
                               <select
@@ -352,7 +358,7 @@ export function LegacyCustomerImportDialog({
                                     },
                                   }))
                                 }
-                                className="border-studio-ink bg-studio-white h-10 w-full border px-2 text-xs font-semibold"
+                                className="sa-input h-10 w-full px-3 text-xs font-medium"
                               >
                                 <option value="">— Atau pilih profil existing —</option>
                                 {activeOnlyCustomers.map((cust) => (
@@ -371,7 +377,7 @@ export function LegacyCustomerImportDialog({
                                   (!draft.correctedPhone && !draft.existingCustomerId)
                                 }
                                 onClick={() => handleResolveNeedsReview(booking.id)}
-                                className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-9 cursor-pointer items-center gap-1.5 px-3 py-1 font-mono text-[10px] font-extrabold uppercase disabled:opacity-50"
+                                className="sa-control sa-btn-lime inline-flex min-h-9 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
                               >
                                 {isLinkingThis ? (
                                   <Loader2
@@ -395,12 +401,12 @@ export function LegacyCustomerImportDialog({
           </div>
 
           {/* Footer */}
-          <div className="border-studio-ink bg-studio-white flex shrink-0 flex-wrap items-center justify-between gap-2 border-t-2 px-4 py-3 sm:px-6">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5 sm:pb-[max(0.875rem,env(safe-area-inset-bottom))]">
             <button
               type="button"
               disabled={isScanning || isImporting}
               onClick={loadPreview}
-              className="border-studio-ink bg-studio-ivory text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-1.5 border px-3 py-2 font-mono text-xs font-bold uppercase disabled:opacity-50"
+              className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold disabled:opacity-50 sm:min-h-10 sm:px-3.5 sm:py-2"
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Scan Ulang</span>
@@ -411,7 +417,7 @@ export function LegacyCustomerImportDialog({
                 type="button"
                 disabled={isImporting}
                 onClick={() => onOpenChange?.(false)}
-                className="brutal-btn bg-studio-white text-studio-ink min-h-11 cursor-pointer px-4 py-2 font-mono text-xs font-extrabold uppercase"
+                className="sa-control sa-btn-secondary min-h-9.5 cursor-pointer px-3.5 py-1.5 text-xs font-semibold sm:min-h-10 sm:px-4 sm:py-2"
               >
                 Tutup
               </button>
@@ -421,7 +427,7 @@ export function LegacyCustomerImportDialog({
                   isScanning || isImporting || !preview || preview.importableBookingCount === 0
                 }
                 onClick={handleRunImport}
-                className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-11 cursor-pointer items-center gap-2 px-5 py-2 font-mono text-xs font-extrabold uppercase disabled:cursor-not-allowed disabled:opacity-50"
+                className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-2 px-5 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isImporting ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

@@ -36,12 +36,12 @@ export function CalendarDayView({
     <CalendarTimelineGrid
       ariaLabel={`Tampilan jadwal harian ${formatIndonesianDateFull(activeDate)}`}
       bannerLeft={
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="font-display text-studio-ink text-lg leading-none font-black tracking-tight uppercase sm:text-xl">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-studio-ink text-base font-semibold tracking-tight sm:text-lg">
             {formatIndonesianDateFull(activeDate)}
           </span>
           {isToday ? (
-            <span className="border-studio-ink bg-studio-lime text-studio-ink border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
+            <span className="rounded-full border border-[#8BAD12]/35 bg-[#EDF8C2] px-2.5 py-0.5 text-[11px] font-medium text-[#243300]">
               Hari Ini
             </span>
           ) : null}

@@ -4,6 +4,12 @@ import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 
 import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
+import {
+  AdminEmptyState,
+  AdminMetricCard,
+  AdminStatusBadge,
+  AdminSurface,
+} from '@/features/admin/design-system';
 import { useAuth } from '@/features/auth/AuthContext';
 
 import { CustomerArchiveDialog } from '../components/CustomerArchiveDialog';
@@ -198,32 +204,37 @@ export function AdminCustomersPage() {
   };
 
   return (
-    <div data-customer-scoped="true" className="relative isolate z-0 space-y-2.5 sm:space-y-4">
+    <div data-customer-scoped="true" className="relative isolate z-0 space-y-4 sm:space-y-6">
       {/* Page Header & Compact Metrics Strip */}
-      <section
+      <AdminSurface
+        as="section"
+        variant="hero"
         aria-labelledby="customer-page-heading"
-        className="cal-card bg-studio-white p-2.5 sm:p-4"
+        className="p-4 sm:p-6"
       >
-        <div className="flex flex-col gap-2 min-[340px]:flex-row min-[340px]:items-center min-[340px]:justify-between sm:gap-2.5">
+        <div className="flex flex-col gap-3 min-[340px]:flex-row min-[340px]:items-center min-[340px]:justify-between">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
-              <span className="border-studio-ink bg-studio-ink text-studio-lime inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold tracking-wider uppercase sm:px-2 sm:text-[9px]">
-                <UsersRound className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
-                <span>DATA PELANGGAN STUDIO</span>
-              </span>
-              <span className="border-studio-ink bg-studio-ivory text-studio-ink hidden items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-bold uppercase sm:inline-flex">
-                <Phone className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span>FORMAT NOMOR +62 / INTL</span>
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <AdminStatusBadge tone="ink" icon={UsersRound} size="sm" className="uppercase">
+                Data Pelanggan Studio
+              </AdminStatusBadge>
+              <AdminStatusBadge
+                tone="ivory"
+                icon={Phone}
+                size="sm"
+                className="hidden sm:inline-flex"
+              >
+                Format Nomor +62 / Intl
+              </AdminStatusBadge>
             </div>
 
             <h2
               id="customer-page-heading"
-              className="font-display text-studio-ink mt-1 truncate text-lg leading-none font-black tracking-tight uppercase sm:mt-1.5 sm:text-3xl"
+              className="mt-2.5 truncate text-xl font-bold tracking-[-0.025em] text-[#151515] sm:text-2xl lg:text-[28px]"
             >
               Customer
             </h2>
-            <p className="text-studio-muted-ink mt-1 hidden text-xs font-medium sm:block">
+            <p className="mt-1 hidden text-xs leading-relaxed text-[#666159] sm:block sm:text-sm">
               Daftar pelanggan &amp; riwayat booking berdasarkan nomor HP (mendukung nomor yang
               dipakai bersama maupun terpisah).
             </p>
@@ -233,89 +244,65 @@ export function AdminCustomersPage() {
             type="button"
             onClick={() => openFormDialog('create')}
             aria-label="Add Customer"
-            className="cal-control bg-studio-orange text-studio-white inline-flex min-h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 font-mono text-[10px] font-extrabold tracking-wider uppercase min-[340px]:w-auto sm:min-h-11 sm:gap-1.5 sm:px-4 sm:text-[11px]"
+            className="sa-control sa-btn-orange inline-flex min-h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold min-[340px]:w-auto sm:min-h-10.5"
           >
-            <Plus className="h-3.5 w-3.5 stroke-[2.5]" aria-hidden="true" />
+            <Plus className="h-4 w-4" aria-hidden="true" />
             <span>Tambah</span>
             <span className="hidden sm:inline">Pelanggan</span>
           </button>
         </div>
 
-        {/* Compact Horizontal Directory Metrics Strip (3 cols cleanly on mobile + desktop) */}
+        {/* Metrics Row */}
         <dl
           aria-label="Ringkasan daftar pelanggan"
-          className="mt-2.5 grid grid-cols-3 gap-1.5 border-t border-neutral-200 pt-2 sm:mt-3 sm:gap-2 sm:pt-2.5"
+          className="mt-4 grid grid-cols-1 gap-2.5 border-t border-[#151515]/[0.07] pt-4 sm:mt-5 sm:grid-cols-3 sm:gap-3.5 sm:pt-5"
         >
-          <div className="border-studio-ink bg-studio-ivory flex flex-col justify-between gap-0.5 border-2 px-2 py-1.5 shadow-[2px_2px_0px_#151515] sm:flex-row sm:items-center sm:gap-2.5 sm:px-3 sm:py-2">
-            <div className="min-w-0">
-              <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
-                <UsersRound className="hidden h-3 w-3 shrink-0 sm:inline" aria-hidden="true" />
-                <span className="truncate">Pelanggan</span>
-              </dt>
-              <p className="text-studio-subtle-ink mt-0.5 hidden truncate font-mono text-[9px] font-semibold sm:block">
-                Pelanggan aktif terdaftar
-              </p>
-            </div>
-            <dd className="font-display text-studio-ink shrink-0 text-xl leading-none font-black tabular-nums sm:text-2xl">
-              {metrics.totalActiveProfiles}
-            </dd>
-          </div>
+          <AdminMetricCard
+            label="Pelanggan"
+            value={metrics.totalActiveProfiles}
+            hint="Pelanggan aktif terdaftar"
+            icon={UsersRound}
+            tone="neutral"
+          />
 
-          <div className="border-studio-ink bg-studio-ivory flex flex-col justify-between gap-0.5 border-2 px-2 py-1.5 shadow-[2px_2px_0px_#151515] sm:flex-row sm:items-center sm:gap-2.5 sm:px-3 sm:py-2">
-            <div className="min-w-0">
-              <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
-                <Phone className="hidden h-3 w-3 shrink-0 sm:inline" aria-hidden="true" />
-                <span className="truncate">No. HP Unik</span>
-              </dt>
-              <p className="text-studio-subtle-ink mt-0.5 hidden truncate font-mono text-[9px] font-semibold sm:block">
-                Nomor HP terdaftar
-              </p>
-            </div>
-            <dd className="font-display text-studio-ink shrink-0 text-xl leading-none font-black tabular-nums sm:text-2xl">
-              {metrics.uniqueActivePhones}
-            </dd>
-          </div>
+          <AdminMetricCard
+            label="No. HP Unik"
+            value={metrics.uniqueActivePhones}
+            hint="Nomor HP terdaftar"
+            icon={Phone}
+            tone="neutral"
+          />
 
-          <div
-            className={`border-studio-ink flex flex-col justify-between gap-0.5 border-2 px-2 py-1.5 shadow-[2px_2px_0px_#151515] sm:flex-row sm:items-center sm:gap-2.5 sm:px-3 sm:py-2 ${
-              metrics.sharedPhoneCount > 0 ? 'bg-amber-100' : 'bg-studio-ivory'
-            }`}
-          >
-            <div className="min-w-0">
-              <dt className="text-studio-muted-ink flex items-center gap-1 font-mono text-[8.5px] font-extrabold uppercase sm:text-[9.5px]">
-                <Users className="hidden h-3 w-3 shrink-0 sm:inline" aria-hidden="true" />
-                <span className="truncate">No. Bersama</span>
-              </dt>
-              <p className="text-studio-subtle-ink mt-0.5 hidden truncate font-mono text-[9px] font-semibold sm:block">
-                {metrics.sharedPhoneCount > 0
-                  ? `${metrics.sharedProfileCount} orang berbagi nomor`
-                  : 'Belum ada nomor bersama'}
-              </p>
-            </div>
-            <dd className="font-display text-studio-ink shrink-0 text-xl leading-none font-black tabular-nums sm:text-2xl">
-              {metrics.sharedPhoneCount}
-            </dd>
-          </div>
+          <AdminMetricCard
+            label="No. Bersama"
+            value={metrics.sharedPhoneCount}
+            hint={
+              metrics.sharedPhoneCount > 0
+                ? `${metrics.sharedProfileCount} orang berbagi nomor`
+                : 'Belum ada nomor bersama'
+            }
+            icon={Users}
+            tone={metrics.sharedPhoneCount > 0 ? 'amber' : 'neutral'}
+          />
         </dl>
-      </section>
+      </AdminSurface>
 
       {/* Legacy Booking History Backfill Banner (No Auto-Write on Render!) */}
       {legacyUnlinkedCount > 0 ? (
         <section
           role="region"
           aria-label="Lengkapi data pelanggan booking lama"
-          className="cal-card bg-studio-lime/35 flex flex-col gap-2 p-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2.5 sm:px-4 sm:py-2.5"
+          className="flex flex-col gap-3 rounded-2xl border border-[#8BAD12]/30 bg-[#EDF8C2]/55 p-3.5 shadow-[0_1px_2px_rgba(21,21,21,0.03)] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5"
         >
-          <div className="flex items-start gap-2">
-            <Database
-              className="text-studio-ink mt-0.5 h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
-              aria-hidden="true"
-            />
+          <div className="flex items-start gap-2.5">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/80 text-[#243300]">
+              <Database className="h-4 w-4" aria-hidden="true" />
+            </span>
             <div className="min-w-0">
-              <p className="font-mono text-[10px] font-extrabold uppercase sm:text-[10.5px]">
+              <p className="text-xs font-semibold text-[#151515]">
                 Booking lama perlu dihubungkan ke daftar pelanggan.
               </p>
-              <p className="text-studio-ink mt-0.5 text-[11px] leading-snug font-medium sm:text-xs">
+              <p className="mt-0.5 text-xs leading-snug text-[#46433D]">
                 Ditemukan <strong>{legacyUnlinkedCount} booking lama</strong> yang belum memiliki
                 data pelanggan
                 {legacyNeedsReviewCount > 0
@@ -329,9 +316,9 @@ export function AdminCustomersPage() {
           <button
             type="button"
             onClick={() => setLegacyImportOpen(true)}
-            className="cal-control bg-studio-ink text-studio-lime inline-flex min-h-8.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1 font-mono text-[10px] font-extrabold uppercase sm:min-h-10 sm:py-1.5 sm:text-[10.5px]"
+            className="sa-control sa-btn-primary inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold"
           >
-            <Database className="h-3 w-3 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+            <Database className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
             <span>Periksa &amp; Hubungkan</span>
           </button>
         </section>
@@ -355,7 +342,7 @@ export function AdminCustomersPage() {
       {error ? (
         <div
           role="alert"
-          className="cal-card bg-studio-orange text-studio-white flex items-start gap-2 p-3 text-xs font-bold"
+          className="flex items-start gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-xs font-medium text-[#B92B0C]"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{error}</span>
@@ -364,50 +351,56 @@ export function AdminCustomersPage() {
 
       {/* Customer Directory Table */}
       {isLoading ? (
-        <div
+        <AdminSurface
           role="status"
-          className="cal-card bg-studio-white flex items-center gap-2 p-4 font-mono text-xs font-bold"
+          variant="card"
+          className="flex items-center gap-2.5 p-5 text-xs font-medium text-[#666159]"
         >
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
           <span>Memuat Customer Directory dari Firestore...</span>
-        </div>
+        </AdminSurface>
       ) : phoneGroups.length === 0 ? (
-        <section className="cal-card bg-studio-white p-6 text-center">
-          <p className="font-display text-studio-ink text-xl font-black uppercase">
-            {searchQuery || activeFilter !== 'all'
-              ? 'Tidak Ada Customer yang Cocok'
-              : 'Customer Directory Masih Kosong'}
-          </p>
-          <p className="text-studio-muted-ink mx-auto mt-1 max-w-md text-xs font-medium">
-            {searchQuery || activeFilter !== 'all'
-              ? 'Coba ubah kata kunci pencarian atau pilih filter All Customers.'
-              : 'Customer akan tercatat otomatis saat booking dibuat melalui Calendar, atau Anda dapat menambahkan profil secara manual.'}
-          </p>
-          {!searchQuery && activeFilter === 'all' ? (
-            <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
-              <button
-                type="button"
-                onClick={() => openFormDialog('create')}
-                className="cal-control bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
-              >
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Add Customer</span>
-              </button>
-              {legacyUnlinkedCount > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setLegacyImportOpen(true)}
-                  className="cal-control bg-studio-white text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
-                >
-                  <Database className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Review &amp; Import History</span>
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </section>
+        <AdminSurface as="section" variant="card" className="p-5 sm:p-6">
+          <AdminEmptyState
+            icon={UsersRound}
+            title={
+              searchQuery || activeFilter !== 'all'
+                ? 'Tidak Ada Customer yang Cocok'
+                : 'Customer Directory Masih Kosong'
+            }
+            description={
+              searchQuery || activeFilter !== 'all'
+                ? 'Coba ubah kata kunci pencarian atau pilih filter All Customers.'
+                : 'Customer akan tercatat otomatis saat booking dibuat melalui Calendar, atau Anda dapat menambahkan profil secara manual.'
+            }
+            action={
+              !searchQuery && activeFilter === 'all' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openFormDialog('create')}
+                    className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                  >
+                    <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Add Customer</span>
+                  </button>
+                  {legacyUnlinkedCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setLegacyImportOpen(true)}
+                      className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                    >
+                      <Database className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Review &amp; Import History</span>
+                    </button>
+                  ) : null}
+                </>
+              ) : null
+            }
+          />
+        </AdminSurface>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3.5">
           <CustomerDirectoryTable
             phoneGroups={phoneGroups}
             bandNamesByCustomerId={bandNamesByCustomerId}
@@ -422,7 +415,7 @@ export function AdminCustomersPage() {
               <button
                 type="button"
                 onClick={loadMoreCustomers}
-                className="cal-control bg-studio-white text-studio-ink inline-flex min-h-10 cursor-pointer items-center justify-center px-4 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
+                className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold"
               >
                 Muat Lebih Banyak Customer
               </button>

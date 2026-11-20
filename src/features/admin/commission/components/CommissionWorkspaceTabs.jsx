@@ -27,7 +27,7 @@ export function CommissionWorkspaceTabs({
     <div
       role="tablist"
       aria-label="Workspace Commission and Fee"
-      className="border-studio-ink bg-studio-ivory grid w-full grid-cols-2 border-2 p-0.5 shadow-[2px_2px_0px_#151515] sm:inline-grid sm:w-auto"
+      className="sa-pill-track grid w-full grid-cols-2 sm:inline-grid sm:w-auto"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -41,13 +41,20 @@ export function CommissionWorkspaceTabs({
             onClick={() => onTabChange?.(tab.id)}
             className={
               isActive
-                ? 'border-studio-ink bg-studio-lime text-studio-ink inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-1.5 border px-2.5 py-1 font-mono text-[10.5px] font-extrabold whitespace-nowrap uppercase sm:min-h-10 sm:px-4'
-                : 'text-studio-muted-ink hover:text-studio-ink inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-1.5 border border-transparent px-2.5 py-1 font-mono text-[10.5px] font-bold whitespace-nowrap uppercase sm:min-h-10 sm:px-4'
+                ? 'inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-10 sm:px-4'
+                : 'inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-2 rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:min-h-10 sm:px-4'
             }
           >
-            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <Icon
+              className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-[#151515]' : 'text-[#8B857B]'}`}
+              aria-hidden="true"
+            />
             <span>{tab.label}</span>
-            <span className="border-studio-ink bg-studio-white text-studio-ink border px-1.5 py-0 text-[9px] font-extrabold tabular-nums">
+            <span
+              className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
+                isActive ? 'bg-[#C8F13A] text-[#151515]' : 'bg-[#151515]/[0.06] text-[#46433D]'
+              }`}
+            >
               {tab.count}
             </span>
           </button>

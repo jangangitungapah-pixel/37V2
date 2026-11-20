@@ -1,4 +1,5 @@
 import { formatDurationMinutes } from '@/features/admin/calendar/utils/booking-time';
+import { AdminStatusBadge } from '@/features/admin/design-system';
 
 import {
   DISCOUNT_RULE_MODES,
@@ -42,7 +43,7 @@ export function ServiceOptionList({
 }) {
   if (options.length === 0) {
     return (
-      <div className="border-studio-ink bg-studio-ivory border border-dashed p-4 text-center font-mono text-xs">
+      <div className="sa-panel border-dashed p-5 text-center text-xs text-[#666159]">
         Belum ada subcategory pada layanan ini.
       </div>
     );
@@ -59,60 +60,59 @@ export function ServiceOptionList({
         return (
           <article
             key={option.id}
-            className={`border-studio-ink border-2 p-3 sm:p-3.5 ${
+            className={`rounded-xl border border-[#151515]/[0.085] p-3.5 transition-colors sm:p-4 ${
               option.isActive && !isUnconfigured
-                ? 'bg-studio-white'
-                : 'bg-studio-ivory/70 opacity-90'
+                ? 'bg-white shadow-[0_1px_2px_rgba(21,21,21,0.03)]'
+                : 'bg-[#F8F6EF]/70 opacity-85'
             }`}
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <h4 className="font-display text-studio-ink text-xl leading-none font-black uppercase">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="text-[15px] font-semibold tracking-tight text-[#151515]">
                     {option.name}
                   </h4>
 
                   {option.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
                   option.pricing?.durationMinutes ? (
-                    <span className="border-studio-ink bg-studio-ivory border px-1.5 py-0.5 font-mono text-[10px] font-extrabold uppercase">
+                    <AdminStatusBadge tone="ivory" size="sm" className="font-mono">
                       {formatDurationMinutes(option.pricing.durationMinutes)}
-                    </span>
+                    </AdminStatusBadge>
                   ) : null}
 
                   {isUnconfigured ? (
-                    <span className="border-studio-ink text-studio-ink border bg-amber-200 px-1.5 py-0.5 font-mono text-[10px] font-extrabold uppercase">
+                    <AdminStatusBadge tone="amber" size="sm">
                       Draft • Belum Dikonfigurasi
-                    </span>
+                    </AdminStatusBadge>
                   ) : null}
                 </div>
 
                 {option.description ? (
-                  <p className="text-studio-muted-ink mt-1 text-xs leading-relaxed font-medium">
+                  <p className="mt-1 text-xs leading-relaxed text-[#666159]">
                     {option.description}
                   </p>
                 ) : null}
 
                 {/* Concise Fee & Discount Metadata Tags */}
                 {feeBadges.length > 0 || activeDiscounts.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5 font-mono text-[10px]">
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                     {activeDiscounts.map((rule) => (
-                      <span
+                      <AdminStatusBadge
                         key={rule.id}
-                        className="border-studio-ink border bg-emerald-100 px-1.5 py-0.5 font-extrabold text-emerald-900"
+                        tone="emerald"
+                        size="sm"
+                        className="font-mono"
                       >
                         {rule.mode === DISCOUNT_RULE_MODES.PER_COMPLETED_BLOCK
                           ? `Diskon -${formatRupiah(rule.discountAmount)} / ${formatDurationMinutes(rule.intervalMinutes)}`
                           : `${rule.name}: -${formatRupiah(rule.discountAmount)} (min. ${formatDurationMinutes(rule.minimumDurationMinutes)})`}
-                      </span>
+                      </AdminStatusBadge>
                     ))}
 
                     {feeBadges.map((badge) => (
-                      <span
-                        key={badge}
-                        className="border-studio-ink bg-studio-ivory text-studio-ink border px-1.5 py-0.5 font-bold"
-                      >
+                      <AdminStatusBadge key={badge} tone="ivory" size="sm" className="font-mono">
                         {badge}
-                      </span>
+                      </AdminStatusBadge>
                     ))}
                   </div>
                 ) : null}
@@ -122,18 +122,18 @@ export function ServiceOptionList({
               <div className="flex flex-col items-start gap-2.5 sm:items-end">
                 <div className="sm:text-right">
                   <span
-                    className={`inline-block border px-2.5 py-1 font-mono text-xs font-extrabold whitespace-nowrap ${
+                    className={`inline-flex items-center rounded-lg border px-2.5 py-1 font-mono text-xs font-bold whitespace-nowrap tabular-nums ${
                       isUnconfigured
-                        ? 'border-studio-ink text-studio-ink bg-amber-100'
+                        ? 'border-amber-500/25 bg-[#FEF4DD] text-[#8A4B08]'
                         : option.pricing?.mode === PRICING_MODES.MANUAL_QUOTE
-                          ? 'border-studio-ink bg-studio-ink text-studio-lime'
-                          : 'border-studio-ink bg-studio-ivory text-studio-ink'
+                          ? 'border-[#151515] bg-[#151515] text-[#C8F13A]'
+                          : 'border-[#151515]/10 bg-[#F8F6EF] text-[#151515]'
                     }`}
                   >
                     {priceSummary.primary}
                   </span>
                   {priceSummary.secondary ? (
-                    <span className="text-studio-muted-ink mt-1 block font-mono text-[10px] font-semibold">
+                    <span className="mt-1 block font-mono text-[10.5px] text-[#666159]">
                       {priceSummary.secondary}
                     </span>
                   ) : null}

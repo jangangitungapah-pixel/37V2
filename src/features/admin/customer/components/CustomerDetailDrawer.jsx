@@ -23,6 +23,7 @@ import {
   formatIndonesianDateMedium,
   formatIndonesianTimestamp,
 } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 import { useCustomerInvoices } from '@/features/admin/payment/hooks/useInvoicePaymentSummaries';
 import {
   getEffectivePaymentStatus,
@@ -80,64 +81,62 @@ export function CustomerDetailDrawer({
     <>
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/65 backdrop-blur-[1px]" />
+          <Dialog.Backdrop
+            data-admin-portal-layer="true"
+            className="sa-overlay-backdrop fixed inset-0 z-40"
+          />
 
           <Dialog.Popup
+            data-admin-portal-layer="true"
             aria-label={`Detail customer ${customer.displayName}`}
             data-customer-scoped="true"
-            className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col border-l-2 shadow-[-6px_0px_0px_#151515]"
+            className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col outline-none"
           >
             {/* Sticky Header */}
-            <div className="border-studio-ink bg-studio-ink text-studio-ivory shrink-0 border-b-2 px-4 py-3.5 sm:px-5">
-              <div className="flex items-start justify-between gap-3">
+            <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3 sm:px-5 sm:py-4">
+              <div className="flex items-start justify-between gap-2.5 sm:gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span
-                      className={`border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase ${
-                        isArchived
-                          ? 'border-neutral-400 bg-neutral-700 text-neutral-100'
-                          : isMerged
-                            ? 'border-studio-orange bg-studio-orange text-white'
-                            : 'border-studio-ivory bg-studio-lime text-studio-ink'
-                      }`}
+                    <AdminStatusBadge
+                      tone={isArchived ? 'neutral' : isMerged ? 'orange' : 'lime'}
+                      size="sm"
                     >
                       {isArchived ? 'Diarsipkan' : isMerged ? 'Digabung' : 'Aktif'}
-                    </span>
+                    </AdminStatusBadge>
 
                     {customer.historyCustomerIds?.length > 1 ? (
-                      <span className="border-studio-ivory text-studio-lime inline-flex items-center gap-1 border bg-neutral-800 px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                        <GitMerge className="h-3 w-3" aria-hidden="true" />
-                        <span>{customer.historyCustomerIds.length} Profil Tergabung</span>
-                      </span>
+                      <AdminStatusBadge tone="ink" icon={GitMerge} size="sm">
+                        {customer.historyCustomerIds.length} Profil Tergabung
+                      </AdminStatusBadge>
                     ) : null}
                   </div>
 
-                  <Dialog.Title className="font-display mt-1.5 truncate text-xl leading-none font-black tracking-tight text-white uppercase sm:text-2xl">
+                  <Dialog.Title className="mt-1.5 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
                     {customer.displayName}
                   </Dialog.Title>
-                  <Dialog.Description className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-neutral-300">
-                    <span className="text-studio-lime font-bold">{formattedPhone}</span>
+                  <Dialog.Description className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-[#666159] sm:text-xs">
+                    <span className="font-semibold text-[#151515]">{formattedPhone}</span>
                     <span>• {customer.bookingCount || 0} booking</span>
                   </Dialog.Description>
                 </div>
 
                 <Dialog.Close
                   aria-label="Tutup detail customer"
-                  className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white transition-colors"
+                  className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
                 >
-                  <X className="h-4 w-4" aria-hidden="true" />
+                  <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
                 </Dialog.Close>
               </div>
 
               {/* Action Bar */}
               {!isMerged ? (
-                <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-neutral-800 pt-2.5">
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-[#151515]/[0.07] pt-2.5 sm:mt-3.5 sm:gap-2 sm:pt-3">
                   <button
                     type="button"
                     onClick={() => onEditCustomer?.(customer)}
-                    className="border-studio-ivory bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase transition-colors"
+                    className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
                   >
-                    <Edit3 className="h-3 w-3" aria-hidden="true" />
+                    <Edit3 className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                     <span>Edit Profil</span>
                   </button>
 
@@ -145,9 +144,9 @@ export function CustomerDetailDrawer({
                     <button
                       type="button"
                       onClick={() => onUpdatePhone?.(customer)}
-                      className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase transition-colors"
+                      className="sa-control sa-btn-lime inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
                     >
-                      <PhoneForwarded className="h-3 w-3" aria-hidden="true" />
+                      <PhoneForwarded className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Ganti No. HP</span>
                     </button>
                   ) : null}
@@ -157,9 +156,9 @@ export function CustomerDetailDrawer({
                       type="button"
                       onClick={() => onOpenMerge?.(samePhonePeers, customer)}
                       aria-label="Merge History"
-                      className="border-studio-ivory bg-studio-ivory text-studio-ink hover:bg-studio-lime inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase transition-colors"
+                      className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
                     >
-                      <GitMerge className="h-3 w-3" aria-hidden="true" />
+                      <GitMerge className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                       <span>Gabung Riwayat</span>
                     </button>
                   ) : null}
@@ -167,20 +166,18 @@ export function CustomerDetailDrawer({
                   <button
                     type="button"
                     onClick={() => onToggleArchive?.(customer)}
-                    className={`border-studio-ivory inline-flex min-h-9 cursor-pointer items-center gap-1.5 border px-2.5 py-1 font-mono text-[10px] font-extrabold uppercase transition-colors ${
-                      isArchived
-                        ? 'bg-studio-lime text-studio-ink'
-                        : 'bg-studio-orange text-studio-white'
+                    className={`sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold ${
+                      isArchived ? 'sa-btn-lime' : 'sa-btn-orange'
                     }`}
                   >
                     {isArchived ? (
                       <>
-                        <ArchiveRestore className="h-3 w-3" aria-hidden="true" />
+                        <ArchiveRestore className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>Aktifkan Kembali</span>
                       </>
                     ) : (
                       <>
-                        <Archive className="h-3 w-3" aria-hidden="true" />
+                        <Archive className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>Arsipkan</span>
                       </>
                     )}
@@ -190,91 +187,84 @@ export function CustomerDetailDrawer({
             </div>
 
             {/* Scrollable Body */}
-            <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-3.5 pb-7 sm:px-5 sm:py-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-8 sm:px-5">
               {/* SECTION 1: IDENTITY */}
-              <section
+              <AdminSurface
+                as="section"
+                variant="card"
                 aria-labelledby="customer-identity-heading"
-                className="cal-card bg-studio-white p-3.5 sm:p-4"
+                className="p-4"
               >
                 <h3
                   id="customer-identity-heading"
-                  className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                  className="text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
                 >
                   Data Pelanggan
                 </h3>
 
-                <dl className="mt-3 grid grid-cols-1 gap-3 border-t border-neutral-200 pt-3 text-xs sm:grid-cols-2">
+                <dl className="mt-3 grid grid-cols-1 gap-3 border-t border-[#151515]/[0.07] pt-3 text-xs sm:grid-cols-2">
                   <div>
-                    <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                      Nama Pelanggan
-                    </dt>
-                    <dd className="text-studio-ink mt-0.5 text-sm font-extrabold">
+                    <dt className="text-[11px] font-medium text-[#666159]">Nama Pelanggan</dt>
+                    <dd className="mt-0.5 text-sm font-semibold text-[#151515]">
                       {customer.displayName}
                     </dd>
                   </div>
 
                   <div>
-                    <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
+                    <dt className="text-[11px] font-medium text-[#666159]">
                       Nomor HP / WhatsApp Utama
                     </dt>
-                    <dd className="text-studio-ink mt-0.5 flex items-center gap-1.5 font-mono text-sm font-extrabold">
-                      <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <dd className="mt-0.5 flex items-center gap-1.5 font-mono text-sm font-semibold text-[#151515]">
+                      <Phone className="h-3.5 w-3.5 shrink-0 text-[#666159]" aria-hidden="true" />
                       <span>{formattedPhone}</span>
                     </dd>
                   </div>
 
                   <div>
-                    <dt className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                      Terdaftar Sejak
-                    </dt>
-                    <dd className="text-studio-ink mt-0.5 font-mono text-[11px] font-bold">
+                    <dt className="text-[11px] font-medium text-[#666159]">Terdaftar Sejak</dt>
+                    <dd className="mt-0.5 font-mono text-xs font-medium text-[#151515]">
                       {formatIndonesianTimestamp(customer.createdAt)}
                     </dd>
                   </div>
                 </dl>
 
                 {/* Previous Names / Aliases */}
-                <div className="mt-3 border-t border-neutral-200 pt-3">
-                  <p className="text-studio-muted-ink flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase">
-                    <Tag className="h-3 w-3" aria-hidden="true" />
+                <div className="mt-3.5 border-t border-[#151515]/[0.07] pt-3.5">
+                  <p className="flex items-center gap-1.5 text-[11px] font-medium text-[#666159]">
+                    <Tag className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Nama Lain yang Pernah Dipakai</span>
                   </p>
                   {customer.nameAliases?.length > 0 ? (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    <div className="mt-2 flex flex-wrap gap-1.5">
                       {customer.nameAliases.map((alias) => (
-                        <span
-                          key={alias}
-                          className="border-studio-ink bg-studio-ivory border px-2 py-0.5 text-xs font-bold"
-                        >
+                        <AdminStatusBadge key={alias} tone="ivory" size="sm">
                           {alias}
-                        </span>
+                        </AdminStatusBadge>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-studio-subtle-ink mt-1 text-xs">
-                      Belum ada catatan nama lain.
-                    </p>
+                    <p className="mt-1 text-xs text-[#8B857B]">Belum ada catatan nama lain.</p>
                   )}
                 </div>
 
                 {/* Previous Phone Numbers */}
                 {customer.previousPhones?.length > 0 ? (
-                  <div className="mt-3 border-t border-neutral-200 pt-3">
-                    <p className="text-studio-muted-ink flex items-center gap-1 font-mono text-[10px] font-extrabold uppercase">
-                      <History className="h-3 w-3" aria-hidden="true" />
+                  <div className="mt-3.5 border-t border-[#151515]/[0.07] pt-3.5">
+                    <p className="flex items-center gap-1.5 text-[11px] font-medium text-[#666159]">
+                      <History className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Riwayat Nomor HP Lama</span>
                     </p>
-                    <ul className="mt-1.5 space-y-1.5">
+                    <ul className="mt-2 space-y-1.5">
                       {customer.previousPhones.map((prev, idx) => (
                         <li
                           key={`${prev.phoneNormalized}-${idx}`}
-                          className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-2 border px-2.5 py-1.5 font-mono text-[11px]"
+                          className="sa-panel-ivory flex flex-wrap items-center justify-between gap-2 px-3 py-2 font-mono text-xs"
                         >
-                          <span className="text-studio-ink font-extrabold">
+                          <span className="font-semibold text-[#151515]">
                             {formatPhoneDisplay(prev.phoneNormalized || prev.phoneDisplay)}
                           </span>
                           {prev.changedAt ? (
-                            <span className="text-studio-muted-ink text-[10px]">
+                            <span className="text-[11px] text-[#666159]">
                               Diganti: {formatIndonesianTimestamp(prev.changedAt)}
                             </span>
                           ) : null}
@@ -285,92 +275,92 @@ export function CustomerDetailDrawer({
                 ) : null}
 
                 {customer.notes ? (
-                  <div className="mt-3 border-t border-neutral-200 pt-3">
-                    <p className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                      Catatan Profil
-                    </p>
-                    <p className="text-studio-ink mt-1 text-xs leading-relaxed font-medium">
-                      {customer.notes}
-                    </p>
+                  <div className="mt-3.5 border-t border-[#151515]/[0.07] pt-3.5">
+                    <p className="text-[11px] font-medium text-[#666159]">Catatan Profil</p>
+                    <p className="mt-1 text-xs leading-relaxed text-[#151515]">{customer.notes}</p>
                   </div>
                 ) : null}
-              </section>
+              </AdminSurface>
 
-              {/* SECTION 2: BOOKING SUMMARY (NO AGGREGATE MONEY TOTALS) */}
-              <section
+              {/* SECTION 2: BOOKING SUMMARY */}
+              <AdminSurface
+                as="section"
+                variant="card"
                 aria-labelledby="customer-summary-heading"
-                className="cal-card bg-studio-white p-3.5 sm:p-4"
+                className="p-4"
               >
                 <div className="flex items-center justify-between gap-2">
                   <h3
                     id="customer-summary-heading"
-                    className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                    className="text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
                   >
                     Ringkasan Booking
                   </h3>
-                  <span className="text-studio-muted-ink font-mono text-[10px] font-bold">
+                  <span className="text-[11px] text-[#666159]">
                     Termasuk dibatalkan &amp; tidak hadir
                   </span>
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                  <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Total Booking
                     </span>
-                    <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#151515] tabular-nums">
                       {customer.bookingCount}
                     </span>
                   </div>
 
-                  <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Booking Aktif
                     </span>
-                    <span className="font-display text-studio-ink mt-0.5 block text-2xl leading-none font-black">
+                    <span className="mt-1 block font-mono text-xl font-bold text-[#151515] tabular-nums">
                       {isHistoryLoading ? '…' : activeBookingsCount}
                     </span>
                   </div>
 
-                  <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Booking Pertama
                     </span>
-                    <span className="text-studio-ink mt-1 block font-mono text-[11px] font-extrabold">
+                    <span className="mt-1 block font-mono text-xs font-semibold text-[#151515]">
                       {customer.firstBookingDate
                         ? formatIndonesianDateMedium(customer.firstBookingDate)
                         : '-'}
                     </span>
                   </div>
 
-                  <div className="border-studio-ink bg-studio-ivory border p-2.5">
-                    <span className="text-studio-muted-ink block font-mono text-[9px] font-bold uppercase">
+                  <div className="sa-panel-ivory p-3">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Booking Terakhir
                     </span>
-                    <span className="text-studio-ink mt-1 block font-mono text-[11px] font-extrabold">
+                    <span className="mt-1 block font-mono text-xs font-semibold text-[#151515]">
                       {customer.lastBookingDate
                         ? formatIndonesianDateMedium(customer.lastBookingDate)
                         : '-'}
                     </span>
                   </div>
                 </div>
-              </section>
+              </AdminSurface>
 
               {/* SECTION 3: BAND / PROJECT HISTORY */}
-              <section
+              <AdminSurface
+                as="section"
+                variant="card"
                 aria-labelledby="customer-band-history-heading"
-                className="cal-card bg-studio-white p-3.5 sm:p-4"
+                className="p-4"
               >
-                <div className="flex items-center gap-1.5">
-                  <Music2 className="text-studio-orange h-4 w-4 shrink-0" aria-hidden="true" />
+                <div className="flex items-center gap-2">
+                  <Music2 className="h-4 w-4 shrink-0 text-[#FF4B22]" aria-hidden="true" />
                   <h3
                     id="customer-band-history-heading"
-                    className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                    className="text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
                   >
                     Band / Project yang Pernah Dipakai
                   </h3>
                 </div>
-                <p className="text-studio-muted-ink mt-1 text-[11px] font-medium">
+                <p className="mt-1 text-xs text-[#666159]">
                   Daftar band atau project dari setiap sesi booking. Satu pelanggan dapat mencatat
                   banyak nama band sekaligus.
                 </p>
@@ -378,55 +368,52 @@ export function CustomerDetailDrawer({
                 {bandHistory.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {bandHistory.map((band) => (
-                      <span
-                        key={band}
-                        className="border-studio-ink bg-studio-lime/30 text-studio-ink border px-2.5 py-1 font-mono text-[11px] font-extrabold"
-                      >
+                      <AdminStatusBadge key={band} tone="lime" className="font-semibold">
                         {band}
-                      </span>
+                      </AdminStatusBadge>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-studio-subtle-ink mt-2 text-xs">
+                  <p className="mt-2 text-xs text-[#8B857B]">
                     Belum ada nama band / project yang tercatat pada booking customer ini.
                   </p>
                 )}
-              </section>
+              </AdminSurface>
 
-              {/* SECTION 4: INVOICES & PAYMENTS (PHASE 8 INTEGRATION) */}
-              <section
+              {/* SECTION 4: INVOICES & PAYMENTS */}
+              <AdminSurface
+                as="section"
+                variant="card"
                 aria-labelledby="customer-invoices-heading"
-                className="cal-card bg-studio-white p-3.5 sm:p-4"
+                className="p-4"
               >
-                <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-2">
-                  <div className="flex items-center gap-1.5">
-                    <ReceiptText className="text-studio-ink h-4 w-4 shrink-0" aria-hidden="true" />
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.07] pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <ReceiptText className="h-4 w-4 shrink-0 text-[#151515]" aria-hidden="true" />
                     <h3
                       id="customer-invoices-heading"
-                      className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                      className="text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
                     >
                       Tagihan &amp; Invoice ({customerInvoices.length})
                     </h3>
                   </div>
                   <Link
                     to="/admin/payment-and-bill"
-                    className="text-studio-muted-ink hover:text-studio-orange inline-flex items-center gap-1 font-mono text-[9.5px] font-extrabold uppercase"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#666159] transition-colors hover:text-[#FF4B22]"
                   >
                     <span>Payment &amp; Bill</span>
-                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                   </Link>
                 </div>
 
                 {invoicesError ? (
-                  <p role="alert" className="text-studio-error-ink text-xs font-bold">
+                  <p role="alert" className="text-xs font-medium text-[#B92B0C]">
                     {invoicesError}
                   </p>
                 ) : isInvoicesLoading ? (
-                  <p className="text-studio-muted-ink font-mono text-[11px] font-bold">
-                    Memuat daftar invoice pelanggan...
-                  </p>
+                  <p className="text-xs text-[#666159]">Memuat daftar invoice pelanggan...</p>
                 ) : customerInvoices.length === 0 ? (
-                  <p className="text-studio-subtle-ink text-xs">
+                  <p className="text-xs text-[#8B857B]">
                     Belum ada invoice yang tercatat untuk pelanggan ini.
                   </p>
                 ) : (
@@ -440,22 +427,22 @@ export function CustomerDetailDrawer({
                       return (
                         <li
                           key={inv.id}
-                          className="border-studio-ink bg-studio-ivory/60 flex flex-wrap items-center justify-between gap-2 border p-2.5 text-xs"
+                          className="sa-panel-ivory flex flex-wrap items-center justify-between gap-2 p-3 text-xs"
                         >
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="font-mono text-[11px] font-extrabold">
+                              <span className="font-mono font-semibold text-[#151515]">
                                 {inv.invoiceNumber}
                               </span>
                               <span
-                                className={`border px-1.5 py-0 font-mono text-[8.5px] font-extrabold uppercase ${
+                                className={`rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${
                                   isVoid ? invMeta.badgeClass : payMeta.badgeClass
                                 }`}
                               >
                                 {isVoid ? invMeta.label : payMeta.indoLabel || payMeta.label}
                               </span>
                             </div>
-                            <p className="text-studio-muted-ink mt-0.5 font-mono text-[10px] font-semibold">
+                            <p className="mt-1 font-mono text-[11px] text-[#666159]">
                               {inv.bookingSnapshot?.bookingDate
                                 ? formatIndonesianDateMedium(inv.bookingSnapshot.bookingDate)
                                 : '-'}{' '}
@@ -464,8 +451,8 @@ export function CustomerDetailDrawer({
                               <strong
                                 className={
                                   inv.balanceDue > 0 && !isVoid
-                                    ? 'text-studio-orange'
-                                    : 'text-emerald-800'
+                                    ? 'text-[#FF4B22]'
+                                    : 'text-[#0F6246]'
                                 }
                               >
                                 {formatRupiah(inv.balanceDue || 0)}
@@ -476,39 +463,36 @@ export function CustomerDetailDrawer({
                           <Link
                             to={`/admin/payment-and-bill?invoiceId=${encodeURIComponent(inv.id)}`}
                             aria-label={`Buka invoice ${inv.invoiceNumber}`}
-                            className="border-studio-ink bg-studio-ink text-studio-lime hover:bg-studio-orange hover:text-studio-white inline-flex h-7 shrink-0 items-center gap-1 border px-2 font-mono text-[9px] font-extrabold uppercase transition-colors"
+                            className="sa-control sa-btn-primary inline-flex h-8 shrink-0 items-center gap-1 px-2.5 text-[11px] font-semibold"
                           >
                             <span>Lihat Invoice</span>
-                            <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
+                            <ExternalLink className="h-3 w-3 text-[#C8F13A]" aria-hidden="true" />
                           </Link>
                         </li>
                       );
                     })}
                   </ul>
                 )}
-              </section>
+              </AdminSurface>
 
               {/* SECTION 5: BOOKING HISTORY */}
-              <section
+              <AdminSurface
+                as="section"
+                variant="card"
                 aria-labelledby="customer-booking-history-heading"
-                className="cal-card bg-studio-white p-3.5 sm:p-4"
+                className="p-4"
               >
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <CalendarClock
-                      className="text-studio-ink h-4 w-4 shrink-0"
-                      aria-hidden="true"
-                    />
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.07] pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4 shrink-0 text-[#151515]" aria-hidden="true" />
                     <h3
                       id="customer-booking-history-heading"
-                      className="font-mono text-xs font-extrabold tracking-wider uppercase"
+                      className="text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
                     >
                       Riwayat Booking ({totalLoaded})
                     </h3>
                   </div>
-                  <span className="text-studio-muted-ink font-mono text-[10px] font-bold uppercase">
-                    Klik item untuk detail booking
-                  </span>
+                  <span className="text-[11px] text-[#666159]">Klik item untuk detail booking</span>
                 </div>
 
                 <CustomerBookingHistory
@@ -521,7 +505,7 @@ export function CustomerDetailDrawer({
                   onLoadMore={loadMore}
                   onSelectBooking={(booking) => setSelectedBooking(booking)}
                 />
-              </section>
+              </AdminSurface>
             </div>
           </Dialog.Popup>
         </Dialog.Portal>

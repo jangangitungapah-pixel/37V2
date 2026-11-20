@@ -29,16 +29,16 @@ export function CalendarBookingCard({
 
   const isRoomA = booking.studioId === 'room-a';
   const cardSurfaceClass = isCancelled
-    ? 'bg-neutral-100 border-neutral-500 text-neutral-600 opacity-75'
+    ? 'bg-[#151515]/[0.03] border-[#151515]/12 text-[#666159] opacity-75'
     : isRoomA
-      ? 'bg-studio-white border-studio-ink text-studio-ink hover:bg-[#faf8f1]'
-      : 'bg-studio-ivory border-studio-ink text-studio-ink hover:bg-studio-white';
+      ? 'bg-white border-[#151515]/14 text-studio-ink hover:bg-[#FCFBF7]'
+      : 'bg-[#FAF8F1] border-[#151515]/14 text-studio-ink hover:bg-white';
 
   const leftAccentClass = isCancelled
-    ? 'border-l-4 border-l-neutral-500'
+    ? 'border-l-[3.5px] border-l-[#8B857B]'
     : isRoomA
-      ? 'border-l-4 border-l-studio-lime'
-      : 'border-l-4 border-l-studio-orange';
+      ? 'border-l-[3.5px] border-l-[#9BC416]'
+      : 'border-l-[3.5px] border-l-studio-orange';
 
   const ariaLabel = `Booking ${booking.customerName}, ${room.label}, ${timeRangeLabel}, ${serviceSummary}, pembayaran ${paymentMeta.shortLabel}, sesi ${sessionMeta.label}`;
 
@@ -53,20 +53,20 @@ export function CalendarBookingCard({
           onSelectBooking(booking);
         }}
         aria-label={ariaLabel}
-        className={`border-studio-ink ${cardSurfaceClass} ${leftAccentClass} flex w-full cursor-pointer items-center justify-between gap-1 overflow-hidden border-[1.5px] px-1.5 py-0.5 text-left shadow-[1px_1px_0px_#151515] transition-shadow hover:shadow-[2px_2px_0px_#151515]`}
+        className={`${cardSurfaceClass} ${leftAccentClass} flex w-full cursor-pointer items-center justify-between gap-1.5 overflow-hidden rounded-lg border px-2 py-0.5 text-left shadow-xs transition-all hover:shadow-sm`}
       >
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="flex min-w-0 items-center gap-1.5">
           <span
-            className={`shrink-0 border px-1 py-0 font-mono text-[8px] leading-tight font-extrabold uppercase ${room.badgeClass}`}
+            className={`shrink-0 rounded-full border px-1.5 py-0 font-mono text-[8.5px] leading-tight font-semibold ${room.badgeClass}`}
           >
             {room.shortLabel}
           </span>
-          <span className="truncate text-[11px] leading-none font-extrabold">
+          <span className="truncate text-[11px] leading-none font-semibold">
             {booking.customerName}
           </span>
         </div>
 
-        <span className="text-studio-muted-ink shrink-0 font-mono text-[9px] leading-none font-bold">
+        <span className="shrink-0 font-mono text-[9px] leading-none font-medium text-[#666159] tabular-nums">
           {timeRangeLabel}
         </span>
       </button>
@@ -84,54 +84,52 @@ export function CalendarBookingCard({
           onSelectBooking(booking);
         }}
         aria-label={ariaLabel}
-        className={`border-studio-ink ${cardSurfaceClass} ${leftAccentClass} flex w-full cursor-pointer flex-col justify-between overflow-hidden border-[1.5px] p-1 text-left shadow-[1px_1px_0px_#151515] transition-shadow hover:shadow-[2px_2px_0px_#151515]`}
+        className={`${cardSurfaceClass} ${leftAccentClass} flex w-full cursor-pointer flex-col justify-between overflow-hidden rounded-lg border p-1.5 text-left shadow-xs transition-all hover:shadow-sm`}
       >
         <div className="min-w-0 space-y-0.5">
           <div className="flex items-center justify-between gap-1">
-            <span className="truncate font-mono text-[9px] leading-none font-extrabold tracking-tight">
+            <span className="truncate font-mono text-[9.5px] leading-none font-semibold tracking-tight text-[#46433D] tabular-nums">
               {timeRangeLabel}
             </span>
             <span
-              className={`shrink-0 border px-1 py-0 font-mono text-[8px] leading-tight font-extrabold uppercase ${room.badgeClass}`}
+              className={`shrink-0 rounded-full border px-1.5 py-0 font-mono text-[8.5px] leading-tight font-semibold ${room.badgeClass}`}
             >
               {room.shortLabel}
             </span>
           </div>
 
-          <p className="truncate text-[11px] leading-tight font-extrabold">
-            {booking.customerName}
-          </p>
+          <p className="truncate text-[11px] leading-tight font-semibold">{booking.customerName}</p>
 
           {!isMultiLane && booking.bandName ? (
-            <p className="text-studio-muted-ink truncate text-[10px] leading-tight font-semibold">
+            <p className="truncate text-[10px] leading-tight font-medium text-[#666159]">
               {booking.bandName}
             </p>
           ) : null}
         </div>
 
-        <div className="mt-0.5 flex flex-wrap items-center gap-0.5">
+        <div className="mt-1 flex flex-wrap items-center gap-1">
           {!isMultiLane ? (
-            <span className="border-studio-ink bg-studio-ivory text-studio-ink max-w-full truncate border px-1 py-0 font-mono text-[8px] leading-tight font-bold uppercase">
+            <span className="max-w-full truncate rounded-full border border-[#151515]/10 bg-[#151515]/[0.045] px-1.5 py-0 text-[8.5px] leading-tight font-medium text-[#46433D]">
               {serviceSummary}
             </span>
           ) : null}
 
           <span
-            className={`border px-1 py-0 font-mono text-[8px] leading-tight font-extrabold uppercase ${paymentMeta.badgeClass}`}
+            className={`rounded-full border px-1.5 py-0 text-[8.5px] leading-tight font-medium ${paymentMeta.badgeClass}`}
           >
             {paymentMeta.shortLabel}
           </span>
 
           {!isMultiLane ? (
             <span
-              className={`border px-1 py-0 font-mono text-[8px] leading-tight font-extrabold uppercase ${sessionMeta.badgeClass}`}
+              className={`rounded-full border px-1.5 py-0 text-[8.5px] leading-tight font-medium ${sessionMeta.badgeClass}`}
             >
               {sessionMeta.label}
             </span>
           ) : null}
 
           {endsAfterDisplay ? (
-            <span className="border-studio-ink text-studio-ink border bg-amber-200 px-1 py-0 font-mono text-[8px] leading-tight font-extrabold uppercase">
+            <span className="rounded-full border border-amber-500/25 bg-[#FEF4DD] px-1.5 py-0 text-[8.5px] leading-tight font-medium text-[#8A4B08]">
               s/d {formatMinuteOfDay(booking.endMinute)}
             </span>
           ) : null}
@@ -149,28 +147,27 @@ export function CalendarBookingCard({
         onSelectBooking(booking);
       }}
       aria-label={ariaLabel}
-      className={`border-studio-ink ${cardSurfaceClass} ${leftAccentClass} group flex w-full cursor-pointer flex-col justify-between overflow-hidden border-2 p-1.5 text-left shadow-[2px_2px_0px_#151515] transition-shadow hover:shadow-[3px_3px_0px_#151515]`}
+      className={`${cardSurfaceClass} ${leftAccentClass} group flex w-full cursor-pointer flex-col justify-between overflow-hidden rounded-xl border p-2 text-left shadow-xs transition-all hover:shadow-sm`}
     >
       <div className="min-w-0 space-y-0.5">
         {/* Top Metadata Row: Time + Room Badge */}
         <div className="flex flex-wrap items-center justify-between gap-1">
-          <span className="font-mono text-[10px] leading-none font-extrabold tracking-tight">
-            {timeRangeLabel}{' '}
-            <span className="text-studio-muted-ink font-semibold">({durationLabel})</span>
+          <span className="text-studio-ink font-mono text-[10.5px] leading-none font-semibold tracking-tight tabular-nums">
+            {timeRangeLabel} <span className="font-normal text-[#666159]">({durationLabel})</span>
           </span>
 
           <span
-            className={`border px-1.5 py-0.5 font-mono text-[9px] leading-none font-extrabold uppercase ${room.badgeClass}`}
+            className={`rounded-full border px-2 py-0.5 text-[9.5px] leading-none font-semibold ${room.badgeClass}`}
           >
             {room.label}
           </span>
         </div>
 
         {/* Customer + Band Name */}
-        <div className="min-w-0">
-          <p className="truncate text-xs leading-tight font-extrabold">{booking.customerName}</p>
+        <div className="min-w-0 pt-0.5">
+          <p className="truncate text-xs leading-tight font-semibold">{booking.customerName}</p>
           {booking.bandName && Number(booking.durationMinutes) >= 60 ? (
-            <p className="text-studio-muted-ink truncate text-[10px] leading-tight font-semibold">
+            <p className="truncate text-[11px] leading-tight font-medium text-[#666159]">
               {booking.bandName}
             </p>
           ) : null}
@@ -178,25 +175,25 @@ export function CalendarBookingCard({
       </div>
 
       {/* Bottom Badges: Service + Payment Status + Session Status */}
-      <div className="mt-1 flex flex-wrap items-center gap-1 pt-0.5">
-        <span className="border-studio-ink bg-studio-ivory text-studio-ink truncate border px-1 py-0.5 font-mono text-[9px] leading-none font-bold uppercase">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        <span className="truncate rounded-full border border-[#151515]/10 bg-[#151515]/[0.045] px-2 py-0.5 text-[9.5px] leading-none font-medium text-[#46433D]">
           {serviceSummary}
         </span>
 
         <span
-          className={`border px-1 py-0.5 font-mono text-[9px] leading-none font-extrabold uppercase ${paymentMeta.badgeClass}`}
+          className={`rounded-full border px-2 py-0.5 text-[9.5px] leading-none font-medium ${paymentMeta.badgeClass}`}
         >
           {paymentMeta.shortLabel}
         </span>
 
         <span
-          className={`border px-1 py-0.5 font-mono text-[9px] leading-none font-extrabold uppercase ${sessionMeta.badgeClass}`}
+          className={`rounded-full border px-2 py-0.5 text-[9.5px] leading-none font-medium ${sessionMeta.badgeClass}`}
         >
           {sessionMeta.label}
         </span>
 
         {endsAfterDisplay ? (
-          <span className="border-studio-ink text-studio-ink border bg-amber-200 px-1 py-0.5 font-mono text-[9px] leading-none font-extrabold uppercase">
+          <span className="rounded-full border border-amber-500/25 bg-[#FEF4DD] px-2 py-0.5 text-[9.5px] leading-none font-medium text-[#8A4B08]">
             Lanjut s/d {formatMinuteOfDay(booking.endMinute)}
           </span>
         ) : null}

@@ -56,8 +56,8 @@ export function CalendarMonthView({
     <CalendarTimelineGrid
       ariaLabel={`Tampilan timeline bulanan ${monthTitle} (${monthRange.days.length} hari)`}
       bannerLeft={
-        <span className="font-mono text-[10px] font-extrabold uppercase">
-          Bulanan • {monthTitle} ({monthRange.days.length} Hari)
+        <span className="text-studio-ink text-xs font-semibold">
+          Bulanan · {monthTitle} ({monthRange.days.length} Hari)
         </span>
       }
       bannerRight="Geser horizontal untuk seluruh tanggal • Klik tanggal untuk Day View"

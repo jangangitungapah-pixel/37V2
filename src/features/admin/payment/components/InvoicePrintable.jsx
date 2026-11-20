@@ -346,34 +346,38 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
     <>
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Backdrop className="no-print fixed inset-0 z-[70] bg-black/75 backdrop-blur-[1px]" />
+          <Dialog.Backdrop
+            data-admin-portal-layer="true"
+            className="no-print sa-overlay-backdrop fixed inset-0 z-[70]"
+          />
 
           <Dialog.Popup
+            data-admin-portal-layer="true"
             aria-label={`Preview cetak invoice ${invoice.invoiceNumber}`}
             data-payment-scoped="true"
-            className="no-print border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-[80] mx-auto flex h-[94dvh] w-full max-w-4xl flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[92dvh] sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:border-2"
+            className="no-print sa-dialog fixed inset-x-0 bottom-0 z-[80] mx-auto flex h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[92dvh] sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
           >
             {/* Preview Action Header */}
-            <div className="border-studio-ink bg-studio-ink text-studio-ivory flex shrink-0 flex-wrap items-center justify-between gap-2 border-b-2 px-4 py-3 sm:px-5">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-5 py-3.5">
               <div className="min-w-0">
-                <Dialog.Title className="font-display text-lg leading-none font-black text-white uppercase sm:text-xl">
+                <Dialog.Title className="text-base font-bold tracking-tight text-[#151515] sm:text-lg">
                   Preview Cetak &amp; PDF — {invoice.invoiceNumber}
                 </Dialog.Title>
-                <Dialog.Description className="mt-0.5 font-mono text-[10px] text-neutral-300">
+                <Dialog.Description className="mt-0.5 text-xs text-[#666159]">
                   Siap dicetak atau disimpan sebagai PDF melalui dialog cetak browser.
                 </Dialog.Description>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={handleCopySummary}
-                  className="border-studio-ivory bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex h-9 cursor-pointer items-center gap-1.5 border px-2.5 font-mono text-[10px] font-extrabold uppercase"
+                  className="sa-control sa-btn-secondary inline-flex h-9 cursor-pointer items-center gap-1.5 px-3 text-xs font-semibold"
                 >
                   {copied ? (
-                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                    <Check className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
                   ) : (
-                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                    <Copy className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                   )}
                   <span>{copied ? 'Disalin' : 'Salin ke WhatsApp'}</span>
                 </button>
@@ -381,7 +385,7 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex h-9 cursor-pointer items-center gap-1.5 border px-3 font-mono text-[10px] font-extrabold uppercase"
+                  className="sa-control sa-btn-lime inline-flex h-9 cursor-pointer items-center gap-1.5 px-3.5 text-xs font-semibold"
                 >
                   <Printer className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Cetak / Simpan PDF</span>
@@ -389,7 +393,7 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
 
                 <Dialog.Close
                   aria-label="Tutup preview cetak invoice"
-                  className="inline-flex h-9 w-9 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white"
+                  className="sa-control inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </Dialog.Close>
@@ -397,7 +401,7 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
             </div>
 
             {/* Scrollable Preview Canvas */}
-            <div className="min-h-0 flex-1 overflow-y-auto bg-neutral-200/80 p-3 sm:p-6">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[#EBE7DC]/75 p-3 sm:p-6">
               <InvoiceDocumentSheet invoice={invoice} transactions={transactions} />
             </div>
           </Dialog.Popup>

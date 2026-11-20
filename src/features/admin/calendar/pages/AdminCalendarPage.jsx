@@ -230,13 +230,13 @@ export function AdminCalendarPage() {
   };
 
   return (
-    <div data-calendar-scoped="true" className="relative isolate z-0 space-y-2.5 sm:space-y-4">
+    <div data-calendar-scoped="true" className="relative isolate z-0 space-y-4 sm:space-y-5">
       {/* Operational Feedback Banner */}
       {statusFeedback ? (
         <div
           role="status"
           aria-live="polite"
-          className="border-studio-ink bg-studio-lime text-studio-ink flex items-center justify-between gap-2.5 border-2 px-3 py-2 text-xs font-extrabold shadow-[2px_2px_0px_#151515]"
+          className="flex items-center justify-between gap-2.5 rounded-2xl border border-[#8BAD12]/35 bg-[#EDF8C2] px-4 py-2.5 text-xs font-medium text-[#243300] shadow-xs"
         >
           <span className="inline-flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />

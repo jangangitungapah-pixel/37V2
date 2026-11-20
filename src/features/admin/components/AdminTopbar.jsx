@@ -57,10 +57,10 @@ export function AdminTopbar({
   };
 
   return (
-    <header className="border-studio-ink bg-studio-white sticky top-0 z-20 border-b-2">
-      <div className="flex min-h-14 items-center justify-between gap-1.5 px-2.5 py-1.5 sm:min-h-[72px] sm:gap-2 sm:px-6 sm:py-2 lg:px-8">
+    <header className="sa-topbar sticky top-0 z-20">
+      <div className="mx-auto flex min-h-14 w-full max-w-[1440px] items-center justify-between gap-2 px-3 py-2 sm:min-h-[68px] sm:gap-3 sm:px-6 lg:px-8">
         {/* Left: Mobile Drawer Button / Desktop Sidebar Toggle + Breadcrumb + Dynamic Page Title */}
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3.5">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
           {/* Mobile & Tablet Off-Canvas Drawer Trigger */}
           <button
             ref={mobileMenuTriggerRef}
@@ -68,9 +68,9 @@ export function AdminTopbar({
             onClick={onOpenMobileDrawer}
             aria-expanded={isMobileDrawerOpen}
             aria-label="Open navigation drawer"
-            className="brutal-btn bg-studio-ivory text-studio-ink inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center sm:h-11 sm:w-11 lg:hidden"
+            className="sa-control sa-btn-secondary inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center sm:h-10 sm:w-10 lg:hidden"
           >
-            <Menu className="h-4.5 w-4.5 sm:h-5 sm:w-5" aria-hidden="true" />
+            <Menu className="h-4.5 w-4.5 text-[#151515]" aria-hidden="true" />
           </button>
 
           {/* Desktop Sidebar Expand / Collapse Quick Control */}
@@ -80,55 +80,55 @@ export function AdminTopbar({
             aria-expanded={!isSidebarCollapsed}
             aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="brutal-btn bg-studio-ivory text-studio-ink hidden h-11 w-11 shrink-0 cursor-pointer items-center justify-center lg:inline-flex"
+            className="sa-control sa-btn-secondary hidden h-10 w-10 shrink-0 cursor-pointer items-center justify-center lg:inline-flex"
           >
             {isSidebarCollapsed ? (
-              <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+              <PanelLeftOpen className="h-4 w-4 text-[#46433D]" aria-hidden="true" />
             ) : (
-              <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+              <PanelLeftClose className="h-4 w-4 text-[#46433D]" aria-hidden="true" />
             )}
           </button>
 
           {/* Breadcrumb & Active Route Page Title */}
           <div className="min-w-0">
             <nav aria-label="Breadcrumb" className="hidden sm:block">
-              <ol className="text-studio-muted-ink flex items-center gap-1 font-mono text-[10px] font-bold tracking-wider uppercase sm:text-[11px]">
+              <ol className="flex items-center gap-1 text-[11px] font-medium text-[#666159]">
                 <li className="truncate">37 Studio</li>
                 <li aria-hidden="true">
-                  <ChevronRight className="h-3 w-3 shrink-0" />
+                  <ChevronRight className="h-3 w-3 shrink-0 text-[#8B857B]" />
                 </li>
-                <li aria-current="page" className="text-studio-ink truncate font-extrabold">
+                <li aria-current="page" className="truncate font-semibold text-[#151515]">
                   {activeNavItem.label}
                 </li>
               </ol>
             </nav>
 
-            <h1 className="font-display text-studio-ink truncate text-base leading-none font-black tracking-tight uppercase sm:text-2xl">
+            <h1 className="truncate text-base font-bold tracking-[-0.02em] text-[#151515] sm:text-xl sm:leading-tight">
               {activeNavItem.label}
             </h1>
           </div>
         </div>
 
         {/* Right: Authenticated User Identity + Role Badge + Public Site Link + Logout */}
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
           {/* Authenticated Identity Pill */}
           <div
             aria-label="Authenticated user profile"
-            className="sm:border-studio-ink sm:bg-studio-ivory flex items-center gap-2 sm:min-h-11 sm:gap-2.5 sm:border-[1.5px] sm:px-3 sm:py-1.5"
+            className="flex items-center gap-2 sm:rounded-full sm:border sm:border-[#151515]/[0.08] sm:bg-white/85 sm:py-1 sm:pr-2 sm:pl-1.5 sm:shadow-[0_1px_2px_rgba(21,21,21,0.03)]"
           >
             <span
               aria-hidden="true"
-              className="border-studio-ink bg-studio-ink text-studio-lime hidden h-8 w-8 shrink-0 items-center justify-center border font-mono text-xs font-extrabold sm:flex"
+              className="hidden h-7.5 w-7.5 shrink-0 items-center justify-center rounded-full bg-[#151515] font-mono text-[11px] font-bold text-[#C8F13A] sm:flex"
             >
               {initials}
             </span>
 
-            <div className="hidden max-w-[160px] min-w-0 flex-col text-left md:flex lg:max-w-[200px]">
-              <span className="text-studio-ink truncate text-xs leading-tight font-extrabold">
+            <div className="hidden max-w-[150px] min-w-0 flex-col text-left md:flex lg:max-w-[190px]">
+              <span className="truncate text-xs leading-tight font-semibold text-[#151515]">
                 {displayName}
               </span>
               {email ? (
-                <span className="text-studio-muted-ink truncate font-mono text-[10px] leading-tight">
+                <span className="truncate font-mono text-[10px] leading-tight text-[#666159]">
                   {email}
                 </span>
               ) : null}
@@ -137,8 +137,8 @@ export function AdminTopbar({
             <span
               className={
                 isOwner
-                  ? 'border-studio-ink bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold tracking-wider uppercase sm:px-2 sm:text-[10px]'
-                  : 'border-studio-ink bg-studio-orange text-studio-white inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold tracking-wider uppercase sm:px-2 sm:text-[10px]'
+                  ? 'inline-flex items-center gap-1 rounded-full border border-[#8BAD12]/35 bg-[#EDF8C2] px-2 py-0.5 font-mono text-[10px] font-bold tracking-wide text-[#243300] uppercase'
+                  : 'inline-flex items-center gap-1 rounded-full border border-[#FF4B22]/25 bg-[#FFEDE8] px-2 py-0.5 font-mono text-[10px] font-bold tracking-wide text-[#B92B0C] uppercase'
               }
             >
               <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -150,10 +150,10 @@ export function AdminTopbar({
           <Link
             to="/"
             aria-label="Open public website"
-            className="brutal-btn bg-studio-white text-studio-ink hidden min-h-11 items-center gap-1.5 px-3 py-2 text-xs font-extrabold tracking-wider uppercase xl:inline-flex"
+            className="sa-control sa-btn-secondary hidden min-h-9.5 items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#151515] xl:inline-flex"
           >
             <span>Public Site</span>
-            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+            <ArrowUpRight className="h-3.5 w-3.5 text-[#666159]" aria-hidden="true" />
           </Link>
 
           {/* Logout Action */}
@@ -163,12 +163,12 @@ export function AdminTopbar({
             disabled={isSigningOut}
             aria-label="Sign out of studio session"
             title="Sign Out"
-            className="brutal-btn bg-studio-orange text-studio-white inline-flex h-9 w-9 cursor-pointer items-center justify-center gap-1.5 text-xs font-extrabold tracking-wider uppercase disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:min-h-11 sm:w-auto sm:px-4 sm:py-2"
+            className="sa-control inline-flex h-9.5 w-9.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[#FF4B22]/25 bg-[#FFEDE8]/90 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white disabled:cursor-not-allowed disabled:opacity-60 sm:h-9.5 sm:w-auto sm:px-3.5 sm:py-1.5"
           >
             {isSigningOut ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
             ) : (
-              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
             )}
             <span className="hidden sm:inline">Sign Out</span>
           </button>

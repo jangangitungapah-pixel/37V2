@@ -4,6 +4,7 @@ import { BookOpenText, CheckCircle2, Loader2, X } from 'lucide-react';
 
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
 import { formatIndonesianTimestamp } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminStatusBadge } from '@/features/admin/design-system';
 
 import {
   fetchCommissionBatchDetails,
@@ -11,8 +12,7 @@ import {
 } from '../services/commission-review-service';
 
 /**
- * Slide-over audit drawer inspecting one posted Commission Batch:
- * loads `commissionPostingItems` (`batchId == ...`) and linked `bookkeepingEntries` (`sourceId == ...`).
+ * Slide-over audit drawer inspecting one posted Commission Batch.
  */
 export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
   const [detailsState, setDetailsState] = useState({
@@ -65,35 +65,38 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/65 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-40"
+        />
 
         <Dialog.Popup
+          data-admin-portal-layer="true"
           aria-label={`Detail batch posting ${batch.id}`}
           data-commission-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col border-l-2 shadow-[-6px_0px_0px_#151515]"
+          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col outline-none"
         >
           {/* Sticky Header */}
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory shrink-0 border-b-2 px-4 py-3.5 sm:px-5">
+          <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-5 py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <span className="border-studio-ivory bg-studio-lime text-studio-ink inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                  <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                  <span>Posted Batch Audit</span>
-                </span>
-                <Dialog.Title className="font-display mt-1.5 truncate text-xl leading-none font-black text-white uppercase sm:text-2xl">
+                <AdminStatusBadge tone="lime" icon={CheckCircle2} size="sm">
+                  Posted Batch Audit
+                </AdminStatusBadge>
+                <Dialog.Title className="mt-2 truncate text-lg font-bold tracking-tight text-[#151515] sm:text-xl">
                   {getBatchPeriodDisplay(batch)}
                 </Dialog.Title>
-                <Dialog.Description className="mt-1 truncate font-mono text-[11px] text-neutral-300">
-                  Batch ID: <strong className="text-studio-lime">{batch.id}</strong> •{' '}
+                <Dialog.Description className="mt-0.5 truncate font-mono text-xs text-[#666159]">
+                  Batch ID: <strong className="text-[#151515]">{batch.id}</strong> •{' '}
                   {batch.bookingCount} sesi
                 </Dialog.Description>
               </div>
 
               <Dialog.Close
                 aria-label="Tutup detail batch komisi"
-                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white"
+                className="sa-control inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
               >
-                <X className="h-5 w-5" aria-hidden="true" />
+                <X className="h-4.5 w-4.5" aria-hidden="true" />
               </Dialog.Close>
             </div>
           </div>
@@ -101,35 +104,35 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
           {/* Scrollable Body */}
           <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
             {/* Batch Totals Summary */}
-            <section className="cal-card bg-studio-white p-3.5 font-mono text-xs">
-              <dl className="space-y-1.5">
+            <section className="sa-card p-4 text-xs">
+              <dl className="space-y-2">
                 <div className="flex justify-between gap-2">
-                  <dt className="text-studio-muted-ink">Waktu Posting</dt>
-                  <dd className="text-right font-bold">
+                  <dt className="text-[#666159]">Waktu Posting</dt>
+                  <dd className="text-right font-mono font-medium text-[#151515]">
                     {formatIndonesianTimestamp(batch.postedAt)}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-studio-muted-ink">Staff Commission</dt>
-                  <dd className="font-extrabold tabular-nums">
+                  <dt className="text-[#666159]">Staff Commission</dt>
+                  <dd className="font-mono font-semibold text-[#151515] tabular-nums">
                     {formatRupiah(batch.staffCommissionTotal)}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-studio-muted-ink">Recording Operator Fee</dt>
-                  <dd className="font-extrabold tabular-nums">
+                  <dt className="text-[#666159]">Recording Operator Fee</dt>
+                  <dd className="font-mono font-semibold text-[#151515] tabular-nums">
                     {formatRupiah(batch.recordingOperatorFeeTotal)}
                   </dd>
                 </div>
-                <div className="border-studio-ink flex justify-between gap-2 border-t pt-1.5 text-sm font-black">
-                  <dt>Total Kewajiban (Payable)</dt>
-                  <dd className="text-studio-orange tabular-nums">
+                <div className="flex justify-between gap-2 border-t border-[#151515]/[0.08] pt-2.5 text-sm font-bold">
+                  <dt className="text-[#151515]">Total Kewajiban (Payable)</dt>
+                  <dd className="font-mono text-[#FF4B22] tabular-nums">
                     {formatRupiah(batch.payableTotal)}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2 text-[11px]">
-                  <dt className="text-studio-muted-ink">Owner Allocation (Referensi)</dt>
-                  <dd className="text-studio-muted-ink font-bold tabular-nums">
+                  <dt className="text-[#666159]">Owner Allocation (Referensi)</dt>
+                  <dd className="font-mono font-medium text-[#666159] tabular-nums">
                     {formatRupiah(batch.ownerAllocationReferenceTotal)}
                   </dd>
                 </div>
@@ -137,36 +140,35 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
             </section>
 
             {/* Bookkeeping Expense Accrual Entries */}
-            <section className="cal-card bg-studio-white p-3.5">
-              <h3 className="text-studio-ink flex items-center gap-1.5 font-mono text-[10px] font-extrabold tracking-wider uppercase">
-                <BookOpenText className="h-3.5 w-3.5" aria-hidden="true" />
+            <section className="sa-card p-4">
+              <h3 className="flex items-center gap-1.5 text-xs font-semibold text-[#151515]">
+                <BookOpenText className="h-3.5 w-3.5 text-[#666159]" aria-hidden="true" />
                 <span>Catatan Masuk ke Pembukuan ({bookkeepingEntries.length})</span>
               </h3>
 
               {isLoading ? (
-                <div className="text-studio-muted-ink mt-3 flex items-center gap-2 font-mono text-xs">
+                <div className="mt-3 flex items-center gap-2 text-xs text-[#666159]">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                   <span>Memuat rincian batch...</span>
                 </div>
               ) : error ? (
-                <p className="text-studio-orange mt-2 font-mono text-xs font-bold">{error}</p>
+                <p className="mt-2 text-xs font-medium text-[#B92B0C]">{error}</p>
               ) : (
-                <div className="mt-2.5 space-y-2">
+                <div className="mt-3 space-y-2.5">
                   {bookkeepingEntries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="border-studio-ink bg-studio-ivory border p-2.5 font-mono text-xs"
-                    >
+                    <div key={entry.id} className="sa-panel-ivory p-3 text-xs">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="border-studio-ink border bg-amber-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
+                        <AdminStatusBadge tone="amber" size="sm">
                           Kewajiban • Belum Dibayar ({entry.settlementStatus})
-                        </span>
-                        <span className="font-black tabular-nums">
+                        </AdminStatusBadge>
+                        <span className="font-mono font-bold text-[#151515] tabular-nums">
                           {formatRupiah(entry.amount)}
                         </span>
                       </div>
-                      <p className="text-studio-ink mt-1 font-bold">{entry.description}</p>
-                      <p className="text-studio-subtle-ink mt-0.5 text-[10px]">ID: {entry.id}</p>
+                      <p className="mt-1.5 font-medium text-[#151515]">{entry.description}</p>
+                      <p className="mt-0.5 font-mono text-[10.5px] text-[#8B857B]">
+                        ID: {entry.id}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -174,37 +176,37 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
             </section>
 
             {/* Booking Line Items in This Batch */}
-            <section className="cal-card bg-studio-white p-3.5">
-              <h3 className="text-studio-ink font-mono text-[10px] font-extrabold tracking-wider uppercase">
+            <section className="sa-card p-4">
+              <h3 className="text-xs font-semibold text-[#151515]">
                 Rincian Booking dalam Batch ({postingItems.length})
               </h3>
 
               {!isLoading && !error ? (
-                <ul className="mt-2.5 divide-y divide-neutral-200">
+                <ul className="mt-3 divide-y divide-[#151515]/[0.06]">
                   {postingItems.map((item) => (
-                    <li key={item.id} className="py-2 font-mono text-xs first:pt-0 last:pb-0">
+                    <li key={item.id} className="py-2.5 text-xs first:pt-0 last:pb-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-studio-ink truncate font-extrabold">
+                          <p className="truncate font-semibold text-[#151515]">
                             {item.customerSnapshot?.name}
                             {item.customerSnapshot?.bandName
                               ? ` (${item.customerSnapshot.bandName})`
                               : ''}
                           </p>
-                          <p className="text-studio-muted-ink text-[10px]">
+                          <p className="mt-0.5 font-mono text-[10.5px] text-[#666159]">
                             {item.bookingId} • {item.serviceSnapshot?.serviceTypeName} (
                             {item.serviceSnapshot?.serviceOptionName})
                           </p>
-                          <p className="text-studio-subtle-ink text-[10px]">
+                          <p className="text-[10.5px] text-[#8B857B]">
                             Selesai: {formatIndonesianTimestamp(item.completedAt)}
                           </p>
                         </div>
 
-                        <div className="shrink-0 text-right">
-                          <span className="text-studio-ink block font-black tabular-nums">
+                        <div className="shrink-0 text-right font-mono">
+                          <span className="block font-bold text-[#151515] tabular-nums">
                             {formatRupiah(item.payableTotal)}
                           </span>
-                          <span className="text-studio-subtle-ink block text-[9.5px]">
+                          <span className="block text-[10px] text-[#666159]">
                             S:{formatRupiah(item.staffPayableAmount)} • O:
                             {formatRupiah(item.recordingOperatorPayableAmount)}
                           </span>

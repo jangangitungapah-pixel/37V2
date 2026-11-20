@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
 import { X } from 'lucide-react';
 
+import { AdminStatusBadge } from '@/features/admin/design-system';
+
 import {
   DELIVERY_MODES,
   FEE_MODES,
@@ -229,33 +231,37 @@ export function ServiceOptionDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/70 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-40"
+        />
 
         <Dialog.Popup
+          data-admin-portal-layer="true"
           data-calendar-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-2xl flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[92dvh] sm:-translate-y-1/2 sm:border-2"
+          className="sa-dialog fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[92dvh] sm:-translate-y-1/2 sm:rounded-2xl"
         >
           {/* Sticky Header */}
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory flex shrink-0 items-start justify-between gap-3 border-b-2 px-4 py-3.5 sm:px-5 sm:py-4">
+          <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 sm:gap-3 sm:px-5 sm:py-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="border-studio-ivory bg-studio-lime text-studio-ink inline-block border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-wider uppercase">
+                <AdminStatusBadge tone="lime" size="sm" className="font-mono uppercase">
                   {serviceType?.name || 'SERVICE'}
-                </span>
-                <span className="inline-block border border-neutral-600 bg-neutral-900 px-2 py-0.5 font-mono text-[10px] font-bold text-neutral-200 uppercase">
+                </AdminStatusBadge>
+                <AdminStatusBadge tone="ink" size="sm" className="font-mono uppercase">
                   {deliveryMode === DELIVERY_MODES.WFA ? 'WFA' : 'STUDIO'}
-                </span>
+                </AdminStatusBadge>
               </div>
-              <Dialog.Title className="font-display mt-1.5 text-2xl leading-none font-black tracking-tight text-white uppercase">
+              <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
                 {mode === 'edit' ? 'Edit Subcategory' : 'Add Subcategory'}
               </Dialog.Title>
             </div>
 
             <Dialog.Close
               aria-label="Close subcategory dialog"
-              className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white"
+              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
             >
-              <X className="h-5 w-5" aria-hidden="true" />
+              <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
             </Dialog.Close>
           </div>
 
@@ -264,25 +270,20 @@ export function ServiceOptionDialog({
             id="service-option-dialog-form"
             onSubmit={handleSubmit}
             noValidate
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5"
+            className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-[#F8F6EF]/50 p-3.5 sm:space-y-4 sm:p-5"
           >
             {/* 01. BASIC INFORMATION */}
-            <section className="border-studio-ink bg-studio-white space-y-3 border-2 p-3.5 sm:p-4">
-              <div className="border-b border-neutral-200 pb-2">
-                <span className="text-studio-orange font-mono text-[10px] font-extrabold uppercase">
-                  01 • BASIC INFORMATION
+            <section className="sa-subcard space-y-3 p-4">
+              <div className="border-b border-[#151515]/[0.07] pb-2.5">
+                <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
+                  01 • Basic Information
                 </span>
-                <h4 className="font-display text-studio-ink text-xl font-black uppercase">
-                  Identitas Subcategory
-                </h4>
+                <h4 className="mt-0.5 text-sm font-bold text-[#151515]">Identitas Subcategory</h4>
               </div>
 
               <div>
-                <label
-                  htmlFor="opt-name"
-                  className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
-                >
-                  Subcategory Name <span className="text-studio-orange">*</span>
+                <label htmlFor="opt-name" className="block text-xs font-semibold text-[#151515]">
+                  Subcategory Name <span className="text-[#FF4B22]">*</span>
                 </label>
                 <input
                   id="opt-name"
@@ -290,10 +291,10 @@ export function ServiceOptionDialog({
                   value={formValues.name}
                   onChange={(e) => handleFieldChange('name', e.target.value)}
                   placeholder="Contoh: Reguler / Paket 6 Hours / Lite / Pro"
-                  className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
+                  className="sa-input mt-1.5 min-h-10.5 w-full px-3.5 py-2 text-sm font-medium"
                 />
                 {errors.name ? (
-                  <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                  <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                     {errors.name}
                   </p>
                 ) : null}
@@ -302,7 +303,7 @@ export function ServiceOptionDialog({
               <div>
                 <label
                   htmlFor="opt-description"
-                  className="text-studio-ink block font-mono text-xs font-extrabold uppercase"
+                  className="block text-xs font-semibold text-[#151515]"
                 >
                   Description
                 </label>
@@ -312,16 +313,14 @@ export function ServiceOptionDialog({
                   value={formValues.description}
                   onChange={(e) => handleFieldChange('description', e.target.value)}
                   placeholder="Keterangan singkat subcategory..."
-                  className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-medium"
+                  className="sa-input mt-1.5 min-h-10.5 w-full px-3.5 py-2 text-sm"
                 />
               </div>
 
-              <label className="border-studio-ink bg-studio-ivory flex cursor-pointer items-center justify-between border p-2.5">
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3">
                 <div>
-                  <span className="block font-mono text-xs font-extrabold uppercase">
-                    Active Status
-                  </span>
-                  <span className="text-studio-muted-ink block text-[11px]">
+                  <span className="block text-xs font-semibold text-[#151515]">Active Status</span>
+                  <span className="block text-[11px] text-[#666159]">
                     {isUnconfigured
                       ? 'Pilih model harga terlebih dahulu untuk mengaktifkan subcategory ini'
                       : 'Tampilkan sebagai pilihan booking aktif'}
@@ -332,25 +331,23 @@ export function ServiceOptionDialog({
                   disabled={isUnconfigured}
                   checked={isUnconfigured ? false : formValues.isActive}
                   onChange={(e) => handleFieldChange('isActive', e.target.checked)}
-                  className="accent-studio-ink h-5 w-5 cursor-pointer disabled:cursor-not-allowed"
+                  className="accent-studio-ink h-4.5 w-4.5 cursor-pointer disabled:cursor-not-allowed"
                 />
               </label>
               {errors.isActive ? (
-                <p role="alert" className="text-studio-error-ink text-xs font-bold">
+                <p role="alert" className="text-xs font-medium text-[#B92B0C]">
                   {errors.isActive}
                 </p>
               ) : null}
             </section>
 
             {/* 02. CUSTOMER PRICING */}
-            <section className="border-studio-ink bg-studio-white space-y-3 border-2 p-3.5 sm:p-4">
-              <div className="border-b border-neutral-200 pb-2">
-                <span className="text-studio-orange font-mono text-[10px] font-extrabold uppercase">
-                  02 • CUSTOMER PRICING
+            <section className="sa-subcard space-y-3 p-4">
+              <div className="border-b border-[#151515]/[0.07] pb-2.5">
+                <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
+                  02 • Customer Pricing
                 </span>
-                <h4 className="font-display text-studio-ink text-xl font-black uppercase">
-                  Tarif Customer
-                </h4>
+                <h4 className="mt-0.5 text-sm font-bold text-[#151515]">Tarif Customer</h4>
               </div>
 
               <PricingModeFields
@@ -362,12 +359,12 @@ export function ServiceOptionDialog({
             </section>
 
             {/* 03. INTERNAL FEES */}
-            <section className="border-studio-ink bg-studio-white space-y-3 border-2 p-3.5 sm:p-4">
-              <div className="border-b border-neutral-200 pb-2">
-                <span className="text-studio-orange font-mono text-[10px] font-extrabold uppercase">
-                  03 • INTERNAL FEES (TERPISAH DARI TAGIHAN CUSTOMER)
+            <section className="sa-subcard space-y-3 p-4">
+              <div className="border-b border-[#151515]/[0.07] pb-2.5">
+                <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
+                  03 • Internal Fees (Terpisah Dari Tagihan Customer)
                 </span>
-                <h4 className="font-display text-studio-ink text-xl font-black uppercase">
+                <h4 className="mt-0.5 text-sm font-bold text-[#151515]">
                   Alokasi Staff, Owner &amp; Operator
                 </h4>
               </div>
@@ -383,14 +380,12 @@ export function ServiceOptionDialog({
 
             {/* 04. DISCOUNT RULES (HOURLY ONLY) */}
             {isHourly ? (
-              <section className="border-studio-ink bg-studio-white space-y-3 border-2 p-3.5 sm:p-4">
-                <div className="border-b border-neutral-200 pb-2">
-                  <span className="text-studio-orange font-mono text-[10px] font-extrabold uppercase">
-                    04 • DURATION DISCOUNT RULES (OPSIONAL)
+              <section className="sa-subcard space-y-3 p-4">
+                <div className="border-b border-[#151515]/[0.07] pb-2.5">
+                  <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
+                    04 • Duration Discount Rules (Opsional)
                   </span>
-                  <h4 className="font-display text-studio-ink text-xl font-black uppercase">
-                    Aturan Diskon Durasi
-                  </h4>
+                  <h4 className="mt-0.5 text-sm font-bold text-[#151515]">Aturan Diskon Durasi</h4>
                 </div>
 
                 <DiscountRulesEditor
@@ -403,18 +398,18 @@ export function ServiceOptionDialog({
           </form>
 
           {/* Sticky Footer */}
-          <div className="border-studio-ink bg-studio-white flex shrink-0 items-center justify-end gap-2.5 border-t-2 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-3.5">
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:gap-2.5 sm:px-5 sm:py-3.5 sm:pb-[max(0.875rem,env(safe-area-inset-bottom))]">
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="brutal-btn bg-studio-ivory text-studio-ink min-h-11 flex-1 cursor-pointer px-4 py-2 font-mono text-xs font-extrabold uppercase sm:flex-initial"
+              className="sa-control sa-btn-secondary min-h-9.5 flex-1 cursor-pointer px-4 py-1.5 text-xs font-semibold sm:min-h-10 sm:flex-initial sm:py-2"
             >
               Cancel
             </button>
             <button
               type="submit"
               form="service-option-dialog-form"
-              className="brutal-btn bg-studio-orange text-studio-white min-h-11 flex-1 cursor-pointer px-5 py-2 font-mono text-xs font-extrabold uppercase sm:flex-initial"
+              className="sa-control sa-btn-orange min-h-9.5 flex-1 cursor-pointer px-4 py-1.5 text-xs font-semibold sm:min-h-10 sm:flex-initial sm:px-5 sm:py-2"
             >
               {mode === 'edit' ? 'Update Subcategory' : 'Add Subcategory'}
             </button>

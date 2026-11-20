@@ -5,7 +5,7 @@ export function CalendarViewSwitcher({ viewMode, onViewModeChange }) {
     <div
       role="group"
       aria-label="Mode tampilan kalender"
-      className="border-studio-ink bg-studio-ivory grid w-full grid-cols-3 border-2 p-0.5 shadow-[2px_2px_0px_#151515] sm:inline-grid sm:w-auto sm:min-w-[234px]"
+      className="sa-pill-track grid w-full grid-cols-3 sm:inline-grid sm:w-auto sm:min-w-[240px]"
     >
       {CALENDAR_VIEW_MODES.map((mode) => {
         const isActive = viewMode === mode.id;
@@ -17,8 +17,8 @@ export function CalendarViewSwitcher({ viewMode, onViewModeChange }) {
             aria-pressed={isActive}
             className={
               isActive
-                ? 'border-studio-ink bg-studio-lime text-studio-ink min-h-8.5 w-full cursor-pointer border px-2 py-1 text-center font-mono text-[10px] font-extrabold tracking-wider uppercase transition-colors sm:min-h-11 sm:text-[11px]'
-                : 'text-studio-ink hover:bg-studio-white min-h-8.5 w-full cursor-pointer border border-transparent px-2 py-1 text-center font-mono text-[10px] font-bold tracking-wider uppercase transition-colors sm:min-h-11 sm:text-[11px]'
+                ? 'bg-studio-lime text-studio-ink min-h-8.5 w-full cursor-pointer rounded-[10px] px-2.5 py-1.5 text-center text-xs font-semibold shadow-xs transition-all sm:min-h-9.5'
+                : 'hover:text-studio-ink min-h-8.5 w-full cursor-pointer rounded-[10px] px-2.5 py-1.5 text-center text-xs font-medium text-[#46433D] transition-all hover:bg-white/80 sm:min-h-9.5'
             }
           >
             {mode.label}

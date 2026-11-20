@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
 import { AlertTriangle, ArrowDownUp, GitMerge, Loader2, X } from 'lucide-react';
 
+import { AdminStatusBadge } from '@/features/admin/design-system';
+
 import { mapCustomerErrorToMessage } from '../services/customer-service';
 import { formatPhoneDisplay } from '../utils/phone-number';
 
@@ -57,24 +59,27 @@ export function CustomerMergeDialog({
   return (
     <Dialog.Root open={open} onOpenChange={(next) => (!isMerging ? onOpenChange?.(next) : null)}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-[60]"
+        />
 
         <Dialog.Popup
+          data-admin-portal-layer="true"
           aria-label="Merge customer history"
           data-customer-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[92dvh] w-full max-w-xl flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:border-2"
+          className="sa-dialog fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
         >
           {/* Header */}
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory flex shrink-0 items-start justify-between gap-3 border-b-2 px-4 py-4 sm:px-6">
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-5 py-4 sm:px-6">
             <div className="min-w-0">
-              <span className="border-studio-ivory bg-studio-orange text-studio-white inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
-                <GitMerge className="h-3 w-3" aria-hidden="true" />
-                <span>GABUNGKAN DATA PELANGGAN</span>
-              </span>
-              <Dialog.Title className="font-display mt-1.5 text-2xl leading-none font-black text-white uppercase sm:text-3xl">
+              <AdminStatusBadge tone="orange" icon={GitMerge} size="sm" className="uppercase">
+                Gabungkan Data Pelanggan
+              </AdminStatusBadge>
+              <Dialog.Title className="mt-2 text-lg font-bold tracking-tight text-[#151515] sm:text-xl">
                 Gabungkan Riwayat Profil
               </Dialog.Title>
-              <Dialog.Description className="mt-1 text-xs text-neutral-300">
+              <Dialog.Description className="mt-0.5 text-xs text-[#666159]">
                 Riwayat booking kedua profil tampil jadi satu, sementara data booking lama tetap
                 tersimpan aman.
               </Dialog.Description>
@@ -83,17 +88,17 @@ export function CustomerMergeDialog({
             <Dialog.Close
               aria-label="Tutup dialog merge customer"
               disabled={isMerging}
-              className="hover:border-studio-lime hover:text-studio-lime inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white"
+              className="sa-control inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
             >
-              <X className="h-5 w-5" aria-hidden="true" />
+              <X className="h-4.5 w-4.5" aria-hidden="true" />
             </Dialog.Close>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-white px-5 py-5 sm:px-6">
             {error ? (
               <div
                 role="alert"
-                className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2 border-2 p-3 text-xs font-bold"
+                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 text-xs font-medium text-[#B92B0C]"
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
@@ -102,10 +107,10 @@ export function CustomerMergeDialog({
 
             {/* Target & Source Selectors */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="border-studio-ink bg-studio-white border-2 p-3">
+              <div className="sa-panel-ivory p-3.5">
                 <label
                   htmlFor="merge-target-select"
-                  className="text-studio-ink block font-mono text-[10px] font-extrabold uppercase"
+                  className="block text-[11px] font-semibold text-[#151515]"
                 >
                   Profil Utama (Yang Dipakai Selanjutnya)
                 </label>
@@ -120,7 +125,7 @@ export function CustomerMergeDialog({
                       setSourceId(other?.id || '');
                     }
                   }}
-                  className="border-studio-ink bg-studio-ivory mt-1.5 h-11 w-full border-2 px-2 text-xs font-bold"
+                  className="sa-input mt-2 h-10 w-full px-2.5 text-xs font-semibold"
                 >
                   {candidates.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -129,17 +134,17 @@ export function CustomerMergeDialog({
                   ))}
                 </select>
                 {targetProfile ? (
-                  <p className="text-studio-muted-ink mt-1.5 font-mono text-[11px] font-bold">
+                  <p className="mt-2 font-mono text-[11px] text-[#666159]">
                     {formatPhoneDisplay(targetProfile.phoneNormalized)} •{' '}
                     {targetProfile.bookingCount} booking
                   </p>
                 ) : null}
               </div>
 
-              <div className="border-studio-ink bg-studio-white border-2 p-3">
+              <div className="sa-panel-ivory p-3.5">
                 <label
                   htmlFor="merge-source-select"
-                  className="text-studio-ink block font-mono text-[10px] font-extrabold uppercase"
+                  className="block text-[11px] font-semibold text-[#151515]"
                 >
                   Profil Kedua (Akan Digabungkan)
                 </label>
@@ -147,7 +152,7 @@ export function CustomerMergeDialog({
                   id="merge-source-select"
                   value={sourceId}
                   onChange={(e) => setSourceId(e.target.value)}
-                  className="border-studio-ink bg-studio-ivory mt-1.5 h-11 w-full border-2 px-2 text-xs font-bold"
+                  className="sa-input mt-2 h-10 w-full px-2.5 text-xs font-semibold"
                 >
                   {candidates
                     .filter((c) => c.id !== targetId)
@@ -158,7 +163,7 @@ export function CustomerMergeDialog({
                     ))}
                 </select>
                 {sourceProfile ? (
-                  <p className="text-studio-muted-ink mt-1.5 font-mono text-[11px] font-bold">
+                  <p className="mt-2 font-mono text-[11px] text-[#666159]">
                     {formatPhoneDisplay(sourceProfile.phoneNormalized)} •{' '}
                     {sourceProfile.bookingCount} booking
                   </p>
@@ -171,47 +176,45 @@ export function CustomerMergeDialog({
                 type="button"
                 onClick={handleSwap}
                 disabled={!targetProfile || !sourceProfile}
-                className="border-studio-ink bg-studio-white hover:bg-studio-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 border px-3 py-1 font-mono text-[10px] font-extrabold uppercase"
+                className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold"
               >
-                <ArrowDownUp className="h-3.5 w-3.5" aria-hidden="true" />
+                <ArrowDownUp className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                 <span>Tukar Posisi Profil</span>
               </button>
             </div>
 
             {/* Result Preview */}
             {targetProfile && sourceProfile ? (
-              <div className="border-studio-ink bg-studio-lime/25 border-2 p-4">
-                <span className="text-studio-ink block font-mono text-[10px] font-extrabold uppercase">
-                  HASIL PENGGABUNGAN
+              <div className="rounded-2xl border border-[#8BAD12]/35 bg-[#EDF8C2]/50 p-4">
+                <span className="block font-mono text-[10.5px] font-semibold tracking-wider text-[#243300] uppercase">
+                  Hasil Penggabungan
                 </span>
-                <p className="font-display text-studio-ink mt-1 text-2xl leading-none font-black uppercase">
-                  {targetProfile.displayName}
-                </p>
-                <p className="text-studio-ink mt-1 font-mono text-xs font-extrabold">
+                <p className="mt-1 text-lg font-bold text-[#151515]">{targetProfile.displayName}</p>
+                <p className="mt-0.5 font-mono text-xs font-semibold text-[#243300]">
                   {combinedBookings} total bookings
                 </p>
-                <ul className="text-studio-ink mt-2.5 list-disc space-y-1 pl-4 text-xs font-medium">
+                <ul className="mt-2.5 list-disc space-y-1 pl-4 text-xs text-[#46433D]">
                   <li>Semua riwayat booking akan tampil dalam satu profil utama.</li>
                   <li>
-                    Nama <strong>{sourceProfile.displayName}</strong> tetap dicatat sebagai nama
-                    lain.
+                    Nama <strong className="text-[#151515]">{sourceProfile.displayName}</strong>{' '}
+                    tetap dicatat sebagai nama lain.
                   </li>
                   <li>Data booking yang sudah lewat tidak berubah.</li>
                   <li>
                     Booking berikutnya akan otomatis memakai profil{' '}
-                    <strong>{targetProfile.displayName}</strong>.
+                    <strong className="text-[#151515]">{targetProfile.displayName}</strong>.
                   </li>
                 </ul>
               </div>
             ) : null}
           </div>
 
-          <div className="border-studio-ink bg-studio-white flex shrink-0 items-center justify-end gap-2.5 border-t-2 px-4 py-3 sm:px-6">
+          <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-5 py-3.5 sm:px-6">
             <button
               type="button"
               disabled={isMerging}
               onClick={() => onOpenChange?.(false)}
-              className="brutal-btn bg-studio-ivory text-studio-ink min-h-11 cursor-pointer px-4 py-2 font-mono text-xs font-extrabold uppercase"
+              className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-4 py-2 text-xs font-semibold"
             >
               Batal
             </button>
@@ -220,7 +223,7 @@ export function CustomerMergeDialog({
               disabled={isMerging || !targetProfile || !sourceProfile}
               onClick={handleConfirm}
               aria-label="Confirm Merge"
-              className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-11 cursor-pointer items-center gap-2 px-5 py-2 font-mono text-xs font-extrabold uppercase disabled:opacity-60"
+              className="sa-control sa-btn-orange inline-flex min-h-10 cursor-pointer items-center gap-2 px-5 py-2 text-xs font-semibold disabled:opacity-60"
             >
               {isMerging ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

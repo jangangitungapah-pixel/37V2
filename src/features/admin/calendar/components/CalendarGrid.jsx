@@ -24,14 +24,12 @@ export function CalendarGrid({
       {error ? (
         <div
           role="alert"
-          className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2.5 border-2 p-3 shadow-[2px_2px_0px_#151515]"
+          className="flex items-start gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-[#B92B0C] shadow-xs"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <div className="min-w-0">
-            <p className="font-mono text-[11px] font-extrabold tracking-wider uppercase">
-              GAGAL MEMUAT JADWAL KALENDER
-            </p>
-            <p className="mt-0.5 text-xs leading-relaxed font-semibold">{error}</p>
+            <p className="text-xs font-semibold">Gagal memuat jadwal kalender</p>
+            <p className="mt-0.5 text-xs leading-relaxed opacity-90">{error}</p>
           </div>
         </div>
       ) : null}
@@ -40,7 +38,7 @@ export function CalendarGrid({
       {isTruncated ? (
         <div
           role="status"
-          className="border-studio-ink text-studio-ink flex items-center justify-between gap-2.5 border-2 bg-amber-100 px-3 py-2.5 text-xs font-bold shadow-[2px_2px_0px_#151515]"
+          className="flex items-center justify-between gap-2.5 rounded-2xl border border-amber-500/25 bg-[#FEF4DD] px-4 py-3 text-xs font-medium text-[#8A4B08]"
         >
           <span>
             Rentang tanggal ini mencapai batas tampilan maksimum ({maxLimit} dokumen booking).
@@ -54,9 +52,9 @@ export function CalendarGrid({
         <div
           role="status"
           aria-live="polite"
-          className="border-studio-ink bg-studio-ivory text-studio-ink flex items-center gap-2 border px-3 py-1.5 font-mono text-[11px] font-bold"
+          className="flex items-center gap-2 rounded-xl border border-[#151515]/10 bg-[#F8F6EF] px-3.5 py-2 text-xs font-medium text-[#46433D]"
         >
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-[#666159]" aria-hidden="true" />
           <span>Memuat jadwal studio dari Firestore...</span>
         </div>
       ) : null}

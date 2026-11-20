@@ -3,14 +3,15 @@ import { CheckSquare, ChevronRight, Square } from 'lucide-react';
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
 import { formatDurationMinutes } from '@/features/admin/calendar/utils/booking-time';
 import { formatIndonesianTimestamp } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminEmptyState, AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 
 import { COMMISSION_ITEM_STATUS } from '../utils/commission-calculation';
 import { getCommissionBasisLabel } from '../utils/commission-snapshot';
 import { CommissionReviewCard } from './CommissionReviewCard';
 
 /**
- * Responsive Commission Review Table (`md+` desktop compact table + mobile `CommissionReviewCard`).
- * Enforces exact prompt columns and guarantees already-posted / non-eligible items cannot be selected.
+ * Responsive Commission Review Table (`md+` desktop refined table + mobile `CommissionReviewCard`).
+ * Guarantees already-posted / non-eligible items cannot be selected.
  */
 export function CommissionReviewTable({
   items = [],
@@ -24,36 +25,38 @@ export function CommissionReviewTable({
   isLoading = false,
 }) {
   return (
-    <section
+    <AdminSurface
+      as="section"
+      variant="card"
       aria-label="Daftar sesi selesai untuk review komisi"
-      className="cal-card bg-studio-white overflow-hidden"
+      className="overflow-hidden"
     >
       {/* Top Action Strip */}
-      <div className="border-studio-ink bg-studio-ivory flex flex-wrap items-center justify-between gap-2 border-b-2 px-2.5 py-2 sm:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#151515]/[0.07] bg-[#FAF8F3]/80 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-studio-ink font-mono text-[10px] font-extrabold tracking-wider uppercase">
-            COMPLETED SESSIONS REVIEW
+          <span className="text-xs font-semibold tracking-tight text-[#151515] sm:text-sm">
+            Completed Sessions Review
           </span>
-          <span className="border-studio-ink bg-studio-white text-studio-ink border px-1.5 py-0.5 font-mono text-[9.5px] font-extrabold tabular-nums">
+          <AdminStatusBadge tone="neutral" size="sm" className="font-mono">
             {items.length} baris
-          </span>
+          </AdminStatusBadge>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           {selectableCount > 0 ? (
             <button
               type="button"
               onClick={allVisibleSelected ? onClearSelection : onSelectAllEligible}
-              className="cal-control border-studio-ink bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex min-h-8.5 cursor-pointer items-center gap-1 px-2.5 py-1 font-mono text-[9.5px] font-extrabold uppercase"
+              className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
             >
               {allVisibleSelected ? (
                 <>
-                  <Square className="h-3 w-3" aria-hidden="true" />
+                  <Square className="h-3.5 w-3.5 text-[#666159]" aria-hidden="true" />
                   <span>Clear Selection</span>
                 </>
               ) : (
                 <>
-                  <CheckSquare className="h-3 w-3" aria-hidden="true" />
+                  <CheckSquare className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                   <span>Select All Eligible ({selectableCount})</span>
                 </>
               )}
@@ -63,18 +66,15 @@ export function CommissionReviewTable({
       </div>
 
       {isLoading ? (
-        <div className="text-studio-muted-ink px-4 py-10 text-center font-mono text-xs font-bold uppercase">
+        <div className="px-4 py-12 text-center text-xs font-medium text-[#666159]">
           Memuat data sesi selesai...
         </div>
       ) : items.length === 0 ? (
-        <div className="px-4 py-10 text-center">
-          <p className="text-studio-ink font-mono text-xs font-extrabold uppercase">
-            Tidak ada sesi selesai pada filter ini
-          </p>
-          <p className="text-studio-muted-ink mt-1 text-xs">
-            Sesi Rehearsal dan Recording berstatus Completed dengan fee &gt; Rp 0 akan otomatis
-            muncul di sini berdasarkan tanggal selesainya.
-          </p>
+        <div className="p-4 sm:p-6">
+          <AdminEmptyState
+            title="Tidak ada sesi selesai pada filter ini"
+            description="Sesi Rehearsal dan Recording berstatus Completed dengan fee > Rp 0 akan otomatis muncul di sini berdasarkan tanggal selesainya."
+          />
         </div>
       ) : (
         <>
@@ -91,12 +91,12 @@ export function CommissionReviewTable({
             ))}
           </div>
 
-          {/* Desktop / Tablet Compact Table (>= 768px) */}
+          {/* Desktop / Tablet Refined Table (>= 768px) */}
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full border-collapse text-left">
-              <thead className="border-studio-ink bg-studio-ink text-studio-ivory border-b-2 font-mono text-[9.5px] font-extrabold tracking-wider uppercase">
+              <thead className="border-b border-[#151515]/[0.08] bg-[#FAF8F3] text-[11px] font-semibold tracking-wide text-[#666159]">
                 <tr>
-                  <th scope="col" className="w-10 px-2.5 py-2 text-center">
+                  <th scope="col" className="w-10 px-2 py-2.5 text-center 2xl:px-3">
                     <input
                       type="checkbox"
                       aria-label="Pilih semua sesi eligible pada halaman ini"
@@ -105,162 +105,155 @@ export function CommissionReviewTable({
                       onChange={() =>
                         allVisibleSelected ? onClearSelection?.() : onSelectAllEligible?.()
                       }
-                      className="accent-studio-lime h-4 w-4 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                      className="accent-studio-ink h-4 w-4 cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-40"
                     />
                   </th>
-                  <th scope="col" className="px-2.5 py-2 whitespace-nowrap">
+                  <th scope="col" className="px-2.5 py-2.5 whitespace-nowrap 2xl:px-3">
                     Completed At
                   </th>
-                  <th scope="col" className="px-2.5 py-2 whitespace-nowrap">
+                  <th scope="col" className="px-2.5 py-2.5 whitespace-nowrap 2xl:px-3">
                     Booking
                   </th>
-                  <th scope="col" className="px-2.5 py-2">
+                  <th scope="col" className="px-2.5 py-2.5 2xl:px-3">
                     Customer / Band
                   </th>
-                  <th scope="col" className="px-2.5 py-2 whitespace-nowrap">
+                  <th scope="col" className="px-2.5 py-2.5 whitespace-nowrap 2xl:px-3">
                     Service
                   </th>
-                  <th scope="col" className="hidden px-2.5 py-2 lg:table-cell">
+                  <th scope="col" className="hidden px-2.5 py-2.5 2xl:table-cell 2xl:px-3">
                     Subcategory
                   </th>
-                  <th scope="col" className="hidden px-2.5 py-2 whitespace-nowrap xl:table-cell">
+                  <th
+                    scope="col"
+                    className="hidden px-2.5 py-2.5 whitespace-nowrap 2xl:table-cell 2xl:px-3"
+                  >
                     Duration
                   </th>
-                  <th scope="col" className="px-2.5 py-2 text-right whitespace-nowrap">
+                  <th scope="col" className="px-2.5 py-2.5 text-right whitespace-nowrap 2xl:px-3">
                     Staff Fee
                   </th>
-                  <th scope="col" className="px-2.5 py-2 text-right whitespace-nowrap">
+                  <th scope="col" className="px-2.5 py-2.5 text-right whitespace-nowrap 2xl:px-3">
                     Operator Fee
                   </th>
                   <th
                     scope="col"
-                    className="hidden px-2.5 py-2 text-right whitespace-nowrap xl:table-cell"
+                    className="hidden px-2.5 py-2.5 text-right whitespace-nowrap xl:table-cell 2xl:px-3"
                   >
                     Owner Allocation
                   </th>
-                  <th scope="col" className="px-2.5 py-2 whitespace-nowrap">
+                  <th scope="col" className="px-2.5 py-2.5 whitespace-nowrap 2xl:px-3">
                     Status
                   </th>
-                  <th scope="col" className="px-2.5 py-2 text-right whitespace-nowrap">
+                  <th scope="col" className="px-2.5 py-2.5 text-right whitespace-nowrap 2xl:px-3">
                     Aksi
                   </th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-neutral-200 text-xs">
-                {items.map((item, idx) => {
+              <tbody className="divide-y divide-[#151515]/[0.06] text-xs">
+                {items.map((item) => {
                   const isPosted = item.status === COMMISSION_ITEM_STATUS.POSTED;
                   const isSelected = selectedIdSet.has(item.bookingId);
                   const rowBg = isPosted
-                    ? 'bg-neutral-50 text-neutral-700'
+                    ? 'bg-[#FAF8F3]/60 text-[#46433D]'
                     : isSelected
-                      ? 'bg-studio-lime/20'
-                      : idx % 2 === 1
-                        ? 'bg-studio-ivory/40 hover:bg-studio-lime/10'
-                        : 'bg-studio-white hover:bg-studio-lime/10';
+                      ? 'bg-[#EDF8C2]/40'
+                      : 'bg-white hover:bg-[#FAF8F3]/75';
 
                   return (
                     <tr key={item.bookingId} className={`transition-colors ${rowBg}`}>
-                      <td className="px-2.5 py-2 text-center align-middle">
+                      <td className="px-2 py-3 text-center align-middle 2xl:px-3">
                         <input
                           type="checkbox"
                           checked={isSelected}
                           disabled={!item.selectable}
                           onChange={() => item.selectable && onToggleSelect?.(item.bookingId)}
                           aria-label={`Pilih booking ${item.bookingId}`}
-                          className="accent-studio-ink h-4 w-4 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                          className="accent-studio-ink h-4 w-4 cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-40"
                         />
                       </td>
 
-                      <td className="px-2.5 py-2 align-middle font-mono text-[10.5px] font-bold whitespace-nowrap">
+                      <td className="px-2.5 py-3 align-middle font-mono text-[11px] font-medium whitespace-nowrap text-[#151515] 2xl:px-3">
                         <div>{formatIndonesianTimestamp(item.booking.actualCompletedAt)}</div>
                         {item.booking.date && item.booking.date !== item.completedDateIso ? (
-                          <span className="text-studio-subtle-ink block text-[9px] font-semibold">
+                          <span className="block text-[10px] text-[#8B857B]">
                             Tgl Booking: {item.booking.date}
                           </span>
                         ) : null}
                       </td>
 
-                      <td className="px-2.5 py-2 align-middle font-mono text-[10.5px] font-extrabold whitespace-nowrap">
+                      <td className="px-2.5 py-3 align-middle font-mono text-[11px] font-semibold whitespace-nowrap 2xl:px-3">
                         <button
                           type="button"
                           onClick={() => onOpenDetail?.(item)}
-                          className="text-studio-ink hover:text-studio-orange cursor-pointer underline decoration-dotted underline-offset-2"
+                          className="cursor-pointer text-[#151515] underline decoration-[#151515]/30 decoration-dotted underline-offset-4 hover:text-[#FF4B22] hover:decoration-[#FF4B22]"
                         >
                           {item.bookingId}
                         </button>
                       </td>
 
-                      <td className="max-w-[190px] px-2.5 py-2 align-middle">
-                        <p className="text-studio-ink truncate font-extrabold">
+                      <td className="max-w-[165px] px-2.5 py-3 align-middle 2xl:max-w-[190px] 2xl:px-3">
+                        <p className="truncate font-semibold text-[#151515]">
                           {item.booking.customerName}
                         </p>
                         {item.booking.bandName ? (
-                          <p className="text-studio-muted-ink truncate text-[11px] font-semibold">
+                          <p className="truncate text-[11px] text-[#666159]">
                             {item.booking.bandName}
                           </p>
                         ) : null}
                       </td>
 
-                      <td className="px-2.5 py-2 align-middle font-mono text-[10.5px] font-bold whitespace-nowrap">
+                      <td className="px-2.5 py-3 align-middle text-xs font-medium whitespace-nowrap text-[#151515] 2xl:px-3">
                         {item.serviceInfo.serviceTypeName}
                       </td>
 
-                      <td className="hidden max-w-[150px] truncate px-2.5 py-2 align-middle text-[11px] font-semibold lg:table-cell">
+                      <td className="hidden max-w-[140px] truncate px-2.5 py-3 align-middle text-xs text-[#666159] 2xl:table-cell 2xl:px-3">
                         {item.serviceInfo.serviceOptionName}
                       </td>
 
-                      <td className="hidden px-2.5 py-2 align-middle font-mono text-[10.5px] font-semibold whitespace-nowrap xl:table-cell">
+                      <td className="hidden px-2.5 py-3 align-middle font-mono text-[11px] whitespace-nowrap text-[#666159] 2xl:table-cell 2xl:px-3">
                         {formatDurationMinutes(item.booking.durationMinutes)}
                       </td>
 
-                      <td className="px-2.5 py-2 text-right align-middle font-mono whitespace-nowrap">
-                        <span className="text-studio-ink font-extrabold tabular-nums">
+                      <td className="px-2.5 py-3 text-right align-middle font-mono whitespace-nowrap 2xl:px-3">
+                        <span className="font-semibold text-[#151515] tabular-nums">
                           {formatRupiah(item.staffPayableAmount)}
                         </span>
-                        <span className="text-studio-subtle-ink block text-[9px]">
+                        <span className="block text-[10px] text-[#8B857B]">
                           {getCommissionBasisLabel(item.snapshot.staff?.basis)}
                         </span>
                       </td>
 
-                      <td className="px-2.5 py-2 text-right align-middle font-mono whitespace-nowrap">
-                        <span className="text-studio-ink font-extrabold tabular-nums">
+                      <td className="px-2.5 py-3 text-right align-middle font-mono whitespace-nowrap 2xl:px-3">
+                        <span className="font-semibold text-[#151515] tabular-nums">
                           {formatRupiah(item.recordingOperatorPayableAmount)}
                         </span>
-                        <span className="text-studio-subtle-ink block text-[9px]">
+                        <span className="block text-[10px] text-[#8B857B]">
                           {getCommissionBasisLabel(item.snapshot.recordingOperator?.basis)}
                         </span>
                       </td>
 
-                      <td className="hidden px-2.5 py-2 text-right align-middle font-mono whitespace-nowrap xl:table-cell">
-                        <span className="text-studio-muted-ink font-bold tabular-nums">
+                      <td className="hidden px-2.5 py-3 text-right align-middle font-mono whitespace-nowrap xl:table-cell 2xl:px-3">
+                        <span className="font-medium text-[#666159] tabular-nums">
                           {formatRupiah(item.ownerAllocationReference)}
                         </span>
-                        <span className="text-studio-subtle-ink block text-[9px]">
-                          Referensi saja
-                        </span>
+                        <span className="block text-[10px] text-[#8B857B]">Referensi saja</span>
                       </td>
 
-                      <td className="px-2.5 py-2 align-middle whitespace-nowrap">
-                        <span
-                          className={`border-studio-ink inline-block border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase ${
-                            isPosted
-                              ? 'bg-studio-lime text-studio-ink'
-                              : 'text-studio-ink bg-amber-200'
-                          }`}
-                        >
+                      <td className="px-2.5 py-3 align-middle whitespace-nowrap 2xl:px-3">
+                        <AdminStatusBadge tone={isPosted ? 'lime' : 'amber'} size="sm">
                           {isPosted ? 'Posted' : 'Pending'}
-                        </span>
+                        </AdminStatusBadge>
                       </td>
 
-                      <td className="px-2.5 py-2 text-right align-middle whitespace-nowrap">
+                      <td className="px-2.5 py-3 text-right align-middle whitespace-nowrap 2xl:px-3">
                         <button
                           type="button"
                           onClick={() => onOpenDetail?.(item)}
-                          className="cal-control border-studio-ink bg-studio-ink text-studio-white hover:bg-studio-lime hover:text-studio-ink inline-flex h-7.5 cursor-pointer items-center gap-0.5 px-2 font-mono text-[9.5px] font-extrabold uppercase"
+                          className="sa-control sa-btn-secondary inline-flex h-8 cursor-pointer items-center gap-1 px-2.5 text-xs font-semibold"
                         >
                           <span>Detail</span>
-                          <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                          <ChevronRight className="h-3.5 w-3.5 text-[#666159]" aria-hidden="true" />
                         </button>
                       </td>
                     </tr>
@@ -271,6 +264,6 @@ export function CommissionReviewTable({
           </div>
         </>
       )}
-    </section>
+    </AdminSurface>
   );
 }

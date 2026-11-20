@@ -5,6 +5,7 @@ import { AlertTriangle, Loader2, RotateCcw, X } from 'lucide-react';
 import { getPaymentMethodLabel } from '@/features/admin/calendar/config/calendar-config';
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
 import { formatIndonesianTimestamp } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminStatusBadge } from '@/features/admin/design-system';
 
 import { validatePaymentReversalInput } from '../schemas/payment-schema';
 import { mapPaymentErrorToMessage } from '../services/invoice-service';
@@ -62,20 +63,23 @@ export function PaymentCorrectionDialog({
       onOpenChange={(next) => (!next ? handleClose() : onOpenChange?.(true))}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-[70]"
+        />
 
         <Dialog.Popup
+          data-admin-portal-layer="true"
           aria-label="Koreksi / Reversal transaksi pembayaran"
           data-payment-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-[80] mx-auto flex max-h-[92dvh] w-full max-w-md flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:border-2"
+          className="sa-dialog fixed inset-x-0 bottom-0 z-[80] mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
         >
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory flex shrink-0 items-start justify-between gap-2 border-b-2 px-4 py-3.5">
+          <div className="flex shrink-0 items-start justify-between gap-2 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-5 py-4">
             <div className="min-w-0">
-              <span className="border-studio-ivory bg-studio-orange text-studio-white inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[9px] font-extrabold uppercase">
-                <RotateCcw className="h-3 w-3" aria-hidden="true" />
-                <span>KOREKSI CATATAN PEMBAYARAN</span>
-              </span>
-              <Dialog.Title className="font-display mt-1.5 text-xl leading-none font-black text-white uppercase">
+              <AdminStatusBadge tone="orange" icon={RotateCcw} size="sm" className="uppercase">
+                Koreksi Catatan Pembayaran
+              </AdminStatusBadge>
+              <Dialog.Title className="mt-2 text-lg font-bold tracking-tight text-[#151515]">
                 Batalkan Catatan Pembayaran
               </Dialog.Title>
             </div>
@@ -83,7 +87,7 @@ export function PaymentCorrectionDialog({
             <Dialog.Close
               aria-label="Tutup dialog koreksi transaksi"
               disabled={isWorking}
-              className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white"
+              className="sa-control inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </Dialog.Close>
@@ -92,12 +96,12 @@ export function PaymentCorrectionDialog({
           <form
             onSubmit={handleSubmit}
             noValidate
-            className="space-y-3 overflow-y-auto p-4 text-xs"
+            className="space-y-3.5 overflow-y-auto bg-white p-5 text-xs"
           >
             {submitError ? (
               <div
                 role="alert"
-                className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2 border-2 p-2.5 font-bold"
+                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 font-medium text-[#B92B0C]"
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{submitError}</span>
@@ -105,11 +109,9 @@ export function PaymentCorrectionDialog({
             ) : null}
 
             {/* Explicit Non-Refund Notice */}
-            <div className="border-studio-ink border-2 bg-amber-100 p-3 leading-relaxed">
-              <p className="font-mono text-[10px] font-extrabold uppercase">
-                Penting: Koreksi Catatan (Bukan Pengembalian Uang)
-              </p>
-              <p className="mt-1 font-medium text-neutral-800">
+            <div className="rounded-xl border border-amber-500/25 bg-[#FEF4DD] p-3.5 leading-relaxed text-[#8A4B08]">
+              <p className="font-semibold">Penting: Koreksi Catatan (Bukan Pengembalian Uang)</p>
+              <p className="mt-1">
                 Tindakan ini membuat catatan pembatalan baru untuk mengoreksi entri yang salah input
                 atau ganda tanpa menghapus riwayat lama. Ini <strong>bukan</strong> proses
                 pengembalian uang (refund) ke pelanggan.
@@ -117,33 +119,35 @@ export function PaymentCorrectionDialog({
             </div>
 
             {/* Original Transaction Summary */}
-            <dl className="border-studio-ink bg-studio-white space-y-1 border-2 p-3 font-mono text-[11px]">
+            <dl className="sa-panel-ivory space-y-1.5 p-3.5 font-mono text-xs">
               <div className="flex justify-between gap-2">
-                <dt className="text-studio-muted-ink">No. Transaksi</dt>
-                <dd className="truncate font-bold">{transaction.id}</dd>
+                <dt className="text-[#666159]">No. Transaksi</dt>
+                <dd className="truncate font-semibold text-[#151515]">{transaction.id}</dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-studio-muted-ink">Tanggal</dt>
-                <dd className="font-bold">
+                <dt className="text-[#666159]">Tanggal</dt>
+                <dd className="font-medium text-[#151515]">
                   {formatIndonesianTimestamp(transaction.receivedAt || transaction.createdAt)}
                 </dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-studio-muted-ink">Metode</dt>
-                <dd className="font-bold">{getPaymentMethodLabel(transaction.paymentMethod)}</dd>
+                <dt className="text-[#666159]">Metode</dt>
+                <dd className="font-medium text-[#151515]">
+                  {getPaymentMethodLabel(transaction.paymentMethod)}
+                </dd>
               </div>
-              <div className="border-studio-ink flex justify-between gap-2 border-t pt-1 font-extrabold">
-                <dt className="text-studio-orange">Nominal Dibatalkan</dt>
-                <dd className="text-studio-orange">-{formatRupiah(transaction.amount)}</dd>
+              <div className="flex justify-between gap-2 border-t border-[#151515]/[0.08] pt-2 font-bold">
+                <dt className="text-[#FF4B22]">Nominal Dibatalkan</dt>
+                <dd className="text-[#FF4B22]">-{formatRupiah(transaction.amount)}</dd>
               </div>
             </dl>
 
             <div>
               <label
                 htmlFor="reversal-reason-input"
-                className="text-studio-ink block font-mono text-[10.5px] font-extrabold uppercase"
+                className="block text-xs font-semibold text-[#151515]"
               >
-                Alasan Pembatalan Transaksi <span className="text-studio-orange">*</span>
+                Alasan Pembatalan Transaksi <span className="text-[#FF4B22]">*</span>
               </label>
               <textarea
                 id="reversal-reason-input"
@@ -156,28 +160,28 @@ export function PaymentCorrectionDialog({
                 }}
                 placeholder="Contoh: Salah input nominal pembayaran, seharusnya Rp 100.000"
                 maxLength={300}
-                className="border-studio-ink bg-studio-white text-studio-ink mt-1 w-full border-2 px-2.5 py-2 text-xs font-medium"
+                className="sa-input mt-1.5 w-full px-3 py-2 text-xs"
               />
               {fieldError ? (
-                <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
                   {fieldError}
                 </p>
               ) : null}
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-1">
+            <div className="flex items-center justify-end gap-2.5 pt-1">
               <button
                 type="button"
                 disabled={isWorking}
                 onClick={handleClose}
-                className="cal-control bg-studio-white text-studio-ink min-h-10 cursor-pointer px-3.5 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
+                className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-4 py-2 text-xs font-semibold"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={isWorking}
-                className="cal-control bg-studio-orange text-studio-white inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 font-mono text-[10.5px] font-extrabold uppercase"
+                className="sa-control sa-btn-orange inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
               >
                 {isWorking ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />

@@ -30,29 +30,26 @@ export function CalendarToolbar({
   };
 
   return (
-    <section
-      aria-label="Kontrol jadwal kalender studio"
-      className="cal-card bg-studio-white p-2.5 sm:p-4"
-    >
+    <section aria-label="Kontrol jadwal kalender studio" className="sa-card-hero p-4 sm:p-6">
       {/* Top Row: Studio Context Badges + Active Period Heading + Primary New Booking CTA */}
-      <div className="flex flex-col gap-2 min-[360px]:flex-row min-[360px]:items-center min-[360px]:justify-between sm:gap-2.5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
-            <span className="border-studio-ink bg-studio-ink text-studio-lime inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[8.5px] font-extrabold tracking-wider uppercase sm:px-2 sm:text-[9px]">
-              <CalendarDays className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
-              <span>JADWAL STUDIO</span>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#8BAD12]/35 bg-[#EDF8C2] px-2.5 py-0.5 text-[11px] font-medium text-[#243300]">
+              <CalendarDays className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span>Jadwal Studio</span>
             </span>
 
-            <span className="border-studio-ink bg-studio-ivory text-studio-ink inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase sm:px-2 sm:text-[9px]">
-              <Clock3 className="h-2.5 w-2.5 shrink-0 sm:h-3 sm:w-3" aria-hidden="true" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#151515]/10 bg-[#151515]/[0.045] px-2.5 py-0.5 font-mono text-[11px] font-medium text-[#46433D] tabular-nums">
+              <Clock3 className="h-3 w-3 shrink-0 text-[#666159]" aria-hidden="true" />
               <span>10:00 – 22:00 WIB</span>
             </span>
           </div>
 
-          <h2 className="font-display text-studio-ink mt-1 truncate text-lg leading-none font-black tracking-tight uppercase sm:mt-1.5 sm:text-3xl">
+          <h2 className="text-studio-ink mt-2 truncate text-xl font-bold tracking-tight sm:text-2xl">
             {periodLabel}
           </h2>
-          <p className="text-studio-muted-ink mt-1 hidden text-xs font-medium sm:block">
+          <p className="mt-1 hidden text-sm text-[#46433D] sm:block">
             Kelola jadwal Room A &amp; Room B. Klik slot jam untuk membuat booking baru atau klik
             kartu jadwal untuk melihat detailnya.
           </p>
@@ -63,22 +60,22 @@ export function CalendarToolbar({
           type="button"
           onClick={() => onOpenNewBooking()}
           aria-label="New Booking"
-          className="cal-control bg-studio-orange text-studio-white inline-flex min-h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 font-mono text-[10px] font-extrabold tracking-wider uppercase min-[360px]:w-auto sm:min-h-11 sm:gap-1.5 sm:px-4 sm:py-2 sm:text-[11px]"
+          className="sa-control sa-btn-orange inline-flex min-h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold sm:min-h-10.5 sm:w-auto sm:px-5 sm:text-sm"
         >
-          <Plus className="h-3.5 w-3.5 stroke-[2.5]" aria-hidden="true" />
+          <Plus className="h-4 w-4 stroke-[2.25]" aria-hidden="true" />
           <span>Booking Baru</span>
         </button>
       </div>
 
       {/* Bottom Controls Bar: Prev/Today/Next + Date Picker + Symmetric View Switcher */}
-      <div className="mt-2 flex flex-col gap-1.5 border-t border-neutral-200 pt-2 sm:mt-3 sm:gap-2 sm:pt-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="grid grid-cols-1 gap-1.5 min-[340px]:grid-cols-[auto_minmax(0,1fr)] min-[340px]:items-center sm:flex sm:items-center sm:gap-2">
-          <div className="inline-flex items-center gap-1 sm:gap-1.5">
+      <div className="mt-4 flex flex-col gap-2.5 border-t border-[#151515]/8 pt-3.5 sm:gap-3 sm:pt-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="grid grid-cols-1 gap-2 min-[340px]:grid-cols-[auto_minmax(0,1fr)] min-[340px]:items-center sm:flex sm:items-center sm:gap-2">
+          <div className="inline-flex items-center gap-1.5">
             <button
               type="button"
               onClick={onPreviousPeriod}
               aria-label="Periode sebelumnya"
-              className="cal-control bg-studio-ivory text-studio-ink inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center sm:h-11 sm:w-11"
+              className="sa-control sa-btn-secondary inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-xl sm:h-10 sm:w-10"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -90,8 +87,8 @@ export function CalendarToolbar({
               aria-pressed={isTodaySelected}
               className={
                 isTodaySelected
-                  ? 'cal-control bg-studio-lime text-studio-ink inline-flex h-9 cursor-pointer items-center justify-center px-2.5 font-mono text-[10px] font-extrabold tracking-wider whitespace-nowrap uppercase sm:h-11 sm:px-3 sm:text-[11px]'
-                  : 'cal-control bg-studio-ivory text-studio-ink inline-flex h-9 cursor-pointer items-center justify-center px-2.5 font-mono text-[10px] font-extrabold tracking-wider whitespace-nowrap uppercase sm:h-11 sm:px-3 sm:text-[11px]'
+                  ? 'sa-control sa-btn-lime inline-flex h-9.5 cursor-pointer items-center justify-center rounded-xl px-3.5 text-xs font-semibold whitespace-nowrap sm:h-10 sm:px-4'
+                  : 'sa-control sa-btn-secondary inline-flex h-9.5 cursor-pointer items-center justify-center rounded-xl px-3.5 text-xs font-semibold whitespace-nowrap text-[#46433D] sm:h-10 sm:px-4'
               }
             >
               Hari Ini
@@ -101,7 +98,7 @@ export function CalendarToolbar({
               type="button"
               onClick={onNextPeriod}
               aria-label="Periode berikutnya"
-              className="cal-control bg-studio-ivory text-studio-ink inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center sm:h-11 sm:w-11"
+              className="sa-control sa-btn-secondary inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-xl sm:h-10 sm:w-10"
             >
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -117,7 +114,7 @@ export function CalendarToolbar({
               aria-label="Pilih tanggal kalender"
               value={activeDate}
               onChange={handleDateInputChange}
-              className="border-studio-ink bg-studio-ivory text-studio-ink h-9 w-full min-w-0 border-2 px-2 py-1 font-mono text-[10.5px] font-bold shadow-[2px_2px_0px_#151515] sm:h-11 sm:w-auto sm:px-2.5 sm:py-1.5 sm:text-[11px]"
+              className="sa-input h-9.5 w-full min-w-0 rounded-xl px-3 py-1.5 font-mono text-xs font-medium sm:h-10 sm:w-auto"
             />
           </div>
         </div>

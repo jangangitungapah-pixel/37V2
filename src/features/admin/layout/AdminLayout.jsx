@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Outlet, useLocation } from 'react-router';
+import { Toaster } from 'sonner';
 
 import { AdminMobileDrawer } from '../components/AdminMobileDrawer';
 import { AdminSidebar } from '../components/AdminSidebar';
@@ -21,11 +22,11 @@ export function AdminLayout() {
   };
 
   return (
-    <div className="bg-studio-ivory text-studio-ink flex min-h-screen w-full">
+    <div data-admin-portal="true" className="sa-canvas flex min-h-screen w-full text-[#151515]">
       {/* Keyboard Skip Link */}
       <a
         href="#admin-main-content"
-        className="border-studio-ink bg-studio-lime text-studio-ink sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:border-2 focus:px-4 focus:py-2 focus:font-mono focus:text-xs focus:font-extrabold focus:uppercase"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-xl focus:border focus:border-[#151515]/15 focus:bg-[#C8F13A] focus:px-4 focus:py-2 focus:text-xs focus:font-semibold focus:text-[#151515] focus:shadow-lg"
       >
         Skip to workspace content
       </a>
@@ -54,7 +55,10 @@ export function AdminLayout() {
           mobileMenuTriggerRef={mobileMenuTriggerRef}
         />
 
-        <main id="admin-main-content" className="w-full flex-1 px-2 py-3 sm:px-6 sm:py-6 lg:px-8">
+        <main
+          id="admin-main-content"
+          className="w-full flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
+        >
           <motion.div
             key={location.pathname}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
@@ -63,18 +67,32 @@ export function AdminLayout() {
               duration: prefersReducedMotion ? 0 : 0.18,
               ease: [0.22, 1, 0.36, 1],
             }}
+            className="mx-auto w-full max-w-[1440px]"
           >
             <Outlet />
           </motion.div>
         </main>
 
-        <footer className="border-studio-ink bg-studio-ivory border-t px-2 py-2.5 sm:px-6 sm:py-3.5 lg:px-8">
-          <div className="flex w-full flex-col items-start justify-between gap-1 font-mono text-[10.5px] text-neutral-600 sm:flex-row sm:items-center sm:text-[11px]">
-            <p>© 2026 37 Music Studio • Sistem Manajemen Studio</p>
-            <p>Panel Operasional Owner &amp; Staff</p>
+        <footer className="border-t border-[#151515]/[0.07] bg-white/35 px-3 py-3 backdrop-blur-xs sm:px-6 sm:py-3.5 lg:px-8">
+          <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start justify-between gap-1 text-[11px] text-[#666159] sm:flex-row sm:items-center">
+            <p>© 2026 37 Music Studio • Studio Management Workspace</p>
+            <p className="font-mono text-[10.5px] text-[#8B857B]">Owner &amp; Staff Portal</p>
           </div>
         </footer>
       </div>
+
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: '#FFFFFF',
+            color: '#151515',
+            border: '1px solid rgba(21, 21, 21, 0.09)',
+            borderRadius: '14px',
+            boxShadow: '0 18px 40px -12px rgba(21, 21, 21, 0.18)',
+          },
+        }}
+      />
     </div>
   );
 }

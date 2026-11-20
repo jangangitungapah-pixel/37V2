@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
+import { AdminStatusBadge } from '@/features/admin/design-system';
+
 import { DELIVERY_MODES, FEE_MODES } from '../pricing/config/default-pricing-settings';
 import { formatRupiah, parseMoneyInput } from '../pricing/utils/calculate-pricing-settings';
 
@@ -93,9 +95,10 @@ export function InternalFeeEditor({
 
   return (
     <div className="space-y-2.5">
-      <p className="text-studio-muted-ink text-xs leading-relaxed font-medium">
+      <p className="text-xs leading-relaxed text-[#666159]">
         Konfigurasi alokasi internal per booking/project. Seluruh fee internal{' '}
-        <strong>terpisah sepenuhnya</strong> dari total tagihan customer, DP, dan sisa pembayaran.
+        <strong className="font-semibold text-[#151515]">terpisah sepenuhnya</strong> dari total
+        tagihan customer, DP, dan sisa pembayaran.
       </p>
 
       {ROLE_META.map((role) => {
@@ -106,44 +109,41 @@ export function InternalFeeEditor({
         const amountError = errors[`fees.${role.key}.amount`] || errors[`fees.${role.key}.mode`];
 
         return (
-          <div key={role.key} className="border-studio-ink bg-studio-ivory border-2">
+          <div
+            key={role.key}
+            className="overflow-hidden rounded-xl border border-[#151515]/10 bg-[#FAF8F3]"
+          >
             <button
               type="button"
               onClick={() => toggleRole(role.key)}
               aria-expanded={isExpanded}
-              className="flex min-h-12 w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left"
+              className="flex min-h-12 w-full cursor-pointer items-center justify-between gap-2 px-3.5 py-2.5 text-left transition-colors hover:bg-white/60"
             >
               <div className="min-w-0">
-                <span className="text-studio-ink block font-mono text-xs font-extrabold uppercase">
-                  {role.label}
-                </span>
-                <span className="text-studio-muted-ink block truncate text-[11px] font-medium">
-                  {role.subtitle}
-                </span>
+                <span className="block text-xs font-semibold text-[#151515]">{role.label}</span>
+                <span className="block truncate text-[11px] text-[#666159]">{role.subtitle}</span>
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                <span
-                  className={`border-studio-ink border px-2 py-0.5 font-mono text-[10px] font-extrabold whitespace-nowrap uppercase ${
-                    rule.mode === FEE_MODES.NONE
-                      ? 'bg-studio-white text-studio-muted-ink'
-                      : 'bg-studio-lime text-studio-ink'
-                  }`}
+                <AdminStatusBadge
+                  tone={rule.mode === FEE_MODES.NONE ? 'neutral' : 'lime'}
+                  size="sm"
+                  className="font-mono"
                 >
                   {formatRoleBadge(rule)}
-                </span>
+                </AdminStatusBadge>
                 {isExpanded ? (
-                  <ChevronUp className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <ChevronUp className="h-4 w-4 shrink-0 text-[#666159]" aria-hidden="true" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <ChevronDown className="h-4 w-4 shrink-0 text-[#666159]" aria-hidden="true" />
                 )}
               </div>
             </button>
 
             {isExpanded ? (
-              <div className="border-studio-ink bg-studio-white space-y-3 border-t p-3">
+              <div className="space-y-3 border-t border-[#151515]/[0.08] bg-white p-3.5">
                 <div>
-                  <span className="text-studio-muted-ink block font-mono text-[10px] font-bold uppercase">
+                  <span className="block text-[11px] font-medium text-[#666159]">
                     Fee Calculation Mode ({role.label})
                   </span>
                   <div
@@ -159,10 +159,10 @@ export function InternalFeeEditor({
                           type="button"
                           aria-pressed={isSelected}
                           onClick={() => handleModeChange(role.key, choice.id)}
-                          className={`min-h-10 cursor-pointer border px-2 py-1.5 font-mono text-[11px] font-extrabold uppercase transition-colors ${
+                          className={`min-h-9.5 cursor-pointer rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors ${
                             isSelected
-                              ? 'border-studio-ink bg-studio-ink text-studio-lime'
-                              : 'border-studio-ink bg-studio-ivory text-studio-ink hover:bg-studio-white'
+                              ? 'border-[#151515] bg-[#151515] text-[#C8F13A]'
+                              : 'border-[#151515]/12 bg-[#FAF8F3] text-[#151515] hover:bg-white'
                           }`}
                         >
                           {choice.label}
@@ -177,12 +177,12 @@ export function InternalFeeEditor({
                     <div className="flex items-center justify-between gap-2">
                       <label
                         htmlFor={`opt-fee-${role.key}-amount`}
-                        className="text-studio-ink block font-mono text-[11px] font-extrabold uppercase"
+                        className="block text-xs font-semibold text-[#151515]"
                       >
                         {role.label}{' '}
                         {rule.mode === FEE_MODES.HOURLY ? 'Rate per Jam (IDR)' : 'Fixed (IDR)'}
                       </label>
-                      <span className="font-mono text-[11px] font-extrabold">
+                      <span className="font-mono text-xs font-semibold text-[#46433D] tabular-nums">
                         {formatRupiah(parsedAmount)}
                         {rule.mode === FEE_MODES.HOURLY ? '/jam' : ''}
                       </span>
@@ -194,10 +194,10 @@ export function InternalFeeEditor({
                       value={rule.amount ?? '0'}
                       onChange={(e) => handleAmountChange(role.key, e.target.value)}
                       placeholder="0"
-                      className="border-studio-ink bg-studio-ivory text-studio-ink mt-1.5 min-h-11 w-full border-2 px-3 py-2 font-mono text-sm font-extrabold"
+                      className="sa-input mt-1.5 min-h-10.5 w-full px-3.5 py-2 font-mono text-sm font-semibold tabular-nums"
                     />
                     {rule.mode === FEE_MODES.HOURLY ? (
-                      <p className="text-studio-muted-ink mt-1 font-mono text-[10px]">
+                      <p className="mt-1 text-[11px] text-[#666159]">
                         {isWfa
                           ? `Dihitung berdasarkan estimasi jam kerja WFA (contoh 3 jam = ${formatRupiah(parsedAmount * 3)}).`
                           : `Dihitung proporsional durasi studio (contoh 3 jam = ${formatRupiah(parsedAmount * 3)}).`}
@@ -205,14 +205,14 @@ export function InternalFeeEditor({
                     ) : null}
                   </div>
                 ) : rule.mode === FEE_MODES.MANUAL ? (
-                  <p className="text-studio-muted-ink font-mono text-[11px]">
+                  <p className="text-[11px] text-[#666159]">
                     Nominal {role.label} diinput manual pada Booking Form (nilai Rp 0
                     diperbolehkan).
                   </p>
                 ) : null}
 
                 {amountError ? (
-                  <p role="alert" className="text-studio-error-ink text-xs font-bold">
+                  <p role="alert" className="text-xs font-medium text-[#B92B0C]">
                     {amountError}
                   </p>
                 ) : null}

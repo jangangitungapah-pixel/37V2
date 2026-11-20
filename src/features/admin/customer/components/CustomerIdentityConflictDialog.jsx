@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { formatIndonesianDateMedium } from '@/features/admin/calendar/utils/calendar-date';
+import { AdminStatusBadge } from '@/features/admin/design-system';
 
 import { IDENTITY_MATCH_STATUS } from '../utils/customer-identity';
 import { formatPhoneDisplay } from '../utils/phone-number';
@@ -39,74 +40,75 @@ export function CustomerIdentityConflictDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-[60]"
+        />
 
         <Dialog.Popup
+          data-admin-portal-layer="true"
           aria-label="Konfirmasi identitas customer"
           data-customer-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[92dvh] w-full max-w-xl flex-col border-t-2 shadow-[6px_6px_0px_#151515] sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:border-2"
+          className="sa-dialog fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
         >
           {/* Header */}
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory flex shrink-0 items-start justify-between gap-3 border-b-2 px-4 py-4 sm:px-6">
+          <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-4">
             <div className="min-w-0">
-              <span className="border-studio-ivory bg-studio-orange text-studio-white inline-flex items-center gap-1.5 border px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-widest uppercase">
-                <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span>
-                  {isMultiple ? 'NOMOR BERSAMA • PILIH PELANGGAN' : 'KONFIRMASI DATA PELANGGAN'}
-                </span>
-              </span>
-              <Dialog.Title className="font-display mt-2 text-2xl leading-none font-black tracking-tight text-white uppercase sm:text-3xl">
+              <AdminStatusBadge tone="orange" icon={AlertTriangle} size="sm" className="uppercase">
+                {isMultiple ? 'Nomor Bersama • Pilih Pelanggan' : 'Konfirmasi Data Pelanggan'}
+              </AdminStatusBadge>
+              <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
                 {isMultiple
                   ? 'Pilih Pelanggan yang Sesuai'
                   : 'Nomor telepon sudah digunakan oleh customer lain.'}
               </Dialog.Title>
-              <Dialog.Description className="mt-1.5 font-mono text-xs text-neutral-300">
-                Nomor HP: <strong className="text-studio-lime">{formattedPhone}</strong>
+              <Dialog.Description className="mt-0.5 truncate font-mono text-[11px] text-[#666159] sm:mt-1 sm:text-xs">
+                Nomor HP: <strong className="text-[#151515]">{formattedPhone}</strong>
               </Dialog.Description>
             </div>
 
             <Dialog.Close
               aria-label="Tutup dialog konflik customer"
               onClick={handleClose}
-              className="hover:border-studio-lime hover:text-studio-lime inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white transition-colors"
+              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
             >
-              <X className="h-5 w-5" aria-hidden="true" />
+              <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
             </Dialog.Close>
           </div>
 
           {/* Body */}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-white px-4 py-3.5 sm:space-y-4 sm:px-6 sm:py-5">
             {!isMultiple && singleProfile ? (
               <>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="border-studio-ink bg-studio-white border-2 p-3.5">
-                    <span className="text-studio-muted-ink block font-mono text-[10px] font-extrabold uppercase">
+                  <div className="sa-panel-ivory p-3.5">
+                    <span className="block text-[11px] font-medium text-[#666159]">
                       Sudah Terdaftar
                     </span>
-                    <p className="font-display text-studio-ink mt-1 text-xl leading-tight font-black uppercase">
+                    <p className="mt-1 text-base font-bold text-[#151515]">
                       {singleProfile.displayName}
                     </p>
-                    <p className="text-studio-muted-ink mt-1 font-mono text-[11px] font-bold">
+                    <p className="mt-1 font-mono text-xs text-[#666159]">
                       {singleProfile.bookingCount} booking
                       {singleProfile.lastBookingDate
                         ? ` • Terakhir ${formatIndonesianDateMedium(singleProfile.lastBookingDate)}`
                         : ''}
                     </p>
                     {singleProfile.nameAliases?.length > 0 ? (
-                      <p className="text-studio-subtle-ink mt-1.5 text-[11px] font-medium">
+                      <p className="mt-1.5 text-xs text-[#666159]">
                         Nama lain: {singleProfile.nameAliases.join(', ')}
                       </p>
                     ) : null}
                   </div>
 
-                  <div className="border-studio-ink bg-studio-lime/25 border-2 p-3.5">
-                    <span className="text-studio-muted-ink block font-mono text-[10px] font-extrabold uppercase">
+                  <div className="rounded-xl border border-[#8BAD12]/35 bg-[#EDF8C2]/45 p-3.5">
+                    <span className="block text-[11px] font-medium text-[#243300]">
                       Nama yang Diisi
                     </span>
-                    <p className="font-display text-studio-ink mt-1 text-xl leading-tight font-black uppercase">
+                    <p className="mt-1 text-base font-bold text-[#151515]">
                       {inputName || '(Belum diisi)'}
                     </p>
-                    <p className="text-studio-muted-ink mt-1 text-[11px] font-semibold">
+                    <p className="mt-1 text-xs text-[#46433D]">
                       Nama ini tetap tercatat pada detail booking baru.
                     </p>
                   </div>
@@ -117,14 +119,14 @@ export function CustomerIdentityConflictDialog({
                     <button
                       type="button"
                       onClick={() => onSelectMerge?.(singleProfile)}
-                      className="brutal-btn bg-studio-lime text-studio-ink flex min-h-12 w-full cursor-pointer items-start gap-3 p-3.5 text-left"
+                      className="sa-control sa-btn-lime flex min-h-12 w-full cursor-pointer items-start gap-3 p-3.5 text-left"
                     >
                       <GitMerge className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                       <div className="min-w-0">
-                        <span className="block font-mono text-xs font-extrabold uppercase">
+                        <span className="block text-xs font-bold">
                           Gabungkan ke {singleProfile.displayName}
                         </span>
-                        <span className="mt-0.5 block text-xs leading-snug font-semibold">
+                        <span className="mt-0.5 block text-xs leading-snug font-normal text-[#243300]">
                           Booking masuk ke riwayat {singleProfile.displayName}, nama &ldquo;
                           {inputName}&rdquo; ditambahkan ke alias, dan nama utama profil tidak
                           berubah.
@@ -136,14 +138,17 @@ export function CustomerIdentityConflictDialog({
                   <button
                     type="button"
                     onClick={() => onSelectSeparate?.()}
-                    className="brutal-btn bg-studio-white text-studio-ink flex min-h-12 w-full cursor-pointer items-start gap-3 p-3.5 text-left"
+                    className="sa-control sa-btn-secondary flex min-h-12 w-full cursor-pointer items-start gap-3 p-3.5 text-left"
                   >
-                    <UserPlus className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                    <UserPlus
+                      className="mt-0.5 h-5 w-5 shrink-0 text-[#46433D]"
+                      aria-hidden="true"
+                    />
                     <div className="min-w-0">
-                      <span className="block font-mono text-xs font-extrabold uppercase">
+                      <span className="block text-xs font-bold text-[#151515]">
                         Buat Profil Terpisah
                       </span>
-                      <span className="mt-0.5 block text-xs leading-snug font-medium text-neutral-700">
+                      <span className="mt-0.5 block text-xs leading-snug font-normal text-[#666159]">
                         Cocok untuk admin band, manager, atau keluarga yang berbagi nomor sama.
                         Riwayat kedua profil tetap terpisah.
                       </span>
@@ -153,34 +158,36 @@ export function CustomerIdentityConflictDialog({
               </>
             ) : (
               <>
-                <div className="border-studio-ink bg-studio-white border-2 p-3 text-xs leading-relaxed font-semibold">
-                  Nomor <span className="font-mono font-extrabold">{formattedPhone}</span> dipakai
-                  oleh <strong>{activeProfiles.length} profil aktif</strong>. Pilih profil yang
-                  sesuai untuk booking &ldquo;{inputName || '-'}&rdquo;, atau buat profil terpisah.
+                <div className="sa-panel-ivory p-3.5 text-xs leading-relaxed text-[#46433D]">
+                  Nomor <span className="font-mono font-bold text-[#151515]">{formattedPhone}</span>{' '}
+                  dipakai oleh{' '}
+                  <strong className="text-[#151515]">{activeProfiles.length} profil aktif</strong>.
+                  Pilih profil yang sesuai untuk booking &ldquo;{inputName || '-'}&rdquo;, atau buat
+                  profil terpisah.
                 </div>
 
                 <div className="space-y-2.5">
                   {activeProfiles.map((profile) => (
                     <div
                       key={profile.id}
-                      className="border-studio-ink bg-studio-white flex flex-col gap-3 border-2 p-3.5 sm:flex-row sm:items-center sm:justify-between"
+                      className="sa-subcard flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="font-display text-studio-ink text-lg leading-none font-black uppercase">
+                          <span className="text-base font-bold text-[#151515]">
                             {profile.displayName}
                           </span>
-                          <span className="border-studio-ink bg-studio-lime text-studio-ink border px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase">
+                          <AdminStatusBadge tone="lime" size="sm" className="uppercase">
                             {profile.status}
-                          </span>
+                          </AdminStatusBadge>
                         </div>
-                        <div className="text-studio-muted-ink mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] font-bold">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-[#666159]">
                           <span className="inline-flex items-center gap-1">
-                            <Users className="h-3 w-3" aria-hidden="true" />
+                            <Users className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>{profile.bookingCount} booking</span>
                           </span>
                           <span className="inline-flex items-center gap-1">
-                            <CalendarClock className="h-3 w-3" aria-hidden="true" />
+                            <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>
                               {profile.lastBookingDate
                                 ? `Terakhir ${formatIndonesianDateMedium(profile.lastBookingDate)}`
@@ -189,7 +196,7 @@ export function CustomerIdentityConflictDialog({
                           </span>
                         </div>
                         {profile.nameAliases?.length > 0 ? (
-                          <p className="text-studio-subtle-ink mt-1 text-[11px] font-medium">
+                          <p className="mt-1 text-xs text-[#666159]">
                             Alias: {profile.nameAliases.join(', ')}
                           </p>
                         ) : null}
@@ -199,7 +206,7 @@ export function CustomerIdentityConflictDialog({
                         <button
                           type="button"
                           onClick={() => onSelectMerge?.(profile)}
-                          className="brutal-btn bg-studio-lime text-studio-ink inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 font-mono text-[11px] font-extrabold uppercase"
+                          className="sa-control sa-btn-lime inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold"
                         >
                           <GitMerge className="h-3.5 w-3.5" aria-hidden="true" />
                           <span>Pilih Profil Ini</span>
@@ -212,9 +219,9 @@ export function CustomerIdentityConflictDialog({
                 <button
                   type="button"
                   onClick={() => onSelectSeparate?.()}
-                  className="brutal-btn bg-studio-white text-studio-ink flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 px-4 py-2.5 font-mono text-xs font-extrabold uppercase"
+                  className="sa-control sa-btn-secondary flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 px-4 py-2 text-xs font-semibold"
                 >
-                  <UserPlus className="h-4 w-4" aria-hidden="true" />
+                  <UserPlus className="h-4 w-4 text-[#46433D]" aria-hidden="true" />
                   <span>Buat Profil Terpisah dengan Nomor Sama</span>
                 </button>
               </>
@@ -222,11 +229,11 @@ export function CustomerIdentityConflictDialog({
           </div>
 
           {/* Footer */}
-          <div className="border-studio-ink bg-studio-white flex shrink-0 items-center justify-end gap-2 border-t-2 px-4 py-3 sm:px-6">
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5 sm:pb-[max(0.875rem,env(safe-area-inset-bottom))]">
             <button
               type="button"
               onClick={handleClose}
-              className="brutal-btn bg-studio-ivory text-studio-ink inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold uppercase"
+              className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold sm:min-h-10 sm:py-2"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Periksa Kembali</span>

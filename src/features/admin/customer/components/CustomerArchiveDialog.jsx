@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
 import { AlertTriangle, Archive, ArchiveRestore, Loader2, X } from 'lucide-react';
 
+import { AdminStatusBadge } from '@/features/admin/design-system';
+
 import { mapCustomerErrorToMessage } from '../services/customer-service';
 import { CUSTOMER_STATUS } from '../utils/customer-identity';
 
@@ -34,19 +36,23 @@ export function CustomerArchiveDialog({ open, customer, onOpenChange, onConfirmA
   return (
     <Dialog.Root open={open} onOpenChange={(next) => (!isWorking ? onOpenChange?.(next) : null)}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[60] bg-black/75 backdrop-blur-[1px]" />
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-[60]"
+        />
 
         <Dialog.Popup
+          data-admin-portal-layer="true"
           aria-label={willArchive ? 'Konfirmasi arsipkan customer' : 'Konfirmasi aktifkan customer'}
           data-customer-scoped="true"
-          className="border-studio-ink bg-studio-ivory text-studio-ink fixed inset-x-4 top-1/2 z-[70] mx-auto max-w-md -translate-y-1/2 border-2 shadow-[6px_6px_0px_#151515]"
+          className="sa-dialog fixed inset-x-4 top-1/2 z-[70] mx-auto max-w-md -translate-y-1/2 overflow-hidden outline-none"
         >
-          <div className="border-studio-ink bg-studio-ink text-studio-ivory flex items-start justify-between gap-2 border-b-2 px-4 py-3.5">
+          <div className="flex items-start justify-between gap-2 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-5 py-4">
             <div>
-              <span className="border-studio-ivory bg-studio-orange text-studio-white inline-block border px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase">
-                {willArchive ? 'ARSIPKAN PELANGGAN' : 'AKTIFKAN PELANGGAN'}
-              </span>
-              <Dialog.Title className="font-display mt-1.5 text-xl leading-none font-black text-white uppercase">
+              <AdminStatusBadge tone="orange" size="sm" className="uppercase">
+                {willArchive ? 'Arsipkan Pelanggan' : 'Aktifkan Pelanggan'}
+              </AdminStatusBadge>
+              <Dialog.Title className="mt-2 text-lg font-bold tracking-tight text-[#151515]">
                 {willArchive
                   ? `Arsipkan ${customer.displayName}?`
                   : `Aktifkan ${customer.displayName}?`}
@@ -55,17 +61,17 @@ export function CustomerArchiveDialog({ open, customer, onOpenChange, onConfirmA
             <Dialog.Close
               aria-label="Tutup dialog arsip"
               disabled={isWorking}
-              className="inline-flex h-10 w-10 cursor-pointer items-center justify-center border border-neutral-700 bg-neutral-900 text-white"
+              className="sa-control inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </Dialog.Close>
           </div>
 
-          <div className="space-y-3 p-4 text-xs leading-relaxed">
+          <div className="space-y-3.5 bg-white p-5 text-xs leading-relaxed">
             {error ? (
               <div
                 role="alert"
-                className="border-studio-ink bg-studio-orange text-studio-white flex items-start gap-2 border-2 p-2.5 font-bold"
+                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 font-medium text-[#B92B0C]"
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>{error}</span>
@@ -73,25 +79,28 @@ export function CustomerArchiveDialog({ open, customer, onOpenChange, onConfirmA
             ) : null}
 
             {willArchive ? (
-              <p className="font-medium text-neutral-800">
-                Data tidak dihapus dan riwayat <strong>{customer.bookingCount} booking</strong>{' '}
-                tetap aman tersimpan. Pelanggan yang diarsipkan disembunyikan dari daftar utama,
-                namun tetap dapat dicari lewat filter <strong>Diarsipkan</strong> dan diaktifkan
-                kembali kapan saja.
+              <p className="text-[#46433D]">
+                Data tidak dihapus dan riwayat{' '}
+                <strong className="text-[#151515]">{customer.bookingCount} booking</strong> tetap
+                aman tersimpan. Pelanggan yang diarsipkan disembunyikan dari daftar utama, namun
+                tetap dapat dicari lewat filter{' '}
+                <strong className="text-[#151515]">Diarsipkan</strong> dan diaktifkan kembali kapan
+                saja.
               </p>
             ) : (
-              <p className="font-medium text-neutral-800">
-                Profil <strong>{customer.displayName}</strong> akan tampil kembali di daftar utama
-                dan otomatis dikenali saat nomor HP diisi di form booking.
+              <p className="text-[#46433D]">
+                Profil <strong className="text-[#151515]">{customer.displayName}</strong> akan
+                tampil kembali di daftar utama dan otomatis dikenali saat nomor HP diisi di form
+                booking.
               </p>
             )}
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
                 disabled={isWorking}
                 onClick={() => onOpenChange?.(false)}
-                className="brutal-btn bg-studio-white text-studio-ink min-h-11 cursor-pointer px-4 py-2 font-mono text-xs font-extrabold uppercase"
+                className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-4 py-2 text-xs font-semibold"
               >
                 Batal
               </button>
@@ -99,10 +108,8 @@ export function CustomerArchiveDialog({ open, customer, onOpenChange, onConfirmA
                 type="button"
                 disabled={isWorking}
                 onClick={handleConfirm}
-                className={`brutal-btn inline-flex min-h-11 cursor-pointer items-center gap-1.5 px-4 py-2 font-mono text-xs font-extrabold uppercase ${
-                  willArchive
-                    ? 'bg-studio-orange text-studio-white'
-                    : 'bg-studio-lime text-studio-ink'
+                className={`sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold ${
+                  willArchive ? 'sa-btn-orange' : 'sa-btn-lime'
                 }`}
               >
                 {isWorking ? (

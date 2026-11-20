@@ -46,8 +46,8 @@ export function CalendarWeekView({
     <CalendarTimelineGrid
       ariaLabel="Tampilan jadwal mingguan 7 hari"
       bannerLeft={
-        <span className="font-mono text-[10px] font-extrabold uppercase">
-          Mingguan • 7 Hari (Senin – Minggu)
+        <span className="text-studio-ink text-xs font-semibold">
+          Mingguan · 7 Hari (Senin – Minggu)
         </span>
       }
       bannerRight="Klik tanggal untuk Day View • Geser horizontal"
