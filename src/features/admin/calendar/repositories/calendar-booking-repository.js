@@ -26,6 +26,8 @@ export const FIRESTORE_COLLECTIONS = {
   COMMISSION_POSTING_ITEMS: 'commissionPostingItems',
   COMMISSION_REVIEW_RESOLUTIONS: 'commissionReviewResolutions',
   BOOKKEEPING_ENTRIES: 'bookkeepingEntries',
+  INVENTORY_ITEMS: 'inventoryItems',
+  INVENTORY_MOVEMENTS: 'inventoryMovements',
 };
 
 /**

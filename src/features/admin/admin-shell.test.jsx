@@ -166,6 +166,10 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
         expect(
           screen.getByText(/review completed session fees before posting them to bookkeeping\./i),
         ).toBeTruthy();
+      } else if (mod.label === 'Inventory') {
+        expect(
+          screen.getByText(/manage studio equipment, supplies, and maintenance status\./i),
+        ).toBeTruthy();
       } else if (mod.label === 'Settings') {
         expect(screen.getByRole('heading', { name: /price and fee settings/i })).toBeTruthy();
       } else {

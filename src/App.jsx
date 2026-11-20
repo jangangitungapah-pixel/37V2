@@ -4,6 +4,7 @@ import { AppProviders } from '@/app/providers/AppProviders';
 import { AdminCalendarPage } from '@/features/admin/calendar/pages/AdminCalendarPage';
 import { AdminCommissionAndFeePage } from '@/features/admin/commission/pages/AdminCommissionAndFeePage';
 import { AdminCustomersPage } from '@/features/admin/customer/pages/AdminCustomersPage';
+import { AdminInventoryPage } from '@/features/admin/inventory/pages/AdminInventoryPage';
 import { AdminLayout } from '@/features/admin/layout/AdminLayout';
 import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
 import { AdminModulePlaceholderPage } from '@/features/admin/pages/AdminModulePlaceholderPage';
@@ -34,7 +35,7 @@ export function AppRoutes() {
         <Route path="customer" element={<AdminCustomersPage />} />
         <Route path="payment-and-bill" element={<AdminPaymentAndBillPage />} />
         <Route path="commission-and-fee" element={<AdminCommissionAndFeePage />} />
-        <Route path="inventory" element={<AdminModulePlaceholderPage moduleId="inventory" />} />
+        <Route path="inventory" element={<AdminInventoryPage />} />
         <Route path="pembukuan" element={<AdminModulePlaceholderPage moduleId="pembukuan" />} />
         <Route path="settings" element={<AdminSettingsPage />} />
         <Route path="settings/price-and-fee" element={<PriceAndFeeSettingsPage />} />

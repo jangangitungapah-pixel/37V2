@@ -1,0 +1,206 @@
+37 MUSIC STUDIO — SESSION HANDOFF
+INVENTORY MODULE: STUDIO EQUIPMENT & CONSUMABLES MANAGEMENT (/admin/inventory)
+Date: 2026-11-20
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Local path: d:\PROJECT VS\37V2
+Branch: main
+
+============================================================
+1. STARTING HEAD
+============================================================
+
+- Audited baseline HEAD:
+  ae4ef6dfa4deea174b63d23cb3e78ca241d9fb31
+  (ae4ef6d feat: implement spatial ambient design system and overhaul admin portal UI)
+
+============================================================
+2. FINAL IMPLEMENTATION STATUS
+============================================================
+
+- Status: Uncommitted working tree on branch `main` layered cleanly on top of
+  `ae4ef6dfa4deea174b63d23cb3e78ca241d9fb31` (awaiting user review; zero
+  `firebase deploy`, `git commit`, `git push`, `git reset`, or PR merge executed).
+- All existing Admin Portal modules, Landing Page (`/`), Staff Login (`/staff/login`),
+  Sidebar menu order, Auth, and pre-existing handoff files remain untouched.
+
+============================================================
+3. FILES CREATED & MODIFIED (INVENTORY MODULE)
+============================================================
+
+Created (30 files):
+- `src/features/admin/inventory/config/inventory-config.js`
+- `src/features/admin/inventory/utils/inventory-format.js`
+- `src/features/admin/inventory/utils/inventory-status.js`
+- `src/features/admin/inventory/utils/inventory-calculation.js`
+- `src/features/admin/inventory/schemas/inventory-schema.js`
+- `src/features/admin/inventory/repositories/inventory-repository.js`
+- `src/features/admin/inventory/services/inventory-item-service.js`
+- `src/features/admin/inventory/services/inventory-movement-service.js`
+- `src/features/admin/inventory/hooks/useInventoryItems.js`
+- `src/features/admin/inventory/hooks/useInventoryItemDetail.js`
+- `src/features/admin/inventory/hooks/useInventoryMovements.js`
+- `src/features/admin/inventory/components/InventoryOverviewMetrics.jsx`
+- `src/features/admin/inventory/components/InventoryWorkspaceTabs.jsx`
+- `src/features/admin/inventory/components/InventoryToolbar.jsx`
+- `src/features/admin/inventory/components/InventoryFilters.jsx`
+- `src/features/admin/inventory/components/InventoryItemCard.jsx`
+- `src/features/admin/inventory/components/InventoryItemTable.jsx`
+- `src/features/admin/inventory/components/InventoryItemDialog.jsx`
+- `src/features/admin/inventory/components/InventoryItemDetailDrawer.jsx`
+- `src/features/admin/inventory/components/InventoryMovementDialog.jsx`
+- `src/features/admin/inventory/components/InventoryAdjustmentDialog.jsx`
+- `src/features/admin/inventory/components/InventoryArchiveDialog.jsx`
+- `src/features/admin/inventory/components/InventoryMaintenancePanel.jsx`
+- `src/features/admin/inventory/components/InventoryMovementHistory.jsx`
+- `src/features/admin/inventory/components/InventoryActivityList.jsx`
+- `src/features/admin/inventory/pages/AdminInventoryPage.jsx`
+- `src/features/admin/inventory/inventory.test.jsx`
+- `scripts/verify-inventory-module.ps1`
+- `docs/architecture/ADMIN-INVENTORY-MANAGEMENT.md`
+- `docs/handoffs/HANDOFF-INVENTORY-MODULE-2026-11-20.txt`
+
+Modified (5 files):
+- `src/App.jsx` (wired `/admin/inventory` to `AdminInventoryPage`)
+- `src/features/admin/pages/AdminDashboardPage.jsx` (added `'inventory'` to `ACTIVE_MODULE_IDS`)
+- `src/features/admin/calendar/repositories/calendar-booking-repository.js` (added `INVENTORY_ITEMS: 'inventoryItems'` and `INVENTORY_MOVEMENTS: 'inventoryMovements'` to `FIRESTORE_COLLECTIONS`)
+- `src/features/admin/admin-shell.test.jsx` (updated `/admin/inventory` test expectation to `Manage studio equipment, supplies, and maintenance status.`)
+- `firestore.rules` (added security rules for `inventoryItems` and `inventoryMovements`)
+
+Note: Pre-existing files under `docs/handoffs/` remain untouched.
+
+============================================================
+4. ITEM TYPES & CORE OPERATIONAL WORKFLOW
+============================================================
+
+- Supports a fast 4-step daily workflow (`Search -> Select -> Record Movement -> Done`):
+  1. Consumables (`itemType: 'consumable'`):
+     - Tracks supplies (guitar strings, drum sticks, picks, batteries, gaffer tape, cleaning liquid, cable ties) via `consumableStock.onHandQuantity` (decimal precision up to 3 decimal places via `roundInventoryQuantity` / `hasAtMostThreeDecimals`).
+     - Automatic status derivation (`deriveConsumableStockStatus`) against `minimumStockQuantity`: `out_of_stock` (`0`), `low_stock` (`> 0 && <= minimumStockQuantity`), `in_stock` (`> minimumStockQuantity`).
+  2. Equipment (`itemType: 'equipment'`):
+     - Tracks reusable gear at a single primary studio location via four non-negative integer condition buckets: `availableQuantity`, `maintenanceQuantity`, `damagedQuantity`, `retiredQuantity` (`registeredTotal = sum of all four`).
+     - Threshold field `minimumAvailableQuantity` triggers low-available alerts while preserving retired/maintenance/damaged history.
+- Summary metrics (`computeInventorySummaryMetrics`) deduplicate records across states (e.g., an item in maintenance with an overdue schedule is counted once).
+
+============================================================
+5. CATEGORIES, UNITS & CANONICAL LOCATIONS
+============================================================
+
+- 7 stable categories (`categoryId`): `instruments`, `audio_recording`, `amplifiers_speakers`, `cables_connectivity`, `stands_accessories`, `maintenance_cleaning`, `other`.
+- 11 supported units (`inventory-config.js`) with singular/plural display resolution (`resolveUnitDisplayLabel`).
+- Canonical locations (`locationId`) reuse `STUDIO_ROOMS` from `src/features/admin/calendar/config/calendar-config.js`:
+  - `room-a` (Room A)
+  - `room-b` (Room B)
+  - `storage` (Storage)
+  - `other` (Other with custom `locationLabel`)
+- Updating an item's location when movement history exists (`lastMovementId != null`) atomically writes a `location_changed` movement storing `locationBefore` and `locationAfter` without touching Calendar bookings.
+
+============================================================
+6. MOVEMENT TYPES, TRANSITIONS & MAINTENANCE SCHEDULING
+============================================================
+
+- Consumable movements: `opening_stock` (when `openingQuantity > 0`), `stock_in`, `consume` (Record Usage with preset reasons: `Studio Operations`, `Customer Session`, `Maintenance`, `Other`), `write_off`, `stock_adjustment` (Owner-only).
+- Equipment movements: `opening_stock` (when initial `availableQuantity > 0`), `stock_in` (Add Equipment), `send_to_maintenance`, `return_from_maintenance` (records `lastMaintenanceDate` and optional `nextMaintenanceDate`), `mark_damaged` (`available` or `maintenance` source bucket), `mark_repaired` (requires Repair Note >= 3 chars), `mark_retired` (`available` or `damaged` source bucket), `stock_adjustment` (Owner-only bucket reconciliation), `location_changed`.
+- Maintenance reminders anchored in `Asia/Jakarta` via `getJakartaTodayIso()` (`deriveEquipmentMaintenanceMeta`):
+  - `due` (Maintenance Due): `nextMaintenanceDate <= todayIso`
+  - `soon` (Maintenance Soon): `todayIso < nextMaintenanceDate <= todayIso + 7d`
+  - `scheduled`: `nextMaintenanceDate > todayIso + 7d`
+  - `none`: No next date configured (visual reminder only; never mutates stock automatically).
+
+============================================================
+7. TRANSACTION ATOMICITY, IDEMPOTENCY & OPTIMISTIC LOCKING
+============================================================
+
+- Entry points (`services/inventory-item-service.js` and `services/inventory-movement-service.js`):
+  - `createInventoryItem()`
+  - `updateInventoryItemMetadata()`
+  - `setInventoryItemArchiveStatus()`
+  - `recordInventoryMovement()`
+- All mutations execute in Firestore `runTransaction` with all reads before writes:
+  1. Pre-generated stable `movementId` (`operationId`) from UI dialogs guarantees idempotent replay on transient retry without double-counting stock.
+  2. Optimistic `expectedVersion === existingItem.version` check (`inventory/stale-version`) prevents overselling under concurrent Staff edits.
+  3. Direct editing of stock quantities in item metadata dialogs is strictly disallowed.
+
+============================================================
+8. SOFT ARCHIVE RULES & ROLE RESTRICTIONS
+============================================================
+
+- Permanent deletion is blocked (`allow delete: if false` in Firestore Rules; no delete UI).
+- Archiving (`isActive = false`) via `checkArchiveEligibility` / `setInventoryItemArchiveStatus` is allowed only when operational stock is zero:
+  - Consumables: `onHandQuantity === 0`
+  - Equipment: `availableQuantity === 0 && maintenanceQuantity === 0 && damagedQuantity === 0` (`retiredQuantity >= 0` allowed).
+- Active Staff & Owner (`isActiveStaff()`): Can read inventory, create items, edit metadata, record routine movements, and soft-archive eligible 0-stock items.
+- Active Owner Only (`isActiveOwner()`): Exclusively authorized to execute `stock_adjustment` movements and reactivate archived items (`isActive: false -> true`). Staff UI hides Stock Adjustment and Reactivate controls cleanly.
+
+============================================================
+9. FIRESTORE COLLECTIONS & ZERO-COMPOSITE-INDEX QUERY STRATEGY
+============================================================
+
+1. `inventoryItems/{itemId}` (32 validated schema fields)
+   - Maintains atomic query booleans `lowStock`, `inMaintenance`, `hasDamagedOrRetired` inside item creation and movement transactions.
+2. `inventoryMovements/{movementId}` (19 validated immutable fields)
+   - Stores deltas, before/after snapshots (`quantityBefore`/`quantityAfter` or bucket maps), `locationBefore`/`locationAfter`, `actorUid`/`actorName`/`actorRole`, `reason`, `notes`, and `occurredAt`.
+- Single-field queries only (zero custom `firestore.indexes.json` required):
+  - Directory (`orderBy('updatedAt', 'desc'), limit(maxLimit + 1)` with `PAGE_SIZE = 50`) and Archived (`where('isActive', '==', false), limit(maxLimit + 1)`).
+  - Server-side `getCountFromServer()` aggregations + bounded `INVENTORY_ITEMS_SUMMARY_BOUND = 500` deduplication for Active Items, Low Stock, Maintenance, and Damaged / Retired KPI cards.
+  - Item history (`where('itemId', '==', itemId)`) with `PAGE_SIZE = 20` and Global Activity (`orderBy('occurredAt', 'desc')`) with `PAGE_SIZE = 30`.
+
+============================================================
+10. FIRESTORE SECURITY RULES
+============================================================
+
+- Updated `d:\PROJECT VS\37V2\firestore.rules`:
+  - `inventoryItems/{itemId}`: Enforces `isActiveStaff()`, strict 32-field payload validation, mandatory atomic `opening_stock` linkage via `existsAfter()` / `getAfter()` when initial stock > 0, `version + 1` movement linkage (`isValidInventoryMovementLinkedUpdate`) routed safely to avoid null `getAfter()` evaluation errors on 0-opening-stock metadata edits, zero-stock guard on archive, Owner-only reactivation (`isActiveOwner()`), and `allow delete: if false`.
+  - `inventoryMovements/{movementId}`: Enforces `isActiveStaff()` (with `isActiveOwner()` required when `movementType == 'stock_adjustment'`), 19 immutable fields, consistent delta/balance calculation, matching item `version + 1` & `lastMovementId`, and `allow update, delete: if false`.
+
+============================================================
+11. UI ARCHITECTURE & SPATIAL AMBIENT INTEGRATION
+============================================================
+
+- Built strictly with the Spatial Ambient Workspace Design System (`AdminPageHeader`, `AdminSurface`, `AdminMetricCard`, `AdminStatusBadge`, `AdminButton`, `AdminEmptyState`) under `AdminInventoryPage.jsx`:
+  - Top metrics (`InventoryOverviewMetrics`), Workspace tabs (`All Items`, `Consumables`, `Equipment`, `Activity`), search/archive toolbar (`InventoryToolbar`), collapsible/responsive filter controls (`InventoryFilters`), desktop table (`InventoryItemTable`), mobile cards (`InventoryItemCard`), item detail drawer (`InventoryItemDetailDrawer`), Maintenance schedule panel (`InventoryMaintenancePanel`), History (`InventoryMovementHistory` / `InventoryActivityList`), and compact sticky modal dialogs (`InventoryItemDialog`, `InventoryMovementDialog`, `InventoryAdjustmentDialog`, `InventoryArchiveDialog`).
+  - Zero side effects in Calendar, Customer, Payment, Commission, Bookkeeping, or Price Settings.
+
+============================================================
+12. TEST RESULTS & EMULATOR RULES VERIFICATION
+============================================================
+
+1. Verification Script (`scripts/verify-inventory-module.ps1`) -> `INVENTORY_MODULE_VERIFICATION=PASSED`:
+   - Full log: `D:\PROJECT VS\37V2\.logs\inventory-module-verification-20261120-094611.txt`
+   - `git status --short --branch`: `EXIT_CODE=0`
+   - `npm run format:check`: PASSED (`EXIT_CODE=0`, All matched files use Prettier code style)
+   - `npm run lint`: PASSED (`EXIT_CODE=0`, 0 errors)
+   - `npm run test:run`: PASSED (`EXIT_CODE=0`, `Test Files 11 passed (11)`, `Tests 89 passed (89)`, `Duration 18.86s`):
+     * `src/features/admin/inventory/inventory.test.jsx`: 6/6 tests passed
+     * `src/features/admin/admin-shell.test.jsx`: 5/5 tests passed
+     * All existing regression suites (`utils`, `commission`, `duration-discount`, `payment`, `LandingPage`, `customer`, `settings`, `calendar`, `auth`): 78/78 tests passed
+   - `npm run build`: PASSED (`EXIT_CODE=0`, Vite `v8.3.8`, `3435 modules transformed`, `built in 7.32s`)
+
+2. Live Firebase Firestore Emulator Verification (`firebase emulators:exec --only firestore --project studio37classic`):
+   - Inventory Rules suite (`verify-firestore-rules-inventory.mjs`): PASSED `21 passed, 0 failed` (`INVENTORY_RULES_SUMMARY: 21 passed, 0 failed`)
+   - Phase 9 Rules regression (`verify-firestore-rules-v9.mjs`): PASSED `16 passed, 0 failed` (`RULES_V9_SUMMARY: 16 passed, 0 failed`)
+   - Temporary `firebase-debug.log` and `firestore-debug.log` deleted from workspace root after verification.
+
+============================================================
+13. HEADLESS CHROME RESPONSIVE & INTERACTIVE QA
+============================================================
+
+- Executed Headless Chrome CDP QA (`qa-inventory-module.mjs`) across 10 viewports (`286, 320, 360, 375, 390, 430, 768, 1024, 1280, 1440` px) x 9 views (`/admin/dashboard`, `/admin/inventory` All Items / Consumables / Equipment / Activity, `InventoryItemDialog`, `InventoryItemDetailDrawer`, `InventoryMovementDialog`, `InventoryAdjustmentDialog`):
+  - Result: `TOTAL_CHECKS=90, FAILURES=0, RUNTIME_ERRORS=0`, `INVENTORY_MODULE_RESPONSIVE_QA=PASSED`
+  - Visual screenshot inspection (`inventory-375.png`, `inventory-drawer-375.png`, `inventory-dialog-360.png`, `inventory-1440.png`) confirmed clean spacing, compact mobile modal header/footer proportions, full readability of movement history badges, and zero horizontal overflow or layout overlap.
+
+============================================================
+14. KNOWN LIMITATIONS & INTEGRATION BOUNDARIES
+============================================================
+
+- Calendar Boundary: Inventory does not auto-deduct supplies or lock gear on booking create/complete; staff optionally log `Customer Session` usage manually.
+- Bookkeeping Boundary: Inventory `stock_in` and `write_off` do not auto-create `bookkeepingEntries` or `paymentTransactions`; financial expenses remain in Pembukuan.
+- Deferred scope (excluded per specification): Purchase orders/suppliers, individual per-unit serial tracking, barcode scanning hardware integration, customer gear rental billing, and asset depreciation valuation.
+- Production Deployment: Updated `firestore.rules` has been verified on the local Firestore Emulator only and has NOT been deployed to production Firebase.
+
+============================================================
+15. RECOMMENDED NEXT ACTIONS
+============================================================
+
+1. Review `/admin/inventory` visually in `npm run dev` (testing both Owner and Staff logins across desktop & mobile views).
+2. Confirm approval to commit changes and push branch `main` once review is complete.
+3. Deploy updated `firestore.rules` to Firebase (`firebase deploy --only firestore:rules`) before exercising `/admin/inventory` against production Firestore.

@@ -757,6 +757,363 @@ service cloud.firestore {
         && data.completedAt == booking.data.actualCompletedAt;
     }
 
+    function isValidInventoryCategory(catId) {
+      return catId in [
+        'instruments',
+        'audio_recording',
+        'amplifiers_speakers',
+        'cables_connectivity',
+        'stands_accessories',
+        'maintenance_cleaning',
+        'other'
+      ];
+    }
+
+    function isValidInventoryUnit(unit) {
+      return unit in [
+        'pcs',
+        'unit',
+        'set',
+        'pair',
+        'pack',
+        'box',
+        'bottle',
+        'meter',
+        'roll',
+        'liter',
+        'other'
+      ];
+    }
+
+    function isValidConsumableStockMap(stock) {
+      return stock is map
+        && stock.size() == 1
+        && stock.onHandQuantity is number
+        && stock.onHandQuantity >= 0;
+    }
+
+    function isValidEquipmentStockMap(stock) {
+      return stock is map
+        && stock.size() == 4
+        && stock.availableQuantity is int
+        && stock.availableQuantity >= 0
+        && stock.maintenanceQuantity is int
+        && stock.maintenanceQuantity >= 0
+        && stock.damagedQuantity is int
+        && stock.damagedQuantity >= 0
+        && stock.retiredQuantity is int
+        && stock.retiredQuantity >= 0;
+    }
+
+    function isZeroInventoryItemStock(data) {
+      return data.itemType == 'consumable'
+        ? data.consumableStock.onHandQuantity == 0
+        : (
+          data.equipmentStock.availableQuantity == 0
+          && data.equipmentStock.maintenanceQuantity == 0
+          && data.equipmentStock.damagedQuantity == 0
+          && data.equipmentStock.retiredQuantity == 0
+        );
+    }
+
+    function isValidInventoryItemFlags(data) {
+      return data.itemType == 'consumable'
+        ? (
+          data.lowStock == (data.isActive && data.consumableStock.onHandQuantity <= data.minimumStockQuantity)
+          && data.inMaintenance == false
+          && data.hasDamagedOrRetired == false
+        )
+        : (
+          data.lowStock == false
+          && data.inMaintenance == (data.isActive && data.equipmentStock.maintenanceQuantity > 0)
+          && data.hasDamagedOrRetired == (
+            data.isActive
+            && (data.equipmentStock.damagedQuantity > 0 || data.equipmentStock.retiredQuantity > 0)
+          )
+        );
+    }
+
+    function isValidInventoryItemShape(data) {
+      return data.size() == 32
+        && data.itemCode is string
+        && data.itemCode.size() >= 2
+        && data.itemCode.size() <= 32
+        && data.normalizedCode is string
+        && data.normalizedCode.size() >= 2
+        && data.normalizedCode.size() <= 32
+        && data.name is string
+        && data.name.size() >= 2
+        && data.name.size() <= 120
+        && data.normalizedName is string
+        && data.normalizedName.size() >= 2
+        && data.normalizedName.size() <= 120
+        && data.itemType in ['consumable', 'equipment']
+        && isValidInventoryCategory(data.categoryId)
+        && data.categoryLabel is string
+        && data.categoryLabel.size() >= 1
+        && data.categoryLabel.size() <= 80
+        && isValidInventoryUnit(data.unit)
+        && data.customUnitLabel is string
+        && data.customUnitLabel.size() <= 40
+        && data.locationId in ['room-a', 'room-b', 'storage', 'other']
+        && data.locationLabel is string
+        && data.locationLabel.size() >= 1
+        && data.locationLabel.size() <= 60
+        && data.brand is string
+        && data.brand.size() <= 80
+        && data.model is string
+        && data.model.size() <= 80
+        && data.notes is string
+        && data.notes.size() <= 1000
+        && data.minimumStockQuantity is number
+        && data.minimumStockQuantity >= 0
+        && data.minimumAvailableQuantity is int
+        && data.minimumAvailableQuantity >= 0
+        && data.lowStock is bool
+        && data.inMaintenance is bool
+        && data.hasDamagedOrRetired is bool
+        && (
+          data.itemType == 'consumable'
+            ? (isValidConsumableStockMap(data.consumableStock)
+                && data.equipmentStock == null
+                && data.minimumAvailableQuantity == 0
+                && data.lastMaintenanceDate == null
+                && data.nextMaintenanceDate == null
+                && data.maintenanceIntervalDays == null)
+            : (data.consumableStock == null
+                && isValidEquipmentStockMap(data.equipmentStock)
+                && data.minimumStockQuantity == 0
+                && (data.lastMaintenanceDate == null
+                  || (data.lastMaintenanceDate is string && data.lastMaintenanceDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+                && (data.nextMaintenanceDate == null
+                  || (data.nextMaintenanceDate is string && data.nextMaintenanceDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+                && (data.maintenanceIntervalDays == null
+                  || (data.maintenanceIntervalDays is int && data.maintenanceIntervalDays >= 1 && data.maintenanceIntervalDays <= 3650)))
+        )
+        && isValidInventoryItemFlags(data)
+        && data.isActive is bool
+        && (data.lastMovementId == null || (data.lastMovementId is string && data.lastMovementId.size() > 0))
+        && (data.lastMovementAt == null || data.lastMovementAt is timestamp)
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidInventoryInitialLink(data, itemId) {
+      return isZeroInventoryItemStock(data)
+        ? (data.lastMovementId == null && data.lastMovementAt == null)
+        : (
+          data.lastMovementId is string
+          && data.lastMovementId.size() > 0
+          && data.lastMovementAt is timestamp
+          && existsAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId))
+          && getAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId)).data.itemId == itemId
+          && getAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId)).data.movementType == 'opening_stock'
+          && getAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId)).data.balanceAfter == (
+            data.itemType == 'consumable' ? data.consumableStock : data.equipmentStock
+          )
+        );
+    }
+
+    function isInventoryStockUnchanged(reqData, resData) {
+      return reqData.consumableStock == resData.consumableStock
+        && reqData.equipmentStock == resData.equipmentStock
+        && reqData.lastMovementId == resData.lastMovementId
+        && reqData.lastMovementAt == resData.lastMovementAt;
+    }
+
+    function isInventoryMetadataUnchanged(reqData, resData) {
+      return reqData.itemCode == resData.itemCode
+        && reqData.normalizedCode == resData.normalizedCode
+        && reqData.name == resData.name
+        && reqData.normalizedName == resData.normalizedName
+        && reqData.categoryId == resData.categoryId
+        && reqData.categoryLabel == resData.categoryLabel
+        && reqData.unit == resData.unit
+        && reqData.customUnitLabel == resData.customUnitLabel
+        && reqData.locationId == resData.locationId
+        && reqData.locationLabel == resData.locationLabel
+        && reqData.brand == resData.brand
+        && reqData.model == resData.model
+        && reqData.notes == resData.notes
+        && reqData.minimumStockQuantity == resData.minimumStockQuantity
+        && reqData.minimumAvailableQuantity == resData.minimumAvailableQuantity
+        && reqData.lastMaintenanceDate == resData.lastMaintenanceDate
+        && reqData.nextMaintenanceDate == resData.nextMaintenanceDate
+        && reqData.maintenanceIntervalDays == resData.maintenanceIntervalDays;
+    }
+
+    function isInventoryCanArchive(resData) {
+      return resData.itemType == 'consumable'
+        ? resData.consumableStock.onHandQuantity == 0
+        : (
+          resData.equipmentStock.availableQuantity == 0
+          && resData.equipmentStock.maintenanceQuantity == 0
+          && resData.equipmentStock.damagedQuantity == 0
+        );
+    }
+
+    function isValidInventoryMetadataUpdate(reqData, resData) {
+      let locUnchanged = reqData.locationId == resData.locationId && reqData.locationLabel == resData.locationLabel;
+      return resData.isActive == true
+        && reqData.isActive == true
+        && isInventoryStockUnchanged(reqData, resData)
+        && (locUnchanged || resData.lastMovementId == null);
+    }
+
+    function isValidInventoryArchiveOrReactivateUpdate(reqData, resData) {
+      return isInventoryStockUnchanged(reqData, resData)
+        && isInventoryMetadataUnchanged(reqData, resData)
+        && (
+          (resData.isActive == true && reqData.isActive == false && isInventoryCanArchive(resData))
+          || (resData.isActive == false && reqData.isActive == true && isActiveOwner())
+        );
+    }
+
+    function isValidInventoryMovementLinkedDetails(reqData, resData, itemId) {
+      let movAfter = getAfter(/databases/$(database)/documents/inventoryMovements/$(reqData.lastMovementId));
+      return movAfter != null
+        && movAfter.data.itemId == itemId
+        && movAfter.data.itemType == resData.itemType
+        && movAfter.data.balanceBefore == (
+          resData.itemType == 'consumable' ? resData.consumableStock : resData.equipmentStock
+        )
+        && movAfter.data.balanceAfter == (
+          reqData.itemType == 'consumable' ? reqData.consumableStock : reqData.equipmentStock
+        )
+        && (
+          movAfter.data.movementType == 'location_changed'
+            ? (movAfter.data.locationAfter is map
+                && reqData.locationId == movAfter.data.locationAfter.locationId
+                && reqData.locationLabel == movAfter.data.locationAfter.locationLabel)
+            : (reqData.locationId == resData.locationId
+                && reqData.locationLabel == resData.locationLabel
+                && reqData.itemCode == resData.itemCode
+                && reqData.name == resData.name
+                && reqData.categoryId == resData.categoryId
+                && reqData.unit == resData.unit
+                && reqData.minimumStockQuantity == resData.minimumStockQuantity
+                && reqData.minimumAvailableQuantity == resData.minimumAvailableQuantity)
+        );
+    }
+
+    function isValidInventoryMovementLinkedUpdate(reqData, resData, itemId) {
+      return resData.isActive == true
+        && reqData.isActive == true
+        && reqData.lastMovementId is string
+        && reqData.lastMovementId.size() > 0
+        && reqData.lastMovementId != resData.lastMovementId
+        && reqData.lastMovementAt is timestamp
+        && existsAfter(/databases/$(database)/documents/inventoryMovements/$(reqData.lastMovementId))
+        && isValidInventoryMovementLinkedDetails(reqData, resData, itemId);
+    }
+
+    function isValidInventoryMovementType(movementType, itemType) {
+      return movementType == 'opening_stock'
+        || movementType == 'stock_in'
+        || movementType == 'stock_adjustment'
+        || movementType == 'location_changed'
+        || (itemType == 'consumable' && movementType in ['consume', 'write_off'])
+        || (itemType == 'equipment' && movementType in [
+          'send_to_maintenance',
+          'return_from_maintenance',
+          'mark_damaged',
+          'mark_repaired',
+          'mark_retired'
+        ]);
+    }
+
+    function isValidInventoryLocationSnapshot(loc) {
+      return loc == null
+        || (loc is map
+            && loc.size() == 2
+            && loc.locationId in ['room-a', 'room-b', 'storage', 'other']
+            && loc.locationLabel is string
+            && loc.locationLabel.size() >= 1
+            && loc.locationLabel.size() <= 60);
+    }
+
+    function isValidInventoryMovementItemAfterLink(data, movementId) {
+      let itemAfter = getAfter(/databases/$(database)/documents/inventoryItems/$(data.itemId));
+      return itemAfter != null
+        && itemAfter.data.isActive == true
+        && itemAfter.data.itemType == data.itemType
+        && itemAfter.data.lastMovementId == movementId
+        && data.balanceAfter == (
+          data.itemType == 'consumable' ? itemAfter.data.consumableStock : itemAfter.data.equipmentStock
+        )
+        && (
+          data.movementType == 'opening_stock'
+            ? (
+              !exists(/databases/$(database)/documents/inventoryItems/$(data.itemId))
+              && (data.itemType == 'consumable'
+                ? data.balanceBefore.onHandQuantity == 0
+                : (data.balanceBefore.availableQuantity == 0
+                    && data.balanceBefore.maintenanceQuantity == 0
+                    && data.balanceBefore.damagedQuantity == 0
+                    && data.balanceBefore.retiredQuantity == 0))
+            )
+            : (
+              exists(/databases/$(database)/documents/inventoryItems/$(data.itemId))
+              && get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.isActive == true
+              && itemAfter.data.version == get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.version + 1
+              && data.balanceBefore == (
+                data.itemType == 'consumable'
+                  ? get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.consumableStock
+                  : get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.equipmentStock
+              )
+            )
+        );
+    }
+
+    function isValidInventoryMovementCreate(data, movementId) {
+      return data.size() == 19
+        && data.itemId is string
+        && data.itemId.size() > 0
+        && data.itemCode is string
+        && data.itemCode.size() >= 2
+        && data.itemCode.size() <= 32
+        && data.itemNameSnapshot is string
+        && data.itemNameSnapshot.size() >= 2
+        && data.itemNameSnapshot.size() <= 120
+        && data.itemType in ['consumable', 'equipment']
+        && isValidInventoryMovementType(data.movementType, data.itemType)
+        && (data.movementType != 'stock_adjustment' || isActiveOwner())
+        && data.quantity is number
+        && (data.movementType == 'location_changed' ? data.quantity == 0 : data.quantity > 0)
+        && (data.itemType == 'consumable' || data.quantity is int)
+        && data.unit is string
+        && data.unit.size() >= 1
+        && data.unit.size() <= 40
+        && (
+          data.itemType == 'consumable'
+            ? (isValidConsumableStockMap(data.balanceBefore) && isValidConsumableStockMap(data.balanceAfter))
+            : (isValidEquipmentStockMap(data.balanceBefore) && isValidEquipmentStockMap(data.balanceAfter))
+        )
+        && isValidInventoryLocationSnapshot(data.locationBefore)
+        && isValidInventoryLocationSnapshot(data.locationAfter)
+        && data.reason is string
+        && data.reason.size() <= 160
+        && data.notes is string
+        && data.notes.size() <= 500
+        && data.source in ['opening_stock', 'manual', 'stock_adjustment', 'location_change']
+        && data.occurredAt is timestamp
+        && data.operationId == movementId
+        && data.recordedByUid == request.auth.uid
+        && data.recordedByNameSnapshot is string
+        && data.recordedByNameSnapshot.size() <= 120
+        && data.createdAt is timestamp
+        && (data.movementType != 'stock_adjustment'
+            || (data.reason.size() >= 3 && data.balanceAfter != data.balanceBefore))
+        && (data.movementType != 'location_changed'
+            || (data.locationBefore is map && data.locationAfter is map && data.balanceAfter == data.balanceBefore))
+        && existsAfter(/databases/$(database)/documents/inventoryItems/$(data.itemId))
+        && isValidInventoryMovementItemAfterLink(data, movementId);
+    }
+
     match /staffProfiles/{uid} {
       allow get: if request.auth != null
                  && request.auth.uid == uid;
@@ -972,6 +1329,40 @@ service cloud.firestore {
 
       allow create: if isActiveOwner()
         && isValidCommissionReviewResolutionCreate(request.resource.data, resolutionId);
+
+      allow update, delete: if false;
+    }
+
+    match /inventoryItems/{itemId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidInventoryItemShape(request.resource.data)
+        && request.resource.data.isActive == true
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.version == 1
+        && isValidInventoryInitialLink(request.resource.data, itemId);
+
+      allow update: if isActiveStaff()
+        && isValidInventoryItemShape(request.resource.data)
+        && request.resource.data.itemType == resource.data.itemType
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.version == resource.data.version + 1
+        && (
+          isValidInventoryMetadataUpdate(request.resource.data, resource.data)
+          || isValidInventoryArchiveOrReactivateUpdate(request.resource.data, resource.data)
+          || isValidInventoryMovementLinkedUpdate(request.resource.data, resource.data, itemId)
+        );
+
+      allow delete: if false;
+    }
+
+    match /inventoryMovements/{movementId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidInventoryMovementCreate(request.resource.data, movementId);
 
       allow update, delete: if false;
     }

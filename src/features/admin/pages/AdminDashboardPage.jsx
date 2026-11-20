@@ -19,6 +19,7 @@ const ACTIVE_MODULE_IDS = new Set([
   'customer',
   'payment-and-bill',
   'commission-and-fee',
+  'inventory',
   'settings',
 ]);
 
