@@ -9,8 +9,10 @@ import { AdminInventoryPage } from '@/features/admin/inventory/pages/AdminInvent
 import { AdminLayout } from '@/features/admin/layout/AdminLayout';
 import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
 import { AdminPaymentAndBillPage } from '@/features/admin/payment/pages/AdminPaymentAndBillPage';
+import { AccountSecurityPage } from '@/features/admin/settings/pages/AccountSecurityPage';
 import { AdminSettingsPage } from '@/features/admin/settings/pages/AdminSettingsPage';
 import { PriceAndFeeSettingsPage } from '@/features/admin/settings/pages/PriceAndFeeSettingsPage';
+import { StudioProfilePage } from '@/features/admin/settings/pages/StudioProfilePage';
 import { RequireStaff } from '@/features/auth/RequireStaff';
 import { LandingPage } from '@/pages/LandingPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -38,6 +40,8 @@ export function AppRoutes() {
         <Route path="inventory" element={<AdminInventoryPage />} />
         <Route path="pembukuan" element={<AdminBookkeepingPage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
+        <Route path="settings/studio-profile" element={<StudioProfilePage />} />
+        <Route path="settings/account-security" element={<AccountSecurityPage />} />
         <Route path="settings/price-and-fee" element={<PriceAndFeeSettingsPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />

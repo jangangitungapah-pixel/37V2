@@ -255,6 +255,46 @@ service cloud.firestore {
         && data.updatedByUid == request.auth.uid;
     }
 
+    function isValidStudioProfile(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'studioName',
+          'tagline',
+          'whatsappNumber',
+          'email',
+          'address',
+          'city',
+          'mapsUrl',
+          'version',
+          'updatedAt',
+          'updatedByUid'
+        ])
+        && data.size() == 11
+        && data.schemaVersion == 1
+        && data.studioName is string
+        && data.studioName.trim().size() >= 2
+        && data.studioName.trim().size() <= 100
+        && data.tagline is string
+        && data.tagline.size() <= 160
+        && data.whatsappNumber is string
+        && data.whatsappNumber.size() <= 20
+        && (data.whatsappNumber == '' || data.whatsappNumber.matches('^\\+[1-9][0-9]{7,14}$'))
+        && data.email is string
+        && data.email.size() <= 120
+        && (data.email == '' || data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$'))
+        && data.address is string
+        && data.address.size() <= 300
+        && data.city is string
+        && data.city.size() <= 80
+        && data.mapsUrl is string
+        && data.mapsUrl.size() <= 500
+        && (data.mapsUrl == '' || data.mapsUrl.matches('^https?://[^\\s]+$'))
+        && data.version is int
+        && data.version >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
     function isValidBookingShape(data) {
       return data.customerName is string
         && data.customerName.size() > 0
@@ -1500,6 +1540,21 @@ service cloud.firestore {
 
       allow update: if isActiveOwner()
         && isValidPricingSettings(request.resource.data)
+        && request.resource.data.version == resource.data.version + 1;
+
+      allow delete: if false;
+    }
+
+    match /settings/studioProfile {
+      allow get: if isActiveStaff();
+      allow list: if false;
+
+      allow create: if isActiveOwner()
+        && isValidStudioProfile(request.resource.data)
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveOwner()
+        && isValidStudioProfile(request.resource.data)
         && request.resource.data.version == resource.data.version + 1;
 
       allow delete: if false;

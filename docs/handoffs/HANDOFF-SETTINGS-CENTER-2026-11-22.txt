@@ -1,0 +1,121 @@
+========================================================================
+37 MUSIC STUDIO — SETTINGS CENTER FOUNDATION HANDOFF
+Date: 2026-11-22
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Branch: main
+Base HEAD: 7fcbae2cfe168522103edbb123344b9b4832dc8d
+========================================================================
+
+1. SCOPE IMPLEMENTED
+--------------------
+- Settings Center Overview (/admin/settings):
+  * Organized into two clear configuration groups:
+    1) Group A — Studio Configuration:
+       - Studio Profile (/admin/settings/studio-profile, active)
+       - Price and Fee Settings (/admin/settings/price-and-fee, active, preserved as-is)
+       - Operations & Booking Rules (strictly non-interactive PLANNED card)
+    2) Group B — Personal Settings:
+       - Account & Security (/admin/settings/account-security, active)
+       - Notifications & Devices (strictly non-interactive PLANNED card)
+  * Read-only System Baseline panel displaying Currency (IDR), Timezone (Asia/Jakarta),
+    Indonesian 24-hour locale presentation, and Firebase Auth + Cloud Firestore backend.
+  * Sidebar remains unchanged at 8 top-level navigation items.
+
+- Studio Profile & Contact (/admin/settings/studio-profile):
+  * Manages 7 editable string fields stored in Cloud Firestore at settings/studioProfile:
+    studioName, tagline, whatsappNumber, email, address, city, mapsUrl.
+  * Zod validation + Indonesian WhatsApp normalization (08... -> +62...) and safe http/https URL
+    enforcement.
+  * Read-safe subscription (missing settings/studioProfile falls back to local defaults without
+    auto-creating documents on read).
+  * Owner-only transactional writes (version === 1 create, version + 1 update), optimistic
+    concurrency detection (studio-profile/stale-version) with Reload Latest banner, dirty form
+    navigation guard (SettingsConfirmDialog + beforeunload), and internal-only StudioProfilePreview.
+  * Staff users receive read-only inspection with mutating Save/Discard controls hidden.
+  * Public Landing Page was NOT connected to settings/studioProfile (per strict scope boundary).
+
+- Account & Security (/admin/settings/account-security):
+  * Displays signed-in user's Display Name, Email Address, Role (Owner/Staff), Account Status
+    (strictly shows Active only when profile.active === true; never fabricated), and Last Sign-In
+    time formatted in Asia/Jakarta (WIB) 24-hour presentation.
+  * Single primary action: Send Password Reset Email guarded by SettingsConfirmDialog and in-flight
+    duplicate-submit lock calling existing useAuth().resetPassword(user.email).
+  * Zero profile editing, role assignment, or staff management controls.
+
+- Firestore Security Rules (firestore.rules):
+  * Added isValidStudioProfile(data) and match /settings/studioProfile:
+    - allow get: isActiveStaff()
+    - allow list: false
+    - allow create: isActiveOwner() && isValidStudioProfile(request.resource.data) && version == 1
+    - allow update: isActiveOwner() && isValidStudioProfile(request.resource.data) && version == resource.data.version + 1
+    - allow delete: false
+  * Strictly validates exact 11-key document structure, string lengths, E.164 WhatsApp format,
+    email format, http/https mapsUrl regex, integer version >= 1, timestamp updatedAt, and
+    updatedByUid == request.auth.uid.
+  * Preserved all existing rules cleanly.
+
+2. FILES CREATED / MODIFIED
+---------------------------
+Created:
+- src/features/admin/settings/utils/settings-formatters.js
+- src/features/admin/settings/studio-profile/config/default-studio-profile.js
+- src/features/admin/settings/studio-profile/utils/normalize-studio-profile.js
+- src/features/admin/settings/studio-profile/schemas/studio-profile-schema.js
+- src/features/admin/settings/studio-profile/repositories/studio-profile-repository.js
+- src/features/admin/settings/studio-profile/services/studio-profile-service.js
+- src/features/admin/settings/studio-profile/hooks/useStudioProfile.js
+- src/features/admin/settings/components/SettingsBreadcrumb.jsx
+- src/features/admin/settings/components/StudioProfileForm.jsx
+- src/features/admin/settings/components/StudioProfilePreview.jsx
+- src/features/admin/settings/components/StudioProfileSaveBar.jsx
+- src/features/admin/settings/pages/StudioProfilePage.jsx
+- src/features/admin/settings/pages/AccountSecurityPage.jsx
+- src/features/admin/settings/settings-center.test.jsx
+- scripts/verify-settings-center.ps1
+- docs/architecture/ADMIN-SETTINGS-CENTER.md
+- docs/handoffs/HANDOFF-SETTINGS-CENTER-2026-11-22.txt
+
+Modified:
+- firestore.rules
+- src/App.jsx
+- src/features/admin/settings/components/SettingsModuleCard.jsx
+- src/features/admin/settings/pages/AdminSettingsPage.jsx
+
+Pre-existing Local Changes Preserved Untouched:
+- src/features/admin/bookkeeping/components/BookkeepingTransactionCard.jsx
+- src/features/admin/commission/components/CommissionReviewCard.jsx
+- src/features/admin/inventory/components/InventoryToolbar.jsx
+
+3. VERIFICATION RESULTS
+-----------------------
+- Verification script: scripts/verify-settings-center.ps1 (exit code 0)
+  * Scoped Prettier Format Check: PASS
+  * ESLint (npm run lint): PASS (0 errors, 0 warnings)
+  * Full Vitest Suite (npm run test:run): PASS (13 test files passed, 106 tests passed)
+    - Includes 9 new tests in src/features/admin/settings/settings-center.test.jsx
+    - Includes regression suites: settings.test.jsx (7), admin-shell.test.jsx (5), auth.test.jsx (12),
+      bookkeeping.test.jsx (8), calendar.test.jsx (11), duration-discount.test.jsx (16),
+      customer.test.jsx (6), payment.test.jsx (6), commission.test.jsx (8), inventory.test.jsx (6),
+      LandingPage.test.jsx (10), utils.test.js (2).
+  * Production Build (npm run build): PASS (4058 modules transformed, built in 10.87s)
+  * Saved verification log: .logs/settings-center-verification-20261122-060444.txt
+
+- Firebase Firestore Emulator Security Rules Verification (project: studio37classic):
+  * Executed via firebase emulators:exec --only firestore: 32/32 assertions PASSED
+  * Verified active Owner create/update/version checks, invalid payload denials, Staff read-only
+    enforcement, list/delete denials, and regression checks on settings/pricing, bookings,
+    customers, invoices, commissionBatches, inventoryItems, bookkeepingEntries, and staffProfiles.
+
+- Headless Chromium Responsive & Visual QA:
+  * Audited /admin/settings, /admin/settings/studio-profile, /admin/settings/account-security, and
+    /admin/settings/price-and-fee across 10 viewports: 286, 320, 360, 375, 390, 430, 768, 1024, 1280, 1440px.
+  * Summary: TOTAL_CHECKS=40, FAILURES=0, RUNTIME_ERRORS=0.
+
+4. REPOSITORY & DEPLOYMENT POLICY CONFIRMATION
+----------------------------------------------
+- No git commit performed.
+- No git push performed.
+- No PR merged.
+- No Firebase Hosting or Firestore Rules deployment performed.
+- No modification to .env.local or Firebase project settings.
+========================================================================
