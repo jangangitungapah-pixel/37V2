@@ -34,12 +34,13 @@ export const ADMIN_NAVIGATION_ITEMS = [
     path: 'dashboard',
     href: '/admin/dashboard',
     icon: LayoutDashboard,
-    eyebrow: 'RINGKASAN STUDIO',
-    summary: 'Pusat akses cepat untuk seluruh menu operasional dan pengelolaan 37 Music Studio.',
+    eyebrow: 'MODULE 01 • WORKSPACE OVERVIEW',
+    summary:
+      'Central studio operations hub providing quick access across all eight management modules.',
     scopeNotes: [
-      'Akses terpadu untuk Owner dan Staff studio',
-      'Pintasan langsung ke jadwal, pelanggan, dan tagihan',
-      'Ringkasan aktivitas operasional studio harian',
+      'Unified entry point for authenticated Owner and Staff sessions',
+      'Direct navigation shortcuts to all studio management workspaces',
+      'Operational overview widgets will be connected in a dedicated future phase',
     ],
   },
   {
@@ -49,12 +50,13 @@ export const ADMIN_NAVIGATION_ITEMS = [
     path: 'calendar',
     href: '/admin/calendar',
     icon: CalendarDays,
-    eyebrow: 'JADWAL RUANGAN STUDIO',
-    summary: 'Kelola jadwal latihan (rehearsal), rekaman, dan mixing di Room A serta Room B.',
+    eyebrow: 'MODULE 02 • STUDIO SCHEDULING',
+    summary:
+      'Dedicated workspace reserved for rehearsal, recording, and mixing session scheduling across studio rooms.',
     scopeNotes: [
-      'Pantau jadwal harian, mingguan, dan bulanan Room A & Room B',
-      'Cegah bentrok jadwal otomatis saat membuat booking baru',
-      'Catat status kedatangan, sesi berlangsung, hingga selesai',
+      'Room A and Room B session slot timeline foundation',
+      'Booking conflict prevention and shift scheduling workflow (planned)',
+      'Engineer and room assignment views will be added in the Calendar phase',
     ],
   },
   {
@@ -64,12 +66,13 @@ export const ADMIN_NAVIGATION_ITEMS = [
     path: 'customer',
     href: '/admin/customer',
     icon: UsersRound,
-    eyebrow: 'DAFTAR PELANGGAN',
-    summary: 'Kelola data pelanggan, band, kontak WhatsApp, dan riwayat booking mereka.',
+    eyebrow: 'MODULE 03 • CLIENT DIRECTORY',
+    summary:
+      'Dedicated workspace reserved for managing band profiles, solo artists, producers, and booking contacts.',
     scopeNotes: [
-      'Catatan kontak pelanggan & nama band yang pernah dipakai',
-      'Riwayat lengkap booking dan tagihan per pelanggan',
-      'Mendukung satu nomor HP dipakai bersama oleh beberapa orang',
+      'Client contact directory and band roster records (planned)',
+      'Session history association and communication preferences (planned)',
+      'Customer lookup and profile management will be added in the Customer phase',
     ],
   },
   {
@@ -79,12 +82,13 @@ export const ADMIN_NAVIGATION_ITEMS = [
     path: 'payment-and-bill',
     href: '/admin/payment-and-bill',
     icon: ReceiptText,
-    eyebrow: 'TAGIHAN & PEMBAYARAN',
-    summary: 'Buat invoice otomatis, catat DP maupun pelunasan, dan cetak bukti pembayaran.',
+    eyebrow: 'MODULE 04 • BILLING & INVOICES',
+    summary:
+      'Dedicated workspace reserved for session invoices, deposit tracking, and client payment verification.',
     scopeNotes: [
-      'Satu booking otomatis menghasilkan satu invoice tagihan',
-      'Catat pembayaran bertahap, sisa tagihan, dan koreksi aman',
-      'Cetak invoice/kwitansi rapi dan salin ringkasan untuk WhatsApp',
+      'Session billing records and payment status tracking (planned)',
+      'Deposit and settlement confirmation workflow (planned)',
+      'Invoice generation and receipt logs will be added in the Payment and Bill phase',
     ],
   },
   {
@@ -94,12 +98,13 @@ export const ADMIN_NAVIGATION_ITEMS = [
     path: 'commission-and-fee',
     href: '/admin/commission-and-fee',
     icon: HandCoins,
-    eyebrow: 'KOMISI & HONOR TIM',
-    summary: 'Kelola rincian honor operator rekaman, fee staff, dan pembagian hasil sesi.',
+    eyebrow: 'MODULE 05 • CREW & ENGINEER PAYOUTS',
+    summary:
+      'Dedicated workspace reserved for audio engineer session fees, crew allowances, and commission rules.',
     scopeNotes: [
-      'Rekap komisi tim berdasarkan sesi studio yang selesai',
-      'Laporan fee untuk Staff, Owner, dan Recording Operator',
-      'Pencatatan status pembayaran honor tim studio',
+      'Engineer session fee structures and crew payout logs (planned)',
+      'Commission calculation rules linked to completed sessions (planned)',
+      'Payout settlement tracking will be added in the Commission and Fee phase',
     ],
   },
   {
@@ -109,12 +114,13 @@ export const ADMIN_NAVIGATION_ITEMS = [
     path: 'inventory',
     href: '/admin/inventory',
     icon: Boxes,
-    eyebrow: 'PERALATAN & ASET STUDIO',
-    summary: 'Catat daftar alat musik, ampli, mikrofon, kondisi alat, dan jadwal perawatan.',
+    eyebrow: 'MODULE 06 • GEAR & BACKLINE ASSETS',
+    summary:
+      'Dedicated workspace reserved for tracking studio instruments, amplifiers, microphones, cables, and maintenance.',
     scopeNotes: [
-      'Daftar perlengkapan Room A, Room B, dan peralatan rekaman',
-      'Pantau kondisi alat, perbaikan, serta servis berkala',
-      'Stok perlengkapan habis pakai seperti senar dan kabel',
+      'Room A and Room B backline and microphone asset registry (planned)',
+      'Equipment condition status and maintenance notes (planned)',
+      'Consumables and spare parts tracking will be added in the Inventory phase',
     ],
   },
   {
@@ -124,12 +130,13 @@ export const ADMIN_NAVIGATION_ITEMS = [
     path: 'pembukuan',
     href: '/admin/pembukuan',
     icon: BookOpenText,
-    eyebrow: 'CATATAN KEUANGAN STUDIO',
-    summary: 'Rekap pemasukan, pengeluaran operasional harian, dan ringkasan arus kas studio.',
+    eyebrow: 'MODULE 07 • STUDIO BOOKKEEPING',
+    summary:
+      'Dedicated workspace reserved for studio income and expense ledgers, cashflow records, and financial summaries.',
     scopeNotes: [
-      'Catatan pemasukan sewa studio dan pengeluaran operasional',
-      'Ringkasan pemasukan & pengeluaran per periode',
-      'Laporan ringkas untuk evaluasi keuangan bulanan',
+      'Structured operational income and expense ledger entries (planned)',
+      'Period reconciliation and studio cashflow records (planned)',
+      'Bookkeeping exports and reports will be added in the Pembukuan phase',
     ],
   },
   {
@@ -139,12 +146,13 @@ export const ADMIN_NAVIGATION_ITEMS = [
     path: 'settings',
     href: '/admin/settings',
     icon: Settings2,
-    eyebrow: 'PENGATURAN STUDIO',
-    summary: 'Atur layanan studio, tarif per jam, paket, diskon durasi, dan komisi internal.',
+    eyebrow: 'MODULE 08 • STUDIO CONFIGURATION',
+    summary:
+      'Dedicated workspace reserved for studio profile details, room parameters, operating hours, and system preferences.',
     scopeNotes: [
-      'Daftar layanan studio dan layanan jarak jauh (mixing/mastering)',
-      'Tarif per jam, paket harga khusus, serta diskon otomatis',
-      'Pengaturan fee staff, owner, operator, dan uang makan',
+      'Studio profile, operating hours, and contact channel settings (planned)',
+      'Room parameters and service category configuration (planned)',
+      'Role-based access controls will be configured in a future phase',
     ],
   },
 ];
