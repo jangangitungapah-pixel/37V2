@@ -4,18 +4,38 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isActiveStaff() {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/staffProfiles/$(request.auth.uid))
-        && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.active == true
-        && get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid)).data.role in ['owner', 'staff'];
+      let profile = request.auth != null
+        ? get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid))
+        : null;
+      return profile != null
+        && profile.data.active == true
+        && profile.data.role in ['owner', 'staff'];
+    }
+
+    function isActiveOwner() {
+      let profile = request.auth != null
+        ? get(/databases/$(database)/documents/staffProfiles/$(request.auth.uid))
+        : null;
+      return profile != null
+        && profile.data.active == true
+        && profile.data.role == 'owner';
     }
 
     function isValidBookingKeys(data) {
       return data.keys().hasOnly([
+        'customerId',
         'customerName',
         'phone',
+        'phoneNormalized',
         'bandName',
         'studioId',
+        'serviceTypeId',
+        'serviceTypeName',
+        'serviceOptionId',
+        'serviceOptionName',
+        'deliveryMode',
+        'pricingMode',
+        'pricingSettingsVersion',
         'serviceId',
         'serviceLabel',
         'packageId',
@@ -31,6 +51,7 @@ service cloud.firestore {
         'subtotal',
         'discountAmount',
         'totalAmount',
+        'automaticDiscount',
         'commissionSnapshot',
         'initialPaymentStatus',
         'initialPaidAmount',
@@ -49,41 +70,152 @@ service cloud.firestore {
       ]);
     }
 
-    function isValidBookingCommissionSnapshot(data) {
-      return !('commissionSnapshot' in data)
-        || data.commissionSnapshot == null
+    function isValidBookingUpdateKeys(reqData, resData) {
+      return reqData.diff(resData).affectedKeys().hasOnly([
+        'customerId',
+        'customerName',
+        'phone',
+        'phoneNormalized',
+        'bandName',
+        'studioId',
+        'serviceTypeId',
+        'serviceTypeName',
+        'serviceOptionId',
+        'serviceOptionName',
+        'deliveryMode',
+        'pricingMode',
+        'pricingSettingsVersion',
+        'serviceId',
+        'serviceLabel',
+        'packageId',
+        'packageLabel',
+        'recordingTypeId',
+        'recordingTypeLabel',
+        'date',
+        'startMinute',
+        'durationMinutes',
+        'endMinute',
+        'timeZone',
+        'unitRate',
+        'subtotal',
+        'discountAmount',
+        'totalAmount',
+        'automaticDiscount',
+        'commissionSnapshot',
+        'initialPaymentStatus',
+        'initialPaidAmount',
+        'paymentMethod',
+        'sessionStatus',
+        'checkedInAt',
+        'checkedInByUid',
+        'actualStartedAt',
+        'actualCompletedAt',
+        'notes',
+        'createdAt',
+        'createdByUid',
+        'updatedAt',
+        'updatedByUid',
+        'version'
+      ]);
+    }
+
+    function isValidBookingV2ServiceFields(data) {
+      let psv = data.get('pricingSettingsVersion', 1);
+      return (!('serviceTypeId' in data) || (data.serviceTypeId is string && data.serviceTypeId.size() > 0))
+        && data.get('serviceTypeName', '') is string
+        && data.get('serviceOptionId', '') is string
+        && data.get('serviceOptionName', '') is string
+        && (!('deliveryMode' in data) || data.deliveryMode == 'studio')
+        && data.get('pricingMode', 'hourly') in ['hourly', 'fixed_shift', 'manual_quote']
+        && psv is int
+        && psv >= 1;
+    }
+
+    function isDiscountTotalCappedCorrectly(rawDiscount, subtotal, totalDiscount) {
+      return totalDiscount == (rawDiscount > subtotal ? subtotal : rawDiscount);
+    }
+
+    function isValidBookingAutomaticDiscountShape(data) {
+      let disc = data.get('automaticDiscount', null);
+      return disc == null
         || (
-          data.commissionSnapshot is map
-          && data.commissionSnapshot.keys().hasAll([
-            'staffBasis',
-            'staffRate',
-            'staffAmount',
-            'recordingOperatorAmount',
-            'settingsVersion'
-          ])
-          && data.commissionSnapshot.keys().hasOnly([
-            'staffBasis',
-            'staffRate',
-            'staffAmount',
-            'recordingOperatorAmount',
-            'settingsVersion'
-          ])
-          && data.commissionSnapshot.staffBasis in ['package', 'rehearsal_hourly', 'none']
-          && data.commissionSnapshot.staffRate is number
-          && data.commissionSnapshot.staffRate >= 0
-          && data.commissionSnapshot.staffAmount is number
-          && data.commissionSnapshot.staffAmount >= 0
-          && data.commissionSnapshot.recordingOperatorAmount is number
-          && data.commissionSnapshot.recordingOperatorAmount >= 0
-          && data.commissionSnapshot.settingsVersion is int
-          && data.commissionSnapshot.settingsVersion >= 1
+          disc is map
+          && disc.size() == 5
+          && disc.type == 'duration_multiple'
+          && disc.intervalMinutes is int
+          && disc.intervalMinutes > 0
+          && disc.eligibleBlocks is int
+          && disc.eligibleBlocks > 0
+          && disc.discountPerBlock is int
+          && disc.discountPerBlock > 0
+          && disc.totalDiscount is int
+          && disc.totalDiscount > 0
+          && disc.totalDiscount <= data.subtotal
+          && isDiscountTotalCappedCorrectly(disc.eligibleBlocks * disc.discountPerBlock, data.subtotal, disc.totalDiscount)
+          && data.discountAmount == disc.totalDiscount
         );
+    }
+
+    function isBookingAutomaticDiscountMathMatched(data) {
+      let disc = data.get('automaticDiscount', null);
+      return disc == null
+        || (
+          disc.eligibleBlocks * disc.intervalMinutes <= data.durationMinutes
+          && (disc.eligibleBlocks + 1) * disc.intervalMinutes > data.durationMinutes
+        );
+    }
+
+    function isValidCommissionRoleEntry(entry) {
+      return entry is map
+        && entry.size() == 3
+        && entry.basis in ['none', 'fixed', 'hourly', 'manual']
+        && entry.rate is int
+        && entry.rate >= 0
+        && entry.amount is int
+        && entry.amount >= 0;
+    }
+
+    function isValidBookingCommissionSnapshotV1(snap) {
+      return snap is map
+        && snap.size() == 5
+        && snap.staffBasis in ['package', 'rehearsal_hourly', 'none']
+        && snap.staffRate is number
+        && snap.staffRate >= 0
+        && snap.staffAmount is number
+        && snap.staffAmount >= 0
+        && snap.recordingOperatorAmount is number
+        && snap.recordingOperatorAmount >= 0
+        && snap.settingsVersion is int
+        && snap.settingsVersion >= 1;
+    }
+
+    function isValidBookingCommissionSnapshotV2(snap) {
+      return snap is map
+        && snap.size() == 5
+        && snap.schemaVersion == 2
+        && isValidCommissionRoleEntry(snap.staff)
+        && isValidCommissionRoleEntry(snap.owner)
+        && isValidCommissionRoleEntry(snap.recordingOperator)
+        && snap.settingsVersion is int
+        && snap.settingsVersion >= 1;
+    }
+
+    function isValidBookingCommissionSnapshot(data) {
+      let snap = data.get('commissionSnapshot', null);
+      return snap == null
+        || (snap is map && (
+          snap.get('schemaVersion', 1) == 2
+            ? isValidBookingCommissionSnapshotV2(snap)
+            : isValidBookingCommissionSnapshotV1(snap)
+        ));
     }
 
     function isServiceScopeUnchanged(reqData, resData) {
       return reqData.serviceId == resData.serviceId
         && reqData.packageId == resData.packageId
         && reqData.recordingTypeId == resData.recordingTypeId
+        && reqData.get('serviceTypeId', '') == resData.get('serviceTypeId', '')
+        && reqData.get('serviceOptionId', '') == resData.get('serviceOptionId', '')
         && reqData.durationMinutes == resData.durationMinutes;
     }
 
@@ -92,49 +224,31 @@ service cloud.firestore {
         && reqData.subtotal == resData.subtotal
         && reqData.discountAmount == resData.discountAmount
         && reqData.totalAmount == resData.totalAmount
+        && reqData.get('automaticDiscount', null) == resData.get('automaticDiscount', null)
         && reqData.get('commissionSnapshot', null) == resData.get('commissionSnapshot', null);
     }
 
-    function isValidPricingFees(fees) {
-      return fees is map
-        && fees.keys().hasAll(['rehearsalStaffCommissionPerHour', 'dailyMealAllowancePerStaff'])
-        && fees.keys().hasOnly(['rehearsalStaffCommissionPerHour', 'dailyMealAllowancePerStaff'])
-        && fees.rehearsalStaffCommissionPerHour is number
-        && fees.rehearsalStaffCommissionPerHour >= 0
-        && fees.dailyMealAllowancePerStaff is number
-        && fees.dailyMealAllowancePerStaff >= 0;
+    function isValidBookingScopeAndSnapshots(reqData, resData) {
+      let scopeUnchanged = isServiceScopeUnchanged(reqData, resData);
+      return scopeUnchanged
+        ? isBookingSnapshotsUnchanged(reqData, resData)
+        : (reqData.get('automaticDiscount', null) == resData.get('automaticDiscount', null)
+            || isBookingAutomaticDiscountMathMatched(reqData));
+    }
+
+    function isValidOperationalSettingsV2(settings) {
+      return settings is map
+        && settings.size() == 1
+        && settings.dailyMealAllowancePerStaff is int
+        && settings.dailyMealAllowancePerStaff >= 0;
     }
 
     function isValidPricingSettings(data) {
-      return data.keys().hasAll([
-          'schemaVersion',
-          'sessionTypes',
-          'recordingTypes',
-          'packages',
-          'discounts',
-          'fees',
-          'version',
-          'updatedAt',
-          'updatedByUid'
-        ])
-        && data.keys().hasOnly([
-          'schemaVersion',
-          'sessionTypes',
-          'recordingTypes',
-          'packages',
-          'discounts',
-          'fees',
-          'version',
-          'updatedAt',
-          'updatedByUid'
-        ])
-        && data.schemaVersion == 1
-        && data.sessionTypes is list
-        && data.sessionTypes.size() >= 1
-        && data.recordingTypes is list
-        && data.packages is list
-        && data.discounts is list
-        && isValidPricingFees(data.fees)
+      return data.size() == 6
+        && data.schemaVersion == 2
+        && data.serviceTypes is list
+        && data.serviceTypes.size() >= 1
+        && isValidOperationalSettingsV2(data.operationalSettings)
         && data.version is int
         && data.version >= 1
         && data.updatedAt is timestamp
@@ -148,6 +262,7 @@ service cloud.firestore {
         && data.phone.size() > 0
         && data.bandName is string
         && data.studioId in ['room-a', 'room-b']
+        && isValidBookingV2ServiceFields(data)
         && data.serviceId is string
         && data.serviceLabel is string
         && data.packageId is string
@@ -167,14 +282,17 @@ service cloud.firestore {
         && data.endMinute == data.startMinute + data.durationMinutes
         && data.endMinute <= 1380
         && data.timeZone == 'Asia/Jakarta'
-        && data.unitRate is number
+        && data.unitRate is int
         && data.unitRate >= 0
-        && data.subtotal is number
+        && data.subtotal is int
         && data.subtotal >= 0
-        && data.discountAmount is number
+        && data.discountAmount is int
         && data.discountAmount >= 0
-        && data.totalAmount is number
+        && data.discountAmount <= data.subtotal
+        && data.totalAmount is int
         && data.totalAmount >= 0
+        && data.totalAmount == data.subtotal - data.discountAmount
+        && isValidBookingAutomaticDiscountShape(data)
         && isValidBookingCommissionSnapshot(data)
         && data.initialPaymentStatus in ['unpaid', 'partial', 'paid']
         && data.initialPaidAmount is number
@@ -187,6 +305,815 @@ service cloud.firestore {
         && data.version >= 1;
     }
 
+    function isValidCustomerShape(data, customerId) {
+      return data.size() == 18
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 120
+        && data.normalizedName is string
+        && data.normalizedName.size() >= 1
+        && data.phoneDisplay is string
+        && data.phoneDisplay.size() >= 1
+        && data.phoneNormalized is string
+        && data.phoneNormalized.size() >= 8
+        && data.nameAliases is list
+        && data.previousPhones is list
+        && data.status in ['active', 'archived', 'merged']
+        && (data.status == 'merged'
+          ? (data.mergedIntoCustomerId is string
+              && data.mergedIntoCustomerId.size() > 0
+              && data.mergedIntoCustomerId != customerId)
+          : data.mergedIntoCustomerId == null)
+        && data.historyCustomerIds is list
+        && data.historyCustomerIds.size() >= 1
+        && customerId in data.historyCustomerIds
+        && data.bookingCount is int
+        && data.bookingCount >= 0
+        && data.firstBookingDate is string
+        && data.lastBookingDate is string
+        && data.notes is string
+        && data.notes.size() <= 1000
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidPhoneIndex(data) {
+      return data.size() == 6
+        && data.phoneNormalized is string
+        && data.phoneNormalized.size() >= 8
+        && data.activeCustomerIds is list
+        && data.historicalCustomerIds is list
+        && (data.activeCustomerIds.size() == 0
+          || existsAfter(/databases/$(database)/documents/customers/$(data.activeCustomerIds[0])))
+        && data.version is int
+        && data.version >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
+    function isLinkedCustomerPhoneMatchedAfter(customerId, phoneNormalized, requireActive) {
+      let linkedCustomer = getAfter(/databases/$(database)/documents/customers/$(customerId));
+      return linkedCustomer != null
+        && linkedCustomer.data.phoneNormalized == phoneNormalized
+        && (!requireActive || linkedCustomer.data.status == 'active');
+    }
+
+    function hasValidBookingCustomerLinkAfter(data) {
+      return ('customerId' in data)
+        && data.customerId is string
+        && data.customerId.size() > 0
+        && ('phoneNormalized' in data)
+        && data.phoneNormalized is string
+        && data.phoneNormalized.size() >= 8
+        && isLinkedCustomerPhoneMatchedAfter(data.customerId, data.phoneNormalized, true);
+    }
+
+    function isLegacyBookingCustomerLinkUpdate(reqData, resData) {
+      return resData.get('customerId', '') == ''
+        && reqData.diff(resData).affectedKeys().hasOnly([
+          'customerId',
+          'phoneNormalized',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && reqData.customerId is string
+        && reqData.customerId.size() > 0
+        && reqData.phoneNormalized is string
+        && reqData.phoneNormalized.size() >= 8
+        && reqData.updatedByUid == request.auth.uid
+        && reqData.updatedAt is timestamp
+        && reqData.version == resData.version + 1
+        && isLinkedCustomerPhoneMatchedAfter(reqData.customerId, reqData.phoneNormalized, false);
+    }
+
+    function isValidInvoiceSnapshots(data) {
+      return data.customerSnapshot is map
+        && data.customerSnapshot.size() == 3
+        && data.customerSnapshot.name is string
+        && data.customerSnapshot.name.size() > 0
+        && data.customerSnapshot.phone is string
+        && data.customerSnapshot.bandName is string
+        && data.bookingSnapshot is map
+        && data.bookingSnapshot.size() == 7
+        && data.bookingSnapshot.serviceTypeName is string
+        && data.bookingSnapshot.serviceOptionName is string
+        && data.bookingSnapshot.studioId in ['room-a', 'room-b']
+        && data.bookingSnapshot.bookingDate is string
+        && data.bookingSnapshot.bookingDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.bookingSnapshot.startMinute is int
+        && data.bookingSnapshot.endMinute is int
+        && data.bookingSnapshot.durationMinutes is int
+        && data.bookingSnapshot.durationMinutes > 0
+        && data.financialSnapshot is map
+        && data.financialSnapshot.size() == 3
+        && data.financialSnapshot.subtotal is int
+        && data.financialSnapshot.subtotal >= 0
+        && data.financialSnapshot.discountAmount is int
+        && data.financialSnapshot.discountAmount >= 0
+        && data.financialSnapshot.discountAmount <= data.financialSnapshot.subtotal
+        && data.financialSnapshot.totalAmount is int
+        && data.financialSnapshot.totalAmount == data.financialSnapshot.subtotal - data.financialSnapshot.discountAmount;
+    }
+
+    function isValidInvoicePaymentMath(data) {
+      return data.amountPaid is int
+        && data.amountPaid >= 0
+        && data.amountPaid <= data.financialSnapshot.totalAmount
+        && data.balanceDue is int
+        && data.balanceDue == data.financialSnapshot.totalAmount - data.amountPaid
+        && data.paymentStatus == (
+          data.balanceDue == 0
+            ? 'paid'
+            : (data.amountPaid > 0 ? 'partial' : 'unpaid')
+        );
+    }
+
+    function isValidInvoiceBase(data, invoiceId) {
+      return data.size() == 20
+        && data.invoiceNumber is string
+        && data.invoiceNumber.matches('^37MS-\\d{8}-[A-Z0-9]{12}$')
+        && data.bookingId is string
+        && data.bookingId.size() > 0
+        && invoiceId == 'inv_' + data.bookingId
+        && data.customerId is string
+        && data.invoiceStatus in ['draft', 'issued', 'void']
+        && data.currency == 'IDR'
+        && isValidInvoiceSnapshots(data)
+        && isValidInvoicePaymentMath(data)
+        && data.invoiceDate is timestamp
+        && (data.dueDate == null
+          || (data.dueDate is string && data.dueDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && (data.lastPaymentTransactionId == null
+          || (data.lastPaymentTransactionId is string && data.lastPaymentTransactionId.size() > 0))
+        && data.voidReason is string
+        && data.voidReason.size() <= 300
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidInitialInvoicePaymentLinkAfter(data, invoiceId) {
+      return data.amountPaid == 0
+        ? data.lastPaymentTransactionId == null
+        : (
+          data.lastPaymentTransactionId is string
+          && data.lastPaymentTransactionId.size() > 0
+          && existsAfter(/databases/$(database)/documents/paymentTransactions/$(data.lastPaymentTransactionId))
+          && getAfter(/databases/$(database)/documents/paymentTransactions/$(data.lastPaymentTransactionId)).data.invoiceId == invoiceId
+          && getAfter(/databases/$(database)/documents/paymentTransactions/$(data.lastPaymentTransactionId)).data.transactionType == 'payment'
+          && getAfter(/databases/$(database)/documents/paymentTransactions/$(data.lastPaymentTransactionId)).data.amount == data.amountPaid
+        );
+    }
+
+    function isInvoiceImmutableFieldsUnchanged(reqData, resData) {
+      return reqData.invoiceNumber == resData.invoiceNumber
+        && reqData.bookingId == resData.bookingId
+        && reqData.customerId == resData.customerId
+        && reqData.currency == resData.currency
+        && reqData.customerSnapshot == resData.customerSnapshot
+        && reqData.bookingSnapshot == resData.bookingSnapshot
+        && reqData.financialSnapshot == resData.financialSnapshot
+        && reqData.invoiceDate == resData.invoiceDate
+        && reqData.createdAt == resData.createdAt
+        && reqData.createdByUid == resData.createdByUid;
+    }
+
+    function isInvoiceAggregateMatchingTxAfter(reqData, resData, invoiceId) {
+      let txAfter = getAfter(/databases/$(database)/documents/paymentTransactions/$(reqData.lastPaymentTransactionId));
+      return txAfter != null
+        && txAfter.data.invoiceId == invoiceId
+        && (
+          txAfter.data.transactionType == 'payment'
+            ? reqData.amountPaid == resData.amountPaid + txAfter.data.amount
+            : (txAfter.data.transactionType == 'reversal'
+                && reqData.amountPaid == resData.amountPaid - txAfter.data.amount)
+        );
+    }
+
+    function isValidInvoicePaymentAggregateUpdate(reqData, resData, invoiceId) {
+      return resData.invoiceStatus == 'issued'
+        && reqData.invoiceStatus == 'issued'
+        && reqData.voidReason == resData.voidReason
+        && reqData.dueDate == resData.dueDate
+        && reqData.lastPaymentTransactionId is string
+        && reqData.lastPaymentTransactionId.size() > 0
+        && reqData.lastPaymentTransactionId != resData.lastPaymentTransactionId
+        && existsAfter(/databases/$(database)/documents/paymentTransactions/$(reqData.lastPaymentTransactionId))
+        && isInvoiceAggregateMatchingTxAfter(reqData, resData, invoiceId);
+    }
+
+    function isValidInvoiceVoidUpdate(reqData, resData) {
+      return resData.invoiceStatus == 'issued'
+        && reqData.invoiceStatus == 'void'
+        && resData.amountPaid == 0
+        && reqData.amountPaid == 0
+        && reqData.balanceDue == resData.balanceDue
+        && reqData.paymentStatus == resData.paymentStatus
+        && reqData.lastPaymentTransactionId == resData.lastPaymentTransactionId
+        && reqData.dueDate == resData.dueDate
+        && reqData.voidReason is string
+        && reqData.voidReason.size() >= 3;
+    }
+
+    function isValidInvoiceDueDateUpdate(reqData, resData) {
+      return resData.invoiceStatus == 'issued'
+        && reqData.invoiceStatus == 'issued'
+        && reqData.amountPaid == resData.amountPaid
+        && reqData.balanceDue == resData.balanceDue
+        && reqData.paymentStatus == resData.paymentStatus
+        && reqData.lastPaymentTransactionId == resData.lastPaymentTransactionId
+        && reqData.voidReason == resData.voidReason
+        && reqData.dueDate != resData.dueDate;
+    }
+
+    function isValidReversalOriginalPayment(data) {
+      return exists(/databases/$(database)/documents/paymentTransactions/$(data.reversalOfTransactionId))
+        && get(/databases/$(database)/documents/paymentTransactions/$(data.reversalOfTransactionId)).data.transactionType == 'payment'
+        && get(/databases/$(database)/documents/paymentTransactions/$(data.reversalOfTransactionId)).data.invoiceId == data.invoiceId
+        && get(/databases/$(database)/documents/paymentTransactions/$(data.reversalOfTransactionId)).data.amount == data.amount;
+    }
+
+    function isTxInvoiceConsistentAfter(data) {
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$(data.invoiceId));
+      return invAfter != null
+        && invAfter.data.invoiceStatus == 'issued'
+        && invAfter.data.bookingId == data.bookingId
+        && invAfter.data.customerId == data.customerId
+        && invAfter.data.invoiceNumber == data.invoiceNumber;
+    }
+
+    function isValidPaymentTransactionCreate(data, transactionId) {
+      return data.size() == 15
+        && data.invoiceId is string
+        && data.invoiceId.size() > 0
+        && data.invoiceNumber is string
+        && data.invoiceNumber.matches('^37MS-\\d{8}-[A-Z0-9]{12}$')
+        && data.bookingId is string
+        && data.bookingId.size() > 0
+        && data.customerId is string
+        && data.transactionType in ['payment', 'reversal']
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && data.paymentMethod in ['cash', 'transfer', 'qris', 'other']
+        && data.receivedAt is timestamp
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && data.notes is string
+        && data.notes.size() <= 400
+        && data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot', 'reversal']
+        && data.recordedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && existsAfter(/databases/$(database)/documents/invoices/$(data.invoiceId))
+        && isTxInvoiceConsistentAfter(data)
+        && (
+          data.transactionType == 'payment'
+            ? (data.reversalOfTransactionId == null
+                && data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot'])
+            : (data.source == 'reversal'
+                && data.reversalOfTransactionId is string
+                && data.reversalOfTransactionId.size() > 0
+                && transactionId == 'pay_rev_' + data.reversalOfTransactionId
+                && data.notes.size() >= 3
+                && isValidReversalOriginalPayment(data))
+        );
+    }
+
+    function isCommissionItemAmountsMatchingSnapshot(data, snap) {
+      return snap is map
+        && (
+          snap.get('schemaVersion', 1) == 2
+            ? (
+              isValidBookingCommissionSnapshotV2(snap)
+              && data.staffPayableAmount == snap.staff.amount
+              && data.recordingOperatorPayableAmount == snap.recordingOperator.amount
+              && data.ownerAllocationReference == snap.owner.amount
+            )
+            : (
+              isValidBookingCommissionSnapshotV1(snap)
+              && data.staffPayableAmount == int(snap.staffAmount)
+              && data.recordingOperatorPayableAmount == int(snap.recordingOperatorAmount)
+              && data.ownerAllocationReference == 0
+            )
+        );
+    }
+
+    function isValidCommissionBatchCreate(data, batchId) {
+      let staffEntryId = 'bk_commission_' + batchId + '_staff';
+      let operatorEntryId = 'bk_commission_' + batchId + '_operator';
+      let expectedEntryCount = (data.staffCommissionTotal > 0 ? 1 : 0)
+        + (data.recordingOperatorFeeTotal > 0 ? 1 : 0);
+      return data.size() == 15
+        && batchId is string
+        && batchId.size() > 0
+        && data.periodStart is string
+        && data.periodStart.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.periodEnd is string
+        && data.periodEnd.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.completionTimeZone == 'Asia/Jakarta'
+        && data.bookingCount is int
+        && data.bookingCount >= 1
+        && data.bookingCount <= 100
+        && data.staffCommissionTotal is int
+        && data.staffCommissionTotal >= 0
+        && data.recordingOperatorFeeTotal is int
+        && data.recordingOperatorFeeTotal >= 0
+        && data.payableTotal is int
+        && data.payableTotal > 0
+        && data.payableTotal == data.staffCommissionTotal + data.recordingOperatorFeeTotal
+        && data.ownerAllocationReferenceTotal is int
+        && data.ownerAllocationReferenceTotal >= 0
+        && data.currency == 'IDR'
+        && data.status == 'posted'
+        && data.bookkeepingEntryIds is list
+        && data.bookkeepingEntryIds.size() == expectedEntryCount
+        && (data.staffCommissionTotal == 0
+          || (staffEntryId in data.bookkeepingEntryIds
+              && existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(staffEntryId))))
+        && (data.recordingOperatorFeeTotal == 0
+          || (operatorEntryId in data.bookkeepingEntryIds
+              && existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(operatorEntryId))))
+        && data.postedAt is timestamp
+        && data.postedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid;
+    }
+
+    function isValidCommissionPostingItemCreate(data, itemId) {
+      let booking = exists(/databases/$(database)/documents/bookings/$(itemId))
+        ? get(/databases/$(database)/documents/bookings/$(itemId))
+        : null;
+      return data.size() == 15
+        && itemId is string
+        && itemId.size() > 0
+        && data.bookingId == itemId
+        && data.batchId is string
+        && data.batchId.size() > 0
+        && existsAfter(/databases/$(database)/documents/commissionBatches/$(data.batchId))
+        && data.customerSnapshot is map
+        && data.customerSnapshot.size() == 2
+        && data.customerSnapshot.name is string
+        && data.customerSnapshot.name.size() > 0
+        && data.customerSnapshot.bandName is string
+        && data.completedAt is timestamp
+        && data.serviceSnapshot is map
+        && data.serviceSnapshot.size() == 3
+        && data.serviceSnapshot.serviceTypeId in ['rehearsal', 'recording']
+        && data.serviceSnapshot.serviceTypeName is string
+        && data.serviceSnapshot.serviceOptionName is string
+        && data.staffPayableAmount is int
+        && data.staffPayableAmount >= 0
+        && data.recordingOperatorPayableAmount is int
+        && data.recordingOperatorPayableAmount >= 0
+        && data.ownerAllocationReference is int
+        && data.ownerAllocationReference >= 0
+        && data.payableTotal is int
+        && data.payableTotal > 0
+        && data.payableTotal == data.staffPayableAmount + data.recordingOperatorPayableAmount
+        && data.currency == 'IDR'
+        && data.status == 'posted'
+        && data.postedAt is timestamp
+        && data.postedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && booking != null
+        && booking.data.sessionStatus == 'completed'
+        && booking.data.get('deliveryMode', 'studio') == 'studio'
+        && booking.data.get('serviceTypeId', booking.data.serviceId) in ['rehearsal', 'recording']
+        && booking.data.actualCompletedAt is timestamp
+        && data.completedAt == booking.data.actualCompletedAt
+        && booking.data.commissionSnapshot is map
+        && data.commissionSnapshot == booking.data.commissionSnapshot
+        && isCommissionItemAmountsMatchingSnapshot(data, booking.data.commissionSnapshot);
+    }
+
+    function isValidCommissionBookkeepingEntryCreate(data, entryId) {
+      let staffExpectedId = 'bk_commission_' + data.sourceId + '_staff';
+      let operatorExpectedId = 'bk_commission_' + data.sourceId + '_operator';
+      let batchAfter = getAfter(/databases/$(database)/documents/commissionBatches/$(data.sourceId));
+      return data.size() == 13
+        && data.sourceModule == 'commission-and-fee'
+        && data.sourceType == 'commission_batch'
+        && data.sourceId is string
+        && data.sourceId.size() > 0
+        && data.entryType == 'expense_accrual'
+        && data.category in ['staff_commission', 'recording_operator_fee']
+        && data.description is string
+        && data.description.size() >= 3
+        && data.description.size() <= 200
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && data.settlementStatus == 'unpaid'
+        && data.occurredAt is timestamp
+        && data.postedAt is timestamp
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/commissionBatches/$(data.sourceId))
+        && batchAfter != null
+        && (
+          (data.category == 'staff_commission'
+            && entryId == staffExpectedId
+            && data.amount == batchAfter.data.staffCommissionTotal)
+          || (data.category == 'recording_operator_fee'
+              && entryId == operatorExpectedId
+              && data.amount == batchAfter.data.recordingOperatorFeeTotal)
+        );
+    }
+
+    function isValidCommissionReviewResolutionCreate(data, resolutionId) {
+      let booking = exists(/databases/$(database)/documents/bookings/$(resolutionId))
+        ? get(/databases/$(database)/documents/bookings/$(resolutionId))
+        : null;
+      return data.size() == 9
+        && resolutionId is string
+        && resolutionId.size() > 0
+        && data.bookingId == resolutionId
+        && data.status == 'dismissed_no_commission'
+        && data.reason is string
+        && data.reason.size() >= 3
+        && data.reason.size() <= 300
+        && data.snapshotIssue is string
+        && data.snapshotIssue.size() <= 200
+        && data.customerSnapshot is map
+        && data.customerSnapshot.size() == 2
+        && data.customerSnapshot.name is string
+        && data.customerSnapshot.name.size() > 0
+        && data.customerSnapshot.bandName is string
+        && data.completedAt is timestamp
+        && data.resolvedAt is timestamp
+        && data.resolvedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && booking != null
+        && booking.data.sessionStatus == 'completed'
+        && booking.data.actualCompletedAt is timestamp
+        && data.completedAt == booking.data.actualCompletedAt;
+    }
+
+    function isValidInventoryCategory(catId) {
+      return catId in [
+        'instruments',
+        'audio_recording',
+        'amplifiers_speakers',
+        'cables_connectivity',
+        'stands_accessories',
+        'maintenance_cleaning',
+        'other'
+      ];
+    }
+
+    function isValidInventoryUnit(unit) {
+      return unit in [
+        'pcs',
+        'unit',
+        'set',
+        'pair',
+        'pack',
+        'box',
+        'bottle',
+        'meter',
+        'roll',
+        'liter',
+        'other'
+      ];
+    }
+
+    function isValidConsumableStockMap(stock) {
+      return stock is map
+        && stock.size() == 1
+        && stock.onHandQuantity is number
+        && stock.onHandQuantity >= 0;
+    }
+
+    function isValidEquipmentStockMap(stock) {
+      return stock is map
+        && stock.size() == 4
+        && stock.availableQuantity is int
+        && stock.availableQuantity >= 0
+        && stock.maintenanceQuantity is int
+        && stock.maintenanceQuantity >= 0
+        && stock.damagedQuantity is int
+        && stock.damagedQuantity >= 0
+        && stock.retiredQuantity is int
+        && stock.retiredQuantity >= 0;
+    }
+
+    function isZeroInventoryItemStock(data) {
+      return data.itemType == 'consumable'
+        ? data.consumableStock.onHandQuantity == 0
+        : (
+          data.equipmentStock.availableQuantity == 0
+          && data.equipmentStock.maintenanceQuantity == 0
+          && data.equipmentStock.damagedQuantity == 0
+          && data.equipmentStock.retiredQuantity == 0
+        );
+    }
+
+    function isValidInventoryItemFlags(data) {
+      return data.itemType == 'consumable'
+        ? (
+          data.lowStock == (data.isActive && data.consumableStock.onHandQuantity <= data.minimumStockQuantity)
+          && data.inMaintenance == false
+          && data.hasDamagedOrRetired == false
+        )
+        : (
+          data.lowStock == false
+          && data.inMaintenance == (data.isActive && data.equipmentStock.maintenanceQuantity > 0)
+          && data.hasDamagedOrRetired == (
+            data.isActive
+            && (data.equipmentStock.damagedQuantity > 0 || data.equipmentStock.retiredQuantity > 0)
+          )
+        );
+    }
+
+    function isValidInventoryItemShape(data) {
+      return data.size() == 32
+        && data.itemCode is string
+        && data.itemCode.size() >= 2
+        && data.itemCode.size() <= 32
+        && data.normalizedCode is string
+        && data.normalizedCode.size() >= 2
+        && data.normalizedCode.size() <= 32
+        && data.name is string
+        && data.name.size() >= 2
+        && data.name.size() <= 120
+        && data.normalizedName is string
+        && data.normalizedName.size() >= 2
+        && data.normalizedName.size() <= 120
+        && data.itemType in ['consumable', 'equipment']
+        && isValidInventoryCategory(data.categoryId)
+        && data.categoryLabel is string
+        && data.categoryLabel.size() >= 1
+        && data.categoryLabel.size() <= 80
+        && isValidInventoryUnit(data.unit)
+        && data.customUnitLabel is string
+        && data.customUnitLabel.size() <= 40
+        && data.locationId in ['room-a', 'room-b', 'storage', 'other']
+        && data.locationLabel is string
+        && data.locationLabel.size() >= 1
+        && data.locationLabel.size() <= 60
+        && data.brand is string
+        && data.brand.size() <= 80
+        && data.model is string
+        && data.model.size() <= 80
+        && data.notes is string
+        && data.notes.size() <= 1000
+        && data.minimumStockQuantity is number
+        && data.minimumStockQuantity >= 0
+        && data.minimumAvailableQuantity is int
+        && data.minimumAvailableQuantity >= 0
+        && data.lowStock is bool
+        && data.inMaintenance is bool
+        && data.hasDamagedOrRetired is bool
+        && (
+          data.itemType == 'consumable'
+            ? (isValidConsumableStockMap(data.consumableStock)
+                && data.equipmentStock == null
+                && data.minimumAvailableQuantity == 0
+                && data.lastMaintenanceDate == null
+                && data.nextMaintenanceDate == null
+                && data.maintenanceIntervalDays == null)
+            : (data.consumableStock == null
+                && isValidEquipmentStockMap(data.equipmentStock)
+                && data.minimumStockQuantity == 0
+                && (data.lastMaintenanceDate == null
+                  || (data.lastMaintenanceDate is string && data.lastMaintenanceDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+                && (data.nextMaintenanceDate == null
+                  || (data.nextMaintenanceDate is string && data.nextMaintenanceDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+                && (data.maintenanceIntervalDays == null
+                  || (data.maintenanceIntervalDays is int && data.maintenanceIntervalDays >= 1 && data.maintenanceIntervalDays <= 3650)))
+        )
+        && isValidInventoryItemFlags(data)
+        && data.isActive is bool
+        && (data.lastMovementId == null || (data.lastMovementId is string && data.lastMovementId.size() > 0))
+        && (data.lastMovementAt == null || data.lastMovementAt is timestamp)
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidInventoryInitialLink(data, itemId) {
+      return isZeroInventoryItemStock(data)
+        ? (data.lastMovementId == null && data.lastMovementAt == null)
+        : (
+          data.lastMovementId is string
+          && data.lastMovementId.size() > 0
+          && data.lastMovementAt is timestamp
+          && existsAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId))
+          && getAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId)).data.itemId == itemId
+          && getAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId)).data.movementType == 'opening_stock'
+          && getAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId)).data.balanceAfter == (
+            data.itemType == 'consumable' ? data.consumableStock : data.equipmentStock
+          )
+        );
+    }
+
+    function isInventoryStockUnchanged(reqData, resData) {
+      return reqData.consumableStock == resData.consumableStock
+        && reqData.equipmentStock == resData.equipmentStock
+        && reqData.lastMovementId == resData.lastMovementId
+        && reqData.lastMovementAt == resData.lastMovementAt;
+    }
+
+    function isInventoryMetadataUnchanged(reqData, resData) {
+      return reqData.itemCode == resData.itemCode
+        && reqData.normalizedCode == resData.normalizedCode
+        && reqData.name == resData.name
+        && reqData.normalizedName == resData.normalizedName
+        && reqData.categoryId == resData.categoryId
+        && reqData.categoryLabel == resData.categoryLabel
+        && reqData.unit == resData.unit
+        && reqData.customUnitLabel == resData.customUnitLabel
+        && reqData.locationId == resData.locationId
+        && reqData.locationLabel == resData.locationLabel
+        && reqData.brand == resData.brand
+        && reqData.model == resData.model
+        && reqData.notes == resData.notes
+        && reqData.minimumStockQuantity == resData.minimumStockQuantity
+        && reqData.minimumAvailableQuantity == resData.minimumAvailableQuantity
+        && reqData.lastMaintenanceDate == resData.lastMaintenanceDate
+        && reqData.nextMaintenanceDate == resData.nextMaintenanceDate
+        && reqData.maintenanceIntervalDays == resData.maintenanceIntervalDays;
+    }
+
+    function isInventoryCanArchive(resData) {
+      return resData.itemType == 'consumable'
+        ? resData.consumableStock.onHandQuantity == 0
+        : (
+          resData.equipmentStock.availableQuantity == 0
+          && resData.equipmentStock.maintenanceQuantity == 0
+          && resData.equipmentStock.damagedQuantity == 0
+        );
+    }
+
+    function isValidInventoryMetadataUpdate(reqData, resData) {
+      let locUnchanged = reqData.locationId == resData.locationId && reqData.locationLabel == resData.locationLabel;
+      return resData.isActive == true
+        && reqData.isActive == true
+        && isInventoryStockUnchanged(reqData, resData)
+        && (locUnchanged || resData.lastMovementId == null);
+    }
+
+    function isValidInventoryArchiveOrReactivateUpdate(reqData, resData) {
+      return isInventoryStockUnchanged(reqData, resData)
+        && isInventoryMetadataUnchanged(reqData, resData)
+        && (
+          (resData.isActive == true && reqData.isActive == false && isInventoryCanArchive(resData))
+          || (resData.isActive == false && reqData.isActive == true && isActiveOwner())
+        );
+    }
+
+    function isValidInventoryMovementLinkedDetails(reqData, resData, itemId) {
+      let movAfter = getAfter(/databases/$(database)/documents/inventoryMovements/$(reqData.lastMovementId));
+      return movAfter != null
+        && movAfter.data.itemId == itemId
+        && movAfter.data.itemType == resData.itemType
+        && movAfter.data.balanceBefore == (
+          resData.itemType == 'consumable' ? resData.consumableStock : resData.equipmentStock
+        )
+        && movAfter.data.balanceAfter == (
+          reqData.itemType == 'consumable' ? reqData.consumableStock : reqData.equipmentStock
+        )
+        && (
+          movAfter.data.movementType == 'location_changed'
+            ? (movAfter.data.locationAfter is map
+                && reqData.locationId == movAfter.data.locationAfter.locationId
+                && reqData.locationLabel == movAfter.data.locationAfter.locationLabel)
+            : (reqData.locationId == resData.locationId
+                && reqData.locationLabel == resData.locationLabel
+                && reqData.itemCode == resData.itemCode
+                && reqData.name == resData.name
+                && reqData.categoryId == resData.categoryId
+                && reqData.unit == resData.unit
+                && reqData.minimumStockQuantity == resData.minimumStockQuantity
+                && reqData.minimumAvailableQuantity == resData.minimumAvailableQuantity)
+        );
+    }
+
+    function isValidInventoryMovementLinkedUpdate(reqData, resData, itemId) {
+      return resData.isActive == true
+        && reqData.isActive == true
+        && reqData.lastMovementId is string
+        && reqData.lastMovementId.size() > 0
+        && reqData.lastMovementId != resData.lastMovementId
+        && reqData.lastMovementAt is timestamp
+        && existsAfter(/databases/$(database)/documents/inventoryMovements/$(reqData.lastMovementId))
+        && isValidInventoryMovementLinkedDetails(reqData, resData, itemId);
+    }
+
+    function isValidInventoryMovementType(movementType, itemType) {
+      return movementType == 'opening_stock'
+        || movementType == 'stock_in'
+        || movementType == 'stock_adjustment'
+        || movementType == 'location_changed'
+        || (itemType == 'consumable' && movementType in ['consume', 'write_off'])
+        || (itemType == 'equipment' && movementType in [
+          'send_to_maintenance',
+          'return_from_maintenance',
+          'mark_damaged',
+          'mark_repaired',
+          'mark_retired'
+        ]);
+    }
+
+    function isValidInventoryLocationSnapshot(loc) {
+      return loc == null
+        || (loc is map
+            && loc.size() == 2
+            && loc.locationId in ['room-a', 'room-b', 'storage', 'other']
+            && loc.locationLabel is string
+            && loc.locationLabel.size() >= 1
+            && loc.locationLabel.size() <= 60);
+    }
+
+    function isValidInventoryMovementItemAfterLink(data, movementId) {
+      let itemAfter = getAfter(/databases/$(database)/documents/inventoryItems/$(data.itemId));
+      return itemAfter != null
+        && itemAfter.data.isActive == true
+        && itemAfter.data.itemType == data.itemType
+        && itemAfter.data.lastMovementId == movementId
+        && data.balanceAfter == (
+          data.itemType == 'consumable' ? itemAfter.data.consumableStock : itemAfter.data.equipmentStock
+        )
+        && (
+          data.movementType == 'opening_stock'
+            ? (
+              !exists(/databases/$(database)/documents/inventoryItems/$(data.itemId))
+              && (data.itemType == 'consumable'
+                ? data.balanceBefore.onHandQuantity == 0
+                : (data.balanceBefore.availableQuantity == 0
+                    && data.balanceBefore.maintenanceQuantity == 0
+                    && data.balanceBefore.damagedQuantity == 0
+                    && data.balanceBefore.retiredQuantity == 0))
+            )
+            : (
+              exists(/databases/$(database)/documents/inventoryItems/$(data.itemId))
+              && get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.isActive == true
+              && itemAfter.data.version == get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.version + 1
+              && data.balanceBefore == (
+                data.itemType == 'consumable'
+                  ? get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.consumableStock
+                  : get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.equipmentStock
+              )
+            )
+        );
+    }
+
+    function isValidInventoryMovementCreate(data, movementId) {
+      return data.size() == 19
+        && data.itemId is string
+        && data.itemId.size() > 0
+        && data.itemCode is string
+        && data.itemCode.size() >= 2
+        && data.itemCode.size() <= 32
+        && data.itemNameSnapshot is string
+        && data.itemNameSnapshot.size() >= 2
+        && data.itemNameSnapshot.size() <= 120
+        && data.itemType in ['consumable', 'equipment']
+        && isValidInventoryMovementType(data.movementType, data.itemType)
+        && (data.movementType != 'stock_adjustment' || isActiveOwner())
+        && data.quantity is number
+        && (data.movementType == 'location_changed' ? data.quantity == 0 : data.quantity > 0)
+        && (data.itemType == 'consumable' || data.quantity is int)
+        && data.unit is string
+        && data.unit.size() >= 1
+        && data.unit.size() <= 40
+        && (
+          data.itemType == 'consumable'
+            ? (isValidConsumableStockMap(data.balanceBefore) && isValidConsumableStockMap(data.balanceAfter))
+            : (isValidEquipmentStockMap(data.balanceBefore) && isValidEquipmentStockMap(data.balanceAfter))
+        )
+        && isValidInventoryLocationSnapshot(data.locationBefore)
+        && isValidInventoryLocationSnapshot(data.locationAfter)
+        && data.reason is string
+        && data.reason.size() <= 160
+        && data.notes is string
+        && data.notes.size() <= 500
+        && data.source in ['opening_stock', 'manual', 'stock_adjustment', 'location_change']
+        && data.occurredAt is timestamp
+        && data.operationId == movementId
+        && data.recordedByUid == request.auth.uid
+        && data.recordedByNameSnapshot is string
+        && data.recordedByNameSnapshot.size() <= 120
+        && data.createdAt is timestamp
+        && (data.movementType != 'stock_adjustment'
+            || (data.reason.size() >= 3 && data.balanceAfter != data.balanceBefore))
+        && (data.movementType != 'location_changed'
+            || (data.locationBefore is map && data.locationAfter is map && data.balanceAfter == data.balanceBefore))
+        && existsAfter(/databases/$(database)/documents/inventoryItems/$(data.itemId))
+        && isValidInventoryMovementItemAfterLink(data, movementId);
+    }
+
     match /staffProfiles/{uid} {
       allow get: if request.auth != null
                  && request.auth.uid == uid;
@@ -196,12 +1123,48 @@ service cloud.firestore {
       allow get: if isActiveStaff();
       allow list: if false;
 
-      allow create: if isActiveStaff()
+      allow create: if isActiveOwner()
         && isValidPricingSettings(request.resource.data)
         && request.resource.data.version == 1;
 
-      allow update: if isActiveStaff()
+      allow update: if isActiveOwner()
         && isValidPricingSettings(request.resource.data)
+        && request.resource.data.version == resource.data.version + 1;
+
+      allow delete: if false;
+    }
+
+    match /customers/{customerId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidCustomerShape(request.resource.data, customerId)
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.status == 'active'
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && isValidCustomerShape(request.resource.data, customerId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.version == resource.data.version + 1
+        && (resource.data.status != 'merged'
+            || (request.resource.data.status == 'merged'
+                && request.resource.data.mergedIntoCustomerId == resource.data.mergedIntoCustomerId));
+
+      allow delete: if false;
+    }
+
+    match /customerPhoneIndex/{phoneHash} {
+      allow get: if isActiveStaff();
+      allow list: if false;
+
+      allow create: if isActiveStaff()
+        && isValidPhoneIndex(request.resource.data)
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && isValidPhoneIndex(request.resource.data)
         && request.resource.data.version == resource.data.version + 1;
 
       allow delete: if false;
@@ -213,21 +1176,28 @@ service cloud.firestore {
       allow create: if isActiveStaff()
         && isValidBookingKeys(request.resource.data)
         && isValidBookingShape(request.resource.data)
+        && hasValidBookingCustomerLinkAfter(request.resource.data)
+        && isBookingAutomaticDiscountMathMatched(request.resource.data)
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.updatedByUid == request.auth.uid
         && request.resource.data.version == 1;
 
       allow update: if isActiveStaff()
-        && isValidBookingKeys(request.resource.data)
-        && isValidBookingShape(request.resource.data)
-        && request.resource.data.createdByUid == resource.data.createdByUid
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.initialPaymentStatus == resource.data.initialPaymentStatus
-        && request.resource.data.initialPaidAmount == resource.data.initialPaidAmount
-        && request.resource.data.paymentMethod == resource.data.paymentMethod
-        && (!isServiceScopeUnchanged(request.resource.data, resource.data)
-            || isBookingSnapshotsUnchanged(request.resource.data, resource.data));
+        && (
+          isLegacyBookingCustomerLinkUpdate(request.resource.data, resource.data)
+          || (
+            isValidBookingUpdateKeys(request.resource.data, resource.data)
+            && isValidBookingShape(request.resource.data)
+            && request.resource.data.get('customerId', '') == resource.data.get('customerId', '')
+            && request.resource.data.createdByUid == resource.data.createdByUid
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.updatedByUid == request.auth.uid
+            && request.resource.data.initialPaymentStatus == resource.data.initialPaymentStatus
+            && request.resource.data.initialPaidAmount == resource.data.initialPaidAmount
+            && request.resource.data.paymentMethod == resource.data.paymentMethod
+            && isValidBookingScopeAndSnapshots(request.resource.data, resource.data)
+          )
+        );
 
       allow delete: if false;
     }
@@ -289,6 +1259,110 @@ service cloud.firestore {
         && existsAfter(
           /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
         );
+
+      allow update, delete: if false;
+    }
+
+    match /invoices/{invoiceId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidInvoiceBase(request.resource.data, invoiceId)
+        && request.resource.data.invoiceStatus in ['draft', 'issued']
+        && request.resource.data.voidReason == ''
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.version == 1
+        && existsAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
+        && isValidInitialInvoicePaymentLinkAfter(request.resource.data, invoiceId);
+
+      allow update: if isActiveStaff()
+        && isValidInvoiceBase(request.resource.data, invoiceId)
+        && isInvoiceImmutableFieldsUnchanged(request.resource.data, resource.data)
+        && request.resource.data.version == resource.data.version + 1
+        && (
+          isValidInvoicePaymentAggregateUpdate(request.resource.data, resource.data, invoiceId)
+          || isValidInvoiceVoidUpdate(request.resource.data, resource.data)
+          || isValidInvoiceDueDateUpdate(request.resource.data, resource.data)
+        );
+
+      allow delete: if false;
+    }
+
+    match /paymentTransactions/{transactionId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidPaymentTransactionCreate(request.resource.data, transactionId);
+
+      allow update, delete: if false;
+    }
+
+    match /commissionBatches/{batchId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidCommissionBatchCreate(request.resource.data, batchId);
+
+      allow update, delete: if false;
+    }
+
+    match /commissionPostingItems/{itemId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidCommissionPostingItemCreate(request.resource.data, itemId);
+
+      allow update, delete: if false;
+    }
+
+    match /bookkeepingEntries/{entryId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidCommissionBookkeepingEntryCreate(request.resource.data, entryId);
+
+      allow update, delete: if false;
+    }
+
+    match /commissionReviewResolutions/{resolutionId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidCommissionReviewResolutionCreate(request.resource.data, resolutionId);
+
+      allow update, delete: if false;
+    }
+
+    match /inventoryItems/{itemId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidInventoryItemShape(request.resource.data)
+        && request.resource.data.isActive == true
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.version == 1
+        && isValidInventoryInitialLink(request.resource.data, itemId);
+
+      allow update: if isActiveStaff()
+        && isValidInventoryItemShape(request.resource.data)
+        && request.resource.data.itemType == resource.data.itemType
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.version == resource.data.version + 1
+        && (
+          isValidInventoryMetadataUpdate(request.resource.data, resource.data)
+          || isValidInventoryArchiveOrReactivateUpdate(request.resource.data, resource.data)
+          || isValidInventoryMovementLinkedUpdate(request.resource.data, resource.data, itemId)
+        );
+
+      allow delete: if false;
+    }
+
+    match /inventoryMovements/{movementId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && isValidInventoryMovementCreate(request.resource.data, movementId);
 
       allow update, delete: if false;
     }
