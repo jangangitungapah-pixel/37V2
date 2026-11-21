@@ -26,13 +26,12 @@ export function BookkeepingTransactionCard({ item, onSelect }) {
         </div>
 
         <span
-          className={`shrink-0 font-mono text-xs font-bold tabular-nums sm:text-sm ${
-            item.status === 'reversed'
-              ? 'text-[#666159] line-through'
-              : isIncome
-                ? 'text-[#243300]'
-                : 'text-[#B92B0C]'
-          }`}
+          className={`shrink-0 font-mono text-xs font-bold tabular-nums sm:text-sm ${item.status === 'reversed'
+            ? 'text-[#666159] line-through'
+            : isIncome
+              ? 'text-[#243300]'
+              : 'text-[#B92B0C]'
+            }`}
         >
           {formatBookkeepingRupiah(item.signedAmount, { showPositiveSign: true })}
         </span>

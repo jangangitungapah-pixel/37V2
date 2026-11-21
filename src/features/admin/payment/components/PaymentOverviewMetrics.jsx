@@ -26,9 +26,8 @@ export function PaymentOverviewMetrics({ metrics, hasActivePeriodFilter = false 
       <AdminMetricCard
         label="Pembayaran Masuk"
         value={formatRupiah(Math.max(0, metrics.paymentsReceived))}
-        hint={`${periodLabel} • ${metrics.paymentCount} masuk${
-          metrics.reversalCount > 0 ? `, ${metrics.reversalCount} dibatalkan` : ''
-        }`}
+        hint={`${periodLabel} • ${metrics.paymentCount} masuk${metrics.reversalCount > 0 ? `, ${metrics.reversalCount} dibatalkan` : ''
+          }`}
         icon={Banknote}
         tone="lime"
         compactMobile

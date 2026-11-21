@@ -17,13 +17,12 @@ export function CommissionReviewCard({ item, isSelected = false, onToggleSelect,
 
   return (
     <article
-      className={`border-b border-[#151515]/[0.07] p-3 transition-colors last:border-b-0 ${
-        isPosted
-          ? 'bg-[#FAF8F3]/60'
-          : isSelected
-            ? 'bg-[#EDF8C2]/45'
-            : 'bg-white hover:bg-[#FAF8F3]/60'
-      }`}
+      className={`border-b border-[#151515]/[0.07] p-3 transition-colors last:border-b-0 ${isPosted
+        ? 'bg-[#FAF8F3]/60'
+        : isSelected
+          ? 'bg-[#EDF8C2]/45'
+          : 'bg-white hover:bg-[#FAF8F3]/60'
+        }`}
     >
       {/* Row 1: Checkbox + Booking ID + Status Badge */}
       <div className="flex items-start justify-between gap-2.5">

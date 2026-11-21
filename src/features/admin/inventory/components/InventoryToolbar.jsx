@@ -89,11 +89,10 @@ export function InventoryToolbar({
               type="button"
               onClick={onToggleFilters}
               aria-expanded={filterHighlighted}
-              className={`sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1 px-2.5 py-1 text-[11px] font-semibold sm:hidden ${
-                filterHighlighted
-                  ? 'border-[#8BAD12]/40 bg-[#EDF8C2] text-[#243300]'
-                  : 'sa-btn-secondary text-[#46433D]'
-              }`}
+              className={`sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1 px-2.5 py-1 text-[11px] font-semibold sm:hidden ${filterHighlighted
+                ? 'border-[#8BAD12]/40 bg-[#EDF8C2] text-[#243300]'
+                : 'sa-btn-secondary text-[#46433D]'
+                }`}
             >
               <Filter className="h-3 w-3" aria-hidden="true" />
               <span>Filter</span>
@@ -109,9 +108,8 @@ export function InventoryToolbar({
             type="button"
             onClick={() => onToggleArchived?.(!showingArchived)}
             aria-pressed={showingArchived}
-            className={`sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold sm:min-h-10 sm:px-3 sm:py-1.5 sm:text-xs ${
-              showingArchived ? 'bg-[#151515] text-[#F1EEE4]' : 'sa-btn-secondary text-[#46433D]'
-            }`}
+            className={`sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold sm:min-h-10 sm:px-3 sm:py-1.5 sm:text-xs ${showingArchived ? 'bg-[#151515] text-[#F1EEE4]' : 'sa-btn-secondary text-[#46433D]'
+              }`}
           >
             <Archive className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Archived ({archivedCount})</span>
