@@ -1114,6 +1114,377 @@ service cloud.firestore {
         && isValidInventoryMovementItemAfterLink(data, movementId);
     }
 
+    function isValidBookkeepingManualIncomeCategory(category) {
+      return category in [
+        'other_studio_service',
+        'equipment_rental',
+        'merchandise',
+        'other_income'
+      ];
+    }
+
+    function isValidBookkeepingManualExpenseCategory(category) {
+      return category in [
+        'utilities',
+        'internet_communication',
+        'cleaning_housekeeping',
+        'equipment_maintenance',
+        'equipment_purchase',
+        'studio_supplies',
+        'transportation',
+        'rent_facilities',
+        'other_operational_expense'
+      ];
+    }
+
+    function isValidBookkeepingPaymentMethod(method) {
+      return method in ['cash', 'transfer', 'qris', 'other'];
+    }
+
+    function isValidManualIncomeBookkeepingEntryCreate(data, entryId) {
+      return data.size() == 16
+        && data.keys().hasOnly([
+          'sourceModule',
+          'sourceType',
+          'sourceId',
+          'entryType',
+          'category',
+          'description',
+          'amount',
+          'currency',
+          'settlementStatus',
+          'paymentMethod',
+          'referenceNumber',
+          'notes',
+          'occurredAt',
+          'createdAt',
+          'createdByUid',
+          'version'
+        ])
+        && data.sourceModule == 'bookkeeping'
+        && data.sourceType == 'manual'
+        && data.sourceId == entryId
+        && data.entryType == 'income'
+        && isValidBookkeepingManualIncomeCategory(data.category)
+        && data.description is string
+        && data.description.size() >= 2
+        && data.description.size() <= 240
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && data.settlementStatus == 'paid'
+        && isValidBookkeepingPaymentMethod(data.paymentMethod)
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && data.notes is string
+        && data.notes.size() <= 400
+        && data.occurredAt is timestamp
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && data.version == 1;
+    }
+
+    function isValidManualExpenseBookkeepingEntryCreate(data, entryId) {
+      let paidSettlement = data.paidOnCreate == true && data.lastSettlementId is string && data.lastSettlementId.size() > 0
+        ? getAfter(/databases/$(database)/documents/bookkeepingSettlements/$(data.lastSettlementId))
+        : null;
+      return data.size() == 24
+        && data.keys().hasOnly([
+          'sourceModule',
+          'sourceType',
+          'sourceId',
+          'entryType',
+          'category',
+          'description',
+          'amount',
+          'currency',
+          'settlementStatus',
+          'amountSettled',
+          'remainingAmount',
+          'paidOnCreate',
+          'dueDate',
+          'paymentMethod',
+          'referenceNumber',
+          'notes',
+          'lastSettlementId',
+          'lastSettledAt',
+          'occurredAt',
+          'createdAt',
+          'createdByUid',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && data.sourceModule == 'bookkeeping'
+        && data.sourceType == 'manual'
+        && data.sourceId == entryId
+        && data.entryType == 'expense_accrual'
+        && isValidBookkeepingManualExpenseCategory(data.category)
+        && data.description is string
+        && data.description.size() >= 2
+        && data.description.size() <= 240
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && (data.dueDate == null || (data.dueDate is string && data.dueDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && data.notes is string
+        && data.notes.size() <= 400
+        && data.occurredAt is timestamp
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && data.updatedByUid == request.auth.uid
+        && data.version == 1
+        && data.paidOnCreate is bool
+        && (
+          data.paidOnCreate == true
+            ? (
+              data.settlementStatus == 'paid'
+              && data.amountSettled == data.amount
+              && data.remainingAmount == 0
+              && data.dueDate == null
+              && isValidBookkeepingPaymentMethod(data.paymentMethod)
+              && data.lastSettlementId is string
+              && data.lastSettlementId.size() > 0
+              && data.lastSettledAt is timestamp
+              && existsAfter(/databases/$(database)/documents/bookkeepingSettlements/$(data.lastSettlementId))
+              && paidSettlement != null
+              && paidSettlement.data.entryId == entryId
+              && paidSettlement.data.amount == data.amount
+            )
+            : (
+              data.settlementStatus == 'unpaid'
+              && data.amountSettled == 0
+              && data.remainingAmount == data.amount
+              && data.paymentMethod == ''
+              && data.lastSettlementId == null
+              && data.lastSettledAt == null
+            )
+        );
+    }
+
+    function isValidManualReversalBookkeepingEntryCreate(data, entryId) {
+      let orig = exists(/databases/$(database)/documents/bookkeepingEntries/$(data.reversalOfEntryId))
+        ? get(/databases/$(database)/documents/bookkeepingEntries/$(data.reversalOfEntryId))
+        : null;
+      let origAfter = existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(data.reversalOfEntryId))
+        ? getAfter(/databases/$(database)/documents/bookkeepingEntries/$(data.reversalOfEntryId))
+        : null;
+      return data.size() == 16
+        && data.keys().hasOnly([
+          'sourceModule',
+          'sourceType',
+          'sourceId',
+          'entryType',
+          'reversalOfEntryId',
+          'originalEntryType',
+          'category',
+          'description',
+          'amount',
+          'currency',
+          'settlementStatus',
+          'notes',
+          'occurredAt',
+          'createdAt',
+          'createdByUid',
+          'version'
+        ])
+        && data.sourceModule == 'bookkeeping'
+        && data.sourceType == 'manual_reversal'
+        && data.entryType == 'reversal'
+        && data.reversalOfEntryId is string
+        && data.reversalOfEntryId.size() > 0
+        && entryId == 'bk_rev_' + data.reversalOfEntryId
+        && data.sourceId == data.reversalOfEntryId
+        && data.originalEntryType in ['income', 'expense_accrual']
+        && data.description is string
+        && data.description.size() >= 3
+        && data.description.size() <= 280
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && data.settlementStatus == 'reversed'
+        && data.notes is string
+        && data.notes.size() >= 3
+        && data.notes.size() <= 300
+        && data.occurredAt is timestamp
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && data.version == 1
+        && orig != null
+        && orig.data.sourceModule == 'bookkeeping'
+        && orig.data.sourceType == 'manual'
+        && orig.data.entryType == data.originalEntryType
+        && orig.data.category == data.category
+        && orig.data.amount == data.amount
+        && orig.data.settlementStatus != 'reversed'
+        && (orig.data.entryType == 'income' || (orig.data.get('amountSettled', 0) == 0 && orig.data.settlementStatus == 'unpaid'))
+        && origAfter != null
+        && origAfter.data.settlementStatus == 'reversed'
+        && origAfter.data.reversedByEntryId == entryId;
+    }
+
+    function isBookkeepingImmutableFieldsUnchanged(reqData, resData) {
+      return reqData.sourceModule == resData.sourceModule
+        && reqData.sourceType == resData.sourceType
+        && reqData.sourceId == resData.sourceId
+        && reqData.entryType == resData.entryType
+        && reqData.category == resData.category
+        && reqData.description == resData.description
+        && reqData.amount == resData.amount
+        && reqData.currency == resData.currency
+        && reqData.occurredAt == resData.occurredAt
+        && reqData.createdAt == resData.createdAt
+        && reqData.createdByUid == resData.createdByUid
+        && reqData.get('postedAt', null) == resData.get('postedAt', null)
+        && reqData.updatedAt is timestamp
+        && reqData.updatedByUid == request.auth.uid
+        && reqData.version == resData.get('version', 1) + 1;
+    }
+
+    function isValidBookkeepingSettlementAggregateUpdate(reqData, resData, entryId) {
+      let prevSettled = resData.get('amountSettled', 0);
+      let prevRemaining = resData.get('remainingAmount', resData.amount);
+      let settleAfter = reqData.lastSettlementId is string && reqData.lastSettlementId.size() > 0
+        ? getAfter(/databases/$(database)/documents/bookkeepingSettlements/$(reqData.lastSettlementId))
+        : null;
+      return resData.entryType == 'expense_accrual'
+        && resData.settlementStatus in ['unpaid', 'partially_paid']
+        && prevRemaining > 0
+        && reqData.diff(resData).affectedKeys().hasOnly([
+          'amountSettled',
+          'remainingAmount',
+          'settlementStatus',
+          'lastSettlementId',
+          'lastSettledAt',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && reqData.lastSettlementId is string
+        && reqData.lastSettlementId.size() > 0
+        && reqData.lastSettlementId != resData.get('lastSettlementId', '')
+        && reqData.lastSettledAt is timestamp
+        && existsAfter(/databases/$(database)/documents/bookkeepingSettlements/$(reqData.lastSettlementId))
+        && settleAfter != null
+        && settleAfter.data.entryId == entryId
+        && settleAfter.data.amount > 0
+        && reqData.amountSettled is int
+        && reqData.amountSettled == prevSettled + settleAfter.data.amount
+        && reqData.remainingAmount is int
+        && reqData.remainingAmount == resData.amount - reqData.amountSettled
+        && reqData.remainingAmount >= 0
+        && reqData.settlementStatus == (reqData.remainingAmount == 0 ? 'paid' : 'partially_paid');
+    }
+
+    function isValidManualBookkeepingReversalMarkUpdate(reqData, resData, entryId) {
+      return resData.sourceModule == 'bookkeeping'
+        && resData.sourceType == 'manual'
+        && resData.settlementStatus != 'reversed'
+        && (resData.entryType == 'income' || (resData.get('amountSettled', 0) == 0 && resData.settlementStatus == 'unpaid'))
+        && reqData.diff(resData).affectedKeys().hasOnly([
+          'settlementStatus',
+          'reversedByEntryId',
+          'reversalReason',
+          'reversedAt',
+          'reversedByUid',
+          'updatedAt',
+          'updatedByUid',
+          'version',
+          'remainingAmount'
+        ])
+        && reqData.settlementStatus == 'reversed'
+        && reqData.reversedByEntryId == 'bk_rev_' + entryId
+        && reqData.reversalReason is string
+        && reqData.reversalReason.size() >= 3
+        && reqData.reversalReason.size() <= 300
+        && reqData.reversedAt is timestamp
+        && reqData.reversedByUid == request.auth.uid
+        && (resData.entryType != 'expense_accrual' || reqData.remainingAmount == 0)
+        && existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(reqData.reversedByEntryId));
+    }
+
+    function isValidBookkeepingSettlementCreate(data, settlementId) {
+      let prevEntry = exists(/databases/$(database)/documents/bookkeepingEntries/$(data.entryId))
+        ? get(/databases/$(database)/documents/bookkeepingEntries/$(data.entryId))
+        : null;
+      let entryAfter = getAfter(/databases/$(database)/documents/bookkeepingEntries/$(data.entryId));
+      return data.size() == 14
+        && data.keys().hasOnly([
+          'entryId',
+          'sourceModule',
+          'sourceType',
+          'sourceId',
+          'settlementType',
+          'amount',
+          'currency',
+          'paymentMethod',
+          'paidAt',
+          'referenceNumber',
+          'notes',
+          'operationId',
+          'createdAt',
+          'createdByUid'
+        ])
+        && data.entryId is string
+        && data.entryId.size() > 0
+        && data.sourceModule == 'bookkeeping'
+        && data.sourceType in ['manual', 'commission_batch']
+        && data.sourceId is string
+        && data.sourceId.size() > 0
+        && data.settlementType == 'expense_payment'
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && isValidBookkeepingPaymentMethod(data.paymentMethod)
+        && data.paidAt is timestamp
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && data.notes is string
+        && data.notes.size() <= 400
+        && data.operationId == settlementId
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(data.entryId))
+        && entryAfter != null
+        && entryAfter.data.entryType == 'expense_accrual'
+        && entryAfter.data.sourceType == data.sourceType
+        && entryAfter.data.sourceId == data.sourceId
+        && entryAfter.data.lastSettlementId == settlementId
+        && entryAfter.data.settlementStatus != 'reversed'
+        && (
+          prevEntry == null
+            ? (
+              entryAfter.data.sourceModule == 'bookkeeping'
+              && entryAfter.data.paidOnCreate == true
+              && entryAfter.data.amount == data.amount
+            )
+            : (
+              entryAfter.data.version == prevEntry.data.get('version', 1) + 1
+              && data.amount <= prevEntry.data.get('remainingAmount', prevEntry.data.amount)
+            )
+        );
+    }
+
+    function isValidBookkeepingSettingsWrite(data) {
+      return data.size() == 5
+        && data.keys().hasOnly([
+          'openingCashBalance',
+          'openingBalanceAsOf',
+          'openingBalanceNote',
+          'updatedAt',
+          'updatedByUid'
+        ])
+        && (data.openingCashBalance == null || (data.openingCashBalance is int && data.openingCashBalance >= 0))
+        && (data.openingBalanceAsOf == null || (data.openingBalanceAsOf is string && data.openingBalanceAsOf.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && data.openingBalanceNote is string
+        && data.openingBalanceNote.size() <= 200
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
     match /staffProfiles/{uid} {
       allow get: if request.auth != null
                  && request.auth.uid == uid;
@@ -1319,9 +1690,40 @@ service cloud.firestore {
       allow read: if isActiveOwner();
 
       allow create: if isActiveOwner()
-        && isValidCommissionBookkeepingEntryCreate(request.resource.data, entryId);
+        && (
+          isValidCommissionBookkeepingEntryCreate(request.resource.data, entryId)
+          || isValidManualIncomeBookkeepingEntryCreate(request.resource.data, entryId)
+          || isValidManualExpenseBookkeepingEntryCreate(request.resource.data, entryId)
+          || isValidManualReversalBookkeepingEntryCreate(request.resource.data, entryId)
+        );
+
+      allow update: if isActiveOwner()
+        && isBookkeepingImmutableFieldsUnchanged(request.resource.data, resource.data)
+        && (
+          isValidBookkeepingSettlementAggregateUpdate(request.resource.data, resource.data, entryId)
+          || isValidManualBookkeepingReversalMarkUpdate(request.resource.data, resource.data, entryId)
+        );
+
+      allow delete: if false;
+    }
+
+    match /bookkeepingSettlements/{settlementId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidBookkeepingSettlementCreate(request.resource.data, settlementId);
 
       allow update, delete: if false;
+    }
+
+    match /bookkeepingSettings/{docId} {
+      allow read: if isActiveOwner();
+
+      allow create, update: if isActiveOwner()
+        && docId == 'default'
+        && isValidBookkeepingSettingsWrite(request.resource.data);
+
+      allow delete: if false;
     }
 
     match /commissionReviewResolutions/{resolutionId} {

@@ -1231,6 +1231,8 @@ export function createInMemoryBookingRepositoryAdapter(
   const commissionPostingItems = new Map();
   const commissionReviewResolutions = new Map();
   const bookkeepingEntries = new Map();
+  const bookkeepingSettlements = new Map();
+  const bookkeepingSettings = new Map();
   const rangeSubscribers = new Set();
   const eventSubscribers = new Map();
   const customerSubscribers = new Set();
@@ -1240,12 +1242,20 @@ export function createInMemoryBookingRepositoryAdapter(
   const transactionSubscribers = new Set();
   const invoiceTransactionSubscribers = new Map();
   const commissionSubscribers = new Set();
+  const bookkeepingSubscribers = new Set();
   let transactionQueue = Promise.resolve();
+
+  function notifyBookkeepingSubscribers() {
+    for (const cb of bookkeepingSubscribers) {
+      cb?.();
+    }
+  }
 
   function notifyCommissionSubscribers() {
     for (const cb of commissionSubscribers) {
       cb?.();
     }
+    notifyBookkeepingSubscribers();
   }
 
   function notifyRangeSubscribers() {
@@ -1447,6 +1457,8 @@ export function createInMemoryBookingRepositoryAdapter(
       commissionPostingItems,
       commissionReviewResolutions,
       bookkeepingEntries,
+      bookkeepingSettlements,
+      bookkeepingSettings,
       customerSubscribers,
       invoiceSubscribers,
       invoiceDocSubscribers,
@@ -1454,12 +1466,14 @@ export function createInMemoryBookingRepositoryAdapter(
       transactionSubscribers,
       invoiceTransactionSubscribers,
       commissionSubscribers,
+      bookkeepingSubscribers,
       enqueueTransaction,
       notifyBookings: notifyRangeSubscribers,
       notifyCustomers: notifyCustomerSubscribers,
       notifyInvoices: notifyInvoiceSubscribers,
       notifyTransactions: notifyTransactionSubscribers,
       notifyCommissions: notifyCommissionSubscribers,
+      notifyBookkeeping: notifyBookkeepingSubscribers,
     },
 
     _inspectState() {
@@ -1623,6 +1637,7 @@ export function createInMemoryBookingRepositoryAdapter(
         notifyInvoiceSubscribers();
         notifyTransactionSubscribers();
         notifyCommissionSubscribers();
+        notifyBookkeepingSubscribers();
         for (const bId of touchedBookingIds) {
           notifyEventSubscribers(bId);
         }

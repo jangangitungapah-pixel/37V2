@@ -170,6 +170,10 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
         expect(
           screen.getByText(/manage studio equipment, supplies, and maintenance status\./i),
         ).toBeTruthy();
+      } else if (mod.label === 'Pembukuan') {
+        expect(
+          screen.getByText(/monitor studio income, expenses, and cash movement\./i),
+        ).toBeTruthy();
       } else if (mod.label === 'Settings') {
         expect(screen.getByRole('heading', { name: /price and fee settings/i })).toBeTruthy();
       } else {

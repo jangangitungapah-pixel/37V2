@@ -1,13 +1,13 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { AppProviders } from '@/app/providers/AppProviders';
+import { AdminBookkeepingPage } from '@/features/admin/bookkeeping/pages/AdminBookkeepingPage';
 import { AdminCalendarPage } from '@/features/admin/calendar/pages/AdminCalendarPage';
 import { AdminCommissionAndFeePage } from '@/features/admin/commission/pages/AdminCommissionAndFeePage';
 import { AdminCustomersPage } from '@/features/admin/customer/pages/AdminCustomersPage';
 import { AdminInventoryPage } from '@/features/admin/inventory/pages/AdminInventoryPage';
 import { AdminLayout } from '@/features/admin/layout/AdminLayout';
 import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
-import { AdminModulePlaceholderPage } from '@/features/admin/pages/AdminModulePlaceholderPage';
 import { AdminPaymentAndBillPage } from '@/features/admin/payment/pages/AdminPaymentAndBillPage';
 import { AdminSettingsPage } from '@/features/admin/settings/pages/AdminSettingsPage';
 import { PriceAndFeeSettingsPage } from '@/features/admin/settings/pages/PriceAndFeeSettingsPage';
@@ -36,7 +36,7 @@ export function AppRoutes() {
         <Route path="payment-and-bill" element={<AdminPaymentAndBillPage />} />
         <Route path="commission-and-fee" element={<AdminCommissionAndFeePage />} />
         <Route path="inventory" element={<AdminInventoryPage />} />
-        <Route path="pembukuan" element={<AdminModulePlaceholderPage moduleId="pembukuan" />} />
+        <Route path="pembukuan" element={<AdminBookkeepingPage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
         <Route path="settings/price-and-fee" element={<PriceAndFeeSettingsPage />} />
       </Route>

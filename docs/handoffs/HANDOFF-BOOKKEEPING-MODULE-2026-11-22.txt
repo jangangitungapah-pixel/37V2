@@ -1,0 +1,150 @@
+============================================================
+37 MUSIC STUDIO — BOOKKEEPING (PEMBUKUAN) MODULE HANDOFF
+DATE: 2026-11-22
+MODULE ROUTE: /admin/pembukuan
+============================================================
+
+1. GIT BASELINE & PRESERVATION
+------------------------------
+- Repository: https://github.com/jangangitungapah-pixel/37V2 (branch: main)
+- Starting HEAD: b9dc1c4e24be403db3d6f0a21c591d3a0c0d40ab
+- Starting Working Tree State: Clean (Inventory module and Spatial Ambient Workspace were already committed in prior history).
+- Commit Status: None created by this task (uncommitted working tree retained per strict no-unauthorized-commit guardrail).
+- Existing Modules Preserved: Public Landing Page, Staff Auth, Calendar, Customer, Payment & Bill, Commission & Fee, Price & Fee Settings V2, and Inventory remain intact without unauthorized modifications.
+
+============================================================
+2. FILES CREATED & MODIFIED
+============================================================
+Modified Files (5):
+- firestore.rules
+- src/App.jsx
+- src/features/admin/admin-shell.test.jsx
+- src/features/admin/calendar/repositories/calendar-booking-repository.js
+- src/features/admin/calendar/services/calendar-booking-service.js
+
+Created Files — Module & Tests (27 under src/features/admin/bookkeeping/):
+- src/features/admin/bookkeeping/bookkeeping.test.jsx
+- src/features/admin/bookkeeping/config/bookkeeping-config.js
+- src/features/admin/bookkeeping/schemas/bookkeeping-schema.js
+- src/features/admin/bookkeeping/repositories/bookkeeping-repository.js
+- src/features/admin/bookkeeping/services/bookkeeping-entry-service.js
+- src/features/admin/bookkeeping/services/bookkeeping-settlement-service.js
+- src/features/admin/bookkeeping/hooks/useBookkeepingEntries.js
+- src/features/admin/bookkeeping/hooks/useBookkeepingSettlements.js
+- src/features/admin/bookkeeping/hooks/useBookkeepingOverview.js
+- src/features/admin/bookkeeping/hooks/useBookkeepingReports.js
+- src/features/admin/bookkeeping/utils/bookkeeping-calculation.js
+- src/features/admin/bookkeeping/utils/bookkeeping-period.js
+- src/features/admin/bookkeeping/utils/bookkeeping-format.js
+- src/features/admin/bookkeeping/components/BookkeepingPeriodFilter.jsx
+- src/features/admin/bookkeeping/components/BookkeepingWorkspaceTabs.jsx
+- src/features/admin/bookkeeping/components/BookkeepingOverviewMetrics.jsx
+- src/features/admin/bookkeeping/components/BookkeepingCashSummary.jsx
+- src/features/admin/bookkeeping/components/BookkeepingRecentActivity.jsx
+- src/features/admin/bookkeeping/components/BookkeepingTransactionTable.jsx
+- src/features/admin/bookkeeping/components/BookkeepingTransactionCard.jsx
+- src/features/admin/bookkeeping/components/BookkeepingPayablesList.jsx
+- src/features/admin/bookkeeping/components/BookkeepingEntryDialog.jsx
+- src/features/admin/bookkeeping/components/BookkeepingSettlementDialog.jsx
+- src/features/admin/bookkeeping/components/BookkeepingEntryDetailDrawer.jsx
+- src/features/admin/bookkeeping/components/BookkeepingCategoryChart.jsx
+- src/features/admin/bookkeeping/components/BookkeepingReports.jsx
+- src/features/admin/bookkeeping/pages/AdminBookkeepingPage.jsx
+
+Created Files — Scripts & Docs (3):
+- scripts/verify-bookkeeping-module.ps1
+- docs/architecture/ADMIN-BOOKKEEPING-MANAGEMENT.md
+- docs/handoffs/HANDOFF-BOOKKEEPING-MODULE-2026-11-22.txt
+
+============================================================
+3. FINANCIAL DATA SOURCES & ANTI-DOUBLE-COUNTING RULES
+============================================================
+- Invoices (`invoices`):
+  - Only `invoiceStatus === 'issued'` contributes to Period Billed Revenue (by `invoiceDate` in Asia/Jakarta) and Customer Outstanding Receivable (`SUM(balanceDue)` across all issued invoices).
+  - `void` invoices are excluded from both billed revenue and receivables.
+  - `invoice.financialSnapshot.totalAmount` and `invoice.amountPaid` are NEVER added to Cash Received.
+- Customer Cash Receipts (`paymentTransactions`):
+  - Customer Cash In = `SUM(paymentTransactions where transactionType == 'payment') - SUM(paymentTransactions where transactionType == 'reversal')` filtered by `receivedAt`.
+  - Payment reversals remain owned exclusively by Payment & Bill (`/admin/payment-and-bill`).
+- Commission & Fee Accruals (`bookkeepingEntries`):
+  - Preserves existing 13-field `commission-and-fee` entries without forced backfill migration.
+  - Staff Commission and Recording Operator Fee accruals are treated as expense obligations (`expense_accrual`), NOT cash out, until paid via settlements.
+  - `commissionBatches` totals are NEVER summed on top of `bookkeepingEntries`.
+  - Owner Allocation is reference-only and strictly excluded from payables, expenses, and settlement workflows.
+- Manual Financial Entries (`bookkeepingEntries`):
+  - Manual Income (`entryType: 'income'`) records non-invoice receipts cleanly without fabricating `invoices` or `paymentTransactions`.
+  - Manual Expense (`Paid`) creates both `bookkeepingEntries` (`paidOnCreate: true`, settled) and `bookkeepingSettlements` atomically in one transaction; displayed once in Unified Ledger (`manual_expense`) and counted once in Expense Accrued & Cash Out.
+  - Manual Expense (`Unpaid`) creates `bookkeepingEntries` (`unpaid`) only and enters Outstanding Payables with zero Cash Out until settled.
+- Settlements (`bookkeepingSettlements`):
+  - Append-only cash outflow ledger (`settlementType: 'expense_payment'`).
+  - Operating Cash Out = `SUM(bookkeepingSettlements.amount)` filtered by `paidAt` in Asia/Jakarta.
+- Inventory Boundary:
+  - `inventoryItems` and `inventoryMovements` are completely isolated and never generate bookkeeping entries or financial expenses.
+
+============================================================
+4. TRANSACTIONAL SETTLEMENT & REVERSAL ARCHITECTURE
+============================================================
+- `settleBookkeepingEntry()` (`services/bookkeeping-settlement-service.js`):
+  - Runs inside a single Firestore `runTransaction` with all reads before writes.
+  - Pre-generates deterministic `settlementId` (`operationId`) per dialog session so retries replay idempotently.
+  - Validates active Owner, payable eligibility, `expectedVersion`, remaining balance (`> 0`), and rejects overpayment (`amount > remainingAmount`).
+  - Atomically creates immutable `bookkeepingSettlements/{settlementId}` and updates payable `amountSettled`, `remainingAmount`, derived `settlementStatus` (`unpaid` | `partially_paid` | `paid`), `lastSettlementId`, `lastSettledAt`, `updatedAt`, `updatedByUid`, `version + 1`.
+- `reverseBookkeepingEntry()` (`services/bookkeeping-entry-service.js`):
+  - Owner-only correction strictly for manual entries with zero settlements (`sourceModule === 'bookkeeping' && sourceType === 'manual'`).
+  - Requires audit reason (`>= 3` chars), preserves original entry (`settlementStatus: 'reversed'`), appends compensating `bk_rev_{entryId}`, and blocks reversing Commission accruals or already-settled manual expenses (no permanent deletes, no fabricated cash refunds).
+
+============================================================
+5. FIRESTORE SECURITY RULES & BOUNDED QUERIES
+============================================================
+- Strictly Owner-only (`isActiveOwner()`) for all reads & writes across `bookkeepingEntries`, `bookkeepingSettlements`, and `bookkeepingSettings/default`. Staff, inactive accounts, and anonymous users are denied.
+- Preserves Phase 9 `isValidCommissionBookkeepingEntryCreate` alongside new rules for Manual Income, Manual Expense (Paid atomic `existsAfter`/`getAfter` check, Unpaid check), Manual Reversal (`bk_rev_{entryId}`), Settlement aggregate progression (using `.get('amountSettled', 0)`, `.get('remainingAmount', resData.amount)`, `.get('version', 1)` for legacy 13-field commission compatibility), append-only `bookkeepingSettlements`, and zero permanent deletes (`allow delete: if false`).
+- Zero custom composite indexes required: all Firestore listeners use bounded single-field queries (`orderBy`, equality, or `settlementStatus in ['unpaid', 'partially_paid']`).
+
+============================================================
+6. TEST, EMULATOR, LINT, BUILD & RESPONSIVE QA RESULTS
+============================================================
+1. Vitest Automated Test Suite (`npm run test:run` via `scripts/verify-bookkeeping-module.ps1`):
+   - PASSED (`EXIT_CODE=0`): `Test Files 12 passed (12)`, `Tests 97 passed (97)`, Duration `69.58s`.
+   - `src/features/admin/bookkeeping/bookkeeping.test.jsx`: `8 passed (8)` covering Income & Reversals, Commission Accruals & Owner Allocation exclusion, Partial & Full Settlement, Paid/Unpaid Manual Expenses, Owner Reversal Guards, Concurrency/Overpayment/Idempotency/Stale Version, Reports/Asia-Jakarta boundaries/CSV formatting/Inventory isolation, Staff vs Owner UI Route Guard, Full Owner UI Workflow (including ECharts `<svg>` rendering), and Rules contract assertions.
+   - `src/features/admin/admin-shell.test.jsx`: `5 passed (5)`.
+   - All existing regression suites (`commission`, `payment`, `inventory`, `customer`, `calendar`, `duration-discount`, `settings`, `auth`, `LandingPage`, `utils`): `84 passed (84)`, zero regressions.
+
+2. Live Firebase Firestore Emulator Rules Verification (`firebase emulators:exec --only firestore --project studio37classic`):
+   - PASSED `22/22` scenarios (`SUMMARY: 22/22 PASSED`), verifying:
+     * Anonymous/Staff/Inactive Staff read denial & Owner read allow on `bookkeepingEntries` & `bookkeepingSettlements`
+     * Staff create/settlement denial vs Owner create (Income, atomic Paid Expense, Settings)
+     * Legacy 13-field Commission partial settlement allowed + overpayment denied (`403`)
+     * Settlement update/delete denied (`403`), Entry permanent delete denied (`403`)
+     * Invalid `entryType`, negative amount, spoofed `createdByUid`, and unlinked commission write denied (`403`)
+     * Owner atomic manual reversal allowed (`200`)
+     * Phase 9 Commission posting transaction regression check (`200`).
+   - Temporary `firebase-debug.log` and `firestore-debug.log` were removed immediately after verification.
+
+3. ESLint (`npm run lint`):
+   - PASSED (`EXIT_CODE=0`, 0 errors, 0 warnings).
+
+4. Vite Production Build (`npm run build`):
+   - PASSED (`EXIT_CODE=0`, Vite `v8.3.8`, `4045 modules transformed`, built in `13.75s`).
+
+5. Prettier Formatting Check:
+   - Scoped check (`npx prettier --check` on all created/modified Bookkeeping JS/JSX/MD files): PASSED (`EXIT_CODE=0`, `All matched files use Prettier code style!`).
+   - Repository-wide `npm run format:check`: Exited with code `1` strictly due to untouched pre-existing repository files checked out under Windows CRLF (`git config core.autocrlf = true`) outside this module's scope; zero Bookkeeping files had formatting warnings. Unrelated files were intentionally left unmodified.
+
+6. Headless Chromium Responsive & Interactive QA (`42/42` checks):
+   - Executed across 10 viewports (`286, 320, 360, 375, 390, 430, 768, 1024, 1280, 1440` px) x 4 tabs (`Overview`, `Transactions`, `Cash & Settlement`, `Reports` + verified rendered ECharts `<svg>`) plus `SettlementModal` (`375px` & `1440px`):
+     `RESPONSIVE_QA_SUMMARY: TOTAL_CHECKS=42, FAILURES=0, RUNTIME_ERRORS=0`.
+   - Visual screenshot audit caught and resolved two UI defects before final verification:
+     (1) Fixed low-contrast light text on the `Net Cash Movement` KPI card (`AdminMetricCard` `ink` radial background gradient replaced cleanly with high-contrast `emerald` / `orange` tone + crisp dark Ink pill badge).
+     (2) Removed duplicated `+` sign inside the primary `New Entry` header button and tightened mobile tab padding so `Cash & Settlement` displays cleanly without awkward ellipsis at `375px`.
+
+7. Verification Script & Log:
+   - Script: `scripts/verify-bookkeeping-module.ps1`
+   - Log file: `.logs\bookkeeping-module-verification-20261122-044454.txt` (Vitest `EXIT_CODE=0`, ESLint `EXIT_CODE=0`, Vite Build `EXIT_CODE=0`; repo-wide `format:check` noted CRLF warnings on pre-existing untouched repo files while scoped Prettier passed cleanly).
+
+============================================================
+7. KNOWN LIMITATIONS & NON-DEPLOYMENT NOTE
+============================================================
+- Updated `firestore.rules` has been verified on the local Firestore Emulator only and has NOT been deployed to production Firebase (`studio37classic`). Production deployment must be explicitly approved and triggered by the Owner (`firebase deploy --only firestore:rules`) before live `/admin/pembukuan` queries run against production Firestore.
+- Reversal/correction in v1 applies strictly to unsettled manual entries (`amountSettled === 0`) and does not fabricate cash refunds on already-settled expenses.
+- Full double-entry journals, tax/PPN, payroll, bank sync, PDF export, and automated inventory-to-expense creation are intentionally out of scope.
+============================================================
