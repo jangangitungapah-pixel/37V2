@@ -47,6 +47,15 @@ export function BookkeepingTransactionTable({
 }) {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  const mobileFilterCount = [
+    directionFilter !== 'all',
+    categoryFilter !== 'all',
+    sourceFilter !== 'all',
+    statusFilter !== 'all',
+    Boolean(dateFrom),
+    Boolean(dateTo),
+  ].filter(Boolean).length;
+
   const handleExportCsv = () => {
     const csv = buildLedgerCsv(items);
     const filename = `37studio-ledger-${dateFrom || 'all'}-to-${dateTo || 'all'}.csv`;
@@ -59,7 +68,7 @@ export function BookkeepingTransactionTable({
         as="section"
         variant="card"
         aria-label="Filter dan pencarian transaksi pembukuan"
-        className="space-y-3 p-3.5 sm:p-5"
+        className="space-y-2.5 p-3 sm:space-y-3 sm:p-5"
       >
         {/* Top Row: Search + Actions */}
         <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
@@ -82,11 +91,17 @@ export function BookkeepingTransactionTable({
             <AdminButton
               variant="secondary"
               size="sm"
+              aria-expanded={mobileFiltersOpen}
               onClick={() => setMobileFiltersOpen((prev) => !prev)}
               className="sm:hidden"
             >
               <Filter className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Filter</span>
+              {mobileFilterCount > 0 ? (
+                <span className="rounded-full bg-[#151515] px-1.5 py-0.5 font-mono text-[10px] leading-none font-bold text-[#C8F13A]">
+                  {mobileFilterCount}
+                </span>
+              ) : null}
             </AdminButton>
 
             {hasActiveFilters ? (
@@ -105,9 +120,8 @@ export function BookkeepingTransactionTable({
 
         {/* Filter Controls */}
         <div
-          className={`${
-            mobileFiltersOpen ? 'grid' : 'hidden sm:grid'
-          } grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-6`}
+          className={`${mobileFiltersOpen ? 'grid' : 'hidden sm:grid'
+            } grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-6`}
         >
           <select
             aria-label="Filter arah transaksi"
@@ -178,7 +192,7 @@ export function BookkeepingTransactionTable({
         </div>
 
         {/* Presentation Legend */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-[#151515]/[0.06] pt-2 text-[11px] text-[#666159]">
+        <div className="hidden flex-wrap items-center gap-2 border-t border-[#151515]/[0.06] pt-2 text-[11px] text-[#666159] sm:flex">
           <span className="font-semibold text-[#46433D]">Keterangan sifat catatan:</span>
           <AdminStatusBadge tone="lime" size="sm">
             Cash Tx
@@ -273,13 +287,12 @@ export function BookkeepingTransactionTable({
                         </div>
                       </td>
                       <td
-                        className={`px-3 py-2.5 text-right font-mono font-bold whitespace-nowrap tabular-nums ${
-                          item.status === 'reversed'
-                            ? 'text-[#666159] line-through'
-                            : isPositive
-                              ? 'text-[#243300]'
-                              : 'text-[#B92B0C]'
-                        }`}
+                        className={`px-3 py-2.5 text-right font-mono font-bold whitespace-nowrap tabular-nums ${item.status === 'reversed'
+                          ? 'text-[#666159] line-through'
+                          : isPositive
+                            ? 'text-[#243300]'
+                            : 'text-[#B92B0C]'
+                          }`}
                       >
                         {formatBookkeepingRupiah(item.signedAmount, { showPositiveSign: true })}
                       </td>

@@ -58,7 +58,7 @@ export function AdminTopbar({
 
   return (
     <header className="sa-topbar sticky top-0 z-20">
-      <div className="mx-auto flex min-h-14 w-full max-w-[1440px] items-center justify-between gap-2 px-3 py-2 sm:min-h-[68px] sm:gap-3 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[52px] w-full max-w-[1440px] items-center justify-between gap-1.5 px-2.5 py-1.5 sm:min-h-[60px] sm:gap-2.5 sm:px-6 sm:py-2.5 lg:px-8">
         {/* Left: Mobile Drawer Button / Desktop Sidebar Toggle + Breadcrumb + Dynamic Page Title */}
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
           {/* Mobile & Tablet Off-Canvas Drawer Trigger */}
@@ -137,11 +137,11 @@ export function AdminTopbar({
             <span
               className={
                 isOwner
-                  ? 'inline-flex items-center gap-1 rounded-full border border-[#8BAD12]/35 bg-[#EDF8C2] px-2 py-0.5 font-mono text-[10px] font-bold tracking-wide text-[#243300] uppercase'
-                  : 'inline-flex items-center gap-1 rounded-full border border-[#FF4B22]/25 bg-[#FFEDE8] px-2 py-0.5 font-mono text-[10px] font-bold tracking-wide text-[#B92B0C] uppercase'
+                  ? 'inline-flex items-center gap-1 rounded-full border border-[#8BAD12]/35 bg-[#EDF8C2] px-2 py-0.5 font-mono text-[10px] font-bold tracking-wide text-[#243300] uppercase sm:px-2.5 sm:py-1'
+                  : 'inline-flex items-center gap-1 rounded-full border border-[#FF4B22]/25 bg-[#FFEDE8] px-2 py-0.5 font-mono text-[10px] font-bold tracking-wide text-[#B92B0C] uppercase sm:px-2.5 sm:py-1'
               }
             >
-              <ShieldCheck className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <ShieldCheck className="hidden h-3 w-3 shrink-0 sm:block" aria-hidden="true" />
               <span>{roleLabel}</span>
             </span>
           </div>

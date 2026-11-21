@@ -119,7 +119,7 @@ export function InventoryToolbar({
         </div>
 
         <AdminStatusBadge tone="ivory" size="sm" className="font-mono font-semibold">
-          {visibleCount} item tampil
+          {visibleCount} <span className="hidden sm:inline">item </span>tampil
         </AdminStatusBadge>
       </div>
     </div>

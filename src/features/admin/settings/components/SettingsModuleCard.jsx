@@ -12,16 +12,18 @@ export function SettingsModuleCard({
   badge = 'ACTIVE MODULE',
 }) {
   return (
-    <AdminSurface as="article" variant="card" className="flex flex-col justify-between p-5 sm:p-6">
+    <AdminSurface as="article" variant="card" className="flex flex-col justify-between p-4 sm:p-6">
       <div>
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-xs font-semibold text-[#8B857B]">MODUL {order}</span>
+          <span className="hidden font-mono text-xs font-semibold text-[#8B857B] sm:inline">
+            MODUL {order}
+          </span>
           <AdminStatusBadge tone="lime" dot size="sm">
             {badge}
           </AdminStatusBadge>
         </div>
 
-        <div className="mt-4 flex items-start gap-3.5">
+        <div className="mt-3 flex items-start gap-3 sm:mt-4 sm:gap-3.5">
           {IconComponent ? (
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#151515]/10 bg-[#F8F6EF] text-[#151515]">
               <IconComponent className="h-5 w-5 stroke-[1.9]" aria-hidden="true" />

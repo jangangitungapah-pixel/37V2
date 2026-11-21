@@ -1,4 +1,5 @@
-import { Eye, EyeOff, Filter, Search, X } from 'lucide-react';
+import { useState } from 'react';
+import { Eye, EyeOff, Filter, Search, SlidersHorizontal, X } from 'lucide-react';
 
 import { PAYMENT_FILTER_OPTIONS, ROOM_FILTER_OPTIONS } from '../config/calendar-config';
 
@@ -13,12 +14,19 @@ export function CalendarFilters({
   onToggleShowCancelled,
   totalVisibleCount = 0,
 }) {
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const activeFilterCount =
+    (roomFilter !== 'all' ? 1 : 0) + (paymentFilter !== 'all' ? 1 : 0) + (showCancelled ? 1 : 0);
+
   return (
-    <section aria-label="Filter dan pencarian booking kalender" className="sa-card p-3.5 sm:p-5">
-      {/* Unified Filter Bar: Room Filter + Payment Status Filter + Visible Count & Search/Cancelled */}
-      <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between xl:gap-x-4 xl:gap-y-3">
-        {/* Left Cluster: Room Filter + Payment Status Filter */}
-        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:gap-x-4 md:gap-y-3">
+    <section aria-label="Filter dan pencarian booking kalender" className="sa-card p-3 sm:p-5">
+      {/* Unified Filter Bar: Search & Mobile Toggle first on mobile; Room/Payment first on desktop */}
+      <div className="flex flex-col gap-2.5 sm:gap-3 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between xl:gap-x-4 xl:gap-y-3">
+        {/* Left Cluster (Desktop) / Collapsible Panel (Mobile): Room + Payment Status */}
+        <div
+          className={`${mobileFiltersOpen ? 'flex border-t border-[#151515]/[0.07] pt-2.5 sm:border-t-0 sm:pt-0' : 'hidden sm:flex'} order-2 min-w-0 flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:gap-x-4 md:gap-y-3 xl:order-1`}
+        >
           {/* Room Filter Selector */}
           <div className="min-w-0">
             <div className="mb-1.5 flex min-h-4 items-center justify-between gap-2 sm:min-h-5">
@@ -108,8 +116,8 @@ export function CalendarFilters({
           </div>
         </div>
 
-        {/* Right Cluster: Visible Booking Indicator (Desktop Strip) + Search Input + Cancelled Toggle */}
-        <div className="flex w-full min-w-0 flex-col xl:min-w-[290px] xl:flex-1">
+        {/* Right Cluster (Desktop) / Primary Compact Row (Mobile): Search + Cancelled Toggle + Mobile Filter */}
+        <div className="order-1 flex w-full min-w-0 flex-col xl:order-2 xl:min-w-[290px] xl:flex-1">
           <div className="mb-1.5 hidden min-h-5 items-center justify-end gap-2 text-xs xl:flex">
             <span className="text-[#666159]">Hasil tampil</span>
             <span className="rounded-full border border-[#151515]/10 bg-[#F8F6EF] px-2.5 py-0.5 font-mono text-[11px] font-medium whitespace-nowrap text-[#46433D] tabular-nums">
@@ -117,8 +125,8 @@ export function CalendarFilters({
             </span>
           </div>
 
-          <div className="flex w-full flex-col gap-2 min-[360px]:flex-row min-[360px]:items-center">
-            <div className="relative w-full min-w-0 flex-1">
+          <div className="flex w-full items-center gap-1.5 sm:gap-2">
+            <div className="relative min-w-0 flex-1">
               <Search
                 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#8B857B]"
                 aria-hidden="true"
@@ -129,7 +137,7 @@ export function CalendarFilters({
                 onChange={(event) => onSearchQueryChange(event.target.value)}
                 aria-label="Cari customer, band, atau project"
                 placeholder="Cari nama, band, atau acara..."
-                className="sa-input h-10 w-full rounded-xl py-1.5 pr-8 pl-9 text-xs font-medium"
+                className="sa-input h-9.5 w-full rounded-xl py-1.5 pr-8 pl-9 text-xs font-medium sm:h-10"
               />
               {searchQuery ? (
                 <button
@@ -150,8 +158,8 @@ export function CalendarFilters({
               aria-pressed={showCancelled}
               className={
                 showCancelled
-                  ? 'inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#8BAD12]/45 bg-[#EDF8C2] px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[#243300] shadow-xs transition-all'
-                  : 'sa-control sa-btn-secondary inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-medium whitespace-nowrap text-[#46433D]'
+                  ? 'inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#8BAD12]/45 bg-[#EDF8C2] px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[#243300] shadow-xs transition-all sm:min-h-10 sm:px-3.5'
+                  : 'sa-control sa-btn-secondary inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-[#46433D] sm:min-h-10 sm:px-3.5'
               }
             >
               {showCancelled ? (
@@ -159,8 +167,23 @@ export function CalendarFilters({
               ) : (
                 <EyeOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               )}
-              <span className="sm:hidden">Batal</span>
+              <span className="hidden min-[360px]:inline sm:hidden">Batal</span>
               <span className="hidden sm:inline">Tampilkan Batal</span>
+            </button>
+
+            <button
+              type="button"
+              aria-expanded={mobileFiltersOpen}
+              onClick={() => setMobileFiltersOpen((prev) => !prev)}
+              className="sa-control sa-btn-secondary inline-flex h-9.5 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 text-xs font-semibold sm:hidden"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Filter</span>
+              {activeFilterCount > 0 ? (
+                <span className="rounded-full bg-[#151515] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#C8F13A]">
+                  {activeFilterCount}
+                </span>
+              ) : null}
             </button>
           </div>
         </div>

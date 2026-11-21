@@ -204,33 +204,28 @@ export function AdminCustomersPage() {
   };
 
   return (
-    <div data-customer-scoped="true" className="relative isolate z-0 space-y-4 sm:space-y-6">
+    <div data-customer-scoped="true" className="relative isolate z-0 space-y-3 sm:space-y-5">
       {/* Page Header & Compact Metrics Strip */}
       <AdminSurface
         as="section"
         variant="hero"
         aria-labelledby="customer-page-heading"
-        className="p-4 sm:p-6"
+        className="p-3.5 sm:p-6"
       >
-        <div className="flex flex-col gap-3 min-[340px]:flex-row min-[340px]:items-center min-[340px]:justify-between">
+        <div className="flex flex-row items-center justify-between gap-2.5 sm:gap-3">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden flex-wrap items-center gap-2 sm:flex">
               <AdminStatusBadge tone="ink" icon={UsersRound} size="sm" className="uppercase">
                 Data Pelanggan Studio
               </AdminStatusBadge>
-              <AdminStatusBadge
-                tone="ivory"
-                icon={Phone}
-                size="sm"
-                className="hidden sm:inline-flex"
-              >
+              <AdminStatusBadge tone="ivory" icon={Phone} size="sm">
                 Format Nomor +62 / Intl
               </AdminStatusBadge>
             </div>
 
             <h2
               id="customer-page-heading"
-              className="mt-2.5 truncate text-xl font-bold tracking-[-0.025em] text-[#151515] sm:text-2xl lg:text-[28px]"
+              className="truncate text-lg font-bold tracking-[-0.025em] text-[#151515] sm:mt-2.5 sm:text-2xl lg:text-[28px]"
             >
               Customer
             </h2>
@@ -244,7 +239,7 @@ export function AdminCustomersPage() {
             type="button"
             onClick={() => openFormDialog('create')}
             aria-label="Add Customer"
-            className="sa-control sa-btn-orange inline-flex min-h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold min-[340px]:w-auto sm:min-h-10.5"
+            className="sa-control sa-btn-orange inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:min-h-10.5 sm:px-4 sm:py-2"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             <span>Tambah</span>
@@ -255,7 +250,7 @@ export function AdminCustomersPage() {
         {/* Metrics Row */}
         <dl
           aria-label="Ringkasan daftar pelanggan"
-          className="mt-4 grid grid-cols-1 gap-2.5 border-t border-[#151515]/[0.07] pt-4 sm:mt-5 sm:grid-cols-3 sm:gap-3.5 sm:pt-5"
+          className="mt-3 grid grid-cols-3 gap-2 border-t border-[#151515]/[0.07] pt-3 sm:mt-5 sm:gap-3.5 sm:pt-5"
         >
           <AdminMetricCard
             label="Pelanggan"
@@ -263,6 +258,8 @@ export function AdminCustomersPage() {
             hint="Pelanggan aktif terdaftar"
             icon={UsersRound}
             tone="neutral"
+            compactMobile
+            hideIconOnMobile
           />
 
           <AdminMetricCard
@@ -271,6 +268,8 @@ export function AdminCustomersPage() {
             hint="Nomor HP terdaftar"
             icon={Phone}
             tone="neutral"
+            compactMobile
+            hideIconOnMobile
           />
 
           <AdminMetricCard
@@ -283,6 +282,8 @@ export function AdminCustomersPage() {
             }
             icon={Users}
             tone={metrics.sharedPhoneCount > 0 ? 'amber' : 'neutral'}
+            compactMobile
+            hideIconOnMobile
           />
         </dl>
       </AdminSurface>
@@ -488,7 +489,7 @@ export function AdminCustomersPage() {
         actorUid={actorUid}
         activeCustomers={customers}
         onImportCompleted={() => {
-          refreshLegacyOverview().catch(() => {});
+          refreshLegacyOverview().catch(() => { });
         }}
       />
     </div>

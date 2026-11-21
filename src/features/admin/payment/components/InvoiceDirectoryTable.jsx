@@ -35,13 +35,13 @@ export function InvoiceDirectoryTable({
         className="overflow-hidden"
       >
         {/* Top Legend Strip */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.07] bg-[#FAF8F3]/80 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.07] bg-[#FAF8F3]/80 px-3 py-2 sm:px-4 sm:py-3">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
             <span className="text-xs font-semibold tracking-tight text-[#151515] sm:text-sm">
               Daftar Invoice
             </span>
 
-            <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-medium text-[#666159]">
+            <div className="hidden flex-wrap items-center gap-2.5 text-[11px] font-medium text-[#666159] sm:flex">
               <span className="inline-flex items-center gap-1.5">
                 <span
                   className="h-2 w-2 rounded-full bg-[#C8F13A] ring-1 ring-[#658800]/40"
@@ -126,7 +126,7 @@ export function InvoiceDirectoryTable({
                 return (
                   <tr
                     key={invoice.id}
-                    className={`group grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1.5 px-3.5 py-3 transition-colors md:table-row md:p-0 ${rowBgClass}`}
+                    className={`group grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 px-3 py-2.5 transition-colors md:table-row md:p-0 ${rowBgClass}`}
                   >
                     {/* Col 1: Invoice Number & Booking Date */}
                     <td className="col-start-1 row-start-1 min-w-0 md:table-cell md:px-3.5 md:py-3 md:align-middle md:whitespace-nowrap">

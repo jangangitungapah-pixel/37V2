@@ -58,14 +58,15 @@ export function CommissionBatchHistory({
             return (
               <article
                 key={batch.id}
-                className="flex flex-col justify-between gap-3.5 p-4 transition-colors hover:bg-[#FAF8F3]/70 sm:p-5 lg:flex-row lg:items-center"
+                className="flex flex-col justify-between gap-3 p-3 transition-colors hover:bg-[#FAF8F3]/70 sm:gap-3.5 sm:p-5 lg:flex-row lg:items-center"
               >
                 <div className="min-w-0 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <AdminStatusBadge tone="lime" icon={CheckCircle2} size="sm">
-                      Posted • Belum Dibayar di Pembukuan
+                      <span className="sm:hidden">Posted</span>
+                      <span className="hidden sm:inline">Posted • Belum Dibayar di Pembukuan</span>
                     </AdminStatusBadge>
-                    <span className="font-mono text-xs font-semibold text-[#46433D]">
+                    <span className="hidden font-mono text-xs font-semibold text-[#46433D] sm:inline">
                       {batch.id}
                     </span>
                   </div>

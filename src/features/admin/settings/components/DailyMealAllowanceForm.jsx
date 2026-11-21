@@ -16,16 +16,20 @@ export function DailyMealAllowanceForm({
       as="section"
       variant="card"
       aria-labelledby="section-global-operational-heading"
-      className="p-4 sm:p-6"
+      className="p-3.5 sm:p-6"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-[#151515]/[0.07] pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.07] pb-3 sm:gap-2.5 sm:pb-4">
         <div>
-          <AdminStatusBadge tone="ink" size="sm" className="font-mono uppercase">
+          <AdminStatusBadge
+            tone="ink"
+            size="sm"
+            className="hidden font-mono uppercase sm:inline-flex"
+          >
             Global Operational Settings
           </AdminStatusBadge>
           <h3
             id="section-global-operational-heading"
-            className="mt-2 text-lg font-bold tracking-tight text-[#151515] sm:text-xl"
+            className="text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl"
           >
             Daily Meal Allowance per Staff
           </h3>
@@ -36,9 +40,9 @@ export function DailyMealAllowanceForm({
         </AdminStatusBadge>
       </div>
 
-      <div className="sa-panel-ivory mt-4 p-4 sm:p-5">
+      <div className="sa-panel-ivory mt-3 p-3 sm:mt-4 sm:p-5">
         <div className="flex items-start gap-3.5">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#151515]/10 bg-white text-[#151515]">
+          <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#151515]/10 bg-white text-[#151515] sm:inline-flex">
             <UtensilsCrossed className="h-4.5 w-4.5" aria-hidden="true" />
           </span>
 
@@ -64,7 +68,7 @@ export function DailyMealAllowanceForm({
               placeholder="0"
               className="sa-input mt-2 min-h-10.5 w-full max-w-sm px-3.5 py-2 font-mono text-sm font-semibold tabular-nums disabled:cursor-not-allowed disabled:opacity-60"
             />
-            <p className="mt-2 text-xs leading-relaxed text-[#666159]">
+            <p className="mt-2 hidden text-xs leading-relaxed text-[#666159] sm:block">
               Preset nominal uang makan harian per satu Staff yang bertugas. Nilai ini tidak
               memengaruhi total tagihan customer dan tidak otomatis membuat data absensi atau
               payroll.

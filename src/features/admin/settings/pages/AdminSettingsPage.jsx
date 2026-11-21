@@ -6,7 +6,7 @@ import { SettingsModuleCard } from '../components/SettingsModuleCard';
 
 export function AdminSettingsPage() {
   return (
-    <div data-calendar-scoped="true" className="space-y-5 sm:space-y-6">
+    <div data-calendar-scoped="true" className="space-y-3 sm:space-y-6">
       <AdminPageHeader
         eyebrow="Pengaturan Studio"
         icon={SlidersHorizontal}

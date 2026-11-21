@@ -35,7 +35,7 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef }) {
             >
               <div>
                 {/* Drawer Header */}
-                <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] px-4 py-3.5">
+                <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] px-3.5 py-3">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#C8F13A] font-mono text-sm font-extrabold text-[#151515] shadow-[0_6px_16px_-4px_rgba(200,241,58,0.38)]">
                       37
@@ -59,14 +59,14 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef }) {
                 </div>
 
                 {/* Section Eyebrow */}
-                <div className="px-4 pt-4 pb-1.5">
+                <div className="px-3.5 pt-3 pb-1">
                   <p className="font-mono text-[10px] font-semibold tracking-widest text-neutral-400 uppercase">
                     Menu Utama
                   </p>
                 </div>
 
                 {/* Full Eight Navigation Items */}
-                <nav aria-label="Mobile admin workspace navigation" className="px-3 py-2">
+                <nav aria-label="Mobile admin workspace navigation" className="px-2.5 py-1.5">
                   <ul className="space-y-1">
                     {ADMIN_NAVIGATION_ITEMS.map((item) => (
                       <AdminSidebarNavItem
@@ -82,15 +82,15 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef }) {
               </div>
 
               {/* Drawer Footer */}
-              <div className="border-t border-white/[0.08] p-4">
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5">
+              <div className="border-t border-white/[0.08] p-3">
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4 shrink-0 text-[#C8F13A]" aria-hidden="true" />
                     <span className="text-[11px] font-semibold text-neutral-200">
                       37 Studio • Admin
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[10.5px] text-neutral-400">
+                  <p className="mt-0.5 hidden text-[10.5px] text-neutral-400 sm:block">
                     Akses Owner &amp; Staff studio
                   </p>
                 </div>

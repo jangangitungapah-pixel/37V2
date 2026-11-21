@@ -165,10 +165,13 @@ export function StaffLoginPage() {
 
           <Link
             to="/"
+            aria-label="Back to public website"
             className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-11 items-center gap-1.5 px-3 py-2 text-xs font-bold tracking-wider uppercase sm:px-4"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Back to public website</span>
+            <span>
+              Back<span className="hidden sm:inline"> to public website</span>
+            </span>
           </Link>
         </div>
       </header>
@@ -176,11 +179,11 @@ export function StaffLoginPage() {
       {/* Main Split Portal Layout */}
       <main
         id="main-content"
-        className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 sm:py-10 lg:px-8 lg:py-14"
+        className="mx-auto w-full max-w-[1440px] flex-1 px-3 py-5 sm:px-6 sm:py-10 lg:px-8 lg:py-14"
       >
         <div className="brutal-card-lg bg-studio-white grid grid-cols-1 overflow-hidden lg:grid-cols-12">
-          {/* Left Panel: Editorial Brand Identity (Compact on mobile, full panel on desktop) */}
-          <div className="border-studio-ink bg-studio-ink text-studio-white flex flex-col justify-between border-b-2 p-5 sm:p-8 lg:col-span-5 lg:border-r-2 lg:border-b-0 lg:p-10">
+          {/* Left Panel: Editorial Brand Identity (Desktop lg+) */}
+          <div className="border-studio-ink bg-studio-ink text-studio-white hidden flex-col justify-between border-b-2 p-5 sm:p-8 lg:col-span-5 lg:flex lg:border-r-2 lg:border-b-0 lg:p-10">
             <div>
               <span className="bg-studio-lime text-studio-ink inline-flex items-center gap-1.5 px-2.5 py-1 font-mono text-[10px] font-extrabold tracking-wider uppercase sm:text-[11px]">
                 <Lock className="h-3 w-3" aria-hidden="true" />
@@ -225,24 +228,24 @@ export function StaffLoginPage() {
           </div>
 
           {/* Right Panel: Authentication Form */}
-          <div className="bg-studio-white text-studio-ink flex flex-col justify-between p-5 sm:p-8 lg:col-span-7 lg:p-10">
+          <div className="bg-studio-white text-studio-ink flex flex-col justify-between p-4 sm:p-8 lg:col-span-7 lg:p-10">
             {mode === 'signin' ? (
               <div>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="text-studio-muted-ink font-mono text-[11px] font-bold tracking-wider uppercase">
+                    <p className="text-studio-muted-ink hidden font-mono text-[11px] font-bold tracking-wider uppercase sm:block">
                       INTERNAL STUDIO PORTAL
                     </p>
-                    <h2 className="font-display mt-1 text-3xl leading-none font-black tracking-tight uppercase sm:text-4xl">
+                    <h2 className="font-display text-2xl leading-none font-black tracking-tight uppercase sm:mt-1 sm:text-4xl">
                       Staff &amp; Owner Sign In
                     </h2>
                   </div>
-                  <span className="border-studio-ink bg-studio-ivory border px-2.5 py-1 font-mono text-[10px] font-bold uppercase">
+                  <span className="border-studio-ink bg-studio-ivory hidden border px-2.5 py-1 font-mono text-[10px] font-bold uppercase sm:inline-block">
                     EMAIL / PASSWORD
                   </span>
                 </div>
 
-                <p className="text-studio-muted-ink mt-2 text-xs leading-relaxed font-medium sm:text-sm">
+                <p className="text-studio-muted-ink mt-1.5 text-xs leading-relaxed font-medium sm:mt-2 sm:text-sm">
                   Use the email and password registered for your 37 Music Studio staff or owner
                   account.
                 </p>
@@ -479,7 +482,7 @@ export function StaffLoginPage() {
             )}
 
             {/* Bottom Security & Public Website Notice */}
-            <div className="border-studio-ink mt-8 border-t-2 pt-4">
+            <div className="border-studio-ink mt-8 hidden border-t-2 pt-4 sm:block">
               <p className="text-studio-muted-ink text-xs leading-relaxed">
                 <strong>Note for studio visitors:</strong> This page is reserved for internal 37
                 Music Studio staff and owners. Looking to book a rehearsal or recording session?{' '}
@@ -494,10 +497,10 @@ export function StaffLoginPage() {
       </main>
 
       {/* Compact Footer */}
-      <footer className="border-studio-ink bg-studio-ink text-studio-ivory border-t-2 py-4">
+      <footer className="border-studio-ink bg-studio-ink text-studio-ivory border-t-2 py-3 sm:py-4">
         <div className="mx-auto flex max-w-[1680px] flex-col items-center justify-between gap-2 px-4 font-mono text-[11px] text-neutral-400 sm:flex-row sm:px-6 lg:px-8">
           <p>© 2026 37 Music Studio • Internal Authentication Portal</p>
-          <p>Provisioned Staff &amp; Owner Access Only</p>
+          <p className="hidden sm:block">Provisioned Staff &amp; Owner Access Only</p>
         </div>
       </footer>
     </div>

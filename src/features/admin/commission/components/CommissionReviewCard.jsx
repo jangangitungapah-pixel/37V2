@@ -17,7 +17,7 @@ export function CommissionReviewCard({ item, isSelected = false, onToggleSelect,
 
   return (
     <article
-      className={`border-b border-[#151515]/[0.07] p-3.5 transition-colors last:border-b-0 ${
+      className={`border-b border-[#151515]/[0.07] p-3 transition-colors last:border-b-0 ${
         isPosted
           ? 'bg-[#FAF8F3]/60'
           : isSelected
@@ -37,7 +37,7 @@ export function CommissionReviewCard({ item, isSelected = false, onToggleSelect,
             className="accent-studio-ink mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded disabled:cursor-not-allowed disabled:opacity-40"
           />
           <div className="min-w-0">
-            <p className="truncate font-mono text-[10.5px] font-medium text-[#666159]">
+            <p className="hidden truncate font-mono text-[10.5px] font-medium text-[#666159] sm:block">
               {item.bookingId}
             </p>
             <p className="truncate text-sm font-semibold text-[#151515]">

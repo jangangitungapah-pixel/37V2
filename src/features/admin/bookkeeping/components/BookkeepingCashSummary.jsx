@@ -37,9 +37,9 @@ export function BookkeepingCashSummary({
       as="section"
       variant="card"
       aria-label="Pergerakan Kas Aktual"
-      className="space-y-4 p-4 sm:p-5"
+      className="space-y-3 p-3.5 sm:space-y-4 sm:p-5"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-2.5 sm:gap-3">
         <div>
           <div className="flex items-center gap-2">
             <Wallet className="h-4 w-4 text-[#46433D]" aria-hidden="true" />
@@ -47,7 +47,7 @@ export function BookkeepingCashSummary({
               Section A — Cash Movement (Kas Masuk &amp; Kas Keluar Aktual)
             </h3>
           </div>
-          <p className="mt-0.5 text-xs text-[#666159]">
+          <p className="mt-0.5 hidden text-xs text-[#666159] sm:block">
             Hanya menampilkan penerimaan kas aktual dan pengeluaran kas yang sudah benar-benar
             dibayarkan pada periode{' '}
             <strong className="text-[#151515]">{periodBounds?.periodLabel}</strong>. Utang komisi
@@ -62,7 +62,7 @@ export function BookkeepingCashSummary({
       </div>
 
       {/* Period Cash Flow Strip */}
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
         <AdminMetricCard
           compactMobile
           tone="lime"
@@ -86,6 +86,7 @@ export function BookkeepingCashSummary({
           label="Net Cash Movement"
           value={formatBookkeepingRupiah(metrics.netCashMovement, { showPositiveSign: true })}
           hint="Cash In − Cash Out pada periode aktif"
+          className="col-span-2 sm:col-span-1"
         />
       </div>
 

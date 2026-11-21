@@ -230,7 +230,7 @@ export function AdminCalendarPage() {
   };
 
   return (
-    <div data-calendar-scoped="true" className="relative isolate z-0 space-y-4 sm:space-y-5">
+    <div data-calendar-scoped="true" className="relative isolate z-0 space-y-3 sm:space-y-4">
       {/* Operational Feedback Banner */}
       {statusFeedback ? (
         <div

@@ -19,10 +19,10 @@ export function CommissionOverviewMetrics({
     : periodLabel || 'Periode aktif';
 
   return (
-    <div className="mt-5 space-y-3.5 border-t border-[#151515]/[0.07] pt-5">
+    <div className="mt-3 space-y-2.5 border-t border-[#151515]/[0.07] pt-3 sm:mt-5 sm:space-y-3.5 sm:pt-5">
       <dl
         aria-label="Ringkasan Commission and Fee"
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4"
       >
         <AdminMetricCard
           label="Completed Sessions"
@@ -30,6 +30,7 @@ export function CommissionOverviewMetrics({
           hint={`Sesi selesai siap posting (${scopeNote})`}
           icon={CalendarCheck2}
           tone="neutral"
+          compactMobile
         />
 
         <AdminMetricCard
@@ -38,6 +39,7 @@ export function CommissionOverviewMetrics({
           hint="Staff / penjaga studio"
           icon={UsersRound}
           tone="neutral"
+          compactMobile
         />
 
         <AdminMetricCard
@@ -46,6 +48,7 @@ export function CommissionOverviewMetrics({
           hint="Recording Operator / External PIC"
           icon={Mic2}
           tone="neutral"
+          compactMobile
         />
 
         <AdminMetricCard
@@ -54,18 +57,19 @@ export function CommissionOverviewMetrics({
           hint="Total dibayar ke Staff & Operator"
           icon={Banknote}
           tone="lime"
+          compactMobile
         />
       </dl>
 
       {/* Separate Reference-Only Owner Allocation Strip */}
-      <div className="sa-panel-ivory flex flex-col gap-2 px-3.5 py-2.5 text-xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="sa-panel-ivory flex flex-col gap-1.5 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:px-3.5 sm:py-2.5">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           <Info className="h-3.5 w-3.5 shrink-0 text-[#666159]" aria-hidden="true" />
           <span className="font-semibold text-[#151515]">Owner Allocation:</span>
           <AdminStatusBadge tone="neutral" className="font-mono font-bold tabular-nums">
             {formatRupiah(metrics.ownerAllocationReferenceTotal)}
           </AdminStatusBadge>
-          <span className="text-[11px] text-[#666159]">
+          <span className="hidden text-[11px] text-[#666159] sm:inline">
             (Referensi internal saja — tidak masuk Total To Pay &amp; tidak diposting sebagai hutang
             biaya)
           </span>

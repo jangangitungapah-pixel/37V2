@@ -24,9 +24,9 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
   };
 
   return (
-    <footer className="bg-studio-ink text-studio-ivory pt-12 pb-8 sm:pt-16">
+    <footer className="bg-studio-ink text-studio-ivory pt-8 pb-6 sm:pt-16 sm:pb-8">
       <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-10 pb-10 sm:grid-cols-2 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-6 pb-6 sm:grid-cols-2 sm:gap-10 sm:pb-10 lg:grid-cols-12">
           {/* Column 1: Brand Lockup & Social Icons */}
           <div className="lg:col-span-4">
             <div className="flex items-center gap-2.5">
@@ -38,11 +38,11 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
               </span>
             </div>
 
-            <p className="mt-3 max-w-xs text-xs leading-relaxed text-neutral-300 sm:text-sm">
+            <p className="mt-3 hidden max-w-xs text-xs leading-relaxed text-neutral-300 sm:block sm:text-sm">
               {footer.description}
             </p>
 
-            <div className="mt-5 flex flex-wrap items-center gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-5">
               {footer.socialLinks.map((social) => {
                 const confirmedHref = resolveSocialHref(social);
 
@@ -98,7 +98,7 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
             </h2>
             <p className="mt-3 text-xs leading-relaxed text-neutral-300">{visitAddress}</p>
 
-            <ul className="mt-3 space-y-0 text-xs font-semibold">
+            <ul className="mt-3 hidden space-y-0 text-xs font-semibold sm:block">
               {navLinks.map((link) => (
                 <li key={link.href}>
                   <a
@@ -148,9 +148,9 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
         </div>
 
         {/* Lower Divider & Copyright Row */}
-        <div className="flex flex-col items-start justify-between gap-2 border-t border-neutral-800 pt-6 font-mono text-[11px] text-neutral-400 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-start justify-between gap-2 border-t border-neutral-800 pt-5 font-mono text-[11px] text-neutral-400 sm:flex-row sm:items-center sm:pt-6">
           <p>{footer.copyright}</p>
-          <p>{footer.phaseNote}</p>
+          <p className="hidden sm:block">{footer.phaseNote}</p>
         </div>
       </div>
     </footer>

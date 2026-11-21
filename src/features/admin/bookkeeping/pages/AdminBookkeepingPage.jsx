@@ -366,7 +366,7 @@ export function AdminBookkeepingPage() {
   }, [detailItem, entries]);
 
   return (
-    <div data-bookkeeping-scoped="true" className="space-y-4 sm:space-y-5">
+    <div data-bookkeeping-scoped="true" className="space-y-3 sm:space-y-5">
       <AdminPageHeader
         compactMobile
         eyebrow="FINANCIAL CONTROL CENTER"
@@ -389,14 +389,14 @@ export function AdminBookkeepingPage() {
             <div ref={newEntryMenuRef} className="relative">
               <AdminButton
                 variant="orange"
-                size="sm"
+                size="xs"
                 onClick={() => setNewEntryMenuOpen((prev) => !prev)}
                 aria-expanded={newEntryMenuOpen}
                 aria-haspopup="menu"
                 aria-label="Tambah catatan pembukuan baru"
-                className="min-h-10 gap-1.5"
+                className="min-h-9 gap-1 px-2.5 sm:min-h-10 sm:gap-1.5 sm:px-3.5"
               >
-                <Plus className="h-4 w-4" aria-hidden="true" />
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
                 <span>New Entry</span>
                 <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
               </AdminButton>
@@ -487,8 +487,8 @@ export function AdminBookkeepingPage() {
           ) : null}
 
           {activeTab === BOOKKEEPING_TABS.OVERVIEW ? (
-            <div className="space-y-4 sm:space-y-5">
-              <AdminSurface variant="card" className="p-3.5 sm:p-5">
+            <div className="space-y-3 sm:space-y-5">
+              <AdminSurface variant="card" className="p-3 sm:p-5">
                 <BookkeepingPeriodFilter
                   preset={preset}
                   onPresetChange={setPreset}
@@ -542,8 +542,8 @@ export function AdminBookkeepingPage() {
           ) : null}
 
           {activeTab === BOOKKEEPING_TABS.CASH_SETTLEMENT ? (
-            <div className="space-y-4 sm:space-y-5">
-              <AdminSurface variant="card" className="p-3.5 sm:p-5">
+            <div className="space-y-3 sm:space-y-5">
+              <AdminSurface variant="card" className="p-3 sm:p-5">
                 <BookkeepingPeriodFilter
                   preset={preset}
                   onPresetChange={setPreset}

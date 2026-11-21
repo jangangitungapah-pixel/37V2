@@ -1,4 +1,5 @@
-import { ArrowLeftRight, ReceiptText, RotateCcw, Search, X } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeftRight, ReceiptText, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
 
 import {
   getPaymentMethodLabel,
@@ -36,18 +37,23 @@ export function PaymentTransactionList({
   hasMore = false,
   onLoadMore,
 }) {
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const secondaryFilterCount =
+    (paymentMethod !== 'all' ? 1 : 0) + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Transactions Filter Bar */}
       <AdminSurface
         as="section"
         variant="card"
         aria-label="Filter dan pencarian transaksi pembayaran"
-        className="space-y-3.5 p-4 sm:p-5"
+        className="space-y-2.5 p-3 sm:space-y-3.5 sm:p-5"
       >
-        <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between">
-          <div className="min-w-0">
-            <div className="mb-1.5 flex min-h-5 items-center justify-between gap-2">
+        <div className="flex flex-col gap-2.5 sm:gap-3 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between">
+          <div className="order-2 min-w-0 xl:order-1">
+            <div className="mb-1.5 hidden min-h-5 items-center justify-between gap-2 sm:flex">
               <span className="flex items-center gap-1.5 text-xs font-medium text-[#666159]">
                 <ArrowLeftRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>Jenis Transaksi</span>
@@ -72,8 +78,8 @@ export function PaymentTransactionList({
                     aria-pressed={isSelected}
                     className={
                       isSelected
-                        ? 'inline-flex min-h-9 w-full cursor-pointer items-center justify-center rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-9.5 sm:w-auto sm:px-3.5'
-                        : 'inline-flex min-h-9 w-full cursor-pointer items-center justify-center rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:min-h-9.5 sm:w-auto sm:px-3.5'
+                        ? 'inline-flex min-h-8.5 w-full cursor-pointer items-center justify-center rounded-[10px] bg-white px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-9.5 sm:w-auto sm:px-3.5 sm:py-1.5'
+                        : 'inline-flex min-h-8.5 w-full cursor-pointer items-center justify-center rounded-[10px] px-2.5 py-1 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:min-h-9.5 sm:w-auto sm:px-3.5 sm:py-1.5'
                     }
                   >
                     {opt.label}
@@ -83,7 +89,7 @@ export function PaymentTransactionList({
             </div>
           </div>
 
-          <div className="flex w-full min-w-0 flex-col xl:min-w-[320px] xl:flex-1">
+          <div className="order-1 flex w-full min-w-0 flex-col xl:order-2 xl:min-w-[320px] xl:flex-1">
             <div className="mb-1.5 hidden min-h-5 items-center justify-end gap-2 text-xs xl:flex">
               <span className="text-[#666159]">Hasil Tampil:</span>
               <AdminStatusBadge tone="ivory" size="sm" className="font-mono font-semibold">
@@ -91,35 +97,54 @@ export function PaymentTransactionList({
               </AdminStatusBadge>
             </div>
 
-            <div className="relative w-full min-w-0">
-              <Search
-                className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#8B857B]"
-                aria-hidden="true"
-              />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(event) => onSearchQueryChange(event.target.value)}
-                aria-label="Cari ID transaksi, no. invoice, pelanggan, atau referensi"
-                placeholder="Cari ID transaksi, no. invoice, pelanggan, atau ref..."
-                className="sa-input h-10 w-full py-2 pr-9 pl-9.5 text-xs font-medium sm:text-[13px]"
-              />
-              {searchQuery ? (
-                <button
-                  type="button"
-                  onClick={() => onSearchQueryChange('')}
-                  aria-label="Bersihkan pencarian transaksi"
-                  className="absolute top-1/2 right-1.5 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
-                >
-                  <X className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              ) : null}
+            <div className="flex w-full items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#8B857B]"
+                  aria-hidden="true"
+                />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => onSearchQueryChange(event.target.value)}
+                  aria-label="Cari ID transaksi, no. invoice, pelanggan, atau referensi"
+                  placeholder="Cari ID transaksi, no. invoice, pelanggan, atau ref..."
+                  className="sa-input h-9.5 w-full py-2 pr-9 pl-9.5 text-xs font-medium sm:h-10 sm:text-[13px]"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => onSearchQueryChange('')}
+                    aria-label="Bersihkan pencarian transaksi"
+                    className="absolute top-1/2 right-1.5 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                aria-expanded={mobileFiltersOpen}
+                onClick={() => setMobileFiltersOpen((prev) => !prev)}
+                className="sa-control sa-btn-secondary inline-flex h-9.5 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 text-xs font-semibold sm:hidden"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Filter</span>
+                {secondaryFilterCount > 0 ? (
+                  <span className="rounded-full bg-[#151515] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#C8F13A]">
+                    {secondaryFilterCount}
+                  </span>
+                ) : null}
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Method + Date Range */}
-        <div className="grid grid-cols-1 gap-2.5 border-t border-[#151515]/[0.07] pt-3.5 min-[320px]:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
+        {/* Method + Date Range (Collapsed on Mobile by Default) */}
+        <div
+          className={`${mobileFiltersOpen ? 'grid' : 'hidden sm:grid'} grid-cols-1 gap-2.5 border-t border-[#151515]/[0.07] pt-3 min-[320px]:grid-cols-2 sm:pt-3.5 lg:flex lg:flex-wrap lg:items-end`}
+        >
           <div className="min-w-0 min-[320px]:col-span-2 lg:col-span-1 lg:w-44">
             <label
               htmlFor="tx-method-filter"
@@ -253,13 +278,13 @@ export function PaymentTransactionList({
                 return (
                   <tr
                     key={tx.id}
-                    className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1.5 px-3.5 py-3 transition-colors md:table-row md:p-0 ${rowBgClass}`}
+                    className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 px-3 py-2.5 transition-colors md:table-row md:p-0 ${rowBgClass}`}
                   >
                     <td className="col-start-1 row-start-1 min-w-0 md:table-cell md:px-3.5 md:py-3 md:align-middle">
                       <p className="font-mono text-xs font-semibold whitespace-nowrap text-[#151515]">
                         {formatIndonesianTimestamp(tx.receivedAt || tx.createdAt)}
                       </p>
-                      <p className="mt-0.5 truncate font-mono text-[10px] text-[#8B857B] md:break-all md:whitespace-normal">
+                      <p className="mt-0.5 hidden truncate font-mono text-[10px] text-[#8B857B] sm:block md:break-all md:whitespace-normal">
                         {tx.id}
                       </p>
                     </td>

@@ -308,32 +308,32 @@ export function AdminPaymentAndBillPage() {
   const activeError = activeTab === 'transactions' ? transactionsError : invoicesError;
 
   return (
-    <div data-payment-scoped="true" className="relative isolate z-0 space-y-4 sm:space-y-6">
+    <div data-payment-scoped="true" className="relative isolate z-0 space-y-3 sm:space-y-5">
       {/* Page Header, Primary Tab Switcher & Compact Overview Metrics */}
       <AdminSurface
         as="section"
         variant="hero"
         aria-labelledby="payment-page-heading"
-        className="p-4 sm:p-6"
+        className="p-3.5 sm:p-6"
       >
-        <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2.5 sm:gap-3.5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden flex-wrap items-center gap-2 sm:flex">
               <AdminStatusBadge tone="ink" icon={ReceiptText} size="sm" className="uppercase">
                 Tagihan &amp; Pembayaran Studio
               </AdminStatusBadge>
-              <AdminStatusBadge tone="ivory" size="sm" className="hidden sm:inline-flex">
+              <AdminStatusBadge tone="ivory" size="sm">
                 1 Booking • 1 Invoice
               </AdminStatusBadge>
             </div>
 
             <h2
               id="payment-page-heading"
-              className="mt-2.5 truncate text-xl font-bold tracking-[-0.025em] text-[#151515] sm:text-2xl lg:text-[28px]"
+              className="truncate text-lg font-bold tracking-[-0.025em] text-[#151515] sm:mt-2.5 sm:text-2xl lg:text-[28px]"
             >
               Payment and Bill
             </h2>
-            <p className="mt-1 text-xs leading-relaxed text-[#666159] sm:text-sm">
+            <p className="mt-1 hidden text-xs leading-relaxed text-[#666159] sm:block sm:text-sm">
               Kelola tagihan, pembayaran DP atau cicilan, dan sisa tagihan pelanggan.
             </p>
           </div>

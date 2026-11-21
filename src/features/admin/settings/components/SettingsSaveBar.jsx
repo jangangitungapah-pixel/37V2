@@ -24,7 +24,7 @@ export function SettingsSaveBar({
     <div
       role="region"
       aria-label="Kontrol penyimpanan Price and Fee Settings"
-      className="sticky bottom-3 z-10 rounded-2xl border border-[#151515]/12 bg-white/92 p-3.5 shadow-[0_14px_34px_-10px_rgba(21,21,21,0.16)] backdrop-blur-md sm:p-4"
+      className="sticky bottom-2 z-10 rounded-2xl border border-[#151515]/12 bg-white/92 p-2.5 shadow-[0_14px_34px_-10px_rgba(21,21,21,0.16)] backdrop-blur-md sm:bottom-3 sm:p-4"
     >
       {hasRemoteVersionConflict ? (
         <div
@@ -85,7 +85,7 @@ export function SettingsSaveBar({
             </AdminStatusBadge>
           )}
 
-          <p className="text-xs text-[#666159]">
+          <p className="hidden text-xs text-[#666159] sm:block">
             {readOnly
               ? 'Mode Baca Saja (Staff/Operator). Perubahan tarif hanya dapat disimpan oleh Owner.'
               : isDirty

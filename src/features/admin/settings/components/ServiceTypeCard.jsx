@@ -35,9 +35,9 @@ export function ServiceTypeCard({
       className={`overflow-hidden ${serviceType.isActive ? '' : 'opacity-80'}`}
     >
       {/* Card Header */}
-      <div className="flex flex-col gap-3 border-b border-[#151515]/[0.07] bg-[#FAF8F3]/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <div className="flex flex-col gap-2.5 border-b border-[#151515]/[0.07] bg-[#FAF8F3]/80 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-5">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <AdminStatusBadge tone={isStudio ? 'lime' : 'ink'} size="sm" className="font-mono">
               {isStudio ? 'STUDIO' : 'WFA'}
             </AdminStatusBadge>
@@ -48,13 +48,15 @@ export function ServiceTypeCard({
 
           <h3
             id={`service-card-heading-${serviceType.id}`}
-            className="mt-2.5 text-lg font-bold tracking-tight text-[#151515] sm:text-xl"
+            className="mt-2 text-base font-bold tracking-tight text-[#151515] sm:mt-2.5 sm:text-xl"
           >
             {serviceType.name}
           </h3>
 
           {serviceType.description ? (
-            <p className="mt-1 text-xs leading-relaxed text-[#666159]">{serviceType.description}</p>
+            <p className="mt-1 hidden text-xs leading-relaxed text-[#666159] sm:block">
+              {serviceType.description}
+            </p>
           ) : null}
         </div>
 
@@ -107,7 +109,7 @@ export function ServiceTypeCard({
 
       {/* Collapsible Subcategory Body */}
       {isExpanded ? (
-        <div className="space-y-3.5 p-4 sm:p-5">
+        <div className="space-y-3 p-3 sm:space-y-3.5 sm:p-5">
           <ServiceOptionList
             options={options}
             readOnly={readOnly}

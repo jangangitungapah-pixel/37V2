@@ -17,7 +17,7 @@ export function AdminModulePlaceholderPage({ moduleId }) {
         aria-labelledby="module-placeholder-heading"
         className="p-4 sm:p-7 lg:p-9"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="hidden flex-wrap items-center justify-between gap-2 sm:flex">
           <AdminStatusBadge tone="lime" icon={CheckCircle2}>
             SEGERA HADIR
           </AdminStatusBadge>
@@ -27,18 +27,18 @@ export function AdminModulePlaceholderPage({ moduleId }) {
           </AdminStatusBadge>
         </div>
 
-        <div className="mt-5 flex flex-col items-start gap-3.5 sm:mt-6 sm:flex-row sm:items-center sm:gap-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#151515]/10 bg-[#F8F6EF] text-[#151515] shadow-[0_6px_16px_-6px_rgba(21,21,21,0.1)] sm:h-14 sm:w-14">
-            <IconComponent className="h-6 w-6 stroke-[1.8] sm:h-7 sm:w-7" aria-hidden="true" />
+        <div className="mt-0 flex flex-col items-start gap-3 sm:mt-6 sm:flex-row sm:items-center sm:gap-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#151515]/10 bg-[#F8F6EF] text-[#151515] shadow-[0_6px_16px_-6px_rgba(21,21,21,0.1)] sm:h-14 sm:w-14">
+            <IconComponent className="h-5 w-5 stroke-[1.8] sm:h-7 sm:w-7" aria-hidden="true" />
           </span>
 
           <div>
-            <p className="font-mono text-[11px] font-semibold tracking-wider text-[#666159] uppercase">
+            <p className="hidden font-mono text-[11px] font-semibold tracking-wider text-[#666159] uppercase sm:block">
               MENU {moduleItem.order} • DALAM PERSIAPAN
             </p>
             <h2
               id="module-placeholder-heading"
-              className="mt-1 text-2xl font-bold tracking-[-0.025em] text-[#151515] sm:text-3xl lg:text-4xl"
+              className="mt-0.5 text-xl font-bold tracking-[-0.025em] text-[#151515] sm:mt-1 sm:text-3xl lg:text-4xl"
             >
               {moduleItem.label}
             </h2>
@@ -85,7 +85,7 @@ export function AdminModulePlaceholderPage({ moduleId }) {
             <span>Kembali ke Dashboard</span>
           </Link>
 
-          <span className="text-xs text-[#666159]">
+          <span className="hidden text-xs text-[#666159] sm:inline">
             Belum ada catatan transaksi yang aktif di menu ini.
           </span>
         </div>

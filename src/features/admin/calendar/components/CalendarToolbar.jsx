@@ -30,11 +30,11 @@ export function CalendarToolbar({
   };
 
   return (
-    <section aria-label="Kontrol jadwal kalender studio" className="sa-card-hero p-4 sm:p-6">
+    <section aria-label="Kontrol jadwal kalender studio" className="sa-card-hero p-3 sm:p-5">
       {/* Top Row: Studio Context Badges + Active Period Heading + Primary New Booking CTA */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex flex-row items-center justify-between gap-2.5 sm:gap-4">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <div className="hidden flex-wrap items-center gap-1.5 sm:flex sm:gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[#8BAD12]/35 bg-[#EDF8C2] px-2.5 py-0.5 text-[11px] font-medium text-[#243300]">
               <CalendarDays className="h-3 w-3 shrink-0" aria-hidden="true" />
               <span>Jadwal Studio</span>
@@ -46,7 +46,7 @@ export function CalendarToolbar({
             </span>
           </div>
 
-          <h2 className="text-studio-ink mt-2 truncate text-xl font-bold tracking-tight sm:text-2xl">
+          <h2 className="text-studio-ink truncate text-lg font-bold tracking-tight sm:mt-2 sm:text-2xl">
             {periodLabel}
           </h2>
           <p className="mt-1 hidden text-sm text-[#46433D] sm:block">
@@ -60,15 +60,17 @@ export function CalendarToolbar({
           type="button"
           onClick={() => onOpenNewBooking()}
           aria-label="New Booking"
-          className="sa-control sa-btn-orange inline-flex min-h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold sm:min-h-10.5 sm:w-auto sm:px-5 sm:text-sm"
+          className="sa-control sa-btn-orange inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold sm:min-h-10.5 sm:gap-2 sm:px-5 sm:py-2 sm:text-sm"
         >
           <Plus className="h-4 w-4 stroke-[2.25]" aria-hidden="true" />
-          <span>Booking Baru</span>
+          <span>
+            Booking<span className="hidden sm:inline"> Baru</span>
+          </span>
         </button>
       </div>
 
       {/* Bottom Controls Bar: Prev/Today/Next + Date Picker + Symmetric View Switcher */}
-      <div className="mt-4 flex flex-col gap-2.5 border-t border-[#151515]/8 pt-3.5 sm:gap-3 sm:pt-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mt-3 flex flex-col gap-2 border-t border-[#151515]/8 pt-3 sm:mt-4 sm:gap-3 sm:pt-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="grid grid-cols-1 gap-2 min-[340px]:grid-cols-[auto_minmax(0,1fr)] min-[340px]:items-center sm:flex sm:items-center sm:gap-2">
           <div className="inline-flex items-center gap-1.5">
             <button

@@ -42,7 +42,7 @@ const TONE_MAP = {
   },
   ink: {
     container:
-      'bg-[radial-gradient(16rem_10rem_at_100%_0%,rgba(200,241,58,0.12),transparent_70%),#151515] border-white/10 text-white',
+      'bg-[#151515] bg-[radial-gradient(16rem_10rem_at_100%_0%,rgba(200,241,58,0.12),transparent_70%)] border-white/10 text-white',
     iconWrap: 'bg-white/10 text-[#C8F13A]',
     value: 'text-white',
     label: 'text-neutral-300',
@@ -60,6 +60,7 @@ export function AdminMetricCard({
   icon: Icon,
   tone = 'neutral',
   compactMobile = false,
+  hideIconOnMobile = false,
   className = '',
   children,
 }) {
@@ -87,7 +88,8 @@ export function AdminMetricCard({
         {Icon ? (
           <span
             className={cn(
-              'inline-flex shrink-0 items-center justify-center rounded-lg',
+              hideIconOnMobile ? 'hidden sm:inline-flex' : 'inline-flex',
+              'shrink-0 items-center justify-center rounded-lg',
               compactMobile ? 'h-6 w-6 sm:h-7 sm:w-7' : 'h-7 w-7',
               styles.iconWrap,
             )}
@@ -103,7 +105,9 @@ export function AdminMetricCard({
       <p
         className={cn(
           'font-mono font-bold tracking-tight tabular-nums',
-          compactMobile ? 'mt-1 text-base sm:mt-2 sm:text-xl' : 'mt-2 text-lg sm:text-xl',
+          compactMobile
+            ? 'mt-1 text-base min-[375px]:text-[17px] sm:mt-2 sm:text-xl'
+            : 'mt-2 text-lg sm:text-xl',
           styles.value,
         )}
       >

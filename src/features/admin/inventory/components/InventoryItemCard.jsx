@@ -83,7 +83,7 @@ export function InventoryItemCard({ item, onSelectItem, onQuickMovement }) {
           <button
             type="button"
             onClick={() => onQuickMovement?.(item)}
-            className="sa-control sa-btn-lime inline-flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+            className="sa-control sa-btn-lime inline-flex min-h-8.5 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3 py-1 text-xs font-semibold sm:min-h-9 sm:py-1.5"
           >
             <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Catat</span>
@@ -93,7 +93,7 @@ export function InventoryItemCard({ item, onSelectItem, onQuickMovement }) {
         <button
           type="button"
           onClick={() => onSelectItem?.(item)}
-          className="sa-control sa-btn-primary inline-flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold"
+          className="sa-control sa-btn-primary inline-flex min-h-8.5 flex-1 cursor-pointer items-center justify-center gap-1 px-3 py-1 text-xs font-semibold sm:min-h-9 sm:py-1.5"
         >
           <span>Detail</span>
           <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />

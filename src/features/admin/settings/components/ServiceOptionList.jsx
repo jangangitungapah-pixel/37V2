@@ -60,13 +60,13 @@ export function ServiceOptionList({
         return (
           <article
             key={option.id}
-            className={`rounded-xl border border-[#151515]/[0.085] p-3.5 transition-colors sm:p-4 ${
+            className={`rounded-xl border border-[#151515]/[0.085] p-3 transition-colors sm:p-4 ${
               option.isActive && !isUnconfigured
                 ? 'bg-white shadow-[0_1px_2px_rgba(21,21,21,0.03)]'
                 : 'bg-[#F8F6EF]/70 opacity-85'
             }`}
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h4 className="text-[15px] font-semibold tracking-tight text-[#151515]">
@@ -88,7 +88,7 @@ export function ServiceOptionList({
                 </div>
 
                 {option.description ? (
-                  <p className="mt-1 text-xs leading-relaxed text-[#666159]">
+                  <p className="mt-1 hidden text-xs leading-relaxed text-[#666159] sm:block">
                     {option.description}
                   </p>
                 ) : null}

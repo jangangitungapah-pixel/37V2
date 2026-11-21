@@ -49,24 +49,24 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
       <section
         id="contact"
         aria-labelledby="contact-heading"
-        className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-12 sm:py-16 lg:py-20"
+        className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-8 sm:py-16 lg:py-20"
       >
         <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-7 lg:grid-cols-12">
+          <div className="grid grid-cols-1 gap-5 sm:gap-7 lg:grid-cols-12">
             {/* Left Panel: Acid-Lime Testimonials Surface */}
-            <div className="brutal-card-lg bg-studio-lime text-studio-ink flex flex-col justify-between p-5 sm:p-8 lg:col-span-7">
+            <div className="brutal-card-lg bg-studio-lime text-studio-ink flex flex-col justify-between p-4 sm:p-8 lg:col-span-7">
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-mono text-[11px] font-extrabold tracking-wider uppercase">
                     {testimonials.eyebrow}
                   </span>
-                  <span className="border-studio-ink bg-studio-white border px-2 py-0.5 font-mono text-[10px] font-bold uppercase">
+                  <span className="border-studio-ink bg-studio-white hidden border px-2 py-0.5 font-mono text-[10px] font-bold uppercase sm:inline-block">
                     {testimonials.isVerified ? 'VERIFIED QUOTES' : 'DEMO PREVIEW'}
                   </span>
                 </div>
 
-                <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-                  {testimonials.items.map((item) => {
+                <div className="mt-3.5 grid grid-cols-1 gap-4 sm:mt-5 sm:gap-5 md:grid-cols-2">
+                  {testimonials.items.map((item, itemIndex) => {
                     const showVerifiedRating =
                       testimonials.isVerified &&
                       typeof item.rating === 'number' &&
@@ -76,10 +76,10 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
                     return (
                       <article
                         key={item.id}
-                        className="brutal-card bg-studio-white flex flex-col justify-between p-5"
+                        className={`brutal-card bg-studio-white ${itemIndex > 0 ? 'hidden md:flex' : 'flex'} flex-col justify-between p-3.5 sm:p-5`}
                       >
                         <div>
-                          <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="hidden flex-wrap items-center justify-between gap-2 sm:flex">
                             {showVerifiedRating ? (
                               <div
                                 className="text-studio-ink flex items-center gap-0.5"
@@ -104,12 +104,12 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
                             </span>
                           </div>
 
-                          <p className="text-studio-ink mt-3.5 text-sm leading-relaxed font-medium">
+                          <p className="text-studio-ink text-sm leading-relaxed font-medium sm:mt-3.5">
                             {item.quote}
                           </p>
                         </div>
 
-                        <div className="mt-4 flex items-center gap-2.5 border-t border-neutral-200 pt-3">
+                        <div className="mt-3 flex items-center gap-2.5 border-t border-neutral-200 pt-2.5 sm:mt-4 sm:pt-3">
                           <span
                             className="border-studio-ink bg-studio-ivory flex h-8 w-8 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-extrabold"
                             aria-hidden="true"
@@ -130,16 +130,16 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
               </div>
 
               {!testimonials.isVerified && testimonials.demoNotice ? (
-                <p className="border-studio-ink bg-studio-white/85 mt-6 border px-3.5 py-2.5 font-mono text-[11px] font-semibold">
+                <p className="border-studio-ink bg-studio-white/85 mt-6 hidden border px-3.5 py-2.5 font-mono text-[11px] font-semibold sm:block">
                   {testimonials.demoNotice}
                 </p>
               ) : null}
             </div>
 
             {/* Right Panel: White Location & Contact Card */}
-            <div className="brutal-card-lg bg-studio-white text-studio-ink flex flex-col justify-between p-5 sm:p-8 lg:col-span-5">
+            <div className="brutal-card-lg bg-studio-white text-studio-ink flex flex-col justify-between p-4 sm:p-8 lg:col-span-5">
               <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="hidden flex-wrap items-center justify-between gap-2 sm:flex">
                   <span className="text-studio-muted-ink font-mono text-[11px] font-bold tracking-wider uppercase">
                     {contact.eyebrow}
                   </span>
@@ -154,12 +154,12 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
 
                 <h2
                   id="contact-heading"
-                  className="font-display text-studio-ink mt-2 text-3xl leading-none font-black tracking-tight uppercase sm:text-4xl"
+                  className="font-display text-studio-ink mt-0 text-3xl leading-none font-black tracking-tight uppercase sm:mt-2 sm:text-4xl"
                 >
                   {contact.heading}
                 </h2>
 
-                <ul className="mt-4 space-y-2.5 text-xs sm:text-sm">
+                <ul className="mt-3 space-y-2 text-xs sm:mt-4 sm:space-y-2.5 sm:text-sm">
                   <li className="flex items-start gap-2.5">
                     <MapPin
                       className="text-studio-error-ink mt-0.5 h-4 w-4 shrink-0"
@@ -184,7 +184,7 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
                 </ul>
 
                 {/* Architectural Preview Image */}
-                <div className="border-studio-ink relative mt-5 overflow-hidden border-2">
+                <div className="border-studio-ink relative mt-5 hidden overflow-hidden border-2 sm:block">
                   {contact.image.isDemoAsset ? (
                     <span className="border-studio-ink bg-studio-white/95 text-studio-ink absolute top-2.5 right-2.5 z-10 border px-2 py-0.5 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0px_#151515]">
                       DEMO ASSET
@@ -200,7 +200,7 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
                 </div>
               </div>
 
-              <div className="mt-5">
+              <div className="mt-4 sm:mt-5">
                 {mapsHref ? (
                   <a
                     href={mapsHref}
@@ -240,26 +240,26 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
       {/* Section 10 — Full-Width Signal-Orange Final CTA Panel */}
       <section
         aria-labelledby="final-cta-heading"
-        className="border-studio-ink bg-studio-ivory border-b-2 py-12 sm:py-16"
+        className="border-studio-ink bg-studio-ivory border-b-2 py-8 sm:py-16"
       >
         <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
-          <div className="brutal-card-lg bg-studio-orange text-studio-white px-5 py-10 text-center sm:px-10 sm:py-14">
-            <span className="border-studio-ink bg-studio-ink text-studio-white inline-block border px-3 py-1 font-mono text-[10px] font-bold tracking-wider uppercase">
+          <div className="brutal-card-lg bg-studio-orange text-studio-white px-4 py-7 text-center sm:px-10 sm:py-14">
+            <span className="border-studio-ink bg-studio-ink text-studio-white hidden border px-3 py-1 font-mono text-[10px] font-bold tracking-wider uppercase sm:inline-block">
               {finalCta.eyebrow}
             </span>
 
             <h2
               id="final-cta-heading"
-              className="font-display text-studio-white mx-auto mt-4 max-w-4xl text-4xl leading-[0.95] font-black tracking-tight uppercase sm:text-6xl lg:text-7xl"
+              className="font-display text-studio-white mx-auto mt-0 max-w-4xl text-3xl leading-[0.95] font-black tracking-tight uppercase sm:mt-4 sm:text-6xl lg:text-7xl"
             >
               {finalCta.headline}
             </h2>
 
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed font-medium text-white/95 sm:text-base">
+            <p className="mx-auto mt-4 hidden max-w-xl text-sm leading-relaxed font-medium text-white/95 sm:block sm:text-base">
               {finalCta.description}
             </p>
 
-            <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="mt-5 flex flex-col items-center justify-center gap-2.5 sm:mt-7 sm:flex-row sm:gap-3">
               <a
                 href={finalCta.primaryCta.href}
                 onClick={(event) => {

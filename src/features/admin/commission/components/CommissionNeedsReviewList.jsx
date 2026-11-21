@@ -35,7 +35,7 @@ export function CommissionNeedsReviewList({
       className="overflow-hidden rounded-2xl border border-amber-500/25 bg-[#FEF4DD]/80 shadow-[0_1px_2px_rgba(21,21,21,0.03)]"
     >
       {/* Compact Collapsible Summary Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3 py-2.5 sm:px-4 sm:py-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-[#B92B0C]">
             <AlertTriangle className="h-4 w-4" aria-hidden="true" />
@@ -44,7 +44,7 @@ export function CommissionNeedsReviewList({
             <h2 className="text-xs font-semibold text-[#8A4B08] sm:text-sm">
               Needs Review ({items.length})
             </h2>
-            <p className="truncate text-[11px] text-[#8A4B08]/85">
+            <p className="hidden truncate text-[11px] text-[#8A4B08]/85 sm:block">
               Sesi lama belum memiliki catatan komisi • Klik Lihat untuk cek detail atau tandai
               selesai
             </p>

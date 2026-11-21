@@ -20,6 +20,7 @@ const ACTIVE_MODULE_IDS = new Set([
   'payment-and-bill',
   'commission-and-fee',
   'inventory',
+  'pembukuan',
   'settings',
 ]);
 
@@ -34,15 +35,15 @@ export function AdminDashboardPage() {
   const moduleShortcuts = ADMIN_NAVIGATION_ITEMS.filter((item) => item.id !== 'dashboard');
 
   return (
-    <div className="space-y-5 sm:space-y-7">
+    <div className="space-y-3.5 sm:space-y-6">
       {/* Primary Welcome & Identity Panel */}
       <AdminSurface
         as="section"
         variant="hero"
         aria-labelledby="dashboard-welcome-heading"
-        className="p-4 sm:p-7 lg:p-8"
+        className="p-3.5 sm:p-7 lg:p-8"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="hidden flex-wrap items-center justify-between gap-2.5 sm:flex">
           <AdminStatusBadge tone="lime" dot>
             SISTEM AKTIF
           </AdminStatusBadge>
@@ -54,12 +55,16 @@ export function AdminDashboardPage() {
 
         <h2
           id="dashboard-welcome-heading"
-          className="mt-4 text-2xl font-bold tracking-[-0.03em] text-[#151515] sm:text-3xl lg:text-4xl"
+          className="text-xl font-bold tracking-[-0.03em] text-[#151515] sm:mt-4 sm:text-3xl lg:text-4xl"
         >
           Welcome back, {displayName}.
         </h2>
 
-        <p className="mt-2 max-w-2xl text-xs leading-relaxed text-[#666159] sm:text-sm">
+        {email ? (
+          <p className="mt-0.5 truncate font-mono text-[11px] text-[#666159] sm:hidden">{email}</p>
+        ) : null}
+
+        <p className="mt-2 hidden max-w-2xl text-xs leading-relaxed text-[#666159] sm:block sm:text-sm">
           Selamat datang di panel manajemen 37 Music Studio. Pilih salah satu menu di bawah atau
           dari daftar navigasi di sebelah kiri untuk mulai mengelola jadwal, pelanggan, tagihan,
           komisi, dan tarif studio.
@@ -68,7 +73,7 @@ export function AdminDashboardPage() {
         {/* Verified Account Summary Row */}
         <dl
           aria-label="Ringkasan akun aktif"
-          className="sa-panel mt-5 grid grid-cols-1 gap-2.5 p-2.5 sm:mt-6 sm:grid-cols-3 sm:gap-3 sm:p-3.5"
+          className="sa-panel mt-5 hidden grid-cols-1 gap-2.5 p-2.5 sm:mt-6 sm:grid sm:grid-cols-3 sm:gap-3 sm:p-3.5"
         >
           <div className="sa-subcard p-3 sm:p-3.5">
             <dt className="flex items-center gap-1.5 text-[11px] font-medium text-[#666159]">
@@ -109,7 +114,7 @@ export function AdminDashboardPage() {
       </AdminSurface>
 
       {/* Module Workspace Directory */}
-      <section aria-labelledby="dashboard-modules-heading" className="space-y-3.5">
+      <section aria-labelledby="dashboard-modules-heading" className="space-y-2.5 sm:space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-[#151515]/[0.06] text-[#151515]">
@@ -122,18 +127,18 @@ export function AdminDashboardPage() {
               >
                 Menu Operasional Studio
               </h3>
-              <p className="text-[11px] text-[#666159] sm:text-xs">
+              <p className="hidden text-[11px] text-[#666159] sm:block sm:text-xs">
                 Akses cepat ke seluruh ruang kerja administrasi
               </p>
             </div>
           </div>
 
-          <span className="font-mono text-[11px] font-medium text-[#666159]">
+          <span className="hidden font-mono text-[11px] font-medium text-[#666159] sm:inline">
             {moduleShortcuts.length} Modul Terdaftar
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
           {moduleShortcuts.map((item) => {
             const IconComponent = item.icon;
             const isActiveModule = ACTIVE_MODULE_IDS.has(item.id);
@@ -142,39 +147,51 @@ export function AdminDashboardPage() {
               <Link
                 key={item.id}
                 to={item.href}
-                className="sa-card group flex flex-col justify-between p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/15 hover:shadow-[0_14px_30px_-10px_rgba(21,21,21,0.12)] sm:p-5"
+                className="sa-card group flex flex-col justify-between p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/15 hover:shadow-[0_14px_30px_-10px_rgba(21,21,21,0.12)] sm:p-5"
               >
                 <div>
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2 sm:gap-3">
                     <span
                       className={
                         isActiveModule
-                          ? 'inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#F6F3EB] text-[#151515] transition-colors group-hover:bg-[#C8F13A]'
-                          : 'inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#151515]/[0.04] text-[#666159]'
+                          ? 'inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#F6F3EB] text-[#151515] transition-colors group-hover:bg-[#C8F13A] sm:h-10 sm:w-10'
+                          : 'inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#151515]/[0.04] text-[#666159] sm:h-10 sm:w-10'
                       }
                     >
-                      <IconComponent className="h-5 w-5 stroke-[1.9]" aria-hidden="true" />
+                      <IconComponent
+                        className="h-4.5 w-4.5 stroke-[1.9] sm:h-5 sm:w-5"
+                        aria-hidden="true"
+                      />
                     </span>
 
-                    <AdminStatusBadge tone={isActiveModule ? 'lime' : 'neutral'} size="sm">
+                    <AdminStatusBadge
+                      tone={isActiveModule ? 'lime' : 'neutral'}
+                      size="sm"
+                      dot={isActiveModule}
+                      className="hidden sm:inline-flex"
+                    >
                       {isActiveModule ? 'Aktif' : 'Segera Hadir'}
                     </AdminStatusBadge>
+                    <span
+                      aria-hidden="true"
+                      className={`mt-1 h-2 w-2 rounded-full sm:hidden ${isActiveModule ? 'bg-[#8BAD12]' : 'bg-[#8B857B]/40'}`}
+                    />
                   </div>
 
-                  <div className="mt-3.5">
-                    <p className="font-mono text-[10.5px] font-medium text-[#8B857B]">
+                  <div className="mt-2.5 sm:mt-3.5">
+                    <p className="hidden font-mono text-[10.5px] font-medium text-[#8B857B] sm:block">
                       MENU {item.order}
                     </p>
-                    <h4 className="mt-0.5 text-base font-semibold tracking-tight text-[#151515]">
+                    <h4 className="text-[13px] leading-snug font-semibold tracking-tight text-[#151515] sm:mt-0.5 sm:text-base">
                       {item.label}
                     </h4>
-                    <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-[#666159]">
+                    <p className="mt-1.5 line-clamp-2 hidden text-xs leading-relaxed text-[#666159] sm:block">
                       {item.summary}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-[#151515]/[0.06] pt-3 text-xs font-semibold text-[#151515]">
+                <div className="mt-4 hidden items-center justify-between border-t border-[#151515]/[0.06] pt-3 text-xs font-semibold text-[#151515] sm:flex">
                   <span className="transition-colors group-hover:text-[#FF4B22]">
                     {isActiveModule ? 'Buka Ruang Kerja' : 'Lihat Rencana Modul'}
                   </span>
@@ -192,7 +209,7 @@ export function AdminDashboardPage() {
       {/* Bottom Spatial Dark Operational Banner */}
       <section
         aria-labelledby="shell-foundation-note-heading"
-        className="rounded-2xl border border-white/10 bg-[radial-gradient(28rem_16rem_at_100%_0%,rgba(200,241,58,0.13),transparent_70%),#151515] p-5 text-white shadow-[0_18px_40px_-14px_rgba(21,21,21,0.3)] sm:p-7"
+        className="hidden rounded-2xl border border-white/10 bg-[radial-gradient(28rem_16rem_at_100%_0%,rgba(200,241,58,0.13),transparent_70%),#151515] p-5 text-white shadow-[0_18px_40px_-14px_rgba(21,21,21,0.3)] sm:block sm:p-7"
       >
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
           <div className="max-w-2xl">

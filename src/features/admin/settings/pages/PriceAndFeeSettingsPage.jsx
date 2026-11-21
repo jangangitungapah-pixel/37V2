@@ -363,16 +363,16 @@ export function PriceAndFeeSettingsPage() {
     : null;
 
   return (
-    <div data-calendar-scoped="true" className="space-y-6 sm:space-y-7">
+    <div data-calendar-scoped="true" className="space-y-3.5 sm:space-y-7">
       {/* Header & Breadcrumb Card */}
       <AdminSurface
         as="section"
         variant="hero"
         aria-labelledby="price-and-fee-heading"
-        className="p-4 sm:p-6 lg:p-7"
+        className="p-3.5 sm:p-6 lg:p-7"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <nav aria-label="Settings breadcrumb">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+          <nav aria-label="Settings breadcrumb" className="hidden sm:block">
             <ol className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-[#666159]">
               <li>
                 <button
@@ -416,12 +416,12 @@ export function PriceAndFeeSettingsPage() {
 
         <h2
           id="price-and-fee-heading"
-          className="mt-4 text-2xl font-bold tracking-[-0.025em] text-[#151515] sm:text-3xl lg:text-4xl"
+          className="mt-2.5 text-xl font-bold tracking-[-0.025em] text-[#151515] sm:mt-4 sm:text-3xl lg:text-4xl"
         >
           Price and Fee Settings
         </h2>
 
-        <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-[#666159] sm:text-sm">
+        <p className="mt-1.5 hidden max-w-2xl text-xs leading-relaxed text-[#666159] sm:block sm:text-sm">
           Kelola daftar layanan, tarif sewa studio, diskon, dan komisi tim (Staff, Owner, Recording
           Operator).
         </p>
@@ -478,19 +478,24 @@ export function PriceAndFeeSettingsPage() {
       </AdminSurface>
 
       {/* GROUP 1: STUDIO SESSIONS */}
-      <section aria-labelledby="group-studio-sessions-heading" className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <section aria-labelledby="group-studio-sessions-heading" className="space-y-3 sm:space-y-4">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
           <div>
-            <AdminStatusBadge tone="lime" icon={Music2} size="sm" className="font-mono uppercase">
+            <AdminStatusBadge
+              tone="lime"
+              icon={Music2}
+              size="sm"
+              className="hidden font-mono uppercase sm:inline-flex"
+            >
               Studio Sessions
             </AdminStatusBadge>
             <h3
               id="group-studio-sessions-heading"
-              className="mt-2 text-lg font-bold tracking-tight text-[#151515] sm:text-xl"
+              className="text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl"
             >
               Layanan Ruangan Studio ({studioServices.length})
             </h3>
-            <p className="mt-1 text-xs text-[#666159]">
+            <p className="mt-1 hidden text-xs text-[#666159] sm:block">
               Tampil pada Studio Calendar (Room A &amp; Room B). Subcategory berstatus Belum
               Dikonfigurasi otomatis disembunyikan dari Booking Form.
             </p>
@@ -528,19 +533,24 @@ export function PriceAndFeeSettingsPage() {
       </section>
 
       {/* GROUP 2: WFA SERVICES */}
-      <section aria-labelledby="group-wfa-services-heading" className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <section aria-labelledby="group-wfa-services-heading" className="space-y-3 sm:space-y-4">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
           <div>
-            <AdminStatusBadge tone="ink" icon={Globe} size="sm" className="font-mono uppercase">
+            <AdminStatusBadge
+              tone="ink"
+              icon={Globe}
+              size="sm"
+              className="hidden font-mono uppercase sm:inline-flex"
+            >
               WFA Services
             </AdminStatusBadge>
             <h3
               id="group-wfa-services-heading"
-              className="mt-2 text-lg font-bold tracking-tight text-[#151515] sm:text-xl"
+              className="text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl"
             >
               Layanan Work From Anywhere ({wfaServices.length})
             </h3>
-            <p className="mt-1 text-xs text-[#666159]">
+            <p className="mt-1 hidden text-xs text-[#666159] sm:block">
               Tarif dan fee untuk layanan Mixing, Mastering, atau pekerjaan jarak jauh. Layanan WFA
               tidak mengunci jadwal Room A / Room B di Studio Calendar.
             </p>

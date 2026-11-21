@@ -59,9 +59,9 @@ export function BookkeepingPayablesList({
       as="section"
       variant="card"
       aria-label="Daftar Kewajiban Belum Dibayar"
-      className="space-y-4 p-4 sm:p-5"
+      className="space-y-3 p-3.5 sm:space-y-4 sm:p-5"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Clock className="h-4 w-4 text-[#8A4B08]" aria-hidden="true" />
@@ -72,7 +72,7 @@ export function BookkeepingPayablesList({
               Total Sisa: {formatBookkeepingRupiah(metrics.outstandingPayables)}
             </AdminStatusBadge>
           </div>
-          <p className="mt-1 text-xs text-[#666159]">
+          <p className="mt-1 hidden text-xs text-[#666159] sm:block">
             Mencakup Komisi Staff, Fee Operator Recording, dan Pengeluaran Manual status Unpaid.
             Owner Allocation bersifat referensi dan tidak masuk sebagai kewajiban.
           </p>
@@ -199,7 +199,7 @@ export function BookkeepingPayablesList({
               const isCommission = entry.sourceType === BOOKKEEPING_SOURCE_TYPES.COMMISSION_BATCH;
 
               return (
-                <article key={entry.id} className="sa-subcard space-y-2.5 p-3.5">
+                <article key={entry.id} className="sa-subcard space-y-2 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <button

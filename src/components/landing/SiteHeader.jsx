@@ -25,7 +25,7 @@ export function SiteHeader({
   return (
     <>
       {/* Section 01 — Slim Black Top Utility Strip (scrolls away in normal document flow) */}
-      <div className="border-studio-ink bg-studio-ink text-studio-ivory border-b">
+      <div className="border-studio-ink bg-studio-ink text-studio-ivory hidden border-b sm:block">
         <div className="mx-auto flex max-w-[1680px] items-center justify-between gap-2 px-3 py-1.5 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2">
             <span
@@ -70,7 +70,7 @@ export function SiteHeader({
               <span className="font-display truncate text-sm leading-none font-black tracking-tight uppercase min-[375px]:text-lg sm:text-xl">
                 {header.brandName}
               </span>
-              <span className="text-studio-muted-ink mt-0.5 truncate font-mono text-[8px] font-semibold tracking-wider uppercase min-[375px]:text-[9px] sm:text-[10px]">
+              <span className="text-studio-muted-ink mt-0.5 hidden truncate font-mono text-[9px] font-semibold tracking-wider uppercase sm:block sm:text-[10px]">
                 {header.brandTagline}
               </span>
             </span>

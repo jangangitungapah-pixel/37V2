@@ -25,7 +25,9 @@ export function UpcomingBookings({ bookings = [], onSelectBooking, onOpenNewBook
             >
               Jadwal Terdekat
             </h3>
-            <p className="mt-0.5 truncate text-xs text-[#666159]">Sesi aktif pada periode ini</p>
+            <p className="mt-0.5 hidden truncate text-xs text-[#666159] sm:block">
+              Sesi aktif pada periode ini
+            </p>
           </div>
         </div>
 
@@ -111,7 +113,7 @@ export function UpcomingBookings({ bookings = [], onSelectBooking, onOpenNewBook
                       {paymentMeta.shortLabel}
                     </span>
                     <span
-                      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${sessionMeta.badgeClass}`}
+                      className={`hidden rounded-full border px-2 py-0.5 text-[10px] font-medium sm:inline-flex ${sessionMeta.badgeClass}`}
                     >
                       {sessionMeta.label}
                     </span>

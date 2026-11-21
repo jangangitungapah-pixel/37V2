@@ -1,4 +1,5 @@
-import { ArrowUpDown, Filter, Search, X } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowUpDown, Filter, Search, SlidersHorizontal, X } from 'lucide-react';
 
 import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 
@@ -16,17 +17,23 @@ export function CustomerDirectoryToolbar({
   sharedCount = 0,
   archivedCount = 0,
 }) {
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const activeFilterCount =
+    (activeFilter !== 'all' ? 1 : 0) + (sortBy !== 'latest_booking' ? 1 : 0);
+
   return (
     <AdminSurface
       as="section"
       variant="card"
       aria-label="Pencarian dan filter daftar pelanggan"
-      className="p-4 sm:p-5"
+      className="p-3 sm:p-5"
     >
       {/* Unified Filter + Search + Sort Bar */}
-      <div className="flex flex-col gap-3.5 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between">
-        {/* Left Cluster: Customer Category Filter Pills */}
-        <div className="min-w-0">
+      <div className="flex flex-col gap-2.5 sm:gap-3.5 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between">
+        {/* Left Cluster (Desktop) / Collapsible Panel (Mobile): Category Pills */}
+        <div
+          className={`${mobileFiltersOpen ? 'block border-t border-[#151515]/[0.07] pt-2.5 sm:border-t-0 sm:pt-0' : 'hidden sm:block'} order-2 min-w-0 xl:order-1`}
+        >
           <div className="mb-1.5 flex min-h-5 items-center justify-between gap-2">
             <span className="flex items-center gap-1.5 text-xs font-medium text-[#666159]">
               <Filter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -85,8 +92,8 @@ export function CustomerDirectoryToolbar({
           </div>
         </div>
 
-        {/* Right Cluster: Visible Indicator (Desktop Strip) + Search Input + Sort Selector */}
-        <div className="flex w-full min-w-0 flex-col xl:min-w-[340px] xl:flex-1">
+        {/* Right Cluster (Desktop) / Compact Search + Filter Toggle (Mobile) */}
+        <div className="order-1 flex w-full min-w-0 flex-col xl:order-2 xl:min-w-[340px] xl:flex-1">
           <div className="mb-1.5 hidden min-h-5 items-center justify-end gap-2 text-xs xl:flex">
             <span className="text-[#666159]">Hasil Tampil:</span>
             <AdminStatusBadge tone="ivory" size="sm" className="font-mono font-semibold">
@@ -95,32 +102,51 @@ export function CustomerDirectoryToolbar({
           </div>
 
           <div className="flex w-full flex-col gap-2 min-[400px]:flex-row min-[400px]:items-center">
-            <div className="relative w-full min-w-0 flex-1">
-              <Search
-                className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#8B857B]"
-                aria-hidden="true"
-              />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(event) => onSearchQueryChange(event.target.value)}
-                aria-label="Cari nama customer, nomor HP / WhatsApp, atau band"
-                placeholder="Cari nama, no. HP / WA, atau band..."
-                className="sa-input h-10 w-full py-2 pr-9 pl-9.5 text-xs font-medium sm:text-[13px]"
-              />
-              {searchQuery ? (
-                <button
-                  type="button"
-                  onClick={() => onSearchQueryChange('')}
-                  aria-label="Bersihkan pencarian pelanggan"
-                  className="absolute top-1/2 right-1.5 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
-                >
-                  <X className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              ) : null}
+            <div className="flex w-full min-w-0 flex-1 items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#8B857B]"
+                  aria-hidden="true"
+                />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => onSearchQueryChange(event.target.value)}
+                  aria-label="Cari nama customer, nomor HP / WhatsApp, atau band"
+                  placeholder="Cari nama, no. HP / WA, atau band..."
+                  className="sa-input h-9.5 w-full py-2 pr-9 pl-9.5 text-xs font-medium sm:h-10 sm:text-[13px]"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => onSearchQueryChange('')}
+                    aria-label="Bersihkan pencarian pelanggan"
+                    className="absolute top-1/2 right-1.5 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                aria-expanded={mobileFiltersOpen}
+                onClick={() => setMobileFiltersOpen((prev) => !prev)}
+                className="sa-control sa-btn-secondary inline-flex h-9.5 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 text-xs font-semibold sm:hidden"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Filter</span>
+                {activeFilterCount > 0 ? (
+                  <span className="rounded-full bg-[#151515] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#C8F13A]">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+              </button>
             </div>
 
-            <div className="flex w-full items-center gap-1.5 min-[400px]:w-44 min-[400px]:shrink-0 sm:w-48">
+            <div
+              className={`${mobileFiltersOpen ? 'flex' : 'hidden sm:flex'} w-full items-center gap-1.5 min-[400px]:w-44 min-[400px]:shrink-0 sm:w-48`}
+            >
               <label
                 htmlFor="customer-sort-select"
                 className="sr-only inline-flex shrink-0 items-center gap-1"
@@ -133,7 +159,7 @@ export function CustomerDirectoryToolbar({
                 aria-label="Urutkan daftar customer"
                 value={sortBy}
                 onChange={(event) => onSortChange(event.target.value)}
-                className="sa-input h-10 w-full cursor-pointer px-3 text-xs font-medium"
+                className="sa-input h-9.5 w-full cursor-pointer px-3 text-xs font-medium sm:h-10"
               >
                 {CUSTOMER_SORT_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>

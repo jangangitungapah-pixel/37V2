@@ -16,7 +16,7 @@ export function BookkeepingTransactionCard({ item, onSelect }) {
   const isIncome = item.direction === 'income' && item.signedAmount >= 0;
 
   return (
-    <article className="sa-subcard space-y-2.5 p-3.5">
+    <article className="sa-subcard space-y-2 p-3">
       <div className="flex items-start justify-between gap-2.5">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-[#151515] sm:text-sm">{item.description}</p>

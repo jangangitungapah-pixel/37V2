@@ -121,36 +121,39 @@ export function BookingSection({
     <section
       id="how-to-book"
       aria-labelledby="booking-process-heading"
-      className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-12 sm:py-16 lg:py-20"
+      className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-8 sm:py-16 lg:py-20"
     >
       <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
         <div className="brutal-card-lg bg-studio-white grid grid-cols-1 overflow-hidden lg:grid-cols-12">
           {/* Left Panel: Black 3-Step Process */}
-          <div className="border-studio-ink bg-studio-ink text-studio-white flex flex-col justify-between border-b-2 p-5 sm:p-8 lg:col-span-5 lg:border-r-2 lg:border-b-0 lg:p-10">
+          <div className="border-studio-ink bg-studio-ink text-studio-white flex flex-col justify-between border-b-2 p-4 sm:p-8 lg:col-span-5 lg:border-r-2 lg:border-b-0 lg:p-10">
             <div>
-              <span className="bg-studio-lime text-studio-ink inline-block px-2.5 py-1 font-mono text-[11px] font-extrabold tracking-wider uppercase">
+              <span className="bg-studio-lime text-studio-ink hidden px-2.5 py-1 font-mono text-[11px] font-extrabold tracking-wider uppercase sm:inline-block">
                 {bookingSection.process.eyebrow}
               </span>
 
               <h2
                 id="booking-process-heading"
-                className="font-display text-studio-white mt-4 text-4xl leading-none font-black tracking-tight uppercase sm:text-5xl"
+                className="font-display text-studio-white mt-0 text-3xl leading-none font-black tracking-tight uppercase sm:mt-4 sm:text-5xl"
               >
                 {bookingSection.process.heading}
               </h2>
 
-              <ol className="mt-6 space-y-4">
+              <ol className="mt-3.5 space-y-2 sm:mt-6 sm:space-y-4">
                 {bookingSection.process.steps.map((step) => (
-                  <li key={step.number} className="border border-neutral-700 bg-neutral-900/90 p-4">
-                    <div className="flex items-start gap-3.5">
-                      <span className="bg-studio-orange text-studio-white flex h-7 w-7 shrink-0 items-center justify-center font-mono text-xs font-extrabold">
+                  <li
+                    key={step.number}
+                    className="border border-neutral-700 bg-neutral-900/90 p-2.5 sm:p-4"
+                  >
+                    <div className="flex items-center gap-3 sm:items-start sm:gap-3.5">
+                      <span className="bg-studio-orange text-studio-white flex h-6 w-6 shrink-0 items-center justify-center font-mono text-[11px] font-extrabold sm:h-7 sm:w-7 sm:text-xs">
                         {step.number}
                       </span>
                       <div>
-                        <h3 className="text-sm font-extrabold tracking-wide uppercase sm:text-base">
+                        <h3 className="text-xs font-extrabold tracking-wide uppercase sm:text-base">
                           {step.title}
                         </h3>
-                        <p className="mt-1 text-xs leading-relaxed text-neutral-300">
+                        <p className="mt-1 hidden text-xs leading-relaxed text-neutral-300 sm:block">
                           {step.description}
                         </p>
                       </div>
@@ -160,7 +163,7 @@ export function BookingSection({
               </ol>
             </div>
 
-            <div className="mt-8 flex items-center gap-3 border-t border-neutral-800 pt-5">
+            <div className="mt-8 hidden items-center gap-3 border-t border-neutral-800 pt-5 sm:flex">
               <div className="flex -space-x-2" aria-hidden="true">
                 <span className="border-studio-ink bg-studio-lime text-studio-ink flex h-7 w-7 items-center justify-center rounded-full border font-mono text-[10px] font-bold">
                   37
@@ -181,18 +184,18 @@ export function BookingSection({
           {/* Right Panel: Frontend-Only Booking Inquiry Form */}
           <div
             id="booking"
-            className="bg-studio-white text-studio-ink scroll-mt-20 p-5 sm:p-8 lg:col-span-7 lg:p-10"
+            className="bg-studio-white text-studio-ink scroll-mt-20 p-4 sm:p-8 lg:col-span-7 lg:p-10"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <h2 className="font-display text-3xl leading-none font-black tracking-tight uppercase sm:text-4xl">
+                <h2 className="font-display text-2xl leading-none font-black tracking-tight uppercase sm:text-4xl">
                   {bookingSection.form.heading}
                 </h2>
-                <p className="text-studio-muted-ink mt-1.5 text-xs font-medium sm:text-sm">
+                <p className="text-studio-muted-ink mt-1.5 hidden text-xs font-medium sm:block sm:text-sm">
                   {bookingSection.form.subtitle}
                 </p>
               </div>
-              <span className="border-studio-ink bg-studio-ivory border px-2.5 py-1 font-mono text-[10px] font-bold uppercase">
+              <span className="border-studio-ink bg-studio-ivory hidden border px-2.5 py-1 font-mono text-[10px] font-bold uppercase sm:inline-block">
                 FRONTEND DEMO
               </span>
             </div>
@@ -302,9 +305,13 @@ export function BookingSection({
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-5 space-y-4">
+              <form
+                onSubmit={handleSubmit(onSubmit)}
+                noValidate
+                className="mt-4 space-y-3 sm:mt-5 sm:space-y-4"
+              >
                 {/* Row 1: Name / Band + WhatsApp / Contact Number */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                   <div>
                     <label
                       htmlFor="inquiry-client-name"
@@ -359,7 +366,7 @@ export function BookingSection({
                     Requested Service <span className="text-studio-error-ink">*</span>
                   </legend>
                   <input type="hidden" {...register('service')} />
-                  <div className="mt-1.5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                  <div className="mt-1.5 grid grid-cols-3 gap-1.5 sm:gap-2.5">
                     {SERVICE_OPTIONS.map((option) => {
                       const isSelected = activeService === option.id;
                       return (
@@ -375,8 +382,8 @@ export function BookingSection({
                           }
                           className={
                             isSelected
-                              ? 'border-studio-ink bg-studio-ink text-studio-white min-h-11 cursor-pointer border-2 px-3 py-2 text-xs font-extrabold tracking-wider uppercase shadow-[2px_2px_0px_#C8F13A]'
-                              : 'border-studio-ink bg-studio-white text-studio-ink hover:bg-studio-ivory min-h-11 cursor-pointer border-2 px-3 py-2 text-xs font-bold tracking-wider uppercase'
+                              ? 'border-studio-ink bg-studio-ink text-studio-white min-h-11 cursor-pointer border-2 px-2 py-2 text-[11px] font-extrabold tracking-wider uppercase shadow-[2px_2px_0px_#C8F13A] sm:px-3 sm:text-xs'
+                              : 'border-studio-ink bg-studio-white text-studio-ink hover:bg-studio-ivory min-h-11 cursor-pointer border-2 px-2 py-2 text-[11px] font-bold tracking-wider uppercase sm:px-3 sm:text-xs'
                           }
                         >
                           {option.label}
@@ -392,7 +399,7 @@ export function BookingSection({
                 </fieldset>
 
                 {/* Row 3: Room Preference + Duration */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:gap-4">
                   <div>
                     <label
                       htmlFor="inquiry-room"
@@ -437,7 +444,7 @@ export function BookingSection({
                 </div>
 
                 {/* Row 4: Preferred Date + Preferred Start Time */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:gap-4">
                   <div>
                     <label
                       htmlFor="inquiry-date"
@@ -511,12 +518,12 @@ export function BookingSection({
                   </div>
                   <textarea
                     id="inquiry-notes"
-                    rows={3}
+                    rows={2}
                     placeholder="Optional: describe your group size, session goals, or questions..."
                     aria-invalid={Boolean(errors.notes)}
                     aria-describedby="inquiry-notes-counter"
                     {...register('notes')}
-                    className="border-studio-ink bg-studio-ivory mt-1.5 min-h-24 w-full resize-y border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500"
+                    className="border-studio-ink bg-studio-ivory mt-1.5 min-h-20 w-full resize-y border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500 sm:min-h-24"
                   />
                   {errors.notes ? (
                     <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
@@ -534,7 +541,7 @@ export function BookingSection({
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </button>
 
-                <p className="text-studio-muted-ink flex items-center justify-center gap-1.5 text-center font-mono text-[11px]">
+                <p className="text-studio-muted-ink hidden items-center justify-center gap-1.5 text-center font-mono text-[11px] sm:flex">
                   <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>{bookingSection.form.footnote}</span>
                 </p>

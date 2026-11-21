@@ -4,11 +4,11 @@ import { Link } from 'react-router';
 export function NotFoundPage() {
   return (
     <div className="bg-studio-ivory text-studio-ink flex min-h-screen flex-col items-center justify-center p-4">
-      <div className="brutal-card-lg bg-studio-white w-full max-w-md p-6 text-center sm:p-8">
+      <div className="brutal-card-lg bg-studio-white w-full max-w-md p-5 text-center sm:p-8">
         <span className="border-studio-ink bg-studio-lime text-studio-ink inline-block border px-2.5 py-1 font-mono text-[10px] font-extrabold tracking-wider uppercase">
           404 • ROUTE NOT FOUND
         </span>
-        <h1 className="font-display mt-3 text-4xl leading-none font-black uppercase sm:text-5xl">
+        <h1 className="font-display mt-3 text-3xl leading-none font-black uppercase sm:text-5xl">
           Page Not Found
         </h1>
         <p className="text-studio-muted-ink mt-3 text-xs leading-relaxed font-medium sm:text-sm">

@@ -21,42 +21,42 @@ export function ServicesSection({ services, onSelectService }) {
     <section
       id="services"
       aria-labelledby="services-heading"
-      className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-12 sm:py-16 lg:py-20"
+      className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-8 sm:py-16 lg:py-20"
     >
       <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
         {/* Section Header Row */}
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div>
-            <span className="bg-studio-ink text-studio-white inline-block px-2.5 py-1 font-mono text-[11px] font-bold tracking-wider uppercase">
+            <span className="bg-studio-ink text-studio-white hidden px-2.5 py-1 font-mono text-[11px] font-bold tracking-wider uppercase sm:inline-block">
               {services.eyebrow}
             </span>
             <h2
               id="services-heading"
-              className="font-display text-studio-ink mt-3 text-4xl leading-none font-black tracking-tight uppercase sm:text-5xl"
+              className="font-display text-studio-ink mt-0 text-3xl leading-none font-black tracking-tight uppercase sm:mt-3 sm:text-5xl"
             >
               {services.heading}
             </h2>
           </div>
 
-          <p className="border-studio-orange text-studio-muted-ink max-w-md border-l-4 pl-3.5 text-sm leading-relaxed font-medium">
+          <p className="border-studio-orange text-studio-muted-ink hidden max-w-md border-l-4 pl-3.5 text-sm leading-relaxed font-medium sm:block">
             {services.intro}
           </p>
         </div>
 
         {/* Three Numbered Service Cards */}
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:mt-10 lg:grid-cols-3">
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 lg:mt-10 lg:grid-cols-3">
           {services.items.map((service) => {
             const IconComponent = SERVICE_ICONS[service.icon] || Disc3;
 
             return (
               <article
                 key={service.id}
-                className="brutal-card-lg bg-studio-white flex flex-col justify-between p-5 sm:p-6"
+                className="brutal-card-lg bg-studio-white flex flex-col justify-between p-4 sm:p-6"
               >
                 <div>
                   {/* Card Top Row: Number + Category Badge */}
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-2xl font-extrabold tracking-tight">
+                    <span className="hidden font-mono text-2xl font-extrabold tracking-tight sm:inline">
                       {service.number}
                     </span>
                     <span
@@ -67,7 +67,7 @@ export function ServicesSection({ services, onSelectService }) {
                   </div>
 
                   {/* Icon Tile + Service Title */}
-                  <div className="mt-4 flex items-center gap-3">
+                  <div className="mt-3 flex items-center gap-3 sm:mt-4">
                     <span className="border-studio-ink bg-studio-ivory flex h-10 w-10 shrink-0 items-center justify-center border-2">
                       <IconComponent className="h-5 w-5" aria-hidden="true" />
                     </span>
@@ -77,16 +77,16 @@ export function ServicesSection({ services, onSelectService }) {
                   </div>
 
                   {/* Description */}
-                  <p className="text-studio-muted-ink mt-3.5 text-sm leading-relaxed">
+                  <p className="text-studio-muted-ink mt-2.5 text-xs leading-relaxed sm:mt-3.5 sm:text-sm">
                     {service.description}
                   </p>
 
                   {/* Feature Bullet List */}
-                  <ul className="mt-4 space-y-2 border-t border-neutral-200 pt-4">
-                    {service.features.map((feature) => (
+                  <ul className="mt-3 space-y-1.5 border-t border-neutral-200 pt-3 sm:mt-4 sm:space-y-2 sm:pt-4">
+                    {service.features.map((feature, featureIndex) => (
                       <li
                         key={feature}
-                        className="text-studio-ink flex items-start gap-2 text-xs font-semibold sm:text-sm"
+                        className={`text-studio-ink ${featureIndex >= 2 ? 'hidden sm:flex' : 'flex'} items-start gap-2 text-xs font-semibold sm:text-sm`}
                       >
                         <Check
                           className="text-studio-orange mt-0.5 h-4 w-4 shrink-0 stroke-[2.5]"
@@ -99,7 +99,7 @@ export function ServicesSection({ services, onSelectService }) {
                 </div>
 
                 {/* Bottom Action Row */}
-                <div className="border-studio-ink mt-6 border-t-2 pt-4">
+                <div className="border-studio-ink mt-4 border-t-2 pt-3 sm:mt-6 sm:pt-4">
                   <button
                     type="button"
                     aria-label={`${service.ctaLabel} — ${service.title}`}

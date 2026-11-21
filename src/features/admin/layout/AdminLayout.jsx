@@ -57,7 +57,7 @@ export function AdminLayout() {
 
         <main
           id="admin-main-content"
-          className="w-full flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
+          className="w-full flex-1 px-2.5 py-3 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
         >
           <motion.div
             key={location.pathname}
@@ -73,7 +73,7 @@ export function AdminLayout() {
           </motion.div>
         </main>
 
-        <footer className="border-t border-[#151515]/[0.07] bg-white/35 px-3 py-3 backdrop-blur-xs sm:px-6 sm:py-3.5 lg:px-8">
+        <footer className="hidden border-t border-[#151515]/[0.07] bg-white/35 px-3 py-3 backdrop-blur-xs sm:block sm:px-6 sm:py-3.5 lg:px-8">
           <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start justify-between gap-1 text-[11px] text-[#666159] sm:flex-row sm:items-center">
             <p>© 2026 37 Music Studio • Studio Management Workspace</p>
             <p className="font-mono text-[10.5px] text-[#8B857B]">Owner &amp; Staff Portal</p>

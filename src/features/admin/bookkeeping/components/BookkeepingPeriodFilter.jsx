@@ -15,8 +15,8 @@ export function BookkeepingPeriodFilter({
   periodLabel,
 }) {
   return (
-    <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="grid grid-cols-4 gap-1 sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
         {BOOKKEEPING_PERIOD_PRESET_OPTIONS.map((option) => {
           const isActive = preset === option.id;
           return (
@@ -27,8 +27,8 @@ export function BookkeepingPeriodFilter({
               aria-pressed={isActive}
               className={
                 isActive
-                  ? 'sa-control inline-flex min-h-9 cursor-pointer items-center rounded-xl border-[#151515] bg-[#151515] px-3 py-1.5 text-xs font-semibold text-white'
-                  : 'sa-control inline-flex min-h-9 cursor-pointer items-center rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-[#46433D] hover:text-[#151515]'
+                  ? 'sa-control inline-flex min-h-8.5 cursor-pointer items-center justify-center rounded-xl border-[#151515] bg-[#151515] px-1.5 py-1 text-[11px] font-semibold text-white sm:min-h-9 sm:px-3 sm:py-1.5 sm:text-xs'
+                  : 'sa-control inline-flex min-h-8.5 cursor-pointer items-center justify-center rounded-xl bg-white px-1.5 py-1 text-[11px] font-medium text-[#46433D] hover:text-[#151515] sm:min-h-9 sm:px-3 sm:py-1.5 sm:text-xs'
               }
             >
               {option.label}
@@ -66,7 +66,7 @@ export function BookkeepingPeriodFilter({
 
         <span className="inline-flex items-center gap-1.5 rounded-full border border-[#151515]/10 bg-[#F8F6EF] px-2.5 py-1 text-[11px] font-medium text-[#46433D]">
           <Calendar className="h-3.5 w-3.5 text-[#666159]" aria-hidden="true" />
-          <span>Periode WIB:</span>
+          <span className="hidden sm:inline">Periode WIB:</span>
           <strong className="font-mono text-[#151515]">{periodLabel}</strong>
         </span>
       </div>

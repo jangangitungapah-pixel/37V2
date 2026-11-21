@@ -71,9 +71,9 @@ export function BookkeepingReports({
   };
 
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <div className="space-y-3 sm:space-y-5">
       {/* Period Selector */}
-      <AdminSurface variant="card" className="p-3.5 sm:p-5">
+      <AdminSurface variant="card" className="p-3 sm:p-5">
         <BookkeepingPeriodFilter
           preset={preset}
           onPresetChange={onPresetChange}
@@ -86,9 +86,9 @@ export function BookkeepingReports({
       </AdminSurface>
 
       {/* A, B, C Financial Report Summaries */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3">
         {/* A. Income Summary */}
-        <AdminSurface variant="card" className="space-y-3 p-4 sm:p-5">
+        <AdminSurface variant="card" className="space-y-2.5 p-3.5 sm:space-y-3 sm:p-5">
           <div className="flex items-center justify-between gap-2 border-b border-[#151515]/[0.07] pb-2.5">
             <h3 className="text-sm font-bold text-[#151515]">A. Income Summary</h3>
             <AdminStatusBadge tone="lime" size="sm">
@@ -292,13 +292,13 @@ export function BookkeepingReports({
       </div>
 
       {/* D. Category Breakdown */}
-      <AdminSurface variant="card" className="space-y-3 p-4 sm:p-5">
+      <AdminSurface variant="card" className="space-y-2.5 p-3.5 sm:space-y-3 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-bold text-[#151515] sm:text-base">
               D. Expense Category Breakdown ({periodBounds?.periodLabel})
             </h3>
-            <p className="text-xs text-[#666159]">
+            <p className="hidden text-xs text-[#666159] sm:block">
               Distribusi pengeluaran &amp; akrual komisi berdasarkan data aktual periode aktif.
             </p>
           </div>
@@ -311,12 +311,12 @@ export function BookkeepingReports({
       </AdminSurface>
 
       {/* E. CSV Exports */}
-      <AdminSurface variant="card" className="space-y-3 p-4 sm:p-5">
+      <AdminSurface variant="card" className="space-y-2.5 p-3.5 sm:space-y-3 sm:p-5">
         <div>
           <h3 className="text-sm font-bold text-[#151515] sm:text-base">
             E. Export Laporan Keuangan (CSV)
           </h3>
-          <p className="text-xs text-[#666159]">
+          <p className="hidden text-xs text-[#666159] sm:block">
             File CSV menggunakan nilai numerik Rupiah murni (siap diolah di Excel/Google Sheets)
             serta format tanggal Indonesia dan ISO.
           </p>
