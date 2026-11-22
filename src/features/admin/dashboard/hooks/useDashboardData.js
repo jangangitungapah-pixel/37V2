@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getBookkeepingRepositoryAdapter } from '@/features/admin/bookkeeping/repositories/bookkeeping-repository';
+import { useBookingRequestAlerts } from '@/features/admin/booking-requests/hooks/useBookingRequestAlerts';
 import { getBookingRepositoryAdapter } from '@/features/admin/calendar/repositories/calendar-booking-repository';
 import { useCommissionReview } from '@/features/admin/commission/hooks/useCommissionReview';
 import { evaluateCommissionReviewDataset } from '@/features/admin/commission/utils/commission-calculation';
@@ -39,6 +40,7 @@ export function useDashboardData({
   now,
 } = {}) {
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const bookingRequestAlerts = useBookingRequestAlerts();
 
   const greetingInfo = useMemo(() => getJakartaGreetingInfo(now), [now]);
   const todayIso = greetingInfo.dateIso;
@@ -503,6 +505,8 @@ export function useDashboardData({
         activePayables: ownerPayables,
         commissionReviewSummary,
         inventoryItems,
+        newBookingRequests: bookingRequestAlerts.newRequests,
+        hasMoreNewBookingRequests: bookingRequestAlerts.hasMoreNew,
         isOwner,
         todayIso,
         currentMinuteOfDay: greetingInfo.minuteOfDay,
@@ -513,6 +517,8 @@ export function useDashboardData({
       ownerPayables,
       commissionReviewSummary,
       inventoryItems,
+      bookingRequestAlerts.newRequests,
+      bookingRequestAlerts.hasMoreNew,
       isOwner,
       todayIso,
       greetingInfo.minuteOfDay,
@@ -655,6 +661,8 @@ export function useDashboardData({
         ? todayBookingsState.maxLimit
         : DASHBOARD_QUERY_LIMITS.TODAY_BOOKINGS,
     needsAttentionItems,
+    recentBookingRequests: bookingRequestAlerts.recentNewRequests,
+    hasMoreNewBookingRequests: bookingRequestAlerts.hasMoreNew,
     ownerFinancialSummary,
     cashFlowTrend,
     bookingTrend,

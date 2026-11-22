@@ -1,4 +1,15 @@
 import {
+  DEFAULT_PUBLIC_SITE_SETTINGS,
+  PUBLIC_SITE_SETTINGS_COLLECTION,
+  PUBLIC_SITE_SETTINGS_DOC_ID,
+} from '@/features/public-site-settings/config/public-site-settings-config';
+import { getPublicSiteSettingsRepositoryAdapter } from '@/features/public-site-settings/repositories/public-site-settings-repository';
+import {
+  buildSanitizedPublicSiteSettingsWriteDoc,
+  normalizePublicSiteSettings,
+} from '@/features/public-site-settings/utils/public-site-settings-normalize';
+
+import {
   DEFAULT_STUDIO_PROFILE,
   STUDIO_PROFILE_COLLECTION,
   STUDIO_PROFILE_DOC_ID,
@@ -76,16 +87,23 @@ export function createFirestoreStudioProfileAdapter() {
       };
     },
 
-    async saveStudioProfileTransaction({ actorUid, payload, expectedVersion }) {
+    async saveStudioProfileTransaction({
+      actorUid,
+      payload,
+      expectedVersion,
+      publicSiteSettingsInput = null,
+    }) {
       const [{ doc, runTransaction, serverTimestamp }, { getFirebaseDb }] = await Promise.all([
         import('firebase/firestore'),
         import('@/lib/firebase/firestore'),
       ]);
       const db = getFirebaseDb();
       const profileRef = doc(db, STUDIO_PROFILE_COLLECTION, STUDIO_PROFILE_DOC_ID);
+      const publicSiteRef = doc(db, PUBLIC_SITE_SETTINGS_COLLECTION, PUBLIC_SITE_SETTINGS_DOC_ID);
 
       return runTransaction(db, async (tx) => {
-        const snap = await tx.get(profileRef);
+        // 1. All reads first
+        const [snap, publicSnap] = await Promise.all([tx.get(profileRef), tx.get(publicSiteRef)]);
         const currentVersion = snap.exists() ? Number(snap.data()?.version) || 1 : 0;
 
         if (Number.isInteger(expectedVersion) && currentVersion !== expectedVersion) {
@@ -96,7 +114,12 @@ export function createFirestoreStudioProfileAdapter() {
           );
         }
 
+        const existingPublicDoc = publicSnap.exists()
+          ? publicSnap.data()
+          : DEFAULT_PUBLIC_SITE_SETTINGS;
+
         const nextVersion = currentVersion > 0 ? currentVersion + 1 : 1;
+        const tsValue = serverTimestamp();
         const firestoreDoc = {
           schemaVersion: STUDIO_PROFILE_SCHEMA_VERSION,
           studioName: payload.studioName,
@@ -107,11 +130,20 @@ export function createFirestoreStudioProfileAdapter() {
           city: payload.city,
           mapsUrl: payload.mapsUrl,
           version: nextVersion,
-          updatedAt: serverTimestamp(),
+          updatedAt: tsValue,
           updatedByUid: actorUid,
         };
 
+        const sanitizedPublicDoc = buildSanitizedPublicSiteSettingsWriteDoc({
+          studioProfilePayload: payload,
+          publicSettingsInput: publicSiteSettingsInput,
+          fallbackPublicSettings: existingPublicDoc,
+          timestampValue: tsValue,
+        });
+
+        // 2. Atomic writes: private studio profile + sanitized public site projection
         tx.set(profileRef, firestoreDoc);
+        tx.set(publicSiteRef, sanitizedPublicDoc);
 
         return normalizeStudioProfile({
           ...firestoreDoc,
@@ -125,8 +157,12 @@ export function createFirestoreStudioProfileAdapter() {
 /**
  * Deterministic in-memory realtime & transactional adapter for tests.
  */
-export function createInMemoryStudioProfileAdapter(initialDoc = null) {
+export function createInMemoryStudioProfileAdapter(
+  initialDoc = null,
+  linkedPublicSiteAdapter = null,
+) {
   let storedRawDoc = initialDoc ? structuredClone(initialDoc) : null;
+  let storedPublicDoc = null;
   let queuedSaveError = null;
   const listeners = new Set();
 
@@ -166,7 +202,12 @@ export function createInMemoryStudioProfileAdapter(initialDoc = null) {
       };
     },
 
-    async saveStudioProfileTransaction({ actorUid, payload, expectedVersion }) {
+    async saveStudioProfileTransaction({
+      actorUid,
+      payload,
+      expectedVersion,
+      publicSiteSettingsInput = null,
+    }) {
       if (queuedSaveError) {
         const errToThrow = queuedSaveError;
         queuedSaveError = null;
@@ -183,6 +224,19 @@ export function createInMemoryStudioProfileAdapter(initialDoc = null) {
       }
 
       const nextVersion = currentVersion > 0 ? currentVersion + 1 : 1;
+      const nowIso = new Date().toISOString();
+      const targetPublicAdapter =
+        linkedPublicSiteAdapter || getPublicSiteSettingsRepositoryAdapter();
+      const fallbackPublic =
+        targetPublicAdapter?._getStoredDoc?.() || storedPublicDoc || DEFAULT_PUBLIC_SITE_SETTINGS;
+
+      const nextPublicDoc = buildSanitizedPublicSiteSettingsWriteDoc({
+        studioProfilePayload: payload,
+        publicSettingsInput: publicSiteSettingsInput,
+        fallbackPublicSettings: fallbackPublic,
+        timestampValue: nowIso,
+      });
+
       storedRawDoc = normalizeStudioProfile({
         schemaVersion: STUDIO_PROFILE_SCHEMA_VERSION,
         studioName: payload.studioName,
@@ -193,12 +247,19 @@ export function createInMemoryStudioProfileAdapter(initialDoc = null) {
         city: payload.city,
         mapsUrl: payload.mapsUrl,
         version: nextVersion,
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso,
         updatedByUid: actorUid,
       });
 
+      storedPublicDoc = normalizePublicSiteSettings(nextPublicDoc);
+      targetPublicAdapter?._syncFromRawDoc?.(nextPublicDoc);
+
       emitSnapshot();
       return cloneStudioProfile(storedRawDoc);
+    },
+
+    _getPublicSiteDoc() {
+      return storedPublicDoc ? structuredClone(storedPublicDoc) : null;
     },
 
     _seedRemoteDoc(nextDoc) {

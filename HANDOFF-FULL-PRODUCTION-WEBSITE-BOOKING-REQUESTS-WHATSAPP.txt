@@ -1,0 +1,201 @@
+================================================================================
+37 MUSIC STUDIO — HANDOFF DOCUMENT
+FULL PRODUCTION WEBSITE, BOOKING REQUEST MANAGEMENT & WHATSAPP WORKFLOW
+================================================================================
+
+Repository       : https://github.com/jangangitungapah-pixel/37V2
+Branch           : main...origin/main
+Baseline HEAD    : 43cb977b8e6eb3d126e57ae465751fb05b7f1082
+Working Tree     : Uncommitted local changes only (NO commit, push, merge, or deploy run)
+Environment Note : .env.local was NOT read or modified
+
+================================================================================
+1. EXECUTIVE SUMMARY & IMPLEMENTED WORKFLOW
+================================================================================
+
+Connected end-to-end production flow on Firebase Spark-only architecture:
+
+  PUBLIC WEBSITE (/, /availability, /privacy)
+    -> BOOKING REQUEST SUBMISSION (publicBookingRequests/{requestId}, status='new')
+    -> ADMIN INBOX & BADGE (/admin/booking-requests, shared 9+ cap alert context)
+    -> ADMIN DETAIL REVIEW + LIVE CALENDAR CHECK + STATUS TRANSITIONS
+    -> WHATSAPP CLICK-TO-CHAT (https://wa.me/<digits>?text=<encoded>, 13 vars)
+    -> CALENDAR CONVERSION (/admin/calendar?action=new-booking&requestId=...)
+    -> ATOMIC TRANSACTION CONFIRMATION (createBooking({ ..., bookingRequestId }))
+
+Deliverables Completed:
+- Deliverable A (Landing Page Productionization & Public Site Settings):
+  - Removed preview/demo artifacts, fake testimonials, and nonfunctional Client Login CTA.
+  - Added sanitized `publicSiteSettings/site` configuration consumed by Landing Page and atomically updated when Owner saves `StudioProfilePage` (Studio Profile + `PublicSiteSettingsForm`).
+  - Added accessible Privacy Notice page (`/privacy`), SEO meta tags in `index.html`, dynamic page meta sync in `LandingPage.jsx`, and SVG favicon (`public/favicon.svg`).
+- Deliverable B (Real Booking Request Persistence & App Check):
+  - Separated `studio_booking` (`rehearsal`, `recording`) from `post_production_inquiry` (`mix-master` — WFA / non-room inquiry, `requestedRoomId/preferredDate/preferredStartMinute/preferredDurationMinutes` all nulled).
+  - Canonical E.164 phone normalization, mandatory `privacyConsent` (`v1`), `REQ-...` reference strictly derived from document ID, honest `Booking request received` pending state.
+  - Implemented `src/lib/firebase/app-check.js` using `ReCaptchaV3Provider` singleton, auto-refresh, guarded local debug token disabled in production (`import.meta.env.PROD`), and pre-write `ensureAppCheckTokenForPublicWrite()`.
+  - Added client anti-spam guards (honeypot, minimum dwell elapsed time, per-session cooldown).
+  - Enforced strict Firestore Security Rules across `publicSiteSettings`, `publicBookingRequests`, `/communications`, `/activities`, and `bookingRequestMessageTemplates`.
+- Deliverable C (Admin Booking Request Inbox, Navigation Badge, Dashboard & Calendar Conversion):
+  - Added `/admin/booking-requests` (`Booking Requests` nav item order 03 right after `Calendar`, total 10 top-level nav items).
+  - Single shared bounded listener (`BookingRequestAlertsProvider` querying `status == 'new'`, limit 20, UI badge capped at `9+`) feeding Sidebar, Mobile Drawer, and Dashboard Needs Attention + recent request preview.
+  - Built `AdminBookingRequestsPage`, `BookingRequestToolbar`, `BookingRequestList`, `BookingRequestDetailDrawer` (live Calendar availability check, controlled status transitions `new` -> `in_review` -> `awaiting_customer` -> `accepted` / `declined` / `closed`, clear `Accepted != Confirmed` banner).
+  - Updated `AdminCalendarPage`, `BookingFormDialog`, `calendar-booking-repository`, and `calendar-booking-service` (`createBooking`) for `/admin/calendar?action=new-booking&requestId=...` prefill, ambiguous pricing catalog manual-selection enforcement, HH:30 slot preservation, and atomic Calendar confirmation (`status: 'confirmed'`, `linkedBookingId`, 10-field `confirmedBookingSnapshot`, `booking_confirmed` activity).
+- Deliverable D (WhatsApp Click-to-Chat & Template Management):
+  - Built pure string template substitution engine (`whatsapp-template-renderer.js`, zero `eval()`) supporting 13 allowlisted variables.
+  - Added 8 built-in templates with `booking_confirmed` locked until request is canonically confirmed with `linkedBookingId` and `confirmedBookingSnapshot`.
+  - Built `WhatsAppMessageComposer` (Draft -> Prepared in WhatsApp -> Manually marked sent + internal staff note, never fabricating Delivered/Read receipts) and Owner-only `WhatsAppTemplateManager` (`bookingRequestMessageTemplates/{templateId}`).
+
+================================================================================
+2. COMPLETE FILE MANIFEST (VERIFIED VIA git status --short -uall)
+================================================================================
+
+Modified Files (36):
+- .env.example
+- firestore.rules
+- index.html
+- src/App.jsx
+- src/components/landing/BookingSection.jsx
+- src/components/landing/ServicesSection.jsx
+- src/components/landing/SiteFooter.jsx
+- src/components/landing/SiteHeader.jsx
+- src/components/landing/TestimonialsAndContactSection.jsx
+- src/components/landing/bookingInquirySchema.js
+- src/data/landing-page-content.js
+- src/features/admin/admin-shell.test.jsx
+- src/features/admin/calendar/components/BookingFormDialog.jsx
+- src/features/admin/calendar/pages/AdminCalendarPage.jsx
+- src/features/admin/calendar/repositories/calendar-booking-repository.js
+- src/features/admin/calendar/services/calendar-booking-service.js
+- src/features/admin/components/AdminMobileDrawer.jsx
+- src/features/admin/components/AdminSidebar.jsx
+- src/features/admin/components/AdminSidebarNavItem.jsx
+- src/features/admin/dashboard/components/DashboardNeedsAttention.jsx
+- src/features/admin/dashboard/config/dashboard-config.js
+- src/features/admin/dashboard/dashboard.test.jsx
+- src/features/admin/dashboard/hooks/useDashboardData.js
+- src/features/admin/dashboard/utils/dashboard-calculations.js
+- src/features/admin/layout/AdminLayout.jsx
+- src/features/admin/navigation/admin-navigation.js
+- src/features/admin/pages/AdminDashboardPage.jsx
+- src/features/admin/settings/pages/StudioProfilePage.jsx
+- src/features/admin/settings/settings-center.test.jsx
+- src/features/admin/settings/settings.test.jsx
+- src/features/admin/settings/studio-profile/repositories/studio-profile-repository.js
+- src/features/admin/settings/studio-profile/services/studio-profile-service.js
+- src/features/auth/auth.test.jsx
+- src/features/public-availability/public-availability.test.jsx
+- src/pages/LandingPage.jsx
+- src/pages/LandingPage.test.jsx
+
+Created Files (36):
+- docs/architecture/PUBLIC-BOOKING-REQUEST-WORKFLOW.md
+- public/favicon.svg
+- src/features/admin/booking-requests/booking-requests.test.jsx
+- src/features/admin/booking-requests/components/BookingRequestActivityTimeline.jsx
+- src/features/admin/booking-requests/components/BookingRequestDetailDrawer.jsx
+- src/features/admin/booking-requests/components/BookingRequestEmptyState.jsx
+- src/features/admin/booking-requests/components/BookingRequestList.jsx
+- src/features/admin/booking-requests/components/BookingRequestListItem.jsx
+- src/features/admin/booking-requests/components/BookingRequestStatusBadge.jsx
+- src/features/admin/booking-requests/components/BookingRequestToolbar.jsx
+- src/features/admin/booking-requests/components/WhatsAppMessageComposer.jsx
+- src/features/admin/booking-requests/components/WhatsAppTemplateManager.jsx
+- src/features/admin/booking-requests/config/booking-request-config.js
+- src/features/admin/booking-requests/config/default-whatsapp-templates.js
+- src/features/admin/booking-requests/context/BookingRequestAlertsContext.jsx
+- src/features/admin/booking-requests/context/booking-request-alerts-context.js
+- src/features/admin/booking-requests/hooks/useBookingRequestAlerts.js
+- src/features/admin/booking-requests/hooks/useBookingRequestDetail.js
+- src/features/admin/booking-requests/hooks/useBookingRequestTemplates.js
+- src/features/admin/booking-requests/hooks/useBookingRequests.js
+- src/features/admin/booking-requests/pages/AdminBookingRequestsPage.jsx
+- src/features/admin/booking-requests/repositories/booking-request-repository.js
+- src/features/admin/booking-requests/repositories/whatsapp-template-repository.js
+- src/features/admin/booking-requests/services/booking-request-service.js
+- src/features/admin/booking-requests/services/whatsapp-message-service.js
+- src/features/admin/booking-requests/utils/booking-request-normalize.js
+- src/features/admin/booking-requests/utils/booking-request-validation.js
+- src/features/admin/booking-requests/utils/whatsapp-template-renderer.js
+- src/features/admin/settings/components/PublicSiteSettingsForm.jsx
+- src/features/public-site-settings/config/public-site-settings-config.js
+- src/features/public-site-settings/hooks/usePublicSiteSettings.js
+- src/features/public-site-settings/repositories/public-site-settings-repository.js
+- src/features/public-site-settings/utils/public-site-settings-normalize.js
+- src/lib/firebase/app-check.js
+- src/pages/PrivacyNoticePage.jsx
+- HANDOFF-FULL-PRODUCTION-WEBSITE-BOOKING-REQUESTS-WHATSAPP.txt
+
+================================================================================
+3. VERIFICATION RESULTS (ALL OBSERVED AFTER FINAL CODE/TEST EDITS)
+================================================================================
+
+1. Scoped Prettier Formatting (`npx prettier --check`):
+   - Verified across all 66 previously modified/created source/HTML/MD files (`All matched files use Prettier code style!`) and re-verified on `index.html`, `src/features/admin/settings/settings.test.jsx`, `src/features/public-availability/public-availability.test.jsx`, and `src/features/admin/booking-requests/booking-requests.test.jsx` after their final edits (`exit code 0`).
+   - Note: Untouched repository files were intentionally excluded from Prettier writes to avoid extraneous CRLF churn.
+
+2. ESLint (`npm run lint`):
+   - Passed after final code/test edit (`exit code 0`, 0 errors, 0 warnings).
+
+3. Full Vitest Suite (`npm run test:run`, executed solo after final code/test/HTML edit):
+   - Result: Exit code 0 — **17 passed (17)** test files, **155 passed (155)** tests, **0 failed**, **0 skipped**, Duration **81.29s**.
+   - Per-file observed counts:
+     * src/features/auth/auth.test.jsx (12 tests)
+     * src/features/admin/calendar/calendar.test.jsx (11 tests)
+     * src/features/admin/booking-requests/booking-requests.test.jsx (18 tests)
+     * src/features/admin/customer/customer.test.jsx (6 tests)
+     * src/pages/LandingPage.test.jsx (10 tests)
+     * src/features/admin/gallery/gallery.test.jsx (7 tests)
+     * src/features/admin/settings/settings.test.jsx (7 tests)
+     * src/features/admin/admin-shell.test.jsx (5 tests)
+     * src/features/admin/settings/settings-center.test.jsx (10 tests)
+     * src/features/admin/payment/payment.test.jsx (6 tests)
+     * src/features/admin/calendar/duration-discount.test.jsx (16 tests)
+     * src/features/admin/commission/commission.test.jsx (8 tests)
+     * src/features/admin/bookkeeping/bookkeeping.test.jsx (8 tests)
+     * src/features/admin/inventory/inventory.test.jsx (6 tests)
+     * src/features/public-availability/public-availability.test.jsx (8 tests)
+     * src/lib/utils.test.js (2 tests)
+     * src/features/admin/dashboard/dashboard.test.jsx (15 tests)
+
+4. Production Build (`npm run build`, executed after final `index.html` and app code edit):
+   - Result: Exit code 0 — `vite v8.3.8`, `4145 modules transformed`, `built in 15.95s`.
+   - Emitted assets in `dist/`:
+     * dist/index.html                                1.54 kB | gzip:   0.70 kB
+     * dist/assets/index-DYDSmpbT.css               113.36 kB | gzip:  19.03 kB
+     * dist/assets/auth-BnJ_qSE5.js                   0.18 kB | gzip:   0.16 kB
+     * dist/assets/firestore-Cq4zpqcI.js              0.18 kB | gzip:   0.16 kB
+     * dist/assets/bookingInquirySchema-BJWpyq2H.js   2.47 kB | gzip:   0.96 kB
+     * dist/assets/GalleryLightboxDialog-ulT5T8uG.js  3.09 kB | gzip:   1.27 kB
+     * dist/assets/index.esm-CBykbRzs.js             14.17 kB | gzip:   5.22 kB
+     * dist/assets/index.esm-Cn2Ud3dG.js            128.15 kB | gzip:  36.52 kB
+     * dist/assets/index.esm-DZLvoxIw.js            583.61 kB | gzip: 173.52 kB
+     * dist/assets/index-Dr1y8z8D.js              2,822.77 kB | gzip: 790.33 kB
+   - Note: `booking-requests.test.jsx` had a final timeout-only test adjustment (`findByTestId(..., { timeout: 5000 })`) after this `npm run build` run; no application source files changed afterward.
+
+================================================================================
+4. KNOWN SPARK-ONLY LIMITATIONS & MANUAL VERIFICATION PREREQUISITES
+================================================================================
+
+- Live Firebase Rules Emulator Execution:
+  `firestore.rules` was validated structurally in `booking-requests.test.jsx` via file inspection and mirrors the repository schemas, but live Firebase Rules Emulator execution (`firebase emulators:exec`) was NOT executed in this environment. Run live Emulator verification before publishing rules.
+- Spark-Only Rate Limiting Boundary:
+  On Firebase Spark without Cloud Functions, client dwell/honeypot/cooldown guards deter casual UI form spam only; REST API abuse protection depends on registering reCAPTCHA v3 and enforcing Firebase App Check in Firebase Console.
+- Manual WhatsApp Click-to-Chat Limitation:
+  `OPEN WHATSAPP WITH MESSAGE` opens `wa.me` with URL-encoded text and records `whatsapp_message_prepared`. Staff must confirm actual delivery manually (`MARK AS SENT`) after sending in WhatsApp.
+- Query Bounds & Composite Indexes:
+  Zero changes required in `firestore.indexes.json` because all listeners use single-field queries (`where('status', '==', 'new'), limit(21)`, `orderBy('createdAt', 'desc'), limit(51)`).
+
+================================================================================
+5. MANUAL FIREBASE CONSOLE & DEPLOYMENT CHECKLIST (NOT EXECUTED)
+================================================================================
+
+1. Register a reCAPTCHA v3 key pair for the production Hosting domain(s).
+2. Enable Firebase App Check (ReCaptchaV3Provider) in Firebase Console using the site secret key.
+3. Add `VITE_FIREBASE_APPCHECK_RECAPTCHA_SITE_KEY=<site-key>` to local `.env.local` (and CI/hosting build env). For local dev testing only, optionally use `VITE_FIREBASE_APPCHECK_DEBUG_TOKEN`.
+4. Run live Firebase Emulator Suite tests against `firestore.rules` to verify unauthenticated `publicBookingRequests` create rules, `publicSiteSettings/site` read/Owner write, `isBookingRequestLinkedBookingValidAfter` `existsAfter`/`getAfter`, immutable subcollections, and `bookingRequestMessageTemplates` Owner-only writes.
+5. Deploy rules manually when authorized: `firebase deploy --only firestore:rules`.
+6. Sign in as Studio Owner to `/admin/settings/studio-profile` and save Studio Profile + Public Website config once to initialize `publicSiteSettings/site` in Firestore.
+7. Build and deploy Hosting when authorized: `npm run build && firebase deploy --only hosting`, then verify `/`, `/availability`, `/privacy`, `/admin/booking-requests`, WhatsApp links, and `/admin/calendar` conversion end-to-end.
+
+================================================================================
+END OF HANDOFF
+================================================================================

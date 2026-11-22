@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { ADMIN_NAVIGATION_ITEMS } from '../navigation/admin-navigation';
 import { AdminSidebarNavItem } from './AdminSidebarNavItem';
 
-export function AdminMobileDrawer({ open, onOpenChange, triggerRef }) {
+export function AdminMobileDrawer({ open, onOpenChange, triggerRef, navBadges = {} }) {
   const prefersReducedMotion = useReducedMotion();
 
   const handleClose = () => {
@@ -72,6 +72,7 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef }) {
                       <AdminSidebarNavItem
                         key={item.id}
                         item={item}
+                        badge={navBadges[item.id] || ''}
                         isCollapsed={false}
                         onSelect={handleClose}
                         layoutScope="mobile"

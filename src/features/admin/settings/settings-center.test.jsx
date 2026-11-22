@@ -1,11 +1,21 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppRoutes } from '@/App';
+import {
+  createInMemoryBookingRequestRepositoryAdapter,
+  resetBookingRequestRepositoryAdapter,
+  setBookingRequestRepositoryAdapter,
+} from '@/features/admin/booking-requests/repositories/booking-request-repository';
 import { ADMIN_NAVIGATION_ITEMS } from '@/features/admin/navigation/admin-navigation';
 import { AuthContext } from '@/features/auth/AuthContext';
+import {
+  createInMemoryPublicSiteSettingsAdapter,
+  resetPublicSiteSettingsRepositoryAdapter,
+  setPublicSiteSettingsRepositoryAdapter,
+} from '@/features/public-site-settings/repositories/public-site-settings-repository';
 
 import { AccountSecurityPage } from './pages/AccountSecurityPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
@@ -81,9 +91,16 @@ function renderWithAuth(ui, { route = '/admin/settings', authValue = buildAuthVa
   );
 }
 
+beforeEach(() => {
+  setPublicSiteSettingsRepositoryAdapter(createInMemoryPublicSiteSettingsAdapter(null));
+  setBookingRequestRepositoryAdapter(createInMemoryBookingRequestRepositoryAdapter(null, []));
+});
+
 afterEach(() => {
   cleanup();
   resetStudioProfileRepositoryAdapter();
+  resetPublicSiteSettingsRepositoryAdapter();
+  resetBookingRequestRepositoryAdapter();
 });
 
 describe('Settings Center Overview (/admin/settings)', () => {
@@ -134,16 +151,16 @@ describe('Settings Center Overview (/admin/settings)', () => {
     expect(screen.getByText('Firebase Authentication + Cloud Firestore')).toBeTruthy();
   });
 
-  it('navigates between /admin/settings and sub-pages inside AppRoutes while keeping 9 top-level sidebar links', async () => {
+  it('navigates between /admin/settings and sub-pages inside AppRoutes while keeping 10 top-level sidebar links', async () => {
     const adapter = createInMemoryStudioProfileAdapter(null);
     setStudioProfileRepositoryAdapter(adapter);
     const user = userEvent.setup();
 
     renderWithAuth(<AppRoutes />, { route: '/admin/settings' });
 
-    expect(ADMIN_NAVIGATION_ITEMS).toHaveLength(9);
+    expect(ADMIN_NAVIGATION_ITEMS).toHaveLength(10);
     const nav = screen.getByRole('navigation', { name: /admin workspace navigation/i });
-    expect(within(nav).getAllByRole('link')).toHaveLength(9);
+    expect(within(nav).getAllByRole('link')).toHaveLength(10);
 
     await user.click(screen.getByRole('link', { name: /open studio profile/i }));
     await waitFor(() => {
@@ -377,6 +394,49 @@ describe('Studio Profile & Contact UI (/admin/settings/studio-profile)', () => {
     expect(screen.getByLabelText(/nama studio/i).readOnly).toBe(true);
     expect(screen.queryByRole('button', { name: /simpan profil studio/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /batalkan perubahan/i })).toBeNull();
+  });
+
+  it('atomically syncs sanitized publicSiteSettings/site when Owner saves Studio Profile + Public Website config without leaking internal fields', async () => {
+    const publicSiteAdapter = createInMemoryPublicSiteSettingsAdapter(null);
+    setPublicSiteSettingsRepositoryAdapter(publicSiteAdapter);
+
+    const adapter = createInMemoryStudioProfileAdapter(null, publicSiteAdapter);
+    setStudioProfileRepositoryAdapter(adapter);
+    const user = userEvent.setup();
+
+    renderWithAuth(<StudioProfilePage />, { route: '/admin/settings/studio-profile' });
+
+    const nameInput = await screen.findByLabelText(/nama studio/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, '37 Studio Produksi');
+
+    const waInput = screen.getByLabelText(/nomor whatsapp studio/i);
+    await user.type(waInput, '081987654321');
+
+    const seoTitleInput = screen.getByLabelText(/seo page title/i);
+    await user.clear(seoTitleInput);
+    await user.type(seoTitleInput, '37 Music Studio | Rehearsal & Recording');
+
+    await user.type(screen.getByLabelText(/nama pemberi testimoni/i), 'Rama Gitaris');
+    await user.type(screen.getByLabelText(/kutipan testimoni/i), 'Monitoringnya sangat detail.');
+    await user.click(screen.getByRole('button', { name: /tambah testimoni terverifikasi/i }));
+
+    await user.click(screen.getByRole('button', { name: /simpan profil studio/i }));
+
+    await waitFor(() => {
+      expect(adapter._getStoredDoc()?.version).toBe(1);
+    });
+
+    const syncedPublicDoc = publicSiteAdapter._getStoredDoc();
+    expect(syncedPublicDoc).toBeTruthy();
+    expect(syncedPublicDoc.studioName).toBe('37 Studio Produksi');
+    expect(syncedPublicDoc.publicWhatsappNumber).toBe('+6281987654321');
+    expect(syncedPublicDoc.seoTitle).toBe('37 Music Studio | Rehearsal & Recording');
+    expect(syncedPublicDoc.verifiedTestimonials).toHaveLength(1);
+    expect(syncedPublicDoc.verifiedTestimonials[0].author).toBe('Rama Gitaris');
+    // Must never leak internal Admin audit fields onto publicSiteSettings/site
+    expect('updatedByUid' in syncedPublicDoc).toBe(false);
+    expect('version' in syncedPublicDoc).toBe(false);
   });
 });
 

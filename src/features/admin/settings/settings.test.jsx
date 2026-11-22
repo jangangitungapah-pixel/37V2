@@ -87,7 +87,7 @@ function mockAuthenticatedStaff(role = 'owner', uid = 'owner-uid-1') {
 
   mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
     queueMicrotask(() => callback({ uid, email, displayName }));
-    return () => { };
+    return () => {};
   });
 
   mockGetDoc.mockResolvedValue({
@@ -148,7 +148,7 @@ describe('Phase 6 V2 — Service Catalog & Tariff Model Redesign', () => {
       ).toBeTruthy();
 
       const sidebarNav = screen.getByRole('navigation', { name: /admin workspace navigation/i });
-      expect(within(sidebarNav).getAllByRole('link')).toHaveLength(9);
+      expect(within(sidebarNav).getAllByRole('link')).toHaveLength(10);
       expect(
         within(sidebarNav).getByRole('link', { name: 'Settings' }).getAttribute('aria-current'),
       ).toBe('page');

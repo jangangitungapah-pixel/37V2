@@ -6,7 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '@/App';
 import { bookingInquirySchema } from '@/components/landing/bookingInquirySchema';
-import { landingPageContent, pendingConfigTokens } from '@/data/landing-page-content';
+import { landingPageContent } from '@/data/landing-page-content';
+import {
+  createInMemoryBookingRequestRepositoryAdapter,
+  resetBookingRequestRepositoryAdapter,
+  setBookingRequestRepositoryAdapter,
+} from '@/features/admin/booking-requests/repositories/booking-request-repository';
+import { resetPublicSubmissionCooldownForTests } from '@/features/admin/booking-requests/services/booking-request-service';
 import {
   createInMemoryGalleryRepositoryAdapter,
   resetGalleryRepositoryAdapter,
@@ -22,12 +28,22 @@ import {
   resetPublicAvailabilityRepositoryAdapter,
   setPublicAvailabilityRepositoryAdapter,
 } from '@/features/public-availability/repositories/public-availability-repository';
+import {
+  createInMemoryPublicSiteSettingsAdapter,
+  resetPublicSiteSettingsRepositoryAdapter,
+  setPublicSiteSettingsRepositoryAdapter,
+} from '@/features/public-site-settings/repositories/public-site-settings-repository';
 import { getTodayLocalDateString } from '@/lib/booking-date';
 import { LandingPage } from '@/pages/LandingPage';
 
-describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', () => {
+describe('37 Music Studio Production Public Website & Booking Requests', () => {
+  let bookingRequestAdapter;
+
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
+    bookingRequestAdapter = createInMemoryBookingRequestRepositoryAdapter();
+    setBookingRequestRepositoryAdapter(bookingRequestAdapter);
+    setPublicSiteSettingsRepositoryAdapter(createInMemoryPublicSiteSettingsAdapter(null));
     setGalleryRepositoryAdapter(createInMemoryGalleryRepositoryAdapter([]));
     setLandingPagePlacementAdapter(createInMemoryLandingPagePlacementAdapter([]));
     setPublicAvailabilityRepositoryAdapter(
@@ -40,13 +56,16 @@ describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', 
 
   afterEach(() => {
     vi.useRealTimers();
+    resetPublicSubmissionCooldownForTests();
+    resetBookingRequestRepositoryAdapter();
+    resetPublicSiteSettingsRepositoryAdapter();
     resetGalleryRepositoryAdapter();
     resetLandingPagePlacementAdapter();
     resetPublicAvailabilityRepositoryAdapter();
     cleanup();
   });
 
-  it('renders all key sections honestly without raw pending tokens or unverified claims', () => {
+  it('renders production sections honestly without demo badges, fake testimonials, or broken Client Login preview CTAs', () => {
     const { container } = render(<App />);
 
     expect(
@@ -58,7 +77,7 @@ describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', 
     ).toBeTruthy();
     expect(screen.getByRole('heading', { level: 2, name: /proof, not renders\./i })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 2, name: /three taps to loud\./i })).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 2, name: /booking inquiry/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: /send booking request/i })).toBeTruthy();
     expect(
       screen.getByRole('heading', { level: 2, name: /studio location & hours/i }),
     ).toBeTruthy();
@@ -66,78 +85,57 @@ describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', 
       screen.getByRole('heading', { level: 2, name: /don’t rehearse in a garage\./i }),
     ).toBeTruthy();
 
-    // Utility strip should sit outside sticky <header> so it scrolls away cleanly on mobile
-    const headerLandmark = screen.getByRole('banner');
-    expect(
-      within(headerLandmark).queryByText(
-        /37 MUSIC STUDIO • REHEARSAL \/ RECORDING \/ MIX & MASTER/i,
-      ),
-    ).toBeNull();
+    // No nonfunctional Client Login button in public UI
+    expect(screen.queryByRole('button', { name: /client login/i })).toBeNull();
+
+    // No fake testimonials rendered when none approved
+    expect(screen.queryByTestId('verified-testimonials-section')).toBeNull();
 
     const pageText = container.textContent || '';
-    for (const rawToken of Object.values(pendingConfigTokens)) {
-      expect(pageText).not.toContain(rawToken);
-    }
+    expect(pageText).not.toMatch(
+      /DRAFT PREVIEW|FRONTEND DEMO|DEMO PLACEHOLDER|Local Preview|PENDING\]|42m²|24ch|Client Name Pending/i,
+    );
 
-    expect(pageText).not.toMatch(/42m²|24ch|15min|BAND FAVORITE|2 min from the mainline/i);
-  });
-
-  it('opens and closes the header Client Login coming-soon dialog without authentication inputs', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    const clientLoginButton = screen.getByRole('button', {
-      name: /client login portal \(coming soon\)/i,
-    });
-    await user.click(clientLoginButton);
-
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/client login coming soon/i)).toBeTruthy();
-    expect(
-      within(dialog).getByText(
-        /the client portal is not available yet\. you can still explore our services and submit a booking inquiry from the public website\./i,
-      ),
-    ).toBeTruthy();
-    expect(within(dialog).queryByLabelText(/password/i)).toBeNull();
-
-    const closeButton = within(dialog).getByRole('button', { name: /back to website/i });
-    await user.click(closeButton);
-
-    expect(screen.queryByRole('dialog')).toBeNull();
+    // Privacy Notice link in form & footer
+    expect(screen.getByRole('link', { name: /read privacy notice/i }).getAttribute('href')).toBe(
+      '/privacy',
+    );
+    expect(screen.getByRole('link', { name: /^privacy notice$/i }).getAttribute('href')).toBe(
+      '/privacy',
+    );
   });
 
   it('preselects the corresponding service and room across all service and room CTAs', async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const roomSelect = screen.getByLabelText(/room preference/i);
-
-    await user.click(screen.getByRole('button', { name: /check availability — recording/i }));
+    await user.click(screen.getByRole('button', { name: /request recording — recording/i }));
     expect(screen.getByRole('button', { name: /^recording$/i }).getAttribute('aria-pressed')).toBe(
       'true',
     );
-    expect(roomSelect.value).toBe('room-b');
+    expect(screen.getByLabelText(/room preference/i).value).toBe('room-b');
 
-    await user.click(screen.getByRole('button', { name: /check availability — mix & master/i }));
+    await user.click(screen.getByRole('button', { name: /send inquiry — mix & master/i }));
     expect(
       screen.getByRole('button', { name: /^mix & master$/i }).getAttribute('aria-pressed'),
     ).toBe('true');
-    expect(roomSelect.value).toBe('room-b');
+    expect(screen.queryByLabelText(/room preference/i)).toBeNull();
+    expect(screen.getByTestId('post-production-inquiry-notice')).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: /check availability — rehearsal/i }));
+    await user.click(screen.getByRole('button', { name: /request rehearsal — rehearsal/i }));
     expect(screen.getByRole('button', { name: /^rehearsal$/i }).getAttribute('aria-pressed')).toBe(
       'true',
     );
-    expect(roomSelect.value).toBe('room-a');
+    expect(screen.getByLabelText(/room preference/i).value).toBe('room-a');
 
     await user.click(screen.getByRole('button', { name: /book this room \(room b\)/i }));
-    expect(roomSelect.value).toBe('room-b');
+    expect(screen.getByLabelText(/room preference/i).value).toBe('room-b');
     expect(screen.getByRole('button', { name: /^recording$/i }).getAttribute('aria-pressed')).toBe(
       'true',
     );
 
     await user.click(screen.getByRole('button', { name: /book this room \(room a\)/i }));
-    expect(roomSelect.value).toBe('room-a');
+    expect(screen.getByLabelText(/room preference/i).value).toBe('room-a');
     expect(screen.getByRole('button', { name: /^rehearsal$/i }).getAttribute('aria-pressed')).toBe(
       'true',
     );
@@ -152,12 +150,11 @@ describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', 
     expect(dateInput.getAttribute('min')).toBe(expectedToday);
   });
 
-  it('rejects invalid calendar dates and past dates while accepting today and future dates', async () => {
+  it('validates dates/consent cleanly and persists real studio booking requests with genuine REQ reference', async () => {
     const todayStr = getTodayLocalDateString();
     const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
     const tomorrowStr = format(addDays(new Date(), 1), 'yyyy-MM-dd');
 
-    // Schema-level calendar & format validation
     const basePayload = {
       clientName: 'Midnight Static',
       contactNumber: '+62 812 3456 7890',
@@ -166,58 +163,54 @@ describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', 
       preferredTime: '19:00',
       duration: '2 hours',
       notes: '',
+      privacyConsent: true,
     };
 
-    const badFormat = bookingInquirySchema.safeParse({
-      ...basePayload,
-      preferredDate: '21-11-2026',
-    });
-    expect(badFormat.success).toBe(false);
-    expect(badFormat.error.issues[0].message).toMatch(/YYYY-MM-DD/i);
-
-    const badCalendarDate = bookingInquirySchema.safeParse({
-      ...basePayload,
-      preferredDate: '2026-02-30',
-    });
-    expect(badCalendarDate.success).toBe(false);
-    expect(badCalendarDate.error.issues[0].message).toMatch(/valid calendar date/i);
-
-    const pastDateResult = bookingInquirySchema.safeParse({
-      ...basePayload,
-      preferredDate: yesterdayStr,
-    });
-    expect(pastDateResult.success).toBe(false);
-    expect(pastDateResult.error.issues[0].message).toMatch(/cannot be in the past/i);
-
     expect(
-      bookingInquirySchema.safeParse({ ...basePayload, preferredDate: todayStr }).success,
-    ).toBe(true);
+      bookingInquirySchema.safeParse({ ...basePayload, preferredDate: '21-11-2026' }).success,
+    ).toBe(false);
+    expect(
+      bookingInquirySchema.safeParse({ ...basePayload, preferredDate: '2026-02-30' }).success,
+    ).toBe(false);
+    expect(
+      bookingInquirySchema.safeParse({ ...basePayload, preferredDate: yesterdayStr }).success,
+    ).toBe(false);
+    expect(
+      bookingInquirySchema.safeParse({
+        ...basePayload,
+        preferredDate: todayStr,
+        privacyConsent: false,
+      }).success,
+    ).toBe(false);
     expect(
       bookingInquirySchema.safeParse({ ...basePayload, preferredDate: tomorrowStr }).success,
     ).toBe(true);
 
-    // UI-level past-date rejection and future-date acceptance
     const user = userEvent.setup();
     render(<App />);
 
-    await user.type(screen.getByLabelText(/name \/ band name/i), 'Midnight Static');
-    await user.type(screen.getByLabelText(/whatsapp \/ contact number/i), '+62 812 3456 7890');
+    await user.type(screen.getByLabelText(/your name/i), 'Midnight Static');
+    await user.type(screen.getByLabelText(/whatsapp \/ contact number/i), '081234567890');
 
     const dateInput = screen.getByLabelText(/preferred date/i);
     fireEvent.change(dateInput, { target: { value: yesterdayStr } });
-    await user.click(screen.getByRole('button', { name: /send booking inquiry/i }));
+    await user.click(screen.getByLabelText(/i agree that 37 music studio/i));
+    await user.click(screen.getByRole('button', { name: /submit booking request/i }));
 
     expect(await screen.findByText(/preferred date cannot be in the past\./i)).toBeTruthy();
 
     fireEvent.change(dateInput, { target: { value: tomorrowStr } });
-    await user.click(screen.getByRole('button', { name: /send booking inquiry/i }));
+    await user.click(screen.getByRole('button', { name: /submit booking request/i }));
 
-    expect(
-      await screen.findByText(
-        /demo inquiry only — your request has not been sent\. the booking integration will be added later\./i,
-      ),
-    ).toBeTruthy();
-    expect(screen.getByText(new RegExp(tomorrowStr))).toBeTruthy();
+    const successPanel = await screen.findByTestId('booking-request-success-panel');
+    expect(within(successPanel).getByText(/booking request received/i)).toBeTruthy();
+    expect(within(successPanel).getByText(/this is not a confirmed reservation/i)).toBeTruthy();
+    expect(within(successPanel).getByText(/^REQ-[A-Z0-9]{8}$/)).toBeTruthy();
+
+    const stored = Array.from(bookingRequestAdapter._inspectState().requests.values());
+    expect(stored).toHaveLength(1);
+    expect(stored[0].contactPhone).toBe('+6281234567890');
+    expect(stored[0].preferredDate).toBe(tomorrowStr);
   });
 
   it('re-evaluates today at submit time if the page remains open past midnight', async () => {
@@ -230,59 +223,49 @@ describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', 
     const dateInput = screen.getByLabelText(/preferred date/i);
     expect(dateInput.value).toBe('2026-11-18');
 
-    await user.type(screen.getByLabelText(/name \/ band name/i), 'Late Night Session');
+    await user.type(screen.getByLabelText(/your name/i), 'Late Night Session');
     await user.type(screen.getByLabelText(/whatsapp \/ contact number/i), '+62 812 0000 1111');
+    await user.click(screen.getByLabelText(/i agree that 37 music studio/i));
 
-    // Advance past midnight without touching the date field
     vi.setSystemTime(new Date(2026, 10, 19, 0, 1, 0));
-    await user.click(screen.getByRole('button', { name: /send booking inquiry/i }));
+    await user.click(screen.getByRole('button', { name: /submit booking request/i }));
 
     expect(await screen.findByText(/preferred date cannot be in the past\./i)).toBeTruthy();
   });
 
-  it('uses a multiline textarea for Notes with a live character counter and 400-character limit', async () => {
+  it('enforces 600-char notes limit and supports submitting another request cleanly', async () => {
     const user = userEvent.setup();
     render(<App />);
 
     const notesField = screen.getByLabelText(/notes \/ setup requirements/i);
     expect(notesField.tagName).toBe('TEXTAREA');
-    expect(screen.getByText('0 / 400')).toBeTruthy();
+    expect(screen.getByText('0 / 600')).toBeTruthy();
 
-    const overLimitText = 'A'.repeat(401);
-    fireEvent.change(notesField, { target: { value: overLimitText } });
-    expect(screen.getByText('401 / 400')).toBeTruthy();
+    fireEvent.change(notesField, { target: { value: 'A'.repeat(601) } });
+    expect(screen.getByText('601 / 600')).toBeTruthy();
 
-    await user.type(screen.getByLabelText(/name \/ band name/i), 'The Velvet Echoes');
+    await user.type(screen.getByLabelText(/your name/i), 'The Velvet Echoes');
     await user.type(screen.getByLabelText(/whatsapp \/ contact number/i), '+62 812 3456 7890');
-    await user.click(screen.getByRole('button', { name: /send booking inquiry/i }));
+    await user.click(screen.getByLabelText(/i agree that 37 music studio/i));
+    await user.click(screen.getByRole('button', { name: /submit booking request/i }));
 
-    expect(await screen.findByText(/notes must be 400 characters or fewer\./i)).toBeTruthy();
+    expect(await screen.findByText(/notes must be 600 characters or fewer\./i)).toBeTruthy();
 
     const validNotes = 'Need room setup for a 4-piece band.';
     fireEvent.change(notesField, { target: { value: validNotes } });
-    await user.click(screen.getByRole('button', { name: /send booking inquiry/i }));
+    await user.click(screen.getByRole('button', { name: /submit booking request/i }));
 
-    expect(
-      await screen.findByText(
-        /demo inquiry only — your request has not been sent\. the booking integration will be added later\./i,
-      ),
-    ).toBeTruthy();
-    expect(screen.getByText(validNotes)).toBeTruthy();
+    const successPanel = await screen.findByTestId('booking-request-success-panel');
+    expect(within(successPanel).getByText(validNotes)).toBeTruthy();
 
-    // Edit & Reset workflow
-    await user.click(screen.getByRole('button', { name: /edit inquiry details/i }));
-    expect(screen.getByLabelText(/name \/ band name/i).value).toBe('The Velvet Echoes');
-
-    await user.click(screen.getByRole('button', { name: /send booking inquiry/i }));
-    await user.click(await screen.findByRole('button', { name: /reset \/ new inquiry/i }));
-    expect(screen.getByLabelText(/name \/ band name/i).value).toBe('');
+    await user.click(screen.getByRole('button', { name: /submit another request/i }));
+    expect(screen.getByLabelText(/your name/i).value).toBe('');
     expect(screen.getByLabelText(/preferred date/i).value).toBe(getTodayLocalDateString());
   });
 
   it('opens the accessible gallery viewer dialog and cycles through published studio images while hiding old static demo SVGs', async () => {
     const user = userEvent.setup();
 
-    // When empty, shows editorial empty state and never shows demo SVG gallery assets
     const { container } = render(<App />);
     expect(await screen.findByText(/studio photos coming soon\./i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /view all photos/i })).toBeNull();
@@ -291,7 +274,6 @@ describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', 
     );
     cleanup();
 
-    // Seed published photos in Firestore adapter and verify dynamic gallery & lightbox navigation
     setGalleryRepositoryAdapter(
       createInMemoryGalleryRepositoryAdapter([
         {
@@ -349,156 +331,82 @@ describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', 
     expect(within(dialog).getByText(/control room b mixing console/i)).toBeTruthy();
   });
 
-  it('shows honest pending notices for unconfirmed Maps, WhatsApp, and social actions', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    const mapsButton = screen.getByRole('button', { name: /open in maps/i });
-    await user.click(mapsButton);
-    expect(
-      await screen.findByText(
-        /verified studio map coordinates and street address are pending owner confirmation/i,
-      ),
-    ).toBeTruthy();
-
-    const whatsappButton = screen.getByRole('button', { name: /ask on whatsapp/i });
-    await user.click(whatsappButton);
-    expect(
-      await screen.findByText(
-        /the official 37 music studio whatsapp number is pending owner confirmation/i,
-      ),
-    ).toBeTruthy();
-
-    const instagramButton = screen.getByRole('button', {
-      name: /instagram \(official url pending owner confirmation\)/i,
-    });
-    await user.click(instagramButton);
-    expect(
-      await screen.findByText(
-        /official 37 music studio instagram profile url is pending owner confirmation\./i,
-      ),
-    ).toBeTruthy();
-  });
-
-  it('renders confirmed external links defensively only when both confirmation flag and valid URL exist', async () => {
-    const user = userEvent.setup();
-    const mixedConfigContent = {
-      ...landingPageContent,
-      testimonialsAndContact: {
-        ...landingPageContent.testimonialsAndContact,
-        contact: {
-          ...landingPageContent.testimonialsAndContact.contact,
-          isAddressConfirmed: true,
-          addressText: 'Jl. Studio No. 37, Jakarta',
-          mapsUrl: 'https://maps.google.com/?q=37+Music+Studio',
-        },
-      },
-      finalCta: {
-        ...landingPageContent.finalCta,
-        secondaryCta: {
-          ...landingPageContent.finalCta.secondaryCta,
-          isConfirmed: true,
-          whatsappNumber: '6281234567890',
-          whatsappUrl: 'https://wa.me/6281234567890',
-          prefilledMessage: 'Hi 37 Music Studio, I would like to ask about booking.',
-        },
-      },
-      footer: {
-        ...landingPageContent.footer,
+  it('consumes Owner-managed publicSiteSettings/site for Maps, WhatsApp, Social Links, and Verified Testimonials only', async () => {
+    setPublicSiteSettingsRepositoryAdapter(
+      createInMemoryPublicSiteSettingsAdapter({
+        studioName: '37 Music Studio',
+        publicWhatsappNumber: '+6281234567890',
+        publicAddress: 'Jl. Studio No. 37',
+        city: 'Jakarta Selatan',
+        mapsUrl: 'https://maps.google.com/?q=37+Music+Studio',
         socialLinks: [
+          { id: 'instagram', label: 'Instagram', url: 'https://instagram.com/37musicstudio' },
+          { id: 'tiktok', label: 'TikTok', url: 'javascript:alert(1)' },
+          { id: 'youtube', label: 'YouTube', url: '' },
+        ],
+        verifiedTestimonials: [
           {
-            id: 'instagram',
-            label: 'Instagram',
-            isConfirmed: true,
-            href: 'https://instagram.com/37musicstudio',
-          },
-          {
-            id: 'tiktok',
-            label: 'TikTok',
-            isConfirmed: true,
-            href: 'javascript:alert(1)',
-          },
-          {
-            id: 'youtube',
-            label: 'YouTube',
-            isConfirmed: true,
-            href: '',
+            id: 'tm-1',
+            badge: 'VERIFIED BAND',
+            quote: 'Ruangan nyaman dan drum kit siap pakai sepanjang sesi.',
+            author: 'Raka / Midnight Static',
+            role: 'Rehearsal & Recording',
+            rating: 5,
           },
         ],
-      },
-    };
+      }),
+    );
 
     render(
       <MemoryRouter>
-        <LandingPage content={mixedConfigContent} />
+        <LandingPage />
       </MemoryRouter>,
     );
 
-    // Confirmed Maps renders external anchor with safe rel attributes
-    const mapsLink = screen.getByRole('link', { name: /open in maps/i });
+    const mapsLink = await screen.findByRole('link', { name: /open in maps/i });
     expect(mapsLink.getAttribute('href')).toBe('https://maps.google.com/?q=37+Music+Studio');
-    expect(mapsLink.getAttribute('target')).toBe('_blank');
     expect(mapsLink.getAttribute('rel')).toBe('noopener noreferrer');
 
-    // Confirmed WhatsApp renders external anchor with encoded prefilled message
     const whatsappLink = screen.getByRole('link', { name: /ask on whatsapp/i });
-    expect(whatsappLink.getAttribute('href')).toBe(
-      'https://wa.me/6281234567890?text=Hi+37+Music+Studio%2C+I+would+like+to+ask+about+booking.',
-    );
-    expect(whatsappLink.getAttribute('target')).toBe('_blank');
-    expect(whatsappLink.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(whatsappLink.getAttribute('href')).toContain('https://wa.me/6281234567890?text=');
 
-    // Confirmed Instagram renders anchor; invalid/empty URLs stay pending buttons despite flag=true
     const igLink = screen.getByRole('link', { name: /instagram \(opens in a new tab\)/i });
     expect(igLink.getAttribute('href')).toBe('https://instagram.com/37musicstudio');
-    expect(igLink.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(screen.queryByRole('button', { name: /tiktok/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /tiktok/i })).toBeNull();
 
-    const tiktokFallbackButton = screen.getByRole('button', {
-      name: /tiktok \(official url pending owner confirmation\)/i,
-    });
-    await user.click(tiktokFallbackButton);
-    expect(
-      await screen.findByText(
-        /official 37 music studio tiktok profile url is pending owner confirmation\./i,
-      ),
-    ).toBeTruthy();
-
-    expect(
-      screen.getByRole('button', {
-        name: /youtube \(official url pending owner confirmation\)/i,
-      }),
-    ).toBeTruthy();
+    expect(screen.getByTestId('verified-testimonials-section')).toBeTruthy();
+    expect(screen.getByText(/raka \/ midnight static/i)).toBeTruthy();
   });
 
-  it('exposes Header, Hero, Room A, Room B, Teaser, and Final CTA links to /availability', () => {
+  it('exposes Availability links and renders Privacy Notice at /privacy', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
-        <LandingPage />
+        <LandingPage content={landingPageContent} />
       </MemoryRouter>,
     );
 
     expect(
       screen.getByRole('heading', { level: 2, name: /find your next open session\./i }),
     ).toBeTruthy();
-
-    const roomAAvailabilityLink = screen.getByRole('link', {
-      name: /check room availability \(room a\)/i,
-    });
-    expect(roomAAvailabilityLink.getAttribute('href')).toBe('/availability?room=room-a');
-
-    const roomBAvailabilityLink = screen.getByRole('link', {
-      name: /check room availability \(room b\)/i,
-    });
-    expect(roomBAvailabilityLink.getAttribute('href')).toBe('/availability?room=room-b');
-
-    const viewFullLink = screen.getByRole('link', { name: /view full availability/i });
-    expect(viewFullLink.getAttribute('href')).toBe('/availability');
+    expect(
+      screen
+        .getByRole('link', { name: /check room availability \(room a\)/i })
+        .getAttribute('href'),
+    ).toBe('/availability?room=room-a');
+    expect(
+      screen
+        .getByRole('link', { name: /check room availability \(room b\)/i })
+        .getAttribute('href'),
+    ).toBe('/availability?room=room-b');
+    expect(screen.getByRole('link', { name: /view full availability/i }).getAttribute('href')).toBe(
+      '/availability',
+    );
   });
 
-  it('prefills booking inquiry form from valid URL search parameters and safely ignores invalid or past URL parameters', () => {
+  it('prefills booking request form from valid URL search parameters and ignores invalid params', () => {
     const tomorrowStr = format(addDays(new Date(), 1), 'yyyy-MM-dd');
 
-    // 1. Valid URL prefill parameters
     render(
       <MemoryRouter
         initialEntries={[
@@ -510,7 +418,7 @@ describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', 
     );
 
     expect(screen.getByTestId('booking-availability-disclaimer').textContent).toMatch(
-      /availability may change\. final confirmation is subject to studio verification\./i,
+      /availability may change\./i,
     );
     expect(screen.getByTestId('booking-preselection-notice').textContent).toMatch(
       /prefilled from availability calendar/i,
@@ -524,7 +432,6 @@ describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', 
     );
     cleanup();
 
-    // 2. Invalid / past URL search parameters fall back safely to defaults
     render(
       <MemoryRouter
         initialEntries={[

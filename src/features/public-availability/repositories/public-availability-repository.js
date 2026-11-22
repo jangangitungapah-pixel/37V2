@@ -17,6 +17,7 @@ import {
   PUBLIC_AVAILABILITY_QUERY_LIMIT,
   PUBLIC_BACKFILL_BATCH_WRITE_LIMIT,
   PUBLIC_BACKFILL_PAGE_SIZE,
+  PUBLIC_VERIFICATION_READ_CHUNK_SIZE,
 } from '../config/public-availability-config';
 import {
   hasOnlySanitizedPublicAvailabilityKeys,
@@ -66,7 +67,7 @@ export function createFirestorePublicAvailabilityRepositoryAdapter() {
           isTruncated: false,
           maxLimit,
         });
-        return () => {};
+        return () => { };
       }
 
       (async () => {
@@ -74,6 +75,10 @@ export function createFirestorePublicAvailabilityRepositoryAdapter() {
           const [{ collection, limit, onSnapshot, orderBy, query, where }, { getFirebaseDb }] =
             await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
           if (isCancelled) return;
+          if (typeof onSnapshot !== 'function') {
+            onError?.(new Error('Firestore realtime listener unavailable.'));
+            return;
+          }
 
           const db = getFirebaseDb();
           const colRef = collection(db, FIRESTORE_COLLECTIONS.PUBLIC_AVAILABILITY);
@@ -89,8 +94,9 @@ export function createFirestorePublicAvailabilityRepositoryAdapter() {
             q,
             (snapshot) => {
               if (isCancelled) return;
-              const isTruncated = snapshot.docs.length > maxLimit;
-              const docs = isTruncated ? snapshot.docs.slice(0, maxLimit) : snapshot.docs;
+              const rawDocs = Array.isArray(snapshot?.docs) ? snapshot.docs : [];
+              const isTruncated = rawDocs.length > maxLimit;
+              const docs = isTruncated ? rawDocs.slice(0, maxLimit) : rawDocs;
               const projections = docs
                 .map((docSnap) => normalizePublicAvailabilityRecord(docSnap.id, docSnap.data()))
                 .filter(Boolean)
@@ -132,6 +138,10 @@ export function createFirestorePublicAvailabilityRepositoryAdapter() {
             import('@/lib/firebase/firestore'),
           ]);
           if (isCancelled) return;
+          if (typeof onSnapshot !== 'function') {
+            onError?.(new Error('Firestore realtime listener unavailable.'));
+            return;
+          }
 
           const db = getFirebaseDb();
           const docRef = doc(
@@ -144,6 +154,10 @@ export function createFirestorePublicAvailabilityRepositoryAdapter() {
             docRef,
             (snap) => {
               if (isCancelled) return;
+              if (!snap || typeof snap.exists !== 'function') {
+                onError?.(new Error('Invalid metadata snapshot received from Firestore listener.'));
+                return;
+              }
               onData?.(
                 snap.exists()
                   ? normalizePublicAvailabilityMetadata(snap.data())
@@ -290,28 +304,34 @@ export function createFirestorePublicAvailabilityRepositoryAdapter() {
     },
 
     async getPublicAvailabilityProjectionsByIds(bookingIds = []) {
+      const cleanIds = Array.from(new Set((bookingIds || []).filter(Boolean)));
+      const map = new Map();
+      if (cleanIds.length === 0) {
+        return map;
+      }
+
       const [{ doc, getDoc }, { getFirebaseDb }] = await Promise.all([
         import('firebase/firestore'),
         import('@/lib/firebase/firestore'),
       ]);
       const db = getFirebaseDb();
-      const map = new Map();
 
-      const snaps = await Promise.all(
-        (bookingIds || [])
-          .filter(Boolean)
-          .map((id) => getDoc(doc(db, FIRESTORE_COLLECTIONS.PUBLIC_AVAILABILITY, id))),
-      );
+      for (let i = 0; i < cleanIds.length; i += PUBLIC_VERIFICATION_READ_CHUNK_SIZE) {
+        const chunkIds = cleanIds.slice(i, i + PUBLIC_VERIFICATION_READ_CHUNK_SIZE);
+        const snaps = await Promise.all(
+          chunkIds.map((id) => getDoc(doc(db, FIRESTORE_COLLECTIONS.PUBLIC_AVAILABILITY, id))),
+        );
 
-      for (const snap of snaps) {
-        if (snap.exists()) {
-          const raw = snap.data();
-          const norm = normalizePublicAvailabilityRecord(snap.id, raw);
-          if (norm) {
-            map.set(snap.id, {
-              ...norm,
-              _rawKeys: Object.keys(raw || {}),
-            });
+        for (const snap of snaps) {
+          if (snap.exists()) {
+            const raw = snap.data();
+            const norm = normalizePublicAvailabilityRecord(snap.id, raw);
+            if (norm) {
+              map.set(snap.id, {
+                ...norm,
+                _rawKeys: Object.keys(raw || {}),
+              });
+            }
           }
         }
       }
@@ -428,7 +448,7 @@ export function createInMemoryPublicAvailabilityRepositoryAdapter({
     }) {
       if (!startDate || !endDate) {
         onData?.({ projections: [], isTruncated: false, maxLimit });
-        return () => {};
+        return () => { };
       }
       const sub = { startDate, endDate, maxLimit, onData, onError };
       subscribers.add(sub);
@@ -441,7 +461,7 @@ export function createInMemoryPublicAvailabilityRepositoryAdapter({
     subscribePublicAvailabilityMetadata({ onData, onError }) {
       if (simulatedError) {
         onError?.(simulatedError);
-        return () => {};
+        return () => { };
       }
       metadataSubscribers.add(onData);
       emitMetadata();

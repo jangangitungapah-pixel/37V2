@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 import { ADMIN_NAVIGATION_ITEMS } from '../navigation/admin-navigation';
 import { AdminSidebarNavItem } from './AdminSidebarNavItem';
 
-export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
+export function AdminSidebar({ isCollapsed, onToggleCollapse, navBadges = {} }) {
   const prefersReducedMotion = useReducedMotion();
 
   return (
@@ -95,6 +95,7 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse }) {
               <AdminSidebarNavItem
                 key={item.id}
                 item={item}
+                badge={navBadges[item.id] || ''}
                 isCollapsed={isCollapsed}
                 layoutScope="desktop"
               />

@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { AppProviders } from '@/app/providers/AppProviders';
 import { AdminBookkeepingPage } from '@/features/admin/bookkeeping/pages/AdminBookkeepingPage';
+import { AdminBookingRequestsPage } from '@/features/admin/booking-requests/pages/AdminBookingRequestsPage';
 import { AdminCalendarPage } from '@/features/admin/calendar/pages/AdminCalendarPage';
 import { AdminCommissionAndFeePage } from '@/features/admin/commission/pages/AdminCommissionAndFeePage';
 import { AdminCustomersPage } from '@/features/admin/customer/pages/AdminCustomersPage';
@@ -18,6 +19,7 @@ import { RequireStaff } from '@/features/auth/RequireStaff';
 import { PublicAvailabilityPage } from '@/features/public-availability/pages/PublicAvailabilityPage';
 import { LandingPage } from '@/pages/LandingPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { PrivacyNoticePage } from '@/pages/PrivacyNoticePage';
 import { StaffLoginPage } from '@/pages/StaffLoginPage';
 
 export function AppRoutes() {
@@ -25,6 +27,7 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/availability" element={<PublicAvailabilityPage />} />
+      <Route path="/privacy" element={<PrivacyNoticePage />} />
       <Route path="/staff/login" element={<StaffLoginPage />} />
       <Route
         path="/admin"
@@ -37,6 +40,7 @@ export function AppRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboardPage />} />
         <Route path="calendar" element={<AdminCalendarPage />} />
+        <Route path="booking-requests" element={<AdminBookingRequestsPage />} />
         <Route path="customer" element={<AdminCustomersPage />} />
         <Route path="payment-and-bill" element={<AdminPaymentAndBillPage />} />
         <Route path="commission-and-fee" element={<AdminCommissionAndFeePage />} />

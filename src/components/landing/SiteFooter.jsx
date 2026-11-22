@@ -1,22 +1,18 @@
-import { useState } from 'react';
 import { ArrowRight, ArrowUpRight, CalendarClock, KeyRound } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { resolveSocialHref } from '@/lib/external-links';
 
 export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
-  const [socialPendingMessage, setSocialPendingMessage] = useState('');
-
-  const visitAddress =
-    contact?.isAddressConfirmed && contact?.addressText
-      ? contact.addressText
-      : footer.visitAddressPendingNote;
-  const hoursNote =
-    contact?.isHoursConfirmed && contact?.hoursText ? contact.hoursText : footer.hoursPendingNote;
-  const contactNote =
-    contact?.isContactConfirmed && contact?.contactText
-      ? contact.contactText
-      : footer.contactPendingNote;
+  const visitAddress = contact?.addressText || '37 Music Studio';
+  const hoursNote = contact?.hoursText || '10:00 – 23:00 WIB';
+  const contactNote = contact?.contactText || 'Online booking request desk active 24/7';
+  const verifiedSocialLinks = (footer.socialLinks || [])
+    .map((social) => ({
+      ...social,
+      confirmedHref: resolveSocialHref(social),
+    }))
+    .filter((social) => Boolean(social.confirmedHref));
 
   const handleAnchorClick = (event, href) => {
     event.preventDefault();
@@ -27,7 +23,7 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
     <footer className="bg-studio-ink text-studio-ivory pt-10 pb-6 sm:pt-14 sm:pb-8">
       <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 pb-8 sm:grid-cols-2 lg:grid-cols-12">
-          {/* Column 1: Brand Lockup & Social Icons */}
+          {/* Column 1: Brand Lockup & Verified Social Links */}
           <div className="lg:col-span-4">
             <div className="flex items-center gap-2.5">
               <span className="border-studio-ivory bg-studio-lime text-studio-ink flex h-9 w-9 items-center justify-center border font-mono text-sm font-extrabold">
@@ -42,52 +38,22 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
               {footer.description}
             </p>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              {footer.socialLinks.map((social) => {
-                const confirmedHref = resolveSocialHref(social);
-
-                if (confirmedHref) {
-                  return (
-                    <a
-                      key={social.id}
-                      href={confirmedHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={`${social.label} (opens in a new tab)`}
-                      className="hover:border-studio-lime hover:text-studio-lime inline-flex min-h-11 items-center gap-1 border border-neutral-700 bg-neutral-900 px-3 py-2 font-mono text-[11px] font-bold uppercase transition-colors"
-                    >
-                      <span>{social.label}</span>
-                      <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                    </a>
-                  );
-                }
-
-                return (
-                  <button
+            {verifiedSocialLinks.length > 0 ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {verifiedSocialLinks.map((social) => (
+                  <a
                     key={social.id}
-                    type="button"
-                    aria-label={`${social.label} (official URL pending owner confirmation)`}
-                    onClick={() =>
-                      setSocialPendingMessage(
-                        `Official 37 Music Studio ${social.label} profile URL is pending owner confirmation.`,
-                      )
-                    }
-                    className="hover:border-studio-lime hover:text-studio-lime inline-flex min-h-11 cursor-pointer items-center border border-neutral-700 bg-neutral-900 px-3 py-2 font-mono text-[11px] font-bold uppercase transition-colors"
+                    href={social.confirmedHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${social.label} (opens in a new tab)`}
+                    className="hover:border-studio-lime hover:text-studio-lime inline-flex min-h-11 items-center gap-1 border border-neutral-700 bg-neutral-900 px-3 py-2 font-mono text-[11px] font-bold uppercase transition-colors"
                   >
-                    {social.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {socialPendingMessage ? (
-              <p
-                role="status"
-                aria-live="polite"
-                className="text-studio-lime mt-2.5 font-mono text-[11px]"
-              >
-                {socialPendingMessage}
-              </p>
+                    <span>{social.label}</span>
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                ))}
+              </div>
             ) : null}
           </div>
 
@@ -119,6 +85,14 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
                   )}
                 </li>
               ))}
+              <li>
+                <Link
+                  to={footer.privacyHref || '/privacy'}
+                  className="hover:text-studio-lime inline-flex min-h-10 items-center py-1.5 text-neutral-200 transition-colors"
+                >
+                  {footer.privacyLabel || 'Privacy Notice'}
+                </Link>
+              </li>
             </ul>
           </div>
 

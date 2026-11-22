@@ -1,38 +1,23 @@
 /**
- * Centralized content & configuration module for the 37 Music Studio public landing page.
- *
- * Content & Verification Policy (PRD v0.2 Section 12 & Phase 2B Priority 3/4):
- * - Separates confirmed brand identity from draft layout copy and demo placeholders.
- * - Preserves explicit pending tokens in `pendingConfigTokens` for owner replacement.
- * - Never exposes raw `[..._PENDING]` tokens in visitor-facing UI.
- * - No unverified studio dimensions, channel counts, capacities, equipment lists,
- *   operating hours, addresses, coordinates, prices, availability, or ratings are
- *   presented as confirmed facts.
+ * Centralized production base content for the 37 Music Studio public landing page.
+ * Merged dynamically at runtime with Owner-managed `publicSiteSettings/site` and
+ * published `landingPagePlacements` from Cloud Firestore.
  */
-
-export const pendingConfigTokens = {
-  studioAddress: '[STUDIO_ADDRESS_PENDING]',
-  mapsUrl: '[MAPS_URL_PENDING]',
-  whatsappNumber: '[WHATSAPP_NUMBER_PENDING]',
-  whatsappUrl: '[WHATSAPP_URL_PENDING]',
-  operatingHours: '[OPERATING_HOURS_PENDING]',
-  studioDomain: '[STUDIO_DOMAIN_PENDING]',
-};
 
 export const landingPageContent = {
   meta: {
     studioName: '37 Music Studio',
-    isDemoContent: true,
-    audienceNote:
-      'Public landing page for prospective 37 Music Studio clients (bands, musicians, recording artists, and producers).',
+    seoTitle: '37 Music Studio — Rehearsal, Recording, Mixing & Mastering',
+    seoDescription:
+      'Book rehearsal and recording sessions or send a mixing & mastering inquiry at 37 Music Studio. Check live room availability online.',
+    isDemoContent: false,
+    isPublished: true,
   },
 
   utilityStrip: {
     descriptor: '37 MUSIC STUDIO • REHEARSAL / RECORDING / MIX & MASTER',
-    isHoursConfirmed: false,
-    hoursText: '',
-    hoursToken: pendingConfigTokens.operatingHours,
-    hoursPendingLabel: 'OPERATING HOURS: PENDING CONFIRMATION (DEMO)',
+    isHoursConfirmed: true,
+    hoursText: '10:00 – 23:00 WIB',
     ctaLabel: 'BOOK A SESSION →',
     ctaHref: '#booking',
   },
@@ -48,38 +33,23 @@ export const landingPageContent = {
       { label: 'Availability', href: '/availability', isRoute: true },
       { label: 'Contact', href: '#contact' },
     ],
-    loginButton: {
-      label: 'Client Login',
-      ariaLabel: 'Client login portal (coming soon)',
-    },
     primaryCta: {
       label: 'Book a session',
       href: '#booking',
     },
   },
 
-  loginDialog: {
-    badge: 'CLIENT PORTAL PREVIEW',
-    title: 'Client Login Coming Soon',
-    description:
-      'The client portal is not available yet. You can still explore our services and submit a booking inquiry from the public website.',
-    detail:
-      'Prospective 37 Music Studio clients do not need an account to browse session categories, inspect rooms, or submit a booking inquiry on this page.',
-    closeLabel: 'Back to website',
-    bookingCtaLabel: 'Start a booking inquiry',
-  },
-
   hero: {
     badges: [
       {
         id: 'badge-studio',
-        label: '37 MUSIC STUDIO • DRAFT PREVIEW',
+        label: '37 MUSIC STUDIO • LIVE BOOKING REQUESTS',
         variant: 'white',
         hasDot: true,
       },
       {
         id: 'badge-sessions',
-        label: 'REHEARSAL • RECORDING • MIX & MASTER',
+        label: '10:00 – 23:00 WIB',
         variant: 'lime',
         hasDot: false,
       },
@@ -90,7 +60,7 @@ export const landingPageContent = {
       lineThree: 'IDEAS.',
     },
     description:
-      'A public showcase for 37 Music Studio — rehearsal, recording, and mixing & mastering sessions. Explore our draft room cards and test the session inquiry preview below.',
+      'Rehearsal, studio tracking, and post-production sessions at 37 Music Studio. Inspect live Room A & Room B availability and send your session request directly to our studio desk.',
     primaryCta: {
       label: 'Book a session',
       href: '#booking',
@@ -104,32 +74,32 @@ export const landingPageContent = {
       {
         id: 'fact-room-a',
         value: 'ROOM A',
-        label: 'LIVE SPACE (DRAFT)',
+        label: 'LIVE REHEARSAL FLOOR',
         highlight: false,
       },
       {
         id: 'fact-room-b',
         value: 'ROOM B',
-        label: 'RECORD & MIX (DRAFT)',
+        label: 'CONTROL + BOOTH',
         highlight: true,
       },
       {
-        id: 'fact-inquiry',
-        value: 'DEMO',
-        label: 'LOCAL INQUIRY PREVIEW',
+        id: 'fact-hours',
+        value: '10–23',
+        label: 'DAILY OPERATING HOURS (WIB)',
         highlight: false,
       },
     ],
     featuredPhoto: {
       src: '',
-      alt: '37 Music Studio live rehearsal and recording room preview',
+      alt: '37 Music Studio live rehearsal and recording room',
       width: 960,
       height: 680,
       topSticker: '37 MUSIC STUDIO',
       captionTitle: 'ROOM A — LIVE ROOM',
-      captionSubtitle: 'Rehearsal & live recording space at 37 Music Studio',
+      captionSubtitle: 'Rehearsal & live recording floor at 37 Music Studio',
       demoTagLabel: '',
-      floatingBadgeTitle: 'Studio Preview',
+      floatingBadgeTitle: 'Two Dedicated Rooms',
       floatingBadgeSubtitle: 'Rehearsal • Recording • Mix',
       isDemoAsset: false,
     },
@@ -140,53 +110,49 @@ export const landingPageContent = {
       'BAND REHEARSAL',
       'RECORDING SESSIONS',
       'MIXING & MASTERING',
-      'DRAFT ROOM PREVIEW',
-      'SESSION INQUIRIES',
-      'DEMO PREVIEW MODE',
+      '30-MINUTE LIVE SLOTS',
+      'DIRECT STUDIO REQUESTS',
+      'WHATSAPP COORDINATION',
     ],
   },
 
   services: {
-    eyebrow: 'WHAT WE OFFER (DRAFT)',
+    eyebrow: 'WHAT WE OFFER',
     heading: 'Pick your session',
     intro:
-      'Select a draft session category to prefill the inquiry form below. Final service scopes, included equipment, and pricing await studio owner confirmation.',
+      'Choose studio room booking for Rehearsal or Recording, or send a dedicated post-production inquiry for Mixing & Mastering.',
     items: [
       {
         id: 'rehearsal',
         number: '01',
-        badge: 'GROUP SESSION',
+        badge: 'STUDIO ROOM SESSION',
         badgeVariant: 'lime',
         icon: 'drum',
         title: 'Rehearsal',
         description:
-          'Dedicated group rehearsal sessions for bands and ensembles. Exact room equipment and package details are draft placeholders pending confirmation.',
-        features: [
-          'Full band rehearsal category (draft)',
-          'Included gear list pending owner confirmation',
-          'Session rates & durations to be confirmed',
-        ],
-        ctaLabel: 'Check availability',
+          'Dedicated studio rehearsal sessions for bands and ensembles with full backline readiness.',
+        features: ['Group rehearsal floor', '30-minute slot scheduling', 'Room A & Room B options'],
+        publicPriceLabel: '',
+        ctaLabel: 'Request rehearsal',
         defaultRoom: 'room-a',
-        isDraftSpec: true,
       },
       {
         id: 'recording',
         number: '02',
-        badge: 'TRACKING',
+        badge: 'STUDIO ROOM SESSION',
         badgeVariant: 'orange',
         icon: 'mic',
         title: 'Recording',
         description:
-          'Studio recording sessions for vocals, solo instruments, or band tracking. Engineering workflow and equipment specs are draft placeholders pending confirmation.',
+          'Focused studio tracking sessions for vocals, instruments, and full-band live takes.',
         features: [
-          'Vocal, instrument, or band tracking (draft)',
-          'Signal chain & mic list pending confirmation',
-          'Deliverables & rates to be confirmed',
+          'Live & booth tracking',
+          'Dedicated control room session',
+          'Flexible session lengths',
         ],
-        ctaLabel: 'Check availability',
+        publicPriceLabel: '',
+        ctaLabel: 'Request recording',
         defaultRoom: 'room-b',
-        isDraftSpec: true,
       },
       {
         id: 'mix-master',
@@ -196,24 +162,24 @@ export const landingPageContent = {
         icon: 'sliders',
         title: 'Mix & Master',
         description:
-          'Post-production mixing and mastering inquiries for singles, EPs, and session stems. Workflow and turnaround details await owner confirmation.',
+          'Post-production mixing and final mastering inquiries for singles, EPs, and multi-track stems.',
         features: [
-          'Mixing & mastering session category (draft)',
-          'Delivery formats pending owner confirmation',
-          'Revision policy & pricing to be confirmed',
+          'Post-production workflow',
+          'Project brief & target deadline',
+          'Direct coordination via WhatsApp',
         ],
-        ctaLabel: 'Check availability',
-        defaultRoom: 'room-b',
-        isDraftSpec: true,
+        publicPriceLabel: '',
+        ctaLabel: 'Send inquiry',
+        defaultRoom: 'any',
       },
     ],
   },
 
   rooms: {
-    eyebrow: 'THE SPACES (DRAFT)',
+    eyebrow: 'THE SPACES',
     heading: 'Two rooms, zero guesswork',
     intro:
-      'Layout preview for two proposed studio spaces. Room capacities, equipment lists, and real studio photography will be published once verified by the owner.',
+      'Room A and Room B are scheduled independently in 30-minute blocks from 10:00 to 23:00 WIB.',
     items: [
       {
         id: 'room-a',
@@ -226,8 +192,8 @@ export const landingPageContent = {
           height: 680,
           isDemoAsset: false,
         },
-        capacityLabel: 'Room capacity & floor dimensions pending owner confirmation',
-        tags: ['Draft room slot', 'Rehearsal layout', 'Equipment list pending'],
+        capacityLabel: 'Primary rehearsal and live tracking floor at 37 Music Studio.',
+        tags: ['Live Rehearsal Floor', 'Band Sessions', '10:00 – 23:00 WIB'],
         ctaLabel: 'Book this room',
         defaultService: 'rehearsal',
       },
@@ -242,18 +208,18 @@ export const landingPageContent = {
           height: 680,
           isDemoAsset: false,
         },
-        capacityLabel: 'Room capacity & equipment specs pending owner confirmation',
-        tags: ['Draft room slot', 'Recording / mix layout', 'Equipment list pending'],
+        capacityLabel: 'Recording control room and vocal/instrument tracking suite.',
+        tags: ['Control + Booth', 'Tracking & Production', '10:00 – 23:00 WIB'],
         ctaLabel: 'Book this room',
         defaultService: 'recording',
       },
     ],
-    includedLabel: 'Details awaiting confirmation:',
+    includedLabel: 'Scheduling basics:',
     includedChips: [
-      'Amenities: Pending owner confirmation',
-      'Gear specs: Pending owner confirmation',
-      'Pricing: Pending owner decision',
-      'Booking: Local demo preview only',
+      '30-minute time blocks',
+      'Asia/Jakarta (WIB) schedule',
+      'Live availability calendar',
+      'Studio team confirmation',
     ],
   },
 
@@ -271,140 +237,78 @@ export const landingPageContent = {
 
   bookingSection: {
     process: {
-      eyebrow: 'HOW INQUIRY WORKS (DEMO)',
+      eyebrow: 'HOW BOOKING REQUESTS WORK',
       heading: 'Three taps to loud.',
       steps: [
         {
           number: '1',
-          title: 'Pick session + time',
+          title: 'Pick session + slot',
           description:
-            'Choose a draft service category, room slot, and your preferred date and start time in the inquiry form.',
+            'Choose Rehearsal, Recording, or a Mix & Master inquiry and share your preferred schedule or project details.',
         },
         {
           number: '2',
-          title: 'Review locally',
+          title: 'Studio verifies availability',
           description:
-            'Inputs are validated directly in your browser. In this Phase 2 preview, no reservation or external message is sent.',
+            'Our team checks the live studio calendar and reviews your session brief or technical notes.',
         },
         {
           number: '3',
-          title: 'Confirmed channel next',
+          title: 'Confirmed via WhatsApp',
           description:
-            'Approved studio contact routing and booking workflow integration will be connected in a future phase.',
+            'Once details are agreed via WhatsApp, we lock your official calendar booking and send confirmation.',
         },
       ],
-      reassuranceNote: 'Demo inquiry preview — no real booking or availability check occurs.',
+      reassuranceNote:
+        'Submitting a request notifies the studio desk directly — zero account required.',
     },
     form: {
-      heading: 'Booking inquiry',
+      heading: 'Send booking request',
       subtitle:
-        'Test the session inquiry layout below. Submissions are validated locally only and never sent or stored.',
-      submitLabel: 'Send booking inquiry',
-      footnote: 'Demo inquiry only — no personal data is transmitted or stored.',
-      demoConfirmationTitle: 'Demo Inquiry Received (Local Preview)',
-      demoConfirmationMessage:
-        'Demo inquiry only — your request has not been sent. The booking integration will be added later.',
-      durations: [
-        { value: '2 hours', label: '2 hours (Draft option)' },
-        { value: '3 hours', label: '3 hours (Draft option)' },
-        { value: '4 hours', label: '4 hours (Draft option)' },
-        { value: '6+ hours', label: '6+ hours / Custom (Draft option)' },
-      ],
-      timeSlots: [
-        '10:00',
-        '10:30',
-        '11:00',
-        '11:30',
-        '12:00',
-        '12:30',
-        '13:00',
-        '13:30',
-        '14:00',
-        '14:30',
-        '15:00',
-        '15:30',
-        '16:00',
-        '16:30',
-        '17:00',
-        '17:30',
-        '18:00',
-        '18:30',
-        '19:00',
-        '19:30',
-        '20:00',
-        '20:30',
-        '21:00',
-        '21:30',
-        '22:00',
-        '22:30',
-      ],
+        'Send your session request or mixing/mastering brief. Our studio team will follow up via WhatsApp to finalize availability.',
+      submitLabel: 'Submit booking request',
+      postProductionSubmitLabel: 'Send post-production inquiry',
+      footnote:
+        'Requests are reviewed by 37 Music Studio staff before a room slot is officially reserved.',
     },
   },
 
   testimonialsAndContact: {
     testimonials: {
-      eyebrow: 'ARTIST NOTES • DEMO PLACEHOLDER LAYOUT',
+      eyebrow: 'ARTIST NOTES',
       isVerified: false,
-      demoNotice:
-        'Placeholder cards only — no customer reviews, ratings, or artist attributions are published until confirmed by the studio owner.',
-      items: [
-        {
-          id: 'demo-quote-1',
-          badge: 'DEMO PLACEHOLDER 01',
-          quote:
-            'Placeholder layout slot reserved for a verified rehearsal client quote once owner approval and attribution permission are supplied.',
-          author: 'Client Name Pending',
-          role: 'Rehearsal Quote Slot • Unverified Placeholder',
-          rating: null,
-        },
-        {
-          id: 'demo-quote-2',
-          badge: 'DEMO PLACEHOLDER 02',
-          quote:
-            'Placeholder layout slot reserved for a verified recording or mixing quote once owner approval and attribution permission are supplied.',
-          author: 'Artist Name Pending',
-          role: 'Recording Quote Slot • Unverified Placeholder',
-          rating: null,
-        },
-      ],
+      items: [],
     },
     contact: {
       eyebrow: 'FIND US',
       heading: 'Studio location & hours',
-      statusBadge: 'DEMO CONTACT CARD',
+      statusBadge: 'VERIFIED STUDIO INFO',
       isAddressConfirmed: false,
       addressText: '',
-      addressToken: pendingConfigTokens.studioAddress,
-      addressPendingLabel: 'Studio street address pending owner confirmation',
       mapsUrl: '',
-      mapsToken: pendingConfigTokens.mapsUrl,
-      isHoursConfirmed: false,
-      hoursText: '',
-      hoursToken: pendingConfigTokens.operatingHours,
-      hoursPendingLabel: 'Operating hours pending owner confirmation',
+      isHoursConfirmed: true,
+      hoursText: '10:00 – 23:00 WIB',
       isContactConfirmed: false,
       contactText: '',
-      contactToken: pendingConfigTokens.whatsappNumber,
-      contactPendingLabel: 'Direct WhatsApp & phone line pending owner confirmation',
+      whatsappNumber: '',
+      email: '',
       image: {
         src: '',
-        alt: '37 Music Studio exterior and location preview',
+        alt: '37 Music Studio exterior and location',
         width: 720,
         height: 420,
         caption: '',
         isDemoAsset: false,
       },
       mapCtaLabel: 'Open in Maps',
-      mapPendingNotice:
-        'Verified studio map coordinates and street address are pending owner confirmation. Use the on-page booking inquiry form above to test the session inquiry flow.',
     },
   },
 
   finalCta: {
-    eyebrow: 'SESSION INQUIRY PREVIEW',
+    eyebrow: 'READY TO BOOK',
     headline: 'DON’T REHEARSE IN A GARAGE.',
     description:
-      'Preview a session inquiry for rehearsal, recording, or mixing at 37 Music Studio. Final room details and direct contact channels will be updated upon owner confirmation.',
+      'Check live Room A & Room B open slots or send your rehearsal, recording, or mixing & mastering request directly to the studio.',
     primaryCta: {
       label: 'Book a session',
       href: '#booking',
@@ -414,35 +318,25 @@ export const landingPageContent = {
       isConfirmed: false,
       whatsappNumber: '',
       whatsappUrl: '',
-      whatsappToken: pendingConfigTokens.whatsappUrl,
       prefilledMessage: '',
-      pendingNotice:
-        'The official 37 Music Studio WhatsApp number is pending owner confirmation. We have scrolled you to the on-page booking inquiry demo instead.',
     },
   },
 
   footer: {
     brandMark: '37',
     brandName: '37 MUSIC STUDIO',
-    description:
-      'Public preview site for 37 Music Studio — rehearsal, recording, and mixing & mastering inquiries.',
-    visitHeading: 'VISIT',
-    visitAddressPendingNote: 'Official studio address pending owner confirmation',
+    description: '37 Music Studio — Rehearsal, Recording, Mixing & Mastering.',
+    visitHeading: 'VISIT & NAVIGATE',
     hoursHeading: 'HOURS & CONTACT',
-    hoursPendingNote: 'Operating hours pending owner confirmation',
-    contactPendingNote: 'WhatsApp & email channels pending confirmation',
     ctaHeading: 'READY TO PLAY?',
-    ctaLabel: 'Start booking inquiry →',
+    ctaLabel: 'Send booking request →',
     ctaHref: '#booking',
     staffLoginLabel: 'Staff / Owner Login',
     staffLoginHref: '/staff/login',
-    socialLinks: [
-      { id: 'instagram', label: 'Instagram', isConfirmed: false, href: '' },
-      { id: 'tiktok', label: 'TikTok', isConfirmed: false, href: '' },
-      { id: 'youtube', label: 'YouTube', isConfirmed: false, href: '' },
-      { id: 'music', label: 'Streaming / Audio reels', isConfirmed: false, href: '' },
-    ],
+    privacyLabel: 'Privacy Notice',
+    privacyHref: '/privacy',
+    socialLinks: [],
     copyright: '© 2026 37 Music Studio. All rights reserved.',
-    phaseNote: 'Phase 3 Public Landing Page • Staff & Owner Auth Ready',
+    phaseNote: '10:00 – 23:00 WIB',
   },
 };

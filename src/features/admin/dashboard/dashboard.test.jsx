@@ -43,6 +43,10 @@ import {
   setBookkeepingRepositoryAdapter,
 } from '@/features/admin/bookkeeping/repositories/bookkeeping-repository';
 import {
+  resetBookingRequestRepositoryAdapter,
+  setBookingRequestRepositoryAdapter,
+} from '@/features/admin/booking-requests/repositories/booking-request-repository';
+import {
   resetBookingRepositoryAdapter,
   setBookingRepositoryAdapter,
 } from '@/features/admin/calendar/repositories/calendar-booking-repository';
@@ -120,6 +124,7 @@ function createMockDashboardAdapters({
   commissionBookings = [],
   commissionPostingItems = new Map(),
   commissionResolutions = new Map(),
+  newBookingRequests = [],
 } = {}) {
   const unsubSpies = {
     bookingRange: vi.fn(),
@@ -133,6 +138,7 @@ function createMockDashboardAdapters({
     commissionPeriod: vi.fn(),
     commissionPostings: vi.fn(),
     commissionResolutions: vi.fn(),
+    bookingRequests: vi.fn(),
   };
 
   const bookingAdapter = {
@@ -251,11 +257,26 @@ function createMockDashboardAdapters({
     }),
   };
 
+  const bookingRequestAdapter = {
+    subscribeNewBookingRequests: vi.fn(({ maxLimit = 20, onData }) => {
+      queueMicrotask(() => {
+        const sliced = newBookingRequests.slice(0, maxLimit);
+        onData?.({
+          requests: sliced,
+          hasMore: newBookingRequests.length > maxLimit,
+          maxLimit,
+        });
+      });
+      return unsubSpies.bookingRequests;
+    }),
+  };
+
   setBookingRepositoryAdapter(bookingAdapter);
   setPaymentRepositoryAdapter(paymentAdapter);
   setInventoryRepositoryAdapter(inventoryAdapter);
   setBookkeepingRepositoryAdapter(bookkeepingAdapter);
   setCommissionRepositoryAdapter(commissionAdapter);
+  setBookingRequestRepositoryAdapter(bookingRequestAdapter);
 
   return {
     bookingAdapter,
@@ -263,6 +284,7 @@ function createMockDashboardAdapters({
     inventoryAdapter,
     bookkeepingAdapter,
     commissionAdapter,
+    bookingRequestAdapter,
     unsubSpies,
   };
 }
@@ -293,6 +315,7 @@ describe('Studio Operations Command Center — Dashboard Overhaul', () => {
     cleanup();
     vi.restoreAllMocks();
     resetBookingRepositoryAdapter();
+    resetBookingRequestRepositoryAdapter();
     resetPaymentRepositoryAdapter();
     resetInventoryRepositoryAdapter();
     resetBookkeepingRepositoryAdapter();
@@ -1051,6 +1074,87 @@ describe('Studio Operations Command Center — Dashboard Overhaul', () => {
       expect(unsubSpies.activePayables).toHaveBeenCalled();
       expect(unsubSpies.bookkeepingSettlements).toHaveBeenCalled();
       expect(unsubSpies.commissionPeriod).toHaveBeenCalled();
+      expect(unsubSpies.bookingRequests).toHaveBeenCalled();
+    });
+  });
+
+  describe('15.8 Public Booking Requests Needs Attention & Preview Integration', () => {
+    it('surfaces New Booking Requests in Needs Attention and recent preview for Owner & Staff when new requests exist', async () => {
+      mockAuthenticatedUser('owner');
+      createMockDashboardAdapters({
+        newBookingRequests: [
+          {
+            id: 'req_dash001',
+            requestReference: 'REQ-DASH0001',
+            requestType: 'studio_booking',
+            status: 'new',
+            customerName: 'Nadia Vocal',
+            bandName: 'Velvet Echo',
+            contactPhone: '+6281234567890',
+            publicServiceId: 'rehearsal',
+            serviceLabelSnapshot: 'Rehearsal',
+            requestedRoomId: 'room-a',
+            preferredDate: '2026-11-24',
+            preferredStartMinute: 1140,
+            preferredDurationMinutes: 120,
+            privacyConsent: true,
+            createdAt: '2026-11-22T08:00:00.000Z',
+          },
+        ],
+      });
+
+      renderDashboard();
+
+      expect(await screen.findByText(/1 new booking requests/i)).toBeTruthy();
+      expect(screen.getAllByText(/nadia vocal/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/REQ-DASH0001/).length).toBeGreaterThanOrEqual(1);
+
+      const attentionItem = screen.getByTestId('attention-item-new_booking_requests');
+      expect(
+        within(attentionItem)
+          .getByRole('link', { name: /buka inbox request/i })
+          .getAttribute('href'),
+      ).toBe('/admin/booking-requests');
+
+      cleanup();
+
+      mockAuthenticatedUser('staff');
+      createMockDashboardAdapters({
+        newBookingRequests: [
+          {
+            id: 'req_dash002',
+            requestReference: 'REQ-DASH0002',
+            requestType: 'post_production_inquiry',
+            status: 'new',
+            customerName: 'Bagas Mixer',
+            contactPhone: '+6281333444555',
+            publicServiceId: 'mix-master',
+            serviceLabelSnapshot: 'Mix & Master',
+            privacyConsent: true,
+            createdAt: '2026-11-22T09:00:00.000Z',
+          },
+        ],
+      });
+
+      renderDashboard();
+
+      expect(await screen.findByText(/1 new booking requests/i)).toBeTruthy();
+      expect(screen.getAllByText(/bagas mixer/i).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('omits New Booking Requests Needs Attention card when zero new requests exist', async () => {
+      mockAuthenticatedUser('staff');
+      createMockDashboardAdapters({ newBookingRequests: [] });
+
+      renderDashboard();
+
+      expect(
+        await screen.findByRole('heading', {
+          name: /selamat siang, rina studio staff/i,
+        }),
+      ).toBeTruthy();
+
+      expect(screen.queryByTestId('attention-item-new_booking_requests')).toBeNull();
     });
   });
 });

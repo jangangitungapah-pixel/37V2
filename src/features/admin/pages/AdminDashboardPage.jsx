@@ -39,6 +39,8 @@ export function AdminDashboardPage({ now } = {}) {
     isTodayScheduleTruncated,
     todayScheduleMaxLimit,
     needsAttentionItems,
+    recentBookingRequests,
+    hasMoreNewBookingRequests,
     ownerFinancialSummary,
     cashFlowTrend,
     bookingTrend,
@@ -87,6 +89,8 @@ export function AdminDashboardPage({ now } = {}) {
         <aside className="min-w-0 xl:col-span-5 2xl:col-span-4">
           <DashboardNeedsAttention
             items={needsAttentionItems}
+            recentBookingRequests={recentBookingRequests}
+            hasMoreNewBookingRequests={hasMoreNewBookingRequests}
             isLoading={loading.attention}
             error={errors.attention}
             onRetry={retryDashboard}

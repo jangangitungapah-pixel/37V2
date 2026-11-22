@@ -443,6 +443,8 @@ export function buildNeedsAttentionItems({
   activePayables = [],
   commissionReviewSummary = null,
   inventoryItems = [],
+  newBookingRequests = [],
+  hasMoreNewBookingRequests = false,
   isOwner = false,
   todayIso = getJakartaTodayIso(),
   currentMinuteOfDay = null,
@@ -491,6 +493,30 @@ export function buildNeedsAttentionItems({
       amount: overdueTotalAmount,
       actionLabel: 'Buka Tagihan',
       href: '/admin/payment-and-bill',
+      ownerOnly: false,
+    });
+  }
+
+  // 1B. New Incoming Booking Requests (Owner & Staff)
+  const uniqueNewRequests = deduplicateRecordsById(newBookingRequests);
+  if (uniqueNewRequests.length > 0) {
+    const newestReq = uniqueNewRequests[0];
+    const displayCount = hasMoreNewBookingRequests
+      ? `${uniqueNewRequests.length}+`
+      : String(uniqueNewRequests.length);
+    items.push({
+      id: DASHBOARD_ATTENTION_TYPES.NEW_BOOKING_REQUESTS,
+      type: DASHBOARD_ATTENTION_TYPES.NEW_BOOKING_REQUESTS,
+      priority: DASHBOARD_ATTENTION_PRIORITY[DASHBOARD_ATTENTION_TYPES.NEW_BOOKING_REQUESTS],
+      severity: 'high',
+      badgeLabel: 'Booking Inbox',
+      badgeTone: 'orange',
+      title: `${displayCount} New Booking Requests`,
+      description: `Permintaan terbaru dari ${newestReq.customerName} (${newestReq.serviceLabelSnapshot}) menunggu peninjauan & follow-up WhatsApp.`,
+      count: uniqueNewRequests.length,
+      amount: null,
+      actionLabel: 'Buka Inbox Request',
+      href: '/admin/booking-requests',
       ownerOnly: false,
     });
   }

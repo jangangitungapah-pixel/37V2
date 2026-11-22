@@ -2180,5 +2180,434 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function isValidPublicSiteSettingsShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'studioName',
+          'tagline',
+          'publicWhatsappNumber',
+          'publicEmail',
+          'publicAddress',
+          'city',
+          'mapsUrl',
+          'operatingHours',
+          'publishedServices',
+          'publishedRooms',
+          'socialLinks',
+          'verifiedTestimonials',
+          'seoTitle',
+          'seoDescription',
+          'isPublished',
+          'updatedAt'
+        ])
+        && data.size() == 17
+        && data.schemaVersion == 1
+        && data.studioName is string
+        && data.studioName.trim().size() >= 2
+        && data.studioName.trim().size() <= 100
+        && data.tagline is string
+        && data.tagline.size() <= 160
+        && data.publicWhatsappNumber is string
+        && data.publicWhatsappNumber.size() <= 20
+        && (data.publicWhatsappNumber == '' || data.publicWhatsappNumber.matches('^\\+[1-9][0-9]{7,14}$'))
+        && data.publicEmail is string
+        && data.publicEmail.size() <= 120
+        && (data.publicEmail == '' || data.publicEmail.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$'))
+        && data.publicAddress is string
+        && data.publicAddress.size() <= 300
+        && data.city is string
+        && data.city.size() <= 80
+        && data.mapsUrl is string
+        && data.mapsUrl.size() <= 500
+        && (data.mapsUrl == '' || data.mapsUrl.matches('^https?://[^\\s]+$'))
+        && data.operatingHours is string
+        && data.operatingHours.trim().size() >= 2
+        && data.operatingHours.size() <= 80
+        && data.publishedServices is list
+        && data.publishedServices.size() >= 1
+        && data.publishedServices.size() <= 6
+        && data.publishedRooms is list
+        && data.publishedRooms.size() >= 1
+        && data.publishedRooms.size() <= 4
+        && data.socialLinks is list
+        && data.socialLinks.size() <= 6
+        && data.verifiedTestimonials is list
+        && data.verifiedTestimonials.size() <= 12
+        && data.seoTitle is string
+        && data.seoTitle.trim().size() >= 5
+        && data.seoTitle.size() <= 120
+        && data.seoDescription is string
+        && data.seoDescription.trim().size() >= 10
+        && data.seoDescription.size() <= 260
+        && data.isPublished is bool
+        && data.updatedAt is timestamp;
+    }
+
+    match /publicSiteSettings/{docId} {
+      allow get: if docId == 'site';
+      allow list: if false;
+
+      allow create, update: if isActiveOwner()
+        && docId == 'site'
+        && isValidPublicSiteSettingsShape(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    function isValidPublicBookingRequestKeys(data) {
+      return data.keys().hasOnly([
+        'schemaVersion',
+        'requestReference',
+        'requestType',
+        'status',
+        'statusReason',
+        'customerName',
+        'bandName',
+        'contactPhone',
+        'publicServiceId',
+        'serviceLabelSnapshot',
+        'requestedRoomId',
+        'preferredDate',
+        'preferredStartMinute',
+        'preferredDurationMinutes',
+        'targetDeadline',
+        'notes',
+        'privacyConsent',
+        'consentVersion',
+        'source',
+        'assignedStaffUid',
+        'assignedStaffName',
+        'lastCommunicationAt',
+        'lastCommunicationType',
+        'lastCommunicationStatus',
+        'linkedBookingId',
+        'confirmedBookingSnapshot',
+        'confirmedAt',
+        'confirmedByUid',
+        'appCheckState',
+        'createdAt',
+        'updatedAt',
+        'updatedByUid',
+        'version'
+      ]) && data.size() == 33;
+    }
+
+    function isValidPublicBookingRequestCreate(data, requestId) {
+      return requestId is string
+        && requestId.size() >= 8
+        && requestId.size() <= 80
+        && isValidPublicBookingRequestKeys(data)
+        && data.schemaVersion == 1
+        && data.requestReference is string
+        && data.requestReference.matches('^REQ-[A-Z0-9]{8}$')
+        && data.status == 'new'
+        && data.statusReason == ''
+        && data.version == 1
+        && data.privacyConsent == true
+        && data.consentVersion == 'v1'
+        && data.source in ['public_landing_page', 'public_availability_calendar']
+        && data.customerName is string
+        && data.customerName.trim().size() >= 2
+        && data.customerName.trim().size() <= 100
+        && data.bandName is string
+        && data.bandName.size() <= 100
+        && data.contactPhone is string
+        && data.contactPhone.matches('^\\+[1-9][0-9]{7,14}$')
+        && data.serviceLabelSnapshot is string
+        && data.serviceLabelSnapshot.trim().size() >= 2
+        && data.serviceLabelSnapshot.size() <= 60
+        && data.notes is string
+        && data.notes.size() <= 600
+        && data.appCheckState in ['verified', 'unconfigured']
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.updatedByUid == ''
+        && data.assignedStaffUid == ''
+        && data.assignedStaffName == ''
+        && data.lastCommunicationAt == null
+        && data.lastCommunicationType == ''
+        && data.lastCommunicationStatus == ''
+        && data.linkedBookingId == null
+        && data.confirmedBookingSnapshot == null
+        && data.confirmedAt == null
+        && data.confirmedByUid == ''
+        && (
+          (
+            data.requestType == 'studio_booking'
+            && data.publicServiceId in ['rehearsal', 'recording']
+            && data.requestedRoomId in ['room-a', 'room-b', 'any']
+            && data.preferredDate is string
+            && data.preferredDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+            && data.preferredStartMinute is int
+            && data.preferredStartMinute >= 600
+            && data.preferredStartMinute < 1380
+            && data.preferredStartMinute % 30 == 0
+            && data.preferredDurationMinutes is int
+            && data.preferredDurationMinutes >= 60
+            && data.preferredDurationMinutes <= 780
+            && data.preferredDurationMinutes % 30 == 0
+            && data.preferredStartMinute + data.preferredDurationMinutes <= 1380
+            && data.targetDeadline == null
+          )
+          || (
+            data.requestType == 'post_production_inquiry'
+            && data.publicServiceId == 'mix-master'
+            && data.requestedRoomId == null
+            && data.preferredDate == null
+            && data.preferredStartMinute == null
+            && data.preferredDurationMinutes == null
+            && (data.targetDeadline == null || (data.targetDeadline is string && data.targetDeadline.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+          )
+        );
+    }
+
+    function isBookingRequestCustomerFieldsUnchanged(nextData, prevData) {
+      return nextData.schemaVersion == prevData.schemaVersion
+        && nextData.requestReference == prevData.requestReference
+        && nextData.requestType == prevData.requestType
+        && nextData.customerName == prevData.customerName
+        && nextData.bandName == prevData.bandName
+        && nextData.contactPhone == prevData.contactPhone
+        && nextData.publicServiceId == prevData.publicServiceId
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.requestedRoomId == prevData.requestedRoomId
+        && nextData.preferredDate == prevData.preferredDate
+        && nextData.preferredStartMinute == prevData.preferredStartMinute
+        && nextData.preferredDurationMinutes == prevData.preferredDurationMinutes
+        && nextData.targetDeadline == prevData.targetDeadline
+        && nextData.notes == prevData.notes
+        && nextData.privacyConsent == prevData.privacyConsent
+        && nextData.consentVersion == prevData.consentVersion
+        && nextData.source == prevData.source
+        && nextData.appCheckState == prevData.appCheckState
+        && nextData.createdAt == prevData.createdAt;
+    }
+
+    function isValidConfirmedBookingSnapshot(snap, bookingId, bookingData) {
+      return snap is map
+        && snap.size() == 10
+        && snap.bookingId == bookingId
+        && snap.bookingReference is string
+        && snap.bookingReference.size() >= 3
+        && snap.studioId == bookingData.studioId
+        && snap.studioName is string
+        && snap.serviceTypeName is string
+        && snap.serviceOptionName is string
+        && snap.date == bookingData.date
+        && snap.startMinute == bookingData.startMinute
+        && snap.endMinute == bookingData.endMinute
+        && snap.durationMinutes == bookingData.durationMinutes;
+    }
+
+    function isBookingRequestLinkedBookingValidAfter(nextData) {
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(nextData.linkedBookingId));
+      return nextData.linkedBookingId is string
+        && nextData.linkedBookingId.size() > 0
+        && existsAfter(/databases/$(database)/documents/bookings/$(nextData.linkedBookingId))
+        && bookingAfter != null
+        && bookingAfter.data.sessionStatus != 'cancelled'
+        && isValidConfirmedBookingSnapshot(
+          nextData.confirmedBookingSnapshot,
+          nextData.linkedBookingId,
+          bookingAfter.data
+        );
+    }
+
+    function isValidBookingRequestStatusTransition(nextData, prevData) {
+      return (
+        nextData.status == prevData.status
+        && nextData.statusReason == prevData.statusReason
+        && nextData.linkedBookingId == prevData.linkedBookingId
+        && nextData.confirmedBookingSnapshot == prevData.confirmedBookingSnapshot
+        && nextData.confirmedAt == prevData.confirmedAt
+        && nextData.confirmedByUid == prevData.confirmedByUid
+      ) || (
+        nextData.status == 'confirmed'
+        && prevData.requestType == 'studio_booking'
+        && prevData.status in ['new', 'in_review', 'awaiting_customer', 'accepted']
+        && prevData.linkedBookingId == null
+        && nextData.linkedBookingId is string
+        && nextData.linkedBookingId.size() > 0
+        && nextData.confirmedAt is timestamp
+        && nextData.confirmedByUid == request.auth.uid
+        && isBookingRequestLinkedBookingValidAfter(nextData)
+      ) || (
+        nextData.status != 'confirmed'
+        && nextData.linkedBookingId == prevData.linkedBookingId
+        && nextData.confirmedBookingSnapshot == prevData.confirmedBookingSnapshot
+        && nextData.confirmedAt == prevData.confirmedAt
+        && nextData.confirmedByUid == prevData.confirmedByUid
+        && (
+          (prevData.status == 'new' && nextData.status in ['in_review', 'awaiting_customer', 'accepted', 'declined', 'closed'])
+          || (prevData.status == 'in_review' && nextData.status in ['awaiting_customer', 'accepted', 'declined', 'closed'])
+          || (prevData.status == 'awaiting_customer' && nextData.status in ['in_review', 'accepted', 'declined', 'closed'])
+          || (prevData.status == 'accepted' && nextData.status in ['in_review', 'awaiting_customer', 'declined', 'closed'])
+          || (prevData.status == 'declined' && nextData.status == 'closed')
+        )
+        && (
+          !(nextData.status in ['declined', 'closed'])
+          || (nextData.statusReason is string && nextData.statusReason.trim().size() >= 3 && nextData.statusReason.size() <= 400)
+        )
+      );
+    }
+
+    function isValidBookingRequestStaffUpdate(nextData, prevData) {
+      return isValidPublicBookingRequestKeys(nextData)
+        && isBookingRequestCustomerFieldsUnchanged(nextData, prevData)
+        && nextData.version == prevData.version + 1
+        && nextData.updatedByUid == request.auth.uid
+        && nextData.updatedAt is timestamp
+        && nextData.assignedStaffUid is string
+        && nextData.assignedStaffUid.size() <= 128
+        && nextData.assignedStaffName is string
+        && nextData.assignedStaffName.size() <= 120
+        && (nextData.lastCommunicationAt == null || nextData.lastCommunicationAt is timestamp)
+        && nextData.lastCommunicationType is string
+        && nextData.lastCommunicationType.size() <= 60
+        && nextData.lastCommunicationStatus is string
+        && nextData.lastCommunicationStatus.size() <= 60
+        && isValidBookingRequestStatusTransition(nextData, prevData);
+    }
+
+    function isValidBookingRequestCommunicationCreate(data) {
+      return data.keys().hasOnly([
+          'templateId',
+          'templateLabel',
+          'messageBodySnapshot',
+          'eventType',
+          'preparedAt',
+          'preparedByUid',
+          'manuallyMarkedSentAt',
+          'manuallyMarkedSentByUid',
+          'createdAt'
+        ])
+        && data.size() == 9
+        && data.templateId is string
+        && data.templateId.size() <= 80
+        && data.templateLabel is string
+        && data.templateLabel.size() <= 120
+        && data.messageBodySnapshot is string
+        && data.messageBodySnapshot.trim().size() >= 1
+        && data.messageBodySnapshot.size() <= 1800
+        && data.eventType in ['whatsapp_message_prepared', 'whatsapp_message_marked_sent', 'staff_note_added']
+        && (data.preparedAt == null || data.preparedAt is timestamp)
+        && data.preparedByUid is string
+        && (data.manuallyMarkedSentAt == null || data.manuallyMarkedSentAt is timestamp)
+        && data.manuallyMarkedSentByUid is string
+        && (data.preparedByUid == request.auth.uid || data.manuallyMarkedSentByUid == request.auth.uid)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidBookingRequestActivityCreate(data) {
+      return data.keys().hasOnly([
+          'eventType',
+          'fromStatus',
+          'toStatus',
+          'linkedBookingId',
+          'note',
+          'actorUid',
+          'actorName',
+          'createdAt'
+        ])
+        && data.size() == 8
+        && data.eventType in ['request_created', 'status_changed', 'booking_confirmed', 'staff_assigned']
+        && (data.fromStatus == null || data.fromStatus is string)
+        && (data.toStatus == null || data.toStatus is string)
+        && (data.linkedBookingId == null || data.linkedBookingId is string)
+        && data.note is string
+        && data.note.size() <= 500
+        && data.actorUid == request.auth.uid
+        && data.actorName is string
+        && data.actorName.size() <= 120
+        && data.createdAt is timestamp;
+    }
+
+    match /publicBookingRequests/{requestId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isValidPublicBookingRequestCreate(request.resource.data, requestId);
+
+      allow update: if isActiveStaff()
+        && isValidBookingRequestStaffUpdate(request.resource.data, resource.data);
+
+      allow delete: if false;
+
+      match /communications/{eventId} {
+        allow read: if isActiveStaff();
+        allow create: if isActiveStaff()
+          && isValidBookingRequestCommunicationCreate(request.resource.data);
+        allow update, delete: if false;
+      }
+
+      match /activities/{eventId} {
+        allow read: if isActiveStaff();
+        allow create: if isActiveStaff()
+          && isValidBookingRequestActivityCreate(request.resource.data);
+        allow update, delete: if false;
+      }
+    }
+
+    function isValidBookingRequestMessageTemplateWrite(data, templateId) {
+      return templateId is string
+        && templateId.size() >= 2
+        && templateId.size() <= 80
+        && data.keys().hasOnly([
+          'schemaVersion',
+          'label',
+          'category',
+          'description',
+          'body',
+          'allowedVariables',
+          'requiredVariables',
+          'requiresConfirmedBooking',
+          'isActive',
+          'isBuiltIn',
+          'sortOrder',
+          'version',
+          'updatedAt',
+          'updatedByUid'
+        ])
+        && data.size() == 14
+        && data.schemaVersion == 1
+        && data.label is string
+        && data.label.trim().size() >= 2
+        && data.label.trim().size() <= 80
+        && data.category in [
+          'initial_response',
+          'follow_up',
+          'scheduling',
+          'approval',
+          'confirmation',
+          'closing',
+          'post_production'
+        ]
+        && data.description is string
+        && data.description.size() <= 300
+        && data.body is string
+        && data.body.trim().size() >= 5
+        && data.body.size() <= 1500
+        && data.allowedVariables is list
+        && data.allowedVariables.size() <= 15
+        && data.requiredVariables is list
+        && data.requiredVariables.size() <= 15
+        && data.requiresConfirmedBooking is bool
+        && data.isActive is bool
+        && data.isBuiltIn is bool
+        && data.sortOrder is int
+        && data.version is int
+        && data.version >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
+    match /bookingRequestMessageTemplates/{templateId} {
+      allow read: if isActiveStaff();
+
+      allow create, update: if isActiveOwner()
+        && isValidBookingRequestMessageTemplateWrite(request.resource.data, templateId);
+
+      allow delete: if false;
+    }
+
   }
 }

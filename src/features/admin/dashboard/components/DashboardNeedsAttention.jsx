@@ -5,6 +5,7 @@ import {
   Clock,
   CreditCard,
   HandCoins,
+  Inbox,
   RefreshCw,
   Wrench,
 } from 'lucide-react';
@@ -16,6 +17,7 @@ import { DASHBOARD_ATTENTION_TYPES } from '../config/dashboard-config';
 
 const ICON_BY_TYPE = {
   [DASHBOARD_ATTENTION_TYPES.OVERDUE_INVOICES]: AlertTriangle,
+  [DASHBOARD_ATTENTION_TYPES.NEW_BOOKING_REQUESTS]: Inbox,
   [DASHBOARD_ATTENTION_TYPES.ACTIVE_SESSION_ACTION]: Clock,
   [DASHBOARD_ATTENTION_TYPES.COMMISSION_REVIEW]: HandCoins,
   [DASHBOARD_ATTENTION_TYPES.OUTSTANDING_PAYABLES]: HandCoins,
@@ -28,7 +30,14 @@ const ICON_BY_TYPE = {
  * Surfaces only genuine operational or financial items requiring action,
  * ordered strictly by business urgency.
  */
-export function DashboardNeedsAttention({ items = [], isLoading = false, error = null, onRetry }) {
+export function DashboardNeedsAttention({
+  items = [],
+  recentBookingRequests = [],
+  hasMoreNewBookingRequests = false,
+  isLoading = false,
+  error = null,
+  onRetry,
+}) {
   return (
     <AdminSurface
       as="section"
@@ -139,6 +148,51 @@ export function DashboardNeedsAttention({ items = [], isLoading = false, error =
           })}
         </ul>
       )}
+
+      {!isLoading && recentBookingRequests.length > 0 ? (
+        <div
+          data-testid="dashboard-recent-booking-requests"
+          className="space-y-2 border-t border-[#151515]/[0.08] pt-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-mono text-[10.5px] font-bold tracking-wider text-[#46433D] uppercase">
+              Permintaan Masuk Terbaru{hasMoreNewBookingRequests ? ' (Terbatas)' : ''}
+            </p>
+            <Link
+              to="/admin/booking-requests"
+              className="text-[11px] font-semibold text-[#B92B0C] hover:underline"
+            >
+              Semua Inbox →
+            </Link>
+          </div>
+          <ul className="space-y-1.5">
+            {recentBookingRequests.map((req) => (
+              <li key={req.id}>
+                <Link
+                  to={`/admin/booking-requests?requestId=${encodeURIComponent(req.id)}`}
+                  className="flex items-center justify-between gap-2 rounded-xl border border-[#151515]/[0.08] bg-[#FAF8F1] px-3 py-2 text-xs transition-colors hover:bg-white"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-[#151515]">
+                      {req.customerName} · {req.serviceLabelSnapshot}
+                    </p>
+                    <p className="truncate font-mono text-[10.5px] text-[#666159]">
+                      {req.requestReference}
+                      {req.preferredDate
+                        ? ` · ${req.preferredDate} ${req.preferredTimeLabel || ''}`
+                        : ' · Post-Production'}
+                    </p>
+                  </div>
+                  <ArrowUpRight
+                    className="h-3.5 w-3.5 shrink-0 text-[#46433D]"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </AdminSurface>
   );
 }

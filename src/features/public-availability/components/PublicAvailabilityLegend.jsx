@@ -1,68 +1,55 @@
 import { Info } from 'lucide-react';
 
 /**
- * Availability Status Legend & Non-Reservation Notice for `/availability`.
- * Uses both color and explicit text badges so color is never the sole indicator.
+ * Compact Availability Status Legend for `/availability`.
+ * Uses both distinct surface styling and explicit text labels.
  */
 export function PublicAvailabilityLegend() {
   return (
     <div
       aria-label="Availability status legend"
-      className="border-studio-ink bg-studio-ivory border-b-2 py-3"
+      className="border-studio-ink bg-studio-ivory border-b-2 py-2.5"
     >
-      <div className="mx-auto flex max-w-[1680px] flex-col justify-between gap-2.5 px-3 sm:px-6 lg:flex-row lg:items-center lg:px-8">
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <span className="font-mono text-[11px] font-extrabold tracking-wider uppercase">
-            Legend:
-          </span>
-
+      <div className="mx-auto flex max-w-[1680px] flex-col justify-between gap-2 px-3 sm:px-6 lg:flex-row lg:items-center lg:px-8">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
           <span className="inline-flex items-center gap-1.5">
             <span
-              className="border-studio-ink bg-studio-lime inline-block h-3.5 w-3.5 border-[1.5px]"
+              className="border-studio-ink bg-studio-lime inline-block h-3 w-3 border-[1.5px]"
               aria-hidden="true"
             />
-            <span className="font-mono text-[11px] font-bold uppercase">
-              Available (Selectable)
-            </span>
+            <span className="font-mono text-[11px] font-bold uppercase">Available</span>
           </span>
 
           <span className="inline-flex items-center gap-1.5">
             <span
-              className="border-studio-ink bg-studio-ink inline-block h-3.5 w-3.5 border-[1.5px]"
+              className="border-studio-ink bg-studio-ink inline-block h-3 w-3 border-[1.5px]"
               aria-hidden="true"
             />
-            <span className="font-mono text-[11px] font-bold uppercase">
-              Occupied (Booked Session)
-            </span>
+            <span className="font-mono text-[11px] font-bold uppercase">Booked</span>
           </span>
 
           <span className="inline-flex items-center gap-1.5">
             <span
-              className="border-studio-ink bg-studio-orange/20 inline-block h-3.5 w-3.5 border-[1.5px] border-dashed"
+              className="border-studio-ink bg-studio-orange/20 inline-block h-3 w-3 border-[1.5px] border-dashed"
               aria-hidden="true"
             />
-            <span className="font-mono text-[11px] font-bold uppercase">
-              Limited Window (Shorter than duration)
-            </span>
+            <span className="font-mono text-[11px] font-bold uppercase">Too short</span>
           </span>
 
           <span className="inline-flex items-center gap-1.5">
             <span
-              className="border-studio-ink/40 inline-block h-3.5 w-3.5 border bg-neutral-300"
+              className="border-studio-ink/40 inline-block h-3 w-3 border bg-neutral-300"
               aria-hidden="true"
             />
             <span className="text-studio-muted-ink font-mono text-[11px] font-semibold uppercase">
-              Past / Closed
+              Past
             </span>
           </span>
         </div>
 
-        <p className="text-studio-muted-ink flex items-center gap-1.5 font-mono text-[11px] font-semibold">
+        <p className="text-studio-muted-ink flex items-center gap-1.5 font-mono text-[11px] font-medium">
           <Info className="text-studio-orange h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <span>
-            Availability is updated from the studio schedule and may change before your session is
-            confirmed.
-          </span>
+          <span>Slots are tentative until confirmed by our studio team.</span>
         </p>
       </div>
     </div>

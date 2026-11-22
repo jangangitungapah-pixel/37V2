@@ -6,10 +6,72 @@ import {
   PUBLIC_VIEW_MODES,
 } from '../config/public-availability-config';
 import { getPublicAvailabilityRepositoryAdapter } from '../repositories/public-availability-repository';
+import { mapPublicAvailabilityErrorToMessage } from '../services/public-availability-service';
 import {
   buildPublicAvailabilityScheduleMatrix,
   getPublicCalendarDateRange,
 } from '../utils/public-availability-calculation';
+
+/**
+ * Lightweight listener hook for ONLY `publicAvailabilityMetadata/status` (`isReady` & sync timestamps).
+ * Useful in Admin screens (like AdminCalendarPage) so the Owner immediately sees whether `/availability`
+ * is initialized without subscribing to the entire public slot range.
+ */
+export function usePublicAvailabilityMetadata({ enabled = true } = {}) {
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const metadataKey = `${enabled ? '1' : '0'}:${refreshNonce}`;
+
+  const [metadataState, setMetadataState] = useState({
+    key: '',
+    metadata: null,
+    error: null,
+  });
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+
+    const adapter = getPublicAvailabilityRepositoryAdapter();
+    const currentKey = metadataKey;
+
+    const unsubMetadata = adapter.subscribePublicAvailabilityMetadata({
+      onData: (meta) => {
+        setMetadataState({
+          key: currentKey,
+          metadata: meta,
+          error: null,
+        });
+      },
+      onError: (err) => {
+        setMetadataState({
+          key: currentKey,
+          metadata: null,
+          error: mapPublicAvailabilityErrorToMessage(err, { isAdmin: true }),
+        });
+      },
+    });
+
+    return () => {
+      unsubMetadata?.();
+    };
+  }, [enabled, metadataKey]);
+
+  const isLoading = Boolean(enabled && metadataState.key !== metadataKey);
+  const activeError = metadataState.key === metadataKey ? metadataState.error : null;
+  const activeMetadata = metadataState.key === metadataKey ? metadataState.metadata : null;
+  const isReady = Boolean(!isLoading && !activeError && activeMetadata?.isReady === true);
+
+  const retry = useCallback(() => {
+    setRefreshNonce((prev) => prev + 1);
+  }, []);
+
+  return {
+    metadata: activeMetadata,
+    isReady,
+    isLoading,
+    error: activeError,
+    retry,
+  };
+}
 
 /**
  * Subscribes to sanitized `publicAvailability` projections and `publicAvailabilityMetadata/status`
@@ -37,6 +99,7 @@ export function usePublicAvailability({
   );
 
   const rangeKey = `${enabled ? '1' : '0'}:${dateRange.startDate}:${dateRange.endDate}:${maxLimit}:${refreshNonce}`;
+  const metadataKey = `${enabled ? '1' : '0'}:${refreshNonce}`;
 
   const [projectionState, setProjectionState] = useState({
     key: '',
@@ -47,7 +110,7 @@ export function usePublicAvailability({
   });
 
   const [metadataState, setMetadataState] = useState({
-    loaded: false,
+    key: '',
     metadata: null,
     error: null,
   });
@@ -75,9 +138,7 @@ export function usePublicAvailability({
         setProjectionState((prev) => ({
           ...prev,
           key: currentKey,
-          error:
-            err?.message ||
-            'Unable to load studio availability right now. Please try again or contact the studio.',
+          error: mapPublicAvailabilityErrorToMessage(err, { isAdmin: false }),
         }));
       },
     });
@@ -91,21 +152,21 @@ export function usePublicAvailability({
     if (!enabled) return undefined;
 
     const adapter = getPublicAvailabilityRepositoryAdapter();
+    const currentMetaKey = metadataKey;
+
     const unsubMetadata = adapter.subscribePublicAvailabilityMetadata({
       onData: (meta) => {
         setMetadataState({
-          loaded: true,
+          key: currentMetaKey,
           metadata: meta,
           error: null,
         });
       },
       onError: (err) => {
         setMetadataState({
-          loaded: true,
+          key: currentMetaKey,
           metadata: null,
-          error:
-            err?.message ||
-            'Unable to verify availability data readiness. Please contact the studio.',
+          error: mapPublicAvailabilityErrorToMessage(err, { isAdmin: false }),
         });
       },
     });
@@ -113,14 +174,21 @@ export function usePublicAvailability({
     return () => {
       unsubMetadata?.();
     };
-  }, [enabled, refreshNonce]);
+  }, [enabled, metadataKey]);
 
-  const isLoading = Boolean(enabled && (projectionState.key !== rangeKey || !metadataState.loaded));
+  const isLoading = Boolean(
+    enabled && (projectionState.key !== rangeKey || metadataState.key !== metadataKey),
+  );
   const error =
     (projectionState.key === rangeKey ? projectionState.error : null) ||
-    metadataState.error ||
+    (metadataState.key === metadataKey ? metadataState.error : null) ||
     null;
-  const isReady = Boolean(metadataState.loaded && metadataState.metadata?.isReady === true);
+  const isReady = Boolean(
+    !isLoading &&
+    !error &&
+    metadataState.key === metadataKey &&
+    metadataState.metadata?.isReady === true,
+  );
   const isTruncated = Boolean(projectionState.key === rangeKey && projectionState.isTruncated);
   const projections = useMemo(
     () => (!isLoading && !error && isReady && !isTruncated ? projectionState.projections : []),
@@ -158,7 +226,7 @@ export function usePublicAvailability({
     dateRange,
     projections,
     roomSchedules,
-    metadata: metadataState.metadata,
+    metadata: metadataState.key === metadataKey ? metadataState.metadata : null,
     isReady,
     isTruncated,
     maxLimit: projectionState.maxLimit,

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
+import { Link } from 'react-router';
 import {
   AlertTriangle,
   CalendarDays,
@@ -149,30 +150,37 @@ function buildInitialFormValues({ mode, initialSlot, editingBooking, normalizedS
     }))
     .filter((svc) => svc.bookableOptions.length > 0);
 
-  const defaultService =
-    studioServices.find((svc) => svc.id === initialSlot?.defaultServiceId) ||
-    studioServices[0] ||
-    null;
+  const manualServiceRequired = Boolean(initialSlot?.requiresManualServiceSelection);
 
-  const defaultOption =
-    defaultService?.bookableOptions?.find((opt) => opt.id === initialSlot?.defaultOptionId) ||
-    defaultService?.bookableOptions?.find((opt) => opt.pricing?.mode === PRICING_MODES.HOURLY) ||
-    defaultService?.bookableOptions?.[0] ||
-    null;
+  const defaultService = manualServiceRequired
+    ? null
+    : studioServices.find((svc) => svc.id === initialSlot?.defaultServiceId) ||
+      studioServices[0] ||
+      null;
 
+  const defaultOption = manualServiceRequired
+    ? null
+    : defaultService?.bookableOptions?.find((opt) => opt.id === initialSlot?.defaultOptionId) ||
+      defaultService?.bookableOptions?.find((opt) => opt.pricing?.mode === PRICING_MODES.HOURLY) ||
+      defaultService?.bookableOptions?.[0] ||
+      null;
+
+  const explicitInitialDuration = Number(initialSlot?.durationMinutes);
   const defaultDuration =
     defaultOption?.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
     defaultOption.pricing.durationMinutes > 0
       ? String(defaultOption.pricing.durationMinutes)
-      : '60';
+      : Number.isInteger(explicitInitialDuration) && explicitInitialDuration >= 30
+        ? String(explicitInitialDuration)
+        : '60';
 
   return {
-    customerName: '',
-    bandName: '',
-    phone: '',
-    serviceTypeId: defaultService?.id || 'rehearsal',
-    serviceOptionId: defaultOption?.id || 'rehearsal-regular',
-    serviceId: defaultService?.id || 'rehearsal',
+    customerName: initialSlot?.customerName || '',
+    bandName: initialSlot?.bandName || '',
+    phone: initialSlot?.phone || '',
+    serviceTypeId: manualServiceRequired ? '' : defaultService?.id || 'rehearsal',
+    serviceOptionId: manualServiceRequired ? '' : defaultOption?.id || 'rehearsal-regular',
+    serviceId: manualServiceRequired ? '' : defaultService?.id || 'rehearsal',
     packageId: '',
     recordingTypeId: '',
     manualCustomerPrice: '',
@@ -187,7 +195,7 @@ function buildInitialFormValues({ mode, initialSlot, editingBooking, normalizedS
     initialPaymentStatus: INITIAL_PAYMENT_STATUS.UNPAID,
     dpAmount: '',
     paymentMethod: 'cash',
-    notes: '',
+    notes: initialSlot?.notes || '',
     applyUpdatedPricing: true,
   };
 }
@@ -196,6 +204,7 @@ export function BookingFormDialog({
   open,
   mode = 'create',
   initialSlot = null,
+  sourceBookingRequest = null,
   editingBooking = null,
   existingBookings = [],
   pricingSettings = DEFAULT_PRICING_SETTINGS,
@@ -399,11 +408,8 @@ export function BookingFormDialog({
   }, [normalizedSettings.serviceTypes, isEditingOrRescheduling, editingBooking]);
 
   const selectedServiceType = useMemo(() => {
-    return (
-      studioServiceOptions.find((svc) => svc.id === formValues.serviceTypeId) ||
-      studioServiceOptions[0] ||
-      null
-    );
+    if (!formValues.serviceTypeId) return null;
+    return studioServiceOptions.find((svc) => svc.id === formValues.serviceTypeId) || null;
   }, [studioServiceOptions, formValues.serviceTypeId]);
 
   const subcategoryOptions = useMemo(() => {
@@ -492,8 +498,25 @@ export function BookingFormDialog({
       baseOptions.sort((a, b) => a.startMinute - b.startMinute);
     }
 
+    const prefillStartMinute = Number(initialSlot?.startMinute);
+    if (
+      !isEditingOrRescheduling &&
+      Number.isInteger(prefillStartMinute) &&
+      prefillStartMinute >= 600 &&
+      prefillStartMinute < 1380 &&
+      prefillStartMinute % 30 === 0 &&
+      !baseOptions.some((opt) => opt.startMinute === prefillStartMinute)
+    ) {
+      baseOptions.push({
+        startMinute: prefillStartMinute,
+        value: String(prefillStartMinute),
+        label: `${formatMinuteOfDay(prefillStartMinute)} WIB (Pilihan Request)`,
+      });
+      baseOptions.sort((a, b) => a.startMinute - b.startMinute);
+    }
+
     return baseOptions;
-  }, [isEditingOrRescheduling, editingBooking]);
+  }, [isEditingOrRescheduling, editingBooking, initialSlot?.startMinute]);
 
   const effectiveDurationMinutes = useMemo(
     () => resolveFormDurationMinutes(formValues, normalizedSettings),
@@ -827,6 +850,7 @@ export function BookingFormDialog({
         expectedVersion: editingBooking?.version,
         formValues,
         customerResolution,
+        bookingRequestId: sourceBookingRequest?.id || '',
       });
       handleDialogOpenChange(false);
     } catch (err) {
@@ -1019,6 +1043,38 @@ export function BookingFormDialog({
               noValidate
               className="min-h-0 flex-1 overflow-y-auto bg-[#FAF8F1] px-3 py-3 pb-6 sm:px-6 sm:py-5 sm:pb-8"
             >
+              {/* Booking Request Conversion Context Banner */}
+              {sourceBookingRequest ? (
+                <div
+                  data-testid="booking-form-request-banner"
+                  className="mb-3.5 rounded-2xl border border-[#8BAD12]/40 bg-[#EDF8C2]/70 p-3.5 text-xs text-[#243300] sm:mb-5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono font-bold uppercase">
+                      Konversi Booking Request · {sourceBookingRequest.requestReference}
+                    </span>
+                    <Link
+                      to={`/admin/booking-requests?requestId=${encodeURIComponent(sourceBookingRequest.id)}`}
+                      className="font-semibold text-[#151515] underline"
+                    >
+                      Kembali ke Inbox Request
+                    </Link>
+                  </div>
+                  <p className="mt-1">
+                    Permintaan pelanggan:{' '}
+                    <strong>{sourceBookingRequest.serviceLabelSnapshot}</strong> •{' '}
+                    {sourceBookingRequest.requestedRoomLabel} • {sourceBookingRequest.preferredDate}{' '}
+                    {sourceBookingRequest.preferredTimeLabel} WIB. Periksa detail &amp; tarif
+                    internal sebelum menyimpan.
+                  </p>
+                  {initialSlot?.serviceMappingWarning ? (
+                    <p role="alert" className="mt-1.5 font-semibold text-[#B92B0C]">
+                      {initialSlot.serviceMappingWarning}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
               {/* Global Submission Error Banner */}
               {submitError ? (
                 <div
@@ -1847,6 +1903,17 @@ export function BookingFormDialog({
                               liveValidation.errors.startMinute ||
                               liveValidation.errors.durationMinutes}
                           </p>
+                          {sourceBookingRequest && liveValidation.errors.scheduleConflict ? (
+                            <p className="mt-1.5">
+                              <Link
+                                to={`/admin/booking-requests?requestId=${encodeURIComponent(sourceBookingRequest.id)}`}
+                                className="font-bold underline"
+                              >
+                                Buka Request {sourceBookingRequest.requestReference} &amp; Tawarkan
+                                Slot Alternatif via WhatsApp →
+                              </Link>
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                     ) : (

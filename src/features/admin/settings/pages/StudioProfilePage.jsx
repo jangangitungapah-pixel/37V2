@@ -7,7 +7,13 @@ import { toast } from 'sonner';
 
 import { AdminButton, AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 import { useAuth } from '@/features/auth/AuthContext';
+import { usePublicSiteSettings } from '@/features/public-site-settings/hooks/usePublicSiteSettings';
+import {
+  arePublicSiteEditableValuesEqual,
+  extractPublicSiteSettingsEditableValues,
+} from '@/features/public-site-settings/utils/public-site-settings-normalize';
 
+import { PublicSiteSettingsForm } from '../components/PublicSiteSettingsForm';
 import { SettingsBreadcrumb } from '../components/SettingsBreadcrumb';
 import { SettingsConfirmDialog } from '../components/SettingsConfirmDialog';
 import { StudioProfileForm } from '../components/StudioProfileForm';
@@ -40,7 +46,11 @@ export function StudioProfilePage() {
     error: loadError,
   } = useStudioProfile();
 
+  const { settings: remotePublicSiteSettings, isPersisted: remotePublicIsPersisted } =
+    usePublicSiteSettings();
+
   const [savedSnapshot, setSavedSnapshot] = useState(null);
+  const [publicDraftOverride, setPublicDraftOverride] = useState(null);
   const [editBaseVersion, setEditBaseVersion] = useState(null);
   const [staleConflict, setStaleConflict] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -55,6 +65,9 @@ export function StudioProfilePage() {
   const serverIsPersisted = remoteIsPersisted || Boolean(savedSnapshot);
   const serverVersion = serverIsPersisted ? Number(serverProfile.version) || 1 : 0;
   const serverFormValues = extractStudioProfileFormValues(serverProfile);
+  const serverPublicEditableValues =
+    extractPublicSiteSettingsEditableValues(remotePublicSiteSettings);
+  const effectivePublicValues = publicDraftOverride ?? serverPublicEditableValues;
 
   const {
     register,
@@ -74,7 +87,10 @@ export function StudioProfilePage() {
 
   const watchedValues = useWatch({ control });
   const previewValues = watchedValues || serverFormValues;
-  const isDirty = isOwner && !areStudioProfileValuesEqual(previewValues, serverFormValues);
+  const isPrivateDirty = isOwner && !areStudioProfileValuesEqual(previewValues, serverFormValues);
+  const isPublicDirty =
+    isOwner && !arePublicSiteEditableValuesEqual(effectivePublicValues, serverPublicEditableValues);
+  const isDirty = isPrivateDirty || isPublicDirty;
   const hasRemoteVersionDrift =
     isDirty && editBaseVersion !== null && serverVersion !== editBaseVersion;
 
@@ -111,6 +127,7 @@ export function StudioProfilePage() {
       keepDirty: false,
       keepTouched: false,
     });
+    setPublicDraftOverride(null);
     setEditBaseVersion(null);
     setStaleConflict(null);
     setSaveError('');
@@ -120,6 +137,7 @@ export function StudioProfilePage() {
   const handleReloadLatest = () => {
     const latestValues = extractStudioProfileFormValues(remoteProfile);
     setSavedSnapshot(null);
+    setPublicDraftOverride(null);
     reset(latestValues, {
       keepDirtyValues: false,
       keepDirty: false,
@@ -162,10 +180,12 @@ export function StudioProfilePage() {
         actorRole,
         input: formData,
         expectedVersion,
+        publicSiteSettingsInput: effectivePublicValues,
       });
 
       const savedFormValues = extractStudioProfileFormValues(saved);
       setSavedSnapshot(saved);
+      setPublicDraftOverride(null);
       reset(savedFormValues, {
         keepDirtyValues: false,
         keepDirty: false,
@@ -364,6 +384,25 @@ export function StudioProfilePage() {
               updatedAt={serverProfile.updatedAt}
             />
           </div>
+
+          <AdminSurface variant="card" className="p-4 sm:p-6">
+            <div className="mb-4 border-b border-[#151515]/[0.08] pb-3">
+              <h3 className="text-base font-bold text-[#151515]">Pengaturan Website Publik</h3>
+              <p className="text-xs text-[#666159]">
+                Kelola jam operasional, layanan tampil, deskripsi ruangan, tautan sosial, dan SEO
+                halaman depan secara aman.
+              </p>
+            </div>
+            <PublicSiteSettingsForm
+              value={effectivePublicValues}
+              onChange={(nextVal) => {
+                handleFirstEdit();
+                setPublicDraftOverride(nextVal);
+              }}
+              readOnly={!isOwner}
+              isPersisted={remotePublicIsPersisted}
+            />
+          </AdminSurface>
 
           {isOwner ? (
             <StudioProfileSaveBar isDirty={isDirty} isSaving={isSaving} onDiscard={handleDiscard} />

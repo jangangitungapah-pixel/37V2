@@ -50,7 +50,7 @@ export function PublicAvailabilityTeaserSection({ now } = {}) {
             <p className="mt-4 text-sm leading-relaxed text-neutral-300 sm:text-base">
               Inspect open 30-minute time blocks across Room A and Room B before contacting the
               studio. Pick a free start time and carry your selection straight into the booking
-              inquiry form.
+              request form.
             </p>
 
             {/* Availability Legend */}
@@ -69,7 +69,7 @@ export function PublicAvailabilityTeaserSection({ now } = {}) {
                   aria-hidden="true"
                 />
                 <span className="font-bold text-white uppercase">Occupied:</span>
-                <span className="text-neutral-300">Active studio session (sanitized)</span>
+                <span className="text-neutral-300">Booked studio session</span>
               </div>
             </div>
 
@@ -165,9 +165,7 @@ export function PublicAvailabilityTeaserSection({ now } = {}) {
                 <div className="flex items-center gap-2 font-mono text-xs font-bold text-[#C8F13A] uppercase">
                   <Radio className="h-4 w-4" aria-hidden="true" />
                   <span>
-                    {isLoading
-                      ? 'Checking studio availability...'
-                      : 'Real-Time Public Schedule Architecture'}
+                    {isLoading ? 'Checking studio availability...' : 'Live Room Schedule'}
                   </span>
                 </div>
                 <h3 className="font-display mt-3 text-2xl leading-none font-black text-white uppercase sm:text-3xl">
@@ -175,7 +173,7 @@ export function PublicAvailabilityTeaserSection({ now } = {}) {
                 </h3>
                 <p className="mt-2.5 text-xs leading-relaxed text-neutral-300 sm:text-sm">
                   {!isLoading && !isReady
-                    ? 'Availability data is not ready yet. Open the public availability page or submit your preferred date and time in the booking inquiry form below.'
+                    ? 'Availability data is not ready yet. Open the public availability page or submit your preferred date and time in the booking request form below.'
                     : 'Browse 30-minute time blocks from 10:00 to 23:00 WIB across Room A (Live Room) and Room B (Control + Booth) without logging in.'}
                 </p>
 
@@ -204,7 +202,7 @@ export function PublicAvailabilityTeaserSection({ now } = {}) {
 
                 {dateRange?.todayIso ? (
                   <p className="mt-4 font-mono text-[11px] text-neutral-400">
-                    Jakarta date: {dateRange.todayIso} • Zero mock schedule data shown
+                    All times in WIB (Asia/Jakarta) • {dateRange.todayIso}
                   </p>
                 ) : null}
               </div>

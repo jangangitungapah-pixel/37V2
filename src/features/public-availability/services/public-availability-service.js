@@ -7,8 +7,8 @@
  * - Scans future canonical bookings using bounded pagination (`pageSize <= 50`).
  * - Excludes `cancelled` and `no_show` bookings (and removes any stale projection for them).
  * - Never copies any customer PII, phone, notes, service, invoice, or payment fields.
- * - Uses small write batches (`writeBatchSize <= 8`) to respect Firestore Security Rules
- *   `getAfter` document access limits.
+ * - Uses small write batches (`writeBatchSize <= 4`) to stay strictly within Firestore Security Rules
+ *   `existsAfter` + `getAfter` document access limits.
  * - Verifies integrity of all written projections before marking `isReady = true`.
  */
 
@@ -36,6 +36,54 @@ export function createPublicAvailabilityServiceError(code, message, details = nu
     err.details = details;
   }
   return err;
+}
+
+/**
+ * Translates raw Firebase/Firestore errors into clear, safe operational messages
+ * for public visitors or authenticated Studio Owners.
+ */
+export function mapPublicAvailabilityErrorToMessage(error, { isAdmin = false } = {}) {
+  const code = String(error?.code || '').toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+
+  if (code.includes('permission-denied') || message.includes('insufficient permissions')) {
+    return isAdmin
+      ? 'Akses Firestore ditolak (permission-denied). Pastikan Anda login sebagai Owner aktif dan Firestore Rules terbaru sudah di-deploy.'
+      : 'Unable to access the studio schedule right now. Please contact the studio directly.';
+  }
+
+  if (code.includes('unauthenticated') || code === 'public-availability/owner-required') {
+    return isAdmin
+      ? 'Hanya Owner Studio yang terautentikasi yang dapat menjalankan sinkronisasi jadwal publik.'
+      : 'Unable to verify the studio schedule right now. Please contact the studio.';
+  }
+
+  if (
+    code.includes('unavailable') ||
+    code.includes('deadline-exceeded') ||
+    code.includes('network-request-failed') ||
+    message.includes('network')
+  ) {
+    return isAdmin
+      ? 'Koneksi ke Firestore terputus atau timeout saat sinkronisasi. Periksa jaringan lalu coba lagi.'
+      : 'Connection interrupted while loading the studio schedule. Please try again.';
+  }
+
+  if (code.includes('failed-precondition') || message.includes('index')) {
+    return isAdmin
+      ? 'Konfigurasi query/index Firestore belum siap untuk sinkronisasi kalender publik.'
+      : 'The studio schedule is temporarily unavailable. Please try again or contact the studio.';
+  }
+
+  if (code === 'public-availability/integrity-check-failed') {
+    return isAdmin
+      ? error?.message || 'Verifikasi integritas proyeksi kalender publik gagal.'
+      : 'Studio schedule verification could not be completed. Please contact the studio.';
+  }
+
+  return isAdmin
+    ? error?.message || 'Gagal menyinkronkan jadwal kalender publik (/availability).'
+    : 'Unable to load the studio availability schedule right now. Please try again or contact the studio.';
 }
 
 function assertActiveOwnerActor(actorUid, actorRole) {
@@ -135,10 +183,17 @@ export async function backfillPublicAvailabilityProjections({
       }
     }
 
-    if (upserts.length > 0 || deleteIds.length > 0) {
+    let verifiedDeleteIds = [];
+    if (deleteIds.length > 0) {
+      const existingDeleteProjections =
+        await adapter.getPublicAvailabilityProjectionsByIds(deleteIds);
+      verifiedDeleteIds = deleteIds.filter((id) => existingDeleteProjections.has(id));
+    }
+
+    if (upserts.length > 0 || verifiedDeleteIds.length > 0) {
       await adapter.writePublicAvailabilityBatch({
         upserts,
-        deleteIds,
+        deleteIds: verifiedDeleteIds,
         batchLimit: safeBatchSize,
       });
     }
@@ -168,11 +223,15 @@ export async function backfillPublicAvailabilityProjections({
       continue;
     }
 
+    const expectedEndMinute = Number.isFinite(Number(activeBooking.endMinute))
+      ? Number(activeBooking.endMinute)
+      : Number(activeBooking.startMinute) + Number(activeBooking.durationMinutes || 0);
+
     if (
       stored.date !== activeBooking.date ||
       stored.studioId !== activeBooking.studioId ||
       stored.startMinute !== Number(activeBooking.startMinute) ||
-      stored.endMinute !== Number(activeBooking.endMinute)
+      stored.endMinute !== expectedEndMinute
     ) {
       verificationErrors.push(`Projection interval mismatch for booking ${activeBooking.id}.`);
     }

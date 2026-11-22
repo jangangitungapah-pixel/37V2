@@ -4,6 +4,7 @@ import {
   CalendarDays,
   HandCoins,
   Images,
+  Inbox,
   LayoutDashboard,
   ReceiptText,
   Settings2,
@@ -13,16 +14,17 @@ import {
 /**
  * Central navigation and route configuration for the 37 Music Studio Admin Shell.
  *
- * Menu order is strictly locked:
+ * Menu order:
  * 01. Dashboard
  * 02. Calendar
- * 03. Customer
- * 04. Payment and Bill
- * 05. Commission and Fee
- * 06. Inventory
- * 07. Pembukuan
- * 08. Gallery
- * 09. Settings
+ * 03. Booking Requests
+ * 04. Customer
+ * 05. Payment and Bill
+ * 06. Commission and Fee
+ * 07. Inventory
+ * 08. Pembukuan
+ * 09. Gallery
+ * 10. Settings
  */
 export const ADMIN_NAVIGATION_ITEMS = [
   {
@@ -56,8 +58,23 @@ export const ADMIN_NAVIGATION_ITEMS = [
     ],
   },
   {
-    id: 'customer',
+    id: 'booking-requests',
     order: '03',
+    label: 'Booking Requests',
+    path: 'booking-requests',
+    href: '/admin/booking-requests',
+    icon: Inbox,
+    eyebrow: 'PUBLIC INQUIRY DESK',
+    summary: 'Tinjau permintaan booking publik dari Landing Page, hubungi lewat WhatsApp, dan konversi ke Calendar.',
+    scopeNotes: [
+      'Permintaan rehearsal, recording, dan inquiry post-production Mix & Master',
+      'Komunikasi WhatsApp terstruktur dengan template & riwayat tercatat',
+      'Konversi atomik ke Admin Calendar agar slot terkunci resmi',
+    ],
+  },
+  {
+    id: 'customer',
+    order: '04',
     label: 'Customer',
     path: 'customer',
     href: '/admin/customer',
@@ -72,7 +89,7 @@ export const ADMIN_NAVIGATION_ITEMS = [
   },
   {
     id: 'payment-and-bill',
-    order: '04',
+    order: '05',
     label: 'Payment and Bill',
     path: 'payment-and-bill',
     href: '/admin/payment-and-bill',
@@ -87,7 +104,7 @@ export const ADMIN_NAVIGATION_ITEMS = [
   },
   {
     id: 'commission-and-fee',
-    order: '05',
+    order: '06',
     label: 'Commission and Fee',
     path: 'commission-and-fee',
     href: '/admin/commission-and-fee',
@@ -102,7 +119,7 @@ export const ADMIN_NAVIGATION_ITEMS = [
   },
   {
     id: 'inventory',
-    order: '06',
+    order: '07',
     label: 'Inventory',
     path: 'inventory',
     href: '/admin/inventory',
@@ -117,7 +134,7 @@ export const ADMIN_NAVIGATION_ITEMS = [
   },
   {
     id: 'pembukuan',
-    order: '07',
+    order: '08',
     label: 'Pembukuan',
     path: 'pembukuan',
     href: '/admin/pembukuan',
@@ -132,7 +149,7 @@ export const ADMIN_NAVIGATION_ITEMS = [
   },
   {
     id: 'gallery',
-    order: '08',
+    order: '09',
     label: 'Gallery',
     path: 'gallery',
     href: '/admin/gallery',
@@ -147,7 +164,7 @@ export const ADMIN_NAVIGATION_ITEMS = [
   },
   {
     id: 'settings',
-    order: '09',
+    order: '10',
     label: 'Settings',
     path: 'settings',
     href: '/admin/settings',

@@ -42,6 +42,7 @@ export async function saveStudioProfile({
   actorRole,
   input,
   expectedVersion,
+  publicSiteSettingsInput = null,
   adapter = null,
 }) {
   const normalizedRole = String(actorRole || '')
@@ -71,5 +72,6 @@ export async function saveStudioProfile({
     actorUid,
     payload: validation.data,
     expectedVersion,
+    publicSiteSettingsInput,
   });
 }

@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 
 export function AdminSidebarNavItem({
   item,
+  badge = '',
   isCollapsed = false,
   onSelect,
   layoutScope = 'desktop',
@@ -65,6 +66,13 @@ export function AdminSidebarNavItem({
                 )}
                 aria-hidden="true"
               />
+              {isCollapsed && badge ? (
+                <span
+                  data-testid={`sidebar-collapsed-badge-${item.id}`}
+                  aria-label={`${badge} permintaan baru`}
+                  className="absolute top-1.5 right-1.5 flex h-2 w-2 rounded-full bg-[#FF4B22]"
+                />
+              ) : null}
             </span>
 
             {/* Navigation Text Label (Rendered when Expanded) */}
@@ -77,15 +85,25 @@ export function AdminSidebarNavItem({
                 className="relative z-10 flex min-w-0 flex-1 items-center justify-between gap-2 pr-2.5 whitespace-nowrap"
               >
                 <span className="truncate text-[13.5px]">{item.label}</span>
-                <span
-                  className={cn(
-                    'font-mono text-[10px] font-semibold',
-                    isActive
-                      ? 'text-[#151515]/70'
-                      : 'text-neutral-500 group-hover:text-neutral-300',
-                  )}
-                >
-                  {item.order}
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {badge ? (
+                    <span
+                      data-testid={`sidebar-badge-${item.id}`}
+                      className="rounded-full bg-[#FF4B22] px-1.5 py-0.5 font-mono text-[10px] leading-none font-extrabold text-white"
+                    >
+                      {badge}
+                    </span>
+                  ) : null}
+                  <span
+                    className={cn(
+                      'font-mono text-[10px] font-semibold',
+                      isActive
+                        ? 'text-[#151515]/70'
+                        : 'text-neutral-500 group-hover:text-neutral-300',
+                    )}
+                  >
+                    {item.order}
+                  </span>
                 </span>
               </motion.span>
             ) : (

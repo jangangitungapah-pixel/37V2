@@ -1,21 +1,11 @@
 import { useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
-import { ArrowRight, CalendarClock, Clock, KeyRound, Menu, X } from 'lucide-react';
+import { ArrowRight, CalendarClock, Clock, Menu, X } from 'lucide-react';
 import { Link } from 'react-router';
 
-export function SiteHeader({
-  utilityStrip,
-  header,
-  onNavigate,
-  onOpenLogin,
-  mobileMenuTriggerRef,
-}) {
+export function SiteHeader({ utilityStrip, header, onNavigate, mobileMenuTriggerRef }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const hoursLabel =
-    utilityStrip.isHoursConfirmed && utilityStrip.hoursText
-      ? utilityStrip.hoursText
-      : utilityStrip.hoursPendingLabel;
+  const hoursLabel = utilityStrip.hoursText || '10:00 – 23:00 WIB';
 
   const handleSectionSelect = (event, href) => {
     event.preventDefault();
@@ -25,7 +15,7 @@ export function SiteHeader({
 
   return (
     <>
-      {/* Section 01 — Slim Black Top Utility Strip (scrolls away in normal document flow) */}
+      {/* Section 01 — Slim Black Top Utility Strip */}
       <div className="border-studio-ink bg-studio-ink text-studio-ivory hidden border-b sm:block">
         <div className="mx-auto flex max-w-[1680px] items-center justify-between gap-2 px-3 py-1.5 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2">
@@ -112,22 +102,12 @@ export function SiteHeader({
             )}
           </nav>
 
-          {/* Actions: Client Login + Primary Book a Session + Mobile Menu Trigger */}
+          {/* Actions: Primary Book a Session + Mobile Menu Trigger */}
           <div className="flex shrink-0 items-center gap-1.5 min-[375px]:gap-2">
-            <button
-              type="button"
-              onClick={() => onOpenLogin(false)}
-              aria-label={header.loginButton.ariaLabel}
-              className="brutal-btn bg-studio-white text-studio-ink hidden min-h-11 cursor-pointer items-center gap-1.5 px-3.5 py-2 text-xs font-bold tracking-wider uppercase sm:inline-flex"
-            >
-              <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{header.loginButton.label}</span>
-            </button>
-
             <a
               href={header.primaryCta.href}
               onClick={(event) => handleSectionSelect(event, header.primaryCta.href)}
-              className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-11 items-center gap-1 px-2.5 py-2 text-[11px] font-extrabold tracking-wider uppercase min-[375px]:gap-1.5 min-[375px]:px-3 min-[375px]:text-xs sm:px-4"
+              className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-11 items-center gap-1 px-3 py-2 text-[11px] font-extrabold tracking-wider uppercase min-[375px]:gap-1.5 min-[375px]:px-3.5 min-[375px]:text-xs sm:px-4"
             >
               <span>{header.primaryCta.label}</span>
               <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -223,18 +203,6 @@ export function SiteHeader({
                         <span>{header.primaryCta.label}</span>
                         <ArrowRight className="h-4 w-4" aria-hidden="true" />
                       </a>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMobileMenuOpen(false);
-                          onOpenLogin(true);
-                        }}
-                        className="brutal-btn bg-studio-white text-studio-ink flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 px-4 py-3 text-sm font-bold tracking-wider uppercase"
-                      >
-                        <KeyRound className="h-4 w-4" aria-hidden="true" />
-                        <span>{header.loginButton.label}</span>
-                      </button>
                     </div>
                   </Dialog.Popup>
                 </Dialog.Viewport>

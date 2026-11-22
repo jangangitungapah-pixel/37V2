@@ -18,6 +18,8 @@ export const FIRESTORE_COLLECTIONS = {
   BOOKINGS: 'bookings',
   BOOKING_SLOTS: 'bookingSlots',
   BOOKING_EVENTS: 'bookingEvents',
+  PUBLIC_BOOKING_REQUESTS: 'publicBookingRequests',
+  BOOKING_REQUEST_ACTIVITIES: 'activities',
   PUBLIC_AVAILABILITY: 'publicAvailability',
   PUBLIC_AVAILABILITY_METADATA: 'publicAvailabilityMetadata',
   CUSTOMERS: 'customers',
@@ -283,6 +285,11 @@ export function createFirestoreBookingRepositoryAdapter() {
             const snap = await tx.get(ref);
             return snap.exists() ? normalizePaymentTransactionRecord(snap.id, snap.data()) : null;
           },
+          async getBookingRequest(requestId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS, requestId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? { id: snap.id, ...snap.data(), _raw: snap.data() } : null;
+          },
           setBooking(bookingId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKINGS, bookingId);
             tx.set(ref, data);
@@ -334,6 +341,20 @@ export function createFirestoreBookingRepositoryAdapter() {
           deletePublicAvailability(bookingId) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_AVAILABILITY, bookingId);
             tx.delete(ref);
+          },
+          updateBookingRequest(requestId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS, requestId);
+            tx.update(ref, data);
+          },
+          setBookingRequestActivity(requestId, eventId, data) {
+            const ref = doc(
+              db,
+              FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
+              requestId,
+              FIRESTORE_COLLECTIONS.BOOKING_REQUEST_ACTIVITIES,
+              eventId,
+            );
+            tx.set(ref, data);
           },
         };
 

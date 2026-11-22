@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import {
   formatIndonesianDateFull,
@@ -8,6 +8,8 @@ import {
   isValidIsoDateString,
   shiftCalendarDate,
 } from '@/features/admin/calendar/utils/calendar-date';
+import { AuthContext } from '@/features/auth/AuthContext';
+import { usePublicSiteSettings } from '@/features/public-site-settings/hooks/usePublicSiteSettings';
 
 import { PublicAvailabilityEmptyState } from '../components/PublicAvailabilityEmptyState';
 import { PublicAvailabilityGrid } from '../components/PublicAvailabilityGrid';
@@ -19,6 +21,10 @@ import {
   PUBLIC_VIEW_MODES,
 } from '../config/public-availability-config';
 import { usePublicAvailability } from '../hooks/usePublicAvailability';
+import {
+  backfillPublicAvailabilityProjections,
+  mapPublicAvailabilityErrorToMessage,
+} from '../services/public-availability-service';
 
 function getInitialPublicViewMode(paramView) {
   if (paramView === PUBLIC_VIEW_MODES.DAY || paramView === PUBLIC_VIEW_MODES.WEEK) {
@@ -54,6 +60,8 @@ function mapDurationMinutesToInquiryLabel(minutes) {
 export function PublicAvailabilityPage({ now } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const auth = useContext(AuthContext);
+  const { settings: siteSettings } = usePublicSiteSettings();
 
   const todayIso = useMemo(() => getJakartaTodayIso(now), [now]);
   const initialServiceParam = useMemo(() => {
@@ -78,6 +86,18 @@ export function PublicAvailabilityPage({ now } = {}) {
   );
   const [selectedSlot, setSelectedSlot] = useState(null);
 
+  const actorUid = auth?.user?.uid || auth?.profile?.uid || '';
+  const actorRole = String(auth?.role || auth?.profile?.role || '')
+    .trim()
+    .toLowerCase();
+  const isAuthenticatedOwner = Boolean(
+    auth?.status === 'authenticated' && actorUid && actorRole === 'owner',
+  );
+  const [isOwnerSyncing, setIsOwnerSyncing] = useState(false);
+  const [ownerSyncError, setOwnerSyncError] = useState('');
+  const ownerAutoSyncAttemptedRef = useRef(false);
+  const ownerSyncInFlightRef = useRef(false);
+
   const { dateRange, roomSchedules, isReady, isTruncated, isLoading, error, retry } =
     usePublicAvailability({
       viewMode,
@@ -86,6 +106,60 @@ export function PublicAvailabilityPage({ now } = {}) {
       requestedDurationMinutes,
       now,
     });
+
+  const handleOwnerSync = useCallback(async () => {
+    if (!isAuthenticatedOwner || ownerSyncInFlightRef.current) return;
+    ownerSyncInFlightRef.current = true;
+    setIsOwnerSyncing(true);
+    setOwnerSyncError('');
+    try {
+      await backfillPublicAvailabilityProjections({
+        actorUid,
+        actorRole,
+        fromDateIso: todayIso,
+      });
+    } catch (err) {
+      setOwnerSyncError(mapPublicAvailabilityErrorToMessage(err, { isAdmin: true }));
+    } finally {
+      ownerSyncInFlightRef.current = false;
+      setIsOwnerSyncing(false);
+    }
+  }, [actorRole, actorUid, isAuthenticatedOwner, todayIso]);
+
+  // If an authenticated Studio Owner lands on /availability while metadata is not ready yet,
+  // initialize & verify the projection once automatically instead of leaving it stuck.
+  useEffect(() => {
+    if (
+      !isAuthenticatedOwner ||
+      isLoading ||
+      error ||
+      isReady ||
+      isOwnerSyncing ||
+      ownerAutoSyncAttemptedRef.current
+    ) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+    Promise.resolve().then(() => {
+      if (isCancelled || ownerAutoSyncAttemptedRef.current) return;
+      ownerAutoSyncAttemptedRef.current = true;
+      void handleOwnerSync();
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [error, handleOwnerSync, isAuthenticatedOwner, isLoading, isOwnerSyncing, isReady]);
+
+  const whatsappUrl = useMemo(() => {
+    const digits = String(siteSettings?.publicWhatsappNumber || '').replace(/\D/g, '');
+    if (!digits) return '';
+    const studioLabel = siteSettings?.studioName || '37 Music Studio';
+    return `https://wa.me/${digits}?text=${encodeURIComponent(
+      `Halo ${studioLabel}, saya ingin mengecek ketersediaan jadwal studio.`,
+    )}`;
+  }, [siteSettings?.publicWhatsappNumber, siteSettings?.studioName]);
 
   const dateRangeLabel = useMemo(() => {
     if (viewMode === PUBLIC_VIEW_MODES.WEEK) {
@@ -155,9 +229,18 @@ export function PublicAvailabilityPage({ now } = {}) {
     navigate(`/?${params.toString()}#booking`);
   };
 
+  const showLiveSchedule = !isLoading && !error && isReady && !isTruncated;
+
   return (
     <div className="bg-studio-ivory text-studio-ink flex min-h-screen flex-col">
-      <PublicAvailabilityHeader isReady={isReady} isLoading={isLoading} todayIso={todayIso} />
+      <PublicAvailabilityHeader
+        studioName={siteSettings?.studioName}
+        operatingHours={siteSettings?.operatingHours}
+        isReady={isReady}
+        isLoading={isLoading}
+        isOwnerSyncing={isOwnerSyncing}
+        error={error}
+      />
 
       <PublicAvailabilityToolbar
         viewMode={viewMode}
@@ -178,22 +261,39 @@ export function PublicAvailabilityPage({ now } = {}) {
         }}
       />
 
-      <PublicAvailabilityLegend />
+      {showLiveSchedule ? <PublicAvailabilityLegend /> : null}
 
       <main
         id="public-availability-main"
-        className="mx-auto w-full max-w-[1680px] flex-1 px-3 py-6 sm:px-6 sm:py-10 lg:px-8"
+        className="mx-auto w-full max-w-[1680px] flex-1 px-3 py-5 sm:px-6 sm:py-8 lg:px-8"
       >
         {isLoading ? (
           <PublicAvailabilityEmptyState variant="loading" />
         ) : error ? (
-          <PublicAvailabilityEmptyState variant="error" error={error} onRetry={retry} />
+          <PublicAvailabilityEmptyState
+            variant="error"
+            error={error}
+            onRetry={retry}
+            whatsappUrl={whatsappUrl}
+            studioName={siteSettings?.studioName}
+          />
         ) : !isReady ? (
-          <PublicAvailabilityEmptyState variant="not_ready" />
+          <PublicAvailabilityEmptyState
+            variant="not_ready"
+            onRetry={retry}
+            whatsappUrl={whatsappUrl}
+            studioName={siteSettings?.studioName}
+            isOwner={isAuthenticatedOwner}
+            isOwnerSyncing={isOwnerSyncing}
+            ownerSyncError={ownerSyncError}
+            onOwnerSync={handleOwnerSync}
+          />
         ) : isTruncated ? (
           <PublicAvailabilityEmptyState
             variant="truncated"
             onSwitchToDayView={() => handleViewModeChange(PUBLIC_VIEW_MODES.DAY)}
+            whatsappUrl={whatsappUrl}
+            studioName={siteSettings?.studioName}
           />
         ) : (
           <PublicAvailabilityGrid
@@ -201,6 +301,7 @@ export function PublicAvailabilityPage({ now } = {}) {
             viewMode={viewMode}
             activeDate={dateRange.activeDate}
             onSelectDayInWeek={(dayIso) => handleSelectDate(dayIso)}
+            onNextDay={handleNextPeriod}
             selectedSlot={selectedSlot}
             onSelectSlot={setSelectedSlot}
             onClearSelectedSlot={() => setSelectedSlot(null)}
@@ -212,8 +313,18 @@ export function PublicAvailabilityPage({ now } = {}) {
 
       <footer className="border-studio-ink bg-studio-ink text-studio-ivory border-t-2 py-5">
         <div className="mx-auto flex max-w-[1680px] flex-col items-start justify-between gap-2 px-4 font-mono text-[11px] text-neutral-400 sm:flex-row sm:items-center sm:px-6 lg:px-8">
-          <p>37 MUSIC STUDIO • PUBLIC AVAILABILITY SCHEDULE (READ-ONLY)</p>
-          <p>ALL TIMES IN ASIA/JAKARTA (WIB) • FINAL BOOKING SUBJECT TO STUDIO VERIFICATION</p>
+          <p>
+            {(siteSettings?.studioName || '37 Music Studio').toUpperCase()} • LIVE ROOM A &amp; ROOM
+            B • ALL TIMES IN WIB (ASIA/JAKARTA)
+          </p>
+          <div className="flex items-center gap-4">
+            <Link to="/" className="transition-colors hover:text-[#C8F13A]">
+              Home
+            </Link>
+            <Link to="/privacy" className="transition-colors hover:text-[#C8F13A]">
+              Privacy Notice
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

@@ -4,7 +4,6 @@ import { useSearchParams } from 'react-router';
 import { BookingSection } from '@/components/landing/BookingSection';
 import { GallerySection } from '@/components/landing/GallerySection';
 import { HeroSection } from '@/components/landing/HeroSection';
-import { LoginComingSoonDialog } from '@/components/landing/LoginComingSoonDialog';
 import { PublicAvailabilityTeaserSection } from '@/components/landing/PublicAvailabilityTeaserSection';
 import { RoomsSection } from '@/components/landing/RoomsSection';
 import { ServicesSection } from '@/components/landing/ServicesSection';
@@ -12,9 +11,12 @@ import { SiteFooter } from '@/components/landing/SiteFooter';
 import { SiteHeader } from '@/components/landing/SiteHeader';
 import { TestimonialsAndContactSection } from '@/components/landing/TestimonialsAndContactSection';
 import { landingPageContent } from '@/data/landing-page-content';
+import { BOOKING_REQUEST_SOURCES } from '@/features/admin/booking-requests/config/booking-request-config';
 import { usePublishedLandingPagePlacements } from '@/features/admin/gallery/hooks/usePublishedLandingPagePlacements';
 import { mergeLandingPageContentWithPlacements } from '@/features/admin/gallery/utils/landing-page-placement-normalize';
 import { parseAndValidateInquiryPrefillParams } from '@/features/public-availability/utils/public-availability-calculation';
+import { usePublicSiteSettings } from '@/features/public-site-settings/hooks/usePublicSiteSettings';
+import { mergeLandingPageContentWithSiteSettings } from '@/features/public-site-settings/utils/public-site-settings-normalize';
 
 const SERVICE_NAMES = {
   rehearsal: 'Rehearsal',
@@ -46,21 +48,29 @@ function scrollToSection(hash) {
   }
 }
 
+function updateMetaTag(selector, attrName, attrValue) {
+  if (typeof document === 'undefined' || !attrValue) return;
+  const node = document.querySelector(selector);
+  if (node) {
+    node.setAttribute(attrName, attrValue);
+  }
+}
+
 export function LandingPage({ content = landingPageContent }) {
   const [searchParams] = useSearchParams();
   const { placementsById } = usePublishedLandingPagePlacements();
-  const effectiveContent = useMemo(
-    () => mergeLandingPageContentWithPlacements(content, placementsById),
-    [content, placementsById],
-  );
+  const { settings: publicSiteSettings } = usePublicSiteSettings();
+
+  const effectiveContent = useMemo(() => {
+    const withSiteSettings = mergeLandingPageContentWithSiteSettings(content, publicSiteSettings);
+    return mergeLandingPageContentWithPlacements(withSiteSettings, placementsById);
+  }, [content, publicSiteSettings, placementsById]);
 
   const urlPrefill = useMemo(
     () => parseAndValidateInquiryPrefillParams(searchParams),
     [searchParams],
   );
 
-  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
-  const [returnFocusToMenuTrigger, setReturnFocusToMenuTrigger] = useState(false);
   const [selectedService, setSelectedService] = useState(() => urlPrefill.service || 'rehearsal');
   const [selectedRoom, setSelectedRoom] = useState(() => urlPrefill.room || 'room-a');
   const [selectedDate, setSelectedDate] = useState(() => urlPrefill.preferredDate || '');
@@ -82,6 +92,42 @@ export function LandingPage({ content = landingPageContent }) {
   const mobileMenuTriggerRef = useRef(null);
 
   useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const seoTitle =
+      effectiveContent.meta?.seoTitle ||
+      `${effectiveContent.meta?.studioName || '37 Music Studio'} — Rehearsal, Recording, Mixing & Mastering`;
+    const seoDesc = effectiveContent.meta?.seoDescription || '';
+
+    document.title = seoTitle;
+    updateMetaTag('meta[name="description"]', 'content', seoDesc);
+    updateMetaTag('meta[property="og:title"]', 'content', seoTitle);
+    updateMetaTag('meta[property="og:description"]', 'content', seoDesc);
+
+    const heroPhotoSrc = effectiveContent.hero?.featuredPhoto?.src;
+    if (heroPhotoSrc && typeof document !== 'undefined') {
+      let ogImage = document.querySelector('meta[property="og:image"]');
+      if (!ogImage) {
+        ogImage = document.createElement('meta');
+        ogImage.setAttribute('property', 'og:image');
+        document.head.appendChild(ogImage);
+      }
+      ogImage.setAttribute('content', heroPhotoSrc);
+    }
+
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      const canonicalLink = document.querySelector('link[rel="canonical"]');
+      if (canonicalLink) {
+        canonicalLink.setAttribute('href', `${window.location.origin}/`);
+      }
+    }
+  }, [
+    effectiveContent.meta?.seoTitle,
+    effectiveContent.meta?.seoDescription,
+    effectiveContent.meta?.studioName,
+    effectiveContent.hero?.featuredPhoto?.src,
+  ]);
+
+  useEffect(() => {
     if (urlPrefill.hasValidPrefill) {
       scrollToSection('#booking');
     }
@@ -91,23 +137,18 @@ export function LandingPage({ content = landingPageContent }) {
     scrollToSection(hash);
   };
 
-  const handleOpenLogin = (fromMobileMenu = false) => {
-    setReturnFocusToMenuTrigger(Boolean(fromMobileMenu));
-    setLoginDialogOpen(true);
-  };
-
   const handleSelectService = (serviceId, defaultRoomId) => {
     setSelectedService(serviceId);
-    if (defaultRoomId) {
+    if (defaultRoomId && defaultRoomId !== 'any') {
       setSelectedRoom(defaultRoomId);
     }
     setSelectionVersion((prev) => prev + 1);
     const serviceLabel = SERVICE_NAMES[serviceId] || serviceId;
     const roomLabel = defaultRoomId ? ROOM_NAMES[defaultRoomId] : null;
     setPreselectionNotice(
-      roomLabel
-        ? `Preselected session: ${serviceLabel} (${roomLabel})`
-        : `Preselected session: ${serviceLabel}`,
+      roomLabel && serviceId !== 'mix-master'
+        ? `Selected session: ${serviceLabel} (${roomLabel})`
+        : `Selected service: ${serviceLabel}`,
     );
     scrollToSection('#booking');
   };
@@ -122,8 +163,8 @@ export function LandingPage({ content = landingPageContent }) {
     const serviceLabel = defaultServiceId ? SERVICE_NAMES[defaultServiceId] : null;
     setPreselectionNotice(
       serviceLabel
-        ? `Preselected room: ${roomLabel} (${serviceLabel})`
-        : `Preselected room: ${roomLabel}`,
+        ? `Selected room: ${roomLabel} (${serviceLabel})`
+        : `Selected room: ${roomLabel}`,
     );
     scrollToSection('#booking');
   };
@@ -145,40 +186,39 @@ export function LandingPage({ content = landingPageContent }) {
         Skip to main content
       </a>
 
-      {/* Section 01 — Non-Sticky Utility Strip & Sticky Main Header */}
+      {/* Section 01 & 02 — Utility Strip & Sticky Header */}
       <SiteHeader
         utilityStrip={effectiveContent.utilityStrip}
         header={effectiveContent.header}
         onNavigate={handleNavigate}
-        onOpenLogin={handleOpenLogin}
         mobileMenuTriggerRef={mobileMenuTriggerRef}
       />
 
       {/* Main Content Landmark */}
       <main id="main-content">
-        {/* Sections 02 & 03 — Hero & Acid-Lime Ticker */}
+        {/* Hero & Studio Statement Ticker */}
         <HeroSection
           hero={effectiveContent.hero}
           ticker={effectiveContent.ticker}
           onNavigate={handleNavigate}
         />
 
-        {/* Section 04 — Services ("Pick your session") */}
+        {/* Services ("Pick your session") */}
         <ServicesSection
           services={effectiveContent.services}
           onSelectService={handleSelectService}
         />
 
-        {/* Section 05 — Rooms ("Two rooms, zero guesswork") */}
+        {/* Rooms ("Two rooms, zero guesswork") */}
         <RoomsSection rooms={effectiveContent.rooms} onSelectRoom={handleSelectRoom} />
 
-        {/* Section 06 — Gallery ("Proof, not renders.") */}
+        {/* Gallery ("Proof, not renders.") */}
         <GallerySection gallery={effectiveContent.gallery} />
 
-        {/* Section 07 — Public Availability Teaser ("Find your next open session.") */}
+        {/* Public Availability Teaser ("Find your next open session.") */}
         <PublicAvailabilityTeaserSection />
 
-        {/* Section 08 — Booking Process + Booking Inquiry Form */}
+        {/* Booking Process + Production Booking Request Form */}
         <BookingSection
           bookingSection={effectiveContent.bookingSection}
           selectedService={selectedService}
@@ -189,9 +229,16 @@ export function LandingPage({ content = landingPageContent }) {
           selectionVersion={selectionVersion}
           preselectionNotice={preselectionNotice}
           onClearPreselectionNotice={handleClearPreselection}
+          publicWhatsappNumber={effectiveContent.testimonialsAndContact?.contact?.whatsappNumber}
+          studioName={effectiveContent.meta?.studioName}
+          requestSource={
+            urlPrefill.hasValidPrefill
+              ? BOOKING_REQUEST_SOURCES.PUBLIC_AVAILABILITY_CALENDAR
+              : BOOKING_REQUEST_SOURCES.PUBLIC_LANDING_PAGE
+          }
         />
 
-        {/* Section 09 — Testimonials + Location Card & Final CTA */}
+        {/* Verified Testimonials (when published) + Location & Hours + Final CTA */}
         <TestimonialsAndContactSection
           testimonialsAndContact={effectiveContent.testimonialsAndContact}
           finalCta={effectiveContent.finalCta}
@@ -199,22 +246,12 @@ export function LandingPage({ content = landingPageContent }) {
         />
       </main>
 
-      {/* Section 10 — Black Footer */}
+      {/* Black Editorial Footer */}
       <SiteFooter
         footer={effectiveContent.footer}
         contact={effectiveContent.testimonialsAndContact.contact}
         navLinks={effectiveContent.header.navLinks}
         onNavigate={handleNavigate}
-      />
-
-      {/* Client Login Coming Soon Accessible Dialog */}
-      <LoginComingSoonDialog
-        open={loginDialogOpen}
-        onOpenChange={setLoginDialogOpen}
-        content={effectiveContent.loginDialog}
-        onGoToBooking={() => handleNavigate('#booking')}
-        returnFocusToMenuTrigger={returnFocusToMenuTrigger}
-        mobileMenuTriggerRef={mobileMenuTriggerRef}
       />
     </div>
   );

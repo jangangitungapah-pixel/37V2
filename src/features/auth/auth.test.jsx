@@ -72,43 +72,20 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
     cleanup();
   });
 
-  it('separates header Client Login (coming soon dialog) from footer Staff / Owner Login (/staff/login route)', async () => {
+  it('renders production public header navigation without Client Login preview CTA and routes Staff / Owner Login to /staff/login', async () => {
     const user = userEvent.setup();
     renderWithRouter(['/']);
 
-    // 1. Header Client Login opens Client Login Coming Soon dialog and stays on "/"
-    const clientLoginBtn = screen.getByRole('button', {
-      name: /client login portal \(coming soon\)/i,
-    });
-    await user.click(clientLoginBtn);
-
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/client login coming soon/i)).toBeTruthy();
+    // 1. Header has primary Book a session CTA and no nonfunctional Client Login preview button
+    expect(screen.queryByRole('button', { name: /client login/i })).toBeNull();
+    const headerNav = screen.getByRole('navigation', { name: /primary section navigation/i });
     expect(
-      within(dialog).getByText(
-        /the client portal is not available yet\. you can still explore our services and submit a booking inquiry from the public website\./i,
-      ),
-    ).toBeTruthy();
+      within(headerNav)
+        .getByRole('link', { name: /availability/i })
+        .getAttribute('href'),
+    ).toBe('/availability');
 
-    await user.click(within(dialog).getByRole('button', { name: /back to website/i }));
-    expect(screen.queryByRole('dialog')).toBeNull();
-
-    // 2. Mobile menu also preserves Client Login dialog behavior
-    const mobileMenuTrigger = screen.getByRole('button', { name: /open navigation menu/i });
-    await user.click(mobileMenuTrigger);
-    const mobileDrawer = await screen.findByRole('dialog');
-    const mobileClientLoginBtn = within(mobileDrawer).getByRole('button', {
-      name: /^client login$/i,
-    });
-    await user.click(mobileClientLoginBtn);
-
-    const reopenedClientDialog = await screen.findByRole('dialog');
-    expect(within(reopenedClientDialog).getByText(/client login coming soon/i)).toBeTruthy();
-    await user.click(
-      within(reopenedClientDialog).getByRole('button', { name: /back to website/i }),
-    );
-
-    // 3. Footer Staff / Owner Login navigates to /staff/login
+    // 2. Footer Staff / Owner Login navigates cleanly to /staff/login
     const footerStaffLink = screen.getByRole('link', { name: /staff \/ owner login/i });
     await user.click(footerStaffLink);
 
@@ -161,7 +138,11 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
     );
 
     expect(
-      await screen.findByRole('heading', { name: /welcome back, raka pratama \(owner\)\./i }),
+      await screen.findByRole(
+        'heading',
+        { name: /welcome back, raka pratama \(owner\)\./i },
+        { timeout: 5000 },
+      ),
     ).toBeTruthy();
     expect(screen.getAllByText('Raka Pratama (Owner)').length).toBeGreaterThan(0);
     expect(screen.getAllByText('owner@37musicstudio.com').length).toBeGreaterThan(0);

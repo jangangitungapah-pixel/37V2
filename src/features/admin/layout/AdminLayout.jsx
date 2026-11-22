@@ -3,17 +3,25 @@ import { motion, useReducedMotion } from 'motion/react';
 import { Outlet, useLocation } from 'react-router';
 import { Toaster } from 'sonner';
 
+import { BookingRequestAlertsProvider } from '@/features/admin/booking-requests/context/BookingRequestAlertsContext';
+import { useBookingRequestAlerts } from '@/features/admin/booking-requests/hooks/useBookingRequestAlerts';
+
 import { AdminMobileDrawer } from '../components/AdminMobileDrawer';
 import { AdminSidebar } from '../components/AdminSidebar';
 import { AdminTopbar } from '../components/AdminTopbar';
 import { getAdminNavItemByPath } from '../navigation/admin-navigation';
 
-export function AdminLayout() {
+function AdminLayoutShell() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const mobileMenuTriggerRef = useRef(null);
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
+
+  const { badgeLabel } = useBookingRequestAlerts();
+  const navBadges = {
+    'booking-requests': badgeLabel,
+  };
 
   const activeNavItem = getAdminNavItemByPath(location.pathname);
 
@@ -35,6 +43,7 @@ export function AdminLayout() {
       <AdminSidebar
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebarCollapse}
+        navBadges={navBadges}
       />
 
       {/* Off-Canvas Mobile & Tablet Navigation Drawer (<1024px) */}
@@ -42,6 +51,7 @@ export function AdminLayout() {
         open={isMobileDrawerOpen}
         onOpenChange={setIsMobileDrawerOpen}
         triggerRef={mobileMenuTriggerRef}
+        navBadges={navBadges}
       />
 
       {/* Main Workspace Column */}
@@ -94,6 +104,14 @@ export function AdminLayout() {
         }}
       />
     </div>
+  );
+}
+
+export function AdminLayout() {
+  return (
+    <BookingRequestAlertsProvider>
+      <AdminLayoutShell />
+    </BookingRequestAlertsProvider>
   );
 }
 

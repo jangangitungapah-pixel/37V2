@@ -18,8 +18,6 @@ function getBadgeClasses(variant) {
 
 /**
  * SECTION 04 — SERVICES: PICK YOUR SESSION
- * Editorial numbered service index (`01`, `02`, `03`) with asymmetrical horizontal rows
- * rather than three identical cardboard boxes.
  */
 export function ServicesSection({ services, onSelectService }) {
   return (
@@ -74,6 +72,11 @@ export function ServicesSection({ services, onSelectService }) {
                       <span className="border-studio-ink bg-studio-white inline-flex h-6 w-6 items-center justify-center border">
                         <IconComponent className="h-3.5 w-3.5" aria-hidden="true" />
                       </span>
+                      {service.publicPriceLabel ? (
+                        <span className="border-studio-ink bg-studio-ivory border px-2 py-0.5 font-mono text-[10px] font-bold">
+                          {service.publicPriceLabel}
+                        </span>
+                      ) : null}
                     </div>
                     <h3 className="font-display text-studio-ink mt-1.5 text-3xl leading-none font-black tracking-tight uppercase sm:text-4xl">
                       {service.title}
@@ -81,7 +84,7 @@ export function ServicesSection({ services, onSelectService }) {
                   </div>
                 </div>
 
-                {/* Col 5-9: Editorial Description + Draft Scope Bullets */}
+                {/* Col 5-9: Editorial Description + Scope Bullets */}
                 <div className="space-y-3 lg:col-span-5">
                   <p className="text-studio-muted-ink text-sm leading-relaxed font-medium">
                     {service.description}

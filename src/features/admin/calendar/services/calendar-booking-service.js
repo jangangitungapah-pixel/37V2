@@ -1,4 +1,13 @@
 import {
+  BOOKING_REQUEST_ACTIVITY_TYPES,
+  BOOKING_REQUEST_STATUS,
+  BOOKING_REQUEST_TYPES,
+} from '@/features/admin/booking-requests/config/booking-request-config';
+import {
+  normalizeActivityEvent,
+  normalizeBookingRequestRecord,
+} from '@/features/admin/booking-requests/utils/booking-request-normalize';
+import {
   normalizeCustomerRecord,
   normalizePhoneIndexRecord,
 } from '@/features/admin/customer/schemas/customer-schema';
@@ -99,6 +108,21 @@ export function mapBookingErrorToMessage(error) {
     return 'Data booking tidak ditemukan di database.';
   }
 
+  if (code === 'booking/request-not-found') {
+    return 'Data booking request sumber tidak ditemukan di inbox.';
+  }
+
+  if (code === 'booking/request-already-confirmed') {
+    return 'Booking request ini sudah dikonfirmasi menjadi booking resmi sebelumnya dan tidak bisa dikonversi ganda.';
+  }
+
+  if (code === 'booking/request-ineligible' || code === 'booking/request-not-studio') {
+    return (
+      error.message ||
+      'Booking request ini tidak memenuhi syarat untuk dikonversi menjadi booking ruangan Calendar.'
+    );
+  }
+
   if (
     code.startsWith('booking/') &&
     typeof error?.message === 'string' &&
@@ -139,11 +163,16 @@ export async function createBooking({
   formValues,
   customerResolution = null,
   pricingSettings = DEFAULT_PRICING_SETTINGS,
+  bookingRequestId = '',
+  requestActivityEventId = generateOperationId('reqact'),
   adapter = getBookingRepositoryAdapter(),
 }) {
   const cleanActorUid = assertAuthenticatedStaffActor(actorUid);
   const cleanBookingId = String(bookingId || '').trim() || generateOperationId('bkg');
   const cleanEventId = String(eventId || '').trim() || generateOperationId('evt');
+  const cleanBookingRequestId = String(bookingRequestId || '').trim();
+  const cleanRequestActivityEventId =
+    String(requestActivityEventId || '').trim() || generateOperationId('reqact');
 
   const validation = validateBookingFormPayload(formValues, [], '', pricingSettings);
   if (!validation.isValid) {
@@ -194,13 +223,14 @@ export async function createBooking({
   const deterministicInitialPaymentId = buildInitialPaymentId(cleanBookingId);
 
   return adapter.runAtomicTransaction(async (tx) => {
-    // 1. ALL READS FIRST (Booking, Event, PhoneIndex, Invoice, Initial Payment, and Slots)
+    // 1. ALL READS FIRST (Booking, Event, PhoneIndex, Invoice, Initial Payment, Optional Request, and Slots)
     const [
       existingBooking,
       existingEvent,
       existingPhoneIndex,
       existingInvoice,
       existingInitialPayment,
+      existingBookingRequest,
       ...slotSnapshots
     ] = await Promise.all([
       tx.getBooking(cleanBookingId),
@@ -208,13 +238,49 @@ export async function createBooking({
       tx.getPhoneIndex(phoneHash),
       tx.getInvoice(deterministicInvoiceId),
       tx.getPaymentTransaction(deterministicInitialPaymentId),
+      cleanBookingRequestId && typeof tx.getBookingRequest === 'function'
+        ? tx.getBookingRequest(cleanBookingRequestId)
+        : Promise.resolve(null),
       ...requiredSlots.map((slot) => tx.getSlot(slot.id)),
     ]);
 
     // Idempotent retry: if this exact bookingId + eventId was already committed, return it
-    // without touching customer bookingCount, aliases, phone index, invoice, or initial payment twice
+    // without touching customer bookingCount, aliases, phone index, invoice, initial payment, or request twice
     if (existingBooking && existingEvent) {
       return existingBooking;
+    }
+
+    if (cleanBookingRequestId) {
+      if (!existingBookingRequest) {
+        throw createBookingServiceError(
+          'booking/request-not-found',
+          'Booking request sumber tidak ditemukan.',
+        );
+      }
+      if (existingBookingRequest.requestType !== BOOKING_REQUEST_TYPES.STUDIO_BOOKING) {
+        throw createBookingServiceError(
+          'booking/request-not-studio',
+          'Inquiry Mix & Master bersifat Post-Production dan tidak boleh dikonversi menjadi booking ruangan Calendar.',
+        );
+      }
+      if (
+        existingBookingRequest.status === BOOKING_REQUEST_STATUS.CONFIRMED ||
+        existingBookingRequest.linkedBookingId
+      ) {
+        throw createBookingServiceError(
+          'booking/request-already-confirmed',
+          'Booking request ini sudah dikonfirmasi menjadi booking resmi sebelumnya.',
+        );
+      }
+      if (
+        existingBookingRequest.status === BOOKING_REQUEST_STATUS.DECLINED ||
+        existingBookingRequest.status === BOOKING_REQUEST_STATUS.CLOSED
+      ) {
+        throw createBookingServiceError(
+          'booking/request-ineligible',
+          `Booking request berstatus "${existingBookingRequest.status}" sehingga tidak dapat dikonversi menjadi booking Calendar.`,
+        );
+      }
     }
 
     if (existingBooking && existingBooking.createdByUid !== cleanActorUid) {
@@ -571,6 +637,52 @@ export async function createBooking({
         recordedByUid: cleanActorUid,
         createdAt: timestamp,
       });
+    }
+
+    // 4. Atomic Public Booking Request Confirmation (only after all slot locks, booking & invoice writes succeed)
+    if (
+      cleanBookingRequestId &&
+      existingBookingRequest &&
+      typeof tx.updateBookingRequest === 'function'
+    ) {
+      const confirmedBookingSnapshot = {
+        bookingId: cleanBookingId,
+        bookingReference: cleanBookingId.slice(0, 14).toUpperCase(),
+        studioId: bookingDoc.studioId,
+        studioName:
+          bookingDoc.studioId === 'room-b' ? 'Room B — Control + Booth' : 'Room A — Live Room',
+        serviceTypeName: bookingDoc.serviceTypeName,
+        serviceOptionName: bookingDoc.serviceOptionName || bookingDoc.serviceTypeName,
+        date: bookingDoc.date,
+        startMinute: bookingDoc.startMinute,
+        endMinute: bookingDoc.endMinute,
+        durationMinutes: bookingDoc.durationMinutes,
+      };
+
+      tx.updateBookingRequest(cleanBookingRequestId, {
+        status: BOOKING_REQUEST_STATUS.CONFIRMED,
+        linkedBookingId: cleanBookingId,
+        confirmedBookingSnapshot,
+        confirmedAt: timestamp,
+        confirmedByUid: cleanActorUid,
+        assignedStaffUid: existingBookingRequest.assignedStaffUid || cleanActorUid,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: (Number(existingBookingRequest.version) || 1) + 1,
+      });
+
+      if (typeof tx.setBookingRequestActivity === 'function') {
+        tx.setBookingRequestActivity(cleanBookingRequestId, cleanRequestActivityEventId, {
+          eventType: BOOKING_REQUEST_ACTIVITY_TYPES.BOOKING_CONFIRMED,
+          fromStatus: existingBookingRequest.status,
+          toStatus: BOOKING_REQUEST_STATUS.CONFIRMED,
+          linkedBookingId: cleanBookingId,
+          note: `Dikonfirmasi ke booking ${confirmedBookingSnapshot.bookingReference} (${bookingDoc.date} ${formatMinuteRange(bookingDoc.startMinute, bookingDoc.endMinute)})`,
+          actorUid: cleanActorUid,
+          actorName: '',
+          createdAt: timestamp,
+        });
+      }
     }
 
     return normalizeBookingRecord(cleanBookingId, bookingDoc);
@@ -1274,6 +1386,9 @@ export function createInMemoryBookingRepositoryAdapter(
   const bookkeepingEntries = new Map();
   const bookkeepingSettlements = new Map();
   const bookkeepingSettings = new Map();
+  const bookingRequests = new Map();
+  const bookingRequestActivities = new Map();
+  const bookingRequestCommunications = new Map();
   const rangeSubscribers = new Set();
   const publicAvailabilitySubscribers = new Set();
   const publicAvailabilityMetadataSubscribers = new Set();
@@ -1286,7 +1401,59 @@ export function createInMemoryBookingRepositoryAdapter(
   const invoiceTransactionSubscribers = new Map();
   const commissionSubscribers = new Set();
   const bookkeepingSubscribers = new Set();
+  const bookingRequestNewSubscribers = new Set();
+  const bookingRequestListSubscribers = new Set();
+  const bookingRequestDocSubscribers = new Map();
+  const bookingRequestActivitySubscribers = new Map();
+  const bookingRequestCommSubscribers = new Map();
   let transactionQueue = Promise.resolve();
+
+  function notifyBookingRequests(targetRequestId = '') {
+    const allSorted = Array.from(bookingRequests.values()).sort((a, b) => {
+      const diff = getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt);
+      if (diff !== 0) return diff;
+      return String(b.id).localeCompare(String(a.id));
+    });
+    const newOnly = allSorted.filter((r) => r.status === BOOKING_REQUEST_STATUS.NEW);
+
+    for (const sub of bookingRequestNewSubscribers) {
+      const hasMore = newOnly.length > sub.maxLimit;
+      sub.onData?.({
+        requests: hasMore ? newOnly.slice(0, sub.maxLimit) : newOnly,
+        hasMore,
+        maxLimit: sub.maxLimit,
+      });
+    }
+
+    for (const sub of bookingRequestListSubscribers) {
+      const hasMore = allSorted.length > sub.maxLimit;
+      const visible = hasMore ? allSorted.slice(0, sub.maxLimit) : allSorted;
+      sub.onData?.({
+        requests: visible,
+        hasMore,
+        isTruncated: hasMore,
+        lastCursor: visible.length > 0 ? visible[visible.length - 1].id : null,
+        maxLimit: sub.maxLimit,
+      });
+    }
+
+    if (targetRequestId) {
+      const targetDoc = bookingRequests.get(targetRequestId) || null;
+      bookingRequestDocSubscribers
+        .get(targetRequestId)
+        ?.forEach((cb) => cb(targetDoc ? { ...targetDoc } : null));
+
+      const acts = Array.from(bookingRequestActivities.values())
+        .filter((a) => a.requestId === targetRequestId)
+        .sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
+      bookingRequestActivitySubscribers.get(targetRequestId)?.forEach((cb) => cb([...acts]));
+
+      const comms = Array.from(bookingRequestCommunications.values())
+        .filter((c) => c.requestId === targetRequestId)
+        .sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
+      bookingRequestCommSubscribers.get(targetRequestId)?.forEach((cb) => cb([...comms]));
+    }
+  }
 
   function notifyBookkeepingSubscribers() {
     for (const cb of bookkeepingSubscribers) {
@@ -1539,6 +1706,9 @@ export function createInMemoryBookingRepositoryAdapter(
       bookkeepingEntries,
       bookkeepingSettlements,
       bookkeepingSettings,
+      bookingRequests,
+      bookingRequestActivities,
+      bookingRequestCommunications,
       publicAvailabilitySubscribers,
       publicAvailabilityMetadataSubscribers,
       customerSubscribers,
@@ -1549,6 +1719,11 @@ export function createInMemoryBookingRepositoryAdapter(
       invoiceTransactionSubscribers,
       commissionSubscribers,
       bookkeepingSubscribers,
+      bookingRequestNewSubscribers,
+      bookingRequestListSubscribers,
+      bookingRequestDocSubscribers,
+      bookingRequestActivitySubscribers,
+      bookingRequestCommSubscribers,
       enqueueTransaction,
       notifyBookings: notifyRangeSubscribers,
       notifyPublicAvailability: notifyPublicAvailabilitySubscribers,
@@ -1558,6 +1733,7 @@ export function createInMemoryBookingRepositoryAdapter(
       notifyTransactions: notifyTransactionSubscribers,
       notifyCommissions: notifyCommissionSubscribers,
       notifyBookkeeping: notifyBookkeepingSubscribers,
+      notifyBookingRequests,
     },
 
     _inspectState() {
@@ -1571,6 +1747,9 @@ export function createInMemoryBookingRepositoryAdapter(
         phoneIndex: new Map(phoneIndex),
         invoices: new Map(invoices),
         paymentTransactions: new Map(paymentTransactions),
+        bookingRequests: new Map(bookingRequests),
+        bookingRequestActivities: new Map(bookingRequestActivities),
+        bookingRequestCommunications: new Map(bookingRequestCommunications),
       };
     },
 
@@ -1586,7 +1765,10 @@ export function createInMemoryBookingRepositoryAdapter(
         const stagedPhoneIndex = new Map(phoneIndex);
         const stagedInvoices = new Map(invoices);
         const stagedPaymentTransactions = new Map(paymentTransactions);
+        const stagedBookingRequests = new Map(bookingRequests);
+        const stagedBookingRequestActivities = new Map(bookingRequestActivities);
         const touchedBookingIds = new Set();
+        const touchedRequestIds = new Set();
         let writeStarted = false;
 
         const txContext = {
@@ -1639,6 +1821,13 @@ export function createInMemoryBookingRepositoryAdapter(
             }
             const item = stagedPaymentTransactions.get(id);
             return item ? normalizePaymentTransactionRecord(id, item) : null;
+          },
+          async getBookingRequest(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedBookingRequests.get(id);
+            return item ? normalizeBookingRequestRecord(id, item) : null;
           },
           setBooking(id, data) {
             writeStarted = true;
@@ -1716,6 +1905,30 @@ export function createInMemoryBookingRepositoryAdapter(
             writeStarted = true;
             stagedPublicAvailability.delete(id);
           },
+          updateBookingRequest(id, data) {
+            writeStarted = true;
+            touchedRequestIds.add(id);
+            const prev = stagedBookingRequests.get(id) || {};
+            const nowIso = new Date().toISOString();
+            stagedBookingRequests.set(
+              id,
+              normalizeBookingRequestRecord(id, {
+                ...prev,
+                ...data,
+                confirmedAt: data.confirmedAt ? nowIso : prev.confirmedAt,
+                updatedAt: nowIso,
+              }),
+            );
+          },
+          setBookingRequestActivity(requestId, eventId, data) {
+            writeStarted = true;
+            touchedRequestIds.add(requestId);
+            const nowIso = new Date().toISOString();
+            stagedBookingRequestActivities.set(eventId, {
+              requestId,
+              ...normalizeActivityEvent(eventId, { ...data, createdAt: nowIso }),
+            });
+          },
         };
 
         const result = await transactionWork(txContext);
@@ -1739,6 +1952,10 @@ export function createInMemoryBookingRepositoryAdapter(
         for (const [k, v] of stagedInvoices) invoices.set(k, v);
         paymentTransactions.clear();
         for (const [k, v] of stagedPaymentTransactions) paymentTransactions.set(k, v);
+        bookingRequests.clear();
+        for (const [k, v] of stagedBookingRequests) bookingRequests.set(k, v);
+        bookingRequestActivities.clear();
+        for (const [k, v] of stagedBookingRequestActivities) bookingRequestActivities.set(k, v);
 
         notifyRangeSubscribers();
         notifyPublicAvailabilitySubscribers();
@@ -1749,6 +1966,11 @@ export function createInMemoryBookingRepositoryAdapter(
         notifyBookkeepingSubscribers();
         for (const bId of touchedBookingIds) {
           notifyEventSubscribers(bId);
+        }
+        if (touchedRequestIds.size > 0) {
+          for (const reqId of touchedRequestIds) {
+            notifyBookingRequests(reqId);
+          }
         }
 
         return result;

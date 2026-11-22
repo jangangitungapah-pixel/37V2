@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -33,6 +33,7 @@ vi.mock('@/lib/firebase/client', () => ({
 
 import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
+import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
 import {
   resetBookingRepositoryAdapter,
   setBookingRepositoryAdapter,
@@ -45,6 +46,11 @@ import {
   updateOrRescheduleBooking,
 } from '@/features/admin/calendar/services/calendar-booking-service';
 import {
+  createInMemoryCustomerRepositoryAdapter,
+  resetCustomerRepositoryAdapter,
+  setCustomerRepositoryAdapter,
+} from '@/features/admin/customer/repositories/customer-repository';
+import {
   createInMemoryGalleryRepositoryAdapter,
   resetGalleryRepositoryAdapter,
   setGalleryRepositoryAdapter,
@@ -54,10 +60,26 @@ import {
   resetLandingPagePlacementAdapter,
   setLandingPagePlacementAdapter,
 } from '@/features/admin/gallery/repositories/landing-page-placement-repository';
+import {
+  createInMemoryPaymentRepositoryAdapter,
+  resetPaymentRepositoryAdapter,
+  setPaymentRepositoryAdapter,
+} from '@/features/admin/payment/repositories/payment-repository';
+import {
+  createInMemoryPricingSettingsAdapter,
+  resetPricingSettingsRepositoryAdapter,
+  setPricingSettingsRepositoryAdapter,
+} from '@/features/admin/settings/pricing/repositories/pricing-settings-repository';
+import {
+  createInMemoryPublicSiteSettingsAdapter,
+  resetPublicSiteSettingsRepositoryAdapter,
+  setPublicSiteSettingsRepositoryAdapter,
+} from '@/features/public-site-settings/repositories/public-site-settings-repository';
 
 import {
   PUBLIC_AVAILABILITY_ALLOWED_KEYS,
   PUBLIC_AVAILABILITY_FORBIDDEN_FIELDS,
+  PUBLIC_BACKFILL_BATCH_WRITE_LIMIT,
   PUBLIC_SLOT_STATES,
 } from './config/public-availability-config';
 import { PublicAvailabilityPage } from './pages/PublicAvailabilityPage';
@@ -87,6 +109,27 @@ function mockUnauthenticatedVisitor() {
   });
 }
 
+function mockAuthenticatedActor(role = 'owner', uid = 'owner-uid-1') {
+  const displayName = role === 'owner' ? '37 Music Studio Owner' : 'Rina Studio Staff';
+  const email = role === 'owner' ? 'owner@37studio.com' : 'staff@37studio.com';
+
+  mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
+    queueMicrotask(() => callback({ uid, email, displayName }));
+    return () => {};
+  });
+
+  mockGetDoc.mockResolvedValue({
+    id: uid,
+    exists: () => true,
+    data: () => ({
+      displayName,
+      email,
+      role,
+      active: true,
+    }),
+  });
+}
+
 describe('Public Availability Calendar & Sanitized Projection Architecture', () => {
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
@@ -95,12 +138,17 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
     mockUnauthenticatedVisitor();
     setGalleryRepositoryAdapter(createInMemoryGalleryRepositoryAdapter([]));
     setLandingPagePlacementAdapter(createInMemoryLandingPagePlacementAdapter([]));
+    setPublicSiteSettingsRepositoryAdapter(createInMemoryPublicSiteSettingsAdapter(null));
   });
 
   afterEach(() => {
     cleanup();
     resetBookingRepositoryAdapter();
+    resetCustomerRepositoryAdapter();
+    resetPaymentRepositoryAdapter();
+    resetPricingSettingsRepositoryAdapter();
     resetPublicAvailabilityRepositoryAdapter();
+    resetPublicSiteSettingsRepositoryAdapter();
     resetGalleryRepositoryAdapter();
     resetLandingPagePlacementAdapter();
   });
@@ -160,13 +208,13 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
       const selectedBar = await screen.findByTestId('public-availability-selected-bar');
       expect(within(selectedBar).getByText(/21:00 WIB/i)).toBeTruthy();
 
-      // Continue to Booking Inquiry -> navigates to Landing Page and prefills date, time, room, and service
+      // Continue to Booking Request -> navigates to Landing Page and prefills date, time, room, and service
       await user.click(
-        within(selectedBar).getByRole('button', { name: /continue to booking inquiry/i }),
+        within(selectedBar).getByRole('button', { name: /continue to booking request/i }),
       );
 
       expect(
-        await screen.findByRole('heading', { level: 2, name: /booking inquiry/i }),
+        await screen.findByRole('heading', { level: 2, name: /send booking request/i }),
       ).toBeTruthy();
       expect(screen.getByLabelText(/preferred date/i).value).toBe(FIXED_TOMORROW_ISO);
       expect(screen.getByLabelText(/preferred start time/i).value).toBe('21:00');
@@ -764,6 +812,286 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
 
       expect(await screen.findByTestId('public-availability-truncated-state')).toBeTruthy();
       expect(screen.queryByTestId('public-availability-room-room-a')).toBeNull();
+    });
+  });
+
+  describe('G. Auto-Initialization, Failure Recovery, WhatsApp Fallback & Batch Guards', () => {
+    it('auto-initializes live schedule on /availability only for authenticated active Owners while keeping public/staff read-only', async () => {
+      const bookingAdapter = createInMemoryBookingRepositoryAdapter([
+        {
+          id: 'auto_sync_bkg_1',
+          customerName: 'Secret Band',
+          phone: '081200001111',
+          studioId: 'room-a',
+          date: FIXED_TOMORROW_ISO,
+          startMinute: 960,
+          durationMinutes: 120,
+          endMinute: 1080,
+          sessionStatus: 'upcoming',
+        },
+      ]);
+      bookingAdapter._sharedStore.publicAvailability.clear();
+
+      const publicAdapter = createInMemoryPublicAvailabilityRepositoryAdapter({
+        sharedStore: bookingAdapter._sharedStore,
+        initialMetadata: { isReady: false, backfilledFromDate: '' },
+      });
+      const writeBatchSpy = vi.spyOn(publicAdapter, 'writePublicAvailabilityBatch');
+      const setMetaSpy = vi.spyOn(publicAdapter, 'setPublicAvailabilityMetadata');
+      setPublicAvailabilityRepositoryAdapter(publicAdapter);
+
+      // 1. Unauthenticated visitor sees not_ready and zero writes / zero Owner controls
+      render(
+        <AppProviders>
+          <MemoryRouter initialEntries={['/availability']}>
+            <AppRoutes />
+          </MemoryRouter>
+        </AppProviders>,
+      );
+
+      expect(await screen.findByTestId('public-availability-not-ready-state')).toBeTruthy();
+      expect(screen.queryByTestId('public-availability-owner-sync-panel')).toBeNull();
+      expect(writeBatchSpy).not.toHaveBeenCalled();
+      expect(setMetaSpy).not.toHaveBeenCalled();
+      cleanup();
+
+      // 2. Authenticated non-Owner Staff sees not_ready and zero writes / zero Owner controls
+      mockAuthenticatedActor('staff', 'staff-uid-2');
+      render(
+        <AppProviders>
+          <MemoryRouter initialEntries={['/availability']}>
+            <AppRoutes />
+          </MemoryRouter>
+        </AppProviders>,
+      );
+
+      expect(await screen.findByTestId('public-availability-not-ready-state')).toBeTruthy();
+      expect(screen.queryByTestId('public-availability-owner-sync-panel')).toBeNull();
+      expect(writeBatchSpy).not.toHaveBeenCalled();
+      expect(setMetaSpy).not.toHaveBeenCalled();
+      cleanup();
+
+      // 3. Authenticated active Owner auto-initializes and transitions to live schedule
+      mockAuthenticatedActor('owner', 'owner-uid-1');
+      render(
+        <AppProviders>
+          <MemoryRouter initialEntries={[`/availability?date=${FIXED_TOMORROW_ISO}&view=day`]}>
+            <AppRoutes />
+          </MemoryRouter>
+        </AppProviders>,
+      );
+
+      expect(await screen.findByTestId('public-availability-room-room-a')).toBeTruthy();
+      expect(
+        screen
+          .getByTestId(`slot-room-a-${FIXED_TOMORROW_ISO}-16:00`)
+          .getAttribute('data-slot-state'),
+      ).toBe('occupied');
+      const meta = await publicAdapter.getPublicAvailabilityMetadata();
+      expect(meta.isReady).toBe(true);
+    });
+
+    it('stops retrying on Owner backfill failure on /availability and recovers on manual retry without infinite loops', async () => {
+      const user = userEvent.setup();
+      mockAuthenticatedActor('owner', 'owner-uid-1');
+
+      const bookingAdapter = createInMemoryBookingRepositoryAdapter([
+        {
+          id: 'retry_bkg_1',
+          customerName: 'Retry Session',
+          phone: '081244445555',
+          studioId: 'room-b',
+          date: FIXED_TOMORROW_ISO,
+          startMinute: 720,
+          durationMinutes: 60,
+          endMinute: 780,
+          sessionStatus: 'upcoming',
+        },
+      ]);
+      bookingAdapter._sharedStore.publicAvailability.clear();
+
+      const publicAdapter = createInMemoryPublicAvailabilityRepositoryAdapter({
+        sharedStore: bookingAdapter._sharedStore,
+        initialMetadata: { isReady: false, backfilledFromDate: '' },
+      });
+      publicAdapter._setFailOnWriteChunk(0);
+      const setMetaSpy = vi.spyOn(publicAdapter, 'setPublicAvailabilityMetadata');
+      setPublicAvailabilityRepositoryAdapter(publicAdapter);
+
+      render(
+        <AppProviders>
+          <MemoryRouter initialEntries={[`/availability?date=${FIXED_TOMORROW_ISO}&view=day`]}>
+            <AppRoutes />
+          </MemoryRouter>
+        </AppProviders>,
+      );
+
+      const ownerPanel = await screen.findByTestId('public-availability-owner-sync-panel');
+      await waitFor(() => {
+        expect(within(ownerPanel).getByRole('alert').textContent).toMatch(
+          /simulated batch write failure/i,
+        );
+      });
+
+      // Only 1 automatic attempt fired (resetReadinessFirst call)
+      const callsBeforeManualRetry = setMetaSpy.mock.calls.length;
+      expect(callsBeforeManualRetry).toBe(1);
+
+      // Clear simulated failure and trigger manual retry
+      publicAdapter._setFailOnWriteChunk(-1);
+      await user.click(
+        within(ownerPanel).getByRole('button', { name: /sync & activate live schedule/i }),
+      );
+
+      expect(await screen.findByTestId('public-availability-room-room-b')).toBeTruthy();
+      expect(
+        screen
+          .getByTestId(`slot-room-b-${FIXED_TOMORROW_ISO}-12:00`)
+          .getAttribute('data-slot-state'),
+      ).toBe('occupied');
+    });
+
+    it('renders verified WhatsApp chat button in /availability not_ready state when configured', async () => {
+      setPublicSiteSettingsRepositoryAdapter(
+        createInMemoryPublicSiteSettingsAdapter({
+          studioName: '37 Music Studio',
+          publicWhatsappNumber: '+6281234567890',
+        }),
+      );
+      setPublicAvailabilityRepositoryAdapter(
+        createInMemoryPublicAvailabilityRepositoryAdapter({
+          initialProjections: [],
+          initialMetadata: { isReady: false, backfilledFromDate: '' },
+        }),
+      );
+
+      render(
+        <MemoryRouter initialEntries={['/availability']}>
+          <PublicAvailabilityPage now={FIXED_NOW} />
+        </MemoryRouter>,
+      );
+
+      const notReadyCard = await screen.findByTestId('public-availability-not-ready-state');
+      const waLink = within(notReadyCard).getByRole('link', { name: /chat on whatsapp/i });
+      expect(waLink.getAttribute('href')).toContain('https://wa.me/6281234567890?text=');
+      expect(waLink.getAttribute('rel')).toBe('noopener noreferrer');
+    });
+
+    it('enforces safe write batch size (4) and skips redundant Firestore deletes for cancelled bookings without projections', async () => {
+      expect(PUBLIC_BACKFILL_BATCH_WRITE_LIMIT).toBe(4);
+
+      const bookingAdapter = createInMemoryBookingRepositoryAdapter([
+        {
+          id: 'active_clean_1',
+          customerName: 'Active Band',
+          phone: '081211110000',
+          studioId: 'room-a',
+          date: FIXED_TOMORROW_ISO,
+          startMinute: 660,
+          durationMinutes: 60,
+          endMinute: 720,
+          sessionStatus: 'upcoming',
+        },
+        {
+          id: 'cancelled_no_proj_2',
+          customerName: 'Cancelled Band',
+          phone: '081222220000',
+          studioId: 'room-a',
+          date: FIXED_TOMORROW_ISO,
+          startMinute: 780,
+          durationMinutes: 60,
+          endMinute: 840,
+          sessionStatus: 'cancelled',
+        },
+        {
+          id: 'cancelled_with_stale_proj_3',
+          customerName: 'Stale Cancelled Band',
+          phone: '081233330000',
+          studioId: 'room-b',
+          date: FIXED_TOMORROW_ISO,
+          startMinute: 900,
+          durationMinutes: 60,
+          endMinute: 960,
+          sessionStatus: 'cancelled',
+        },
+      ]);
+
+      // Remove projections for 1 & 2, but keep a stale projection ONLY for 3
+      bookingAdapter._sharedStore.publicAvailability.clear();
+      bookingAdapter._sharedStore.publicAvailability.set('cancelled_with_stale_proj_3', {
+        id: 'cancelled_with_stale_proj_3',
+        schemaVersion: 1,
+        date: FIXED_TOMORROW_ISO,
+        studioId: 'room-b',
+        startMinute: 900,
+        endMinute: 960,
+        updatedAt: { seconds: 1700000000 },
+      });
+
+      const publicAdapter = createInMemoryPublicAvailabilityRepositoryAdapter({
+        sharedStore: bookingAdapter._sharedStore,
+        initialMetadata: { isReady: false, backfilledFromDate: '' },
+      });
+      const writeSpy = vi.spyOn(publicAdapter, 'writePublicAvailabilityBatch');
+
+      const result = await backfillPublicAvailabilityProjections({
+        actorUid: 'owner-uid-1',
+        actorRole: 'owner',
+        fromDateIso: FIXED_TODAY_ISO,
+        adapter: publicAdapter,
+      });
+
+      expect(result.isReady).toBe(true);
+      expect(writeSpy).toHaveBeenCalledTimes(1);
+      const batchCallArg = writeSpy.mock.calls[0][0];
+      expect(batchCallArg.upserts.map((u) => u.bookingId)).toEqual(['active_clean_1']);
+      expect(batchCallArg.deleteIds).toEqual(['cancelled_with_stale_proj_3']);
+    });
+
+    it('displays live public schedule sync banner and auto-initializes when an active Owner opens AdminCalendarPage', async () => {
+      mockAuthenticatedActor('owner', 'owner-uid-1');
+
+      const liveTodayIso = getJakartaTodayIso();
+      const bookingAdapter = createInMemoryBookingRepositoryAdapter([
+        {
+          id: 'cal_auto_bkg_1',
+          customerName: 'Calendar Auto Sync Band',
+          phone: '081288889999',
+          studioId: 'room-a',
+          date: liveTodayIso,
+          startMinute: 1200,
+          durationMinutes: 60,
+          endMinute: 1260,
+          sessionStatus: 'upcoming',
+        },
+      ]);
+      bookingAdapter._sharedStore.publicAvailability.clear();
+
+      setBookingRepositoryAdapter(bookingAdapter);
+      setCustomerRepositoryAdapter(createInMemoryCustomerRepositoryAdapter(bookingAdapter));
+      setPaymentRepositoryAdapter(createInMemoryPaymentRepositoryAdapter(bookingAdapter));
+      setPricingSettingsRepositoryAdapter(createInMemoryPricingSettingsAdapter());
+
+      const publicAdapter = createInMemoryPublicAvailabilityRepositoryAdapter({
+        sharedStore: bookingAdapter._sharedStore,
+        initialMetadata: { isReady: false, backfilledFromDate: '' },
+      });
+      setPublicAvailabilityRepositoryAdapter(publicAdapter);
+
+      render(
+        <AppProviders>
+          <MemoryRouter initialEntries={['/admin/calendar']}>
+            <AppRoutes />
+          </MemoryRouter>
+        </AppProviders>,
+      );
+
+      const syncBanner = await screen.findByTestId('admin-public-availability-sync-banner');
+      expect(await within(syncBanner).findByText(/aktif & tersinkron/i)).toBeTruthy();
+
+      const meta = await publicAdapter.getPublicAvailabilityMetadata();
+      expect(meta.isReady).toBe(true);
+      expect(publicAdapter._inspectProjections().has('cal_auto_bkg_1')).toBe(true);
     });
   });
 });

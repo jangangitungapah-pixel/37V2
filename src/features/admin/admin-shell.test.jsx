@@ -33,7 +33,7 @@ vi.mock('firebase/firestore', () => ({
   startAfter: vi.fn(),
   onSnapshot: vi.fn((_q, onNext) => {
     queueMicrotask(() => onNext({ docs: [] }));
-    return () => { };
+    return () => {};
   }),
 }));
 
@@ -48,6 +48,7 @@ import { AppProviders } from '@/app/providers/AppProviders';
 const EXPECTED_MENU_LABELS = [
   'Dashboard',
   'Calendar',
+  'Booking Requests',
   'Customer',
   'Payment and Bill',
   'Commission and Fee',
@@ -64,7 +65,7 @@ function mockAuthenticatedRole(role = 'owner') {
 
   mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
     queueMicrotask(() => callback({ uid, email, displayName }));
-    return () => { };
+    return () => {};
   });
 
   mockGetDoc.mockResolvedValue({
@@ -138,13 +139,14 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
 
     const nonDashboardModules = [
       { label: 'Calendar', path: '/admin/calendar', order: '02' },
-      { label: 'Customer', path: '/admin/customer', order: '03' },
-      { label: 'Payment and Bill', path: '/admin/payment-and-bill', order: '04' },
-      { label: 'Commission and Fee', path: '/admin/commission-and-fee', order: '05' },
-      { label: 'Inventory', path: '/admin/inventory', order: '06' },
-      { label: 'Pembukuan', path: '/admin/pembukuan', order: '07' },
-      { label: 'Gallery', path: '/admin/gallery', order: '08' },
-      { label: 'Settings', path: '/admin/settings', order: '09' },
+      { label: 'Booking Requests', path: '/admin/booking-requests', order: '03' },
+      { label: 'Customer', path: '/admin/customer', order: '04' },
+      { label: 'Payment and Bill', path: '/admin/payment-and-bill', order: '05' },
+      { label: 'Commission and Fee', path: '/admin/commission-and-fee', order: '06' },
+      { label: 'Inventory', path: '/admin/inventory', order: '07' },
+      { label: 'Pembukuan', path: '/admin/pembukuan', order: '08' },
+      { label: 'Gallery', path: '/admin/gallery', order: '09' },
+      { label: 'Settings', path: '/admin/settings', order: '10' },
     ];
 
     for (const mod of nonDashboardModules) {
@@ -156,6 +158,10 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
 
       if (mod.label === 'Calendar') {
         expect(screen.getByText(/jadwal studio/i)).toBeTruthy();
+      } else if (mod.label === 'Booking Requests') {
+        expect(
+          screen.getByRole('heading', { level: 2, name: /incoming booking requests/i }),
+        ).toBeTruthy();
       } else if (mod.label === 'Customer') {
         expect(screen.getByText(/daftar pelanggan & riwayat booking/i)).toBeTruthy();
       } else if (mod.label === 'Payment and Bill') {
@@ -204,7 +210,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
 
     const aside = container.querySelector('aside[aria-label="Studio administration sidebar"]');
     expect(aside.getAttribute('data-collapsed')).toBe('false');
-    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(9);
+    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(10);
 
     // Collapse sidebar
     const collapseButton = screen.getByRole('button', { name: /collapse sidebar navigation/i });
@@ -225,7 +231,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     await user.click(expandButton);
 
     expect(aside.getAttribute('data-collapsed')).toBe('false');
-    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(9);
+    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(10);
   });
 
   it('opens and closes the mobile navigation drawer via menu selection, backdrop, and Escape with focus restoration', async () => {
@@ -275,7 +281,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     // 1. Unauthenticated visitor blocked from /admin/dashboard and /admin/settings
     mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
       queueMicrotask(() => callback(null));
-      return () => { };
+      return () => {};
     });
 
     renderAdminAt('/admin/settings');

@@ -1,0 +1,165 @@
+import { useMemo, useState } from 'react';
+import { Inbox, Settings2 } from 'lucide-react';
+import { useSearchParams } from 'react-router';
+
+import { AdminButton, AdminPageHeader, AdminStatusBadge } from '@/features/admin/design-system';
+import { useAuth } from '@/features/auth/AuthContext';
+
+import { BookingRequestDetailDrawer } from '../components/BookingRequestDetailDrawer';
+import { BookingRequestList } from '../components/BookingRequestList';
+import { BookingRequestToolbar } from '../components/BookingRequestToolbar';
+import { WhatsAppTemplateManager } from '../components/WhatsAppTemplateManager';
+import { useBookingRequests } from '../hooks/useBookingRequests';
+
+export function AdminBookingRequestsPage() {
+  const { user, profile, role } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const actorUid = user?.uid || profile?.uid || '';
+  const actorName = profile?.displayName || user?.displayName || profile?.email || '';
+  const actorRole = String(role || profile?.role || '').toLowerCase();
+  const isOwner = actorRole === 'owner';
+
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [requestTypeFilter, setRequestTypeFilter] = useState('all');
+  const [serviceFilter, setServiceFilter] = useState('all');
+  const [preferredDateFilter, setPreferredDateFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [templateManagerOpen, setTemplateManagerOpen] = useState(false);
+
+  const selectedRequestId = searchParams.get('requestId') || '';
+
+  const {
+    filteredRequests,
+    summaryCounts,
+    isLoading,
+    error,
+    isTruncated,
+    hasMore,
+    isLoadingMore,
+    loadMoreError,
+    maxLimit,
+    loadMore,
+    retry,
+  } = useBookingRequests({
+    statusFilter,
+    requestTypeFilter,
+    serviceFilter,
+    preferredDateFilter,
+    searchQuery,
+  });
+
+  const hasActiveFilters = useMemo(
+    () =>
+      statusFilter !== 'all' ||
+      requestTypeFilter !== 'all' ||
+      serviceFilter !== 'all' ||
+      Boolean(preferredDateFilter) ||
+      Boolean(searchQuery.trim()),
+    [statusFilter, requestTypeFilter, serviceFilter, preferredDateFilter, searchQuery],
+  );
+
+  const handleResetFilters = () => {
+    setStatusFilter('all');
+    setRequestTypeFilter('all');
+    setServiceFilter('all');
+    setPreferredDateFilter('');
+    setSearchQuery('');
+  };
+
+  const handleSelectRequest = (reqId) => {
+    const next = new URLSearchParams(searchParams);
+    if (reqId) {
+      next.set('requestId', reqId);
+    } else {
+      next.delete('requestId');
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  return (
+    <div data-calendar-scoped="true" className="space-y-4 sm:space-y-5">
+      <AdminPageHeader
+        eyebrow="PUBLIC INQUIRY DESK"
+        icon={Inbox}
+        title="Incoming Booking Requests"
+        titleId="incoming-booking-requests-heading"
+        description="Kelola permintaan booking studio dan inquiry Mix & Master dari Landing Page, hubungi via WhatsApp, dan konversi ke Admin Calendar."
+        meta={
+          <AdminStatusBadge
+            tone={summaryCounts.newCount > 0 ? 'orange' : 'emerald'}
+            size="sm"
+            dot={summaryCounts.newCount > 0}
+          >
+            {summaryCounts.newCount > 0 ? `${summaryCounts.newCount} New` : 'Inbox Terkendali'}
+          </AdminStatusBadge>
+        }
+        actions={
+          isOwner ? (
+            <AdminButton variant="secondary" size="sm" onClick={() => setTemplateManagerOpen(true)}>
+              <Settings2 className="h-4 w-4" aria-hidden="true" />
+              <span>Kelola Template WhatsApp</span>
+            </AdminButton>
+          ) : null
+        }
+      />
+
+      <BookingRequestToolbar
+        summaryCounts={summaryCounts}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        requestTypeFilter={requestTypeFilter}
+        onRequestTypeFilterChange={setRequestTypeFilter}
+        serviceFilter={serviceFilter}
+        onServiceFilterChange={setServiceFilter}
+        preferredDateFilter={preferredDateFilter}
+        onPreferredDateFilterChange={setPreferredDateFilter}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        onResetFilters={handleResetFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
+
+      <BookingRequestList
+        requests={filteredRequests}
+        selectedRequestId={selectedRequestId}
+        onSelectRequest={handleSelectRequest}
+        isLoading={isLoading}
+        error={error}
+        onRetry={retry}
+        isTruncated={isTruncated}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        loadMoreError={loadMoreError}
+        onLoadMore={loadMore}
+        maxLimit={maxLimit}
+        hasActiveFilters={hasActiveFilters}
+        onResetFilters={handleResetFilters}
+      />
+
+      <BookingRequestDetailDrawer
+        key={selectedRequestId || 'closed'}
+        requestId={selectedRequestId}
+        open={Boolean(selectedRequestId)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            handleSelectRequest('');
+          }
+        }}
+        actorUid={actorUid}
+        actorName={actorName}
+      />
+
+      {isOwner ? (
+        <WhatsAppTemplateManager
+          open={templateManagerOpen}
+          onOpenChange={setTemplateManagerOpen}
+          actorUid={actorUid}
+          actorRole={actorRole}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+export default AdminBookingRequestsPage;
