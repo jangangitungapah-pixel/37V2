@@ -33,7 +33,7 @@ vi.mock('firebase/firestore', () => ({
   startAfter: vi.fn(),
   onSnapshot: vi.fn((_q, onNext) => {
     queueMicrotask(() => onNext({ docs: [] }));
-    return () => {};
+    return () => { };
   }),
 }));
 
@@ -53,6 +53,7 @@ const EXPECTED_MENU_LABELS = [
   'Commission and Fee',
   'Inventory',
   'Pembukuan',
+  'Gallery',
   'Settings',
 ];
 
@@ -63,7 +64,7 @@ function mockAuthenticatedRole(role = 'owner') {
 
   mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
     queueMicrotask(() => callback({ uid, email, displayName }));
-    return () => {};
+    return () => { };
   });
 
   mockGetDoc.mockResolvedValue({
@@ -142,7 +143,8 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
       { label: 'Commission and Fee', path: '/admin/commission-and-fee', order: '05' },
       { label: 'Inventory', path: '/admin/inventory', order: '06' },
       { label: 'Pembukuan', path: '/admin/pembukuan', order: '07' },
-      { label: 'Settings', path: '/admin/settings', order: '08' },
+      { label: 'Gallery', path: '/admin/gallery', order: '08' },
+      { label: 'Settings', path: '/admin/settings', order: '09' },
     ];
 
     for (const mod of nonDashboardModules) {
@@ -174,6 +176,12 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
         expect(
           screen.getByText(/monitor studio income, expenses, and cash movement\./i),
         ).toBeTruthy();
+      } else if (mod.label === 'Gallery') {
+        expect(
+          screen.getByText(
+            /manage studio photographs and curate the images displayed on the public website\./i,
+          ),
+        ).toBeTruthy();
       } else if (mod.label === 'Settings') {
         expect(screen.getByRole('heading', { name: /price and fee settings/i })).toBeTruthy();
       } else {
@@ -196,7 +204,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
 
     const aside = container.querySelector('aside[aria-label="Studio administration sidebar"]');
     expect(aside.getAttribute('data-collapsed')).toBe('false');
-    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(8);
+    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(9);
 
     // Collapse sidebar
     const collapseButton = screen.getByRole('button', { name: /collapse sidebar navigation/i });
@@ -217,7 +225,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     await user.click(expandButton);
 
     expect(aside.getAttribute('data-collapsed')).toBe('false');
-    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(8);
+    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(9);
   });
 
   it('opens and closes the mobile navigation drawer via menu selection, backdrop, and Escape with focus restoration', async () => {
@@ -267,7 +275,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     // 1. Unauthenticated visitor blocked from /admin/dashboard and /admin/settings
     mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
       queueMicrotask(() => callback(null));
-      return () => {};
+      return () => { };
     });
 
     renderAdminAt('/admin/settings');

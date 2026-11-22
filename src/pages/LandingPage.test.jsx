@@ -7,16 +7,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '@/App';
 import { bookingInquirySchema } from '@/components/landing/bookingInquirySchema';
 import { landingPageContent, pendingConfigTokens } from '@/data/landing-page-content';
+import {
+  createInMemoryGalleryRepositoryAdapter,
+  resetGalleryRepositoryAdapter,
+  setGalleryRepositoryAdapter,
+} from '@/features/admin/gallery/repositories/gallery-repository';
 import { getTodayLocalDateString } from '@/lib/booking-date';
 import { LandingPage } from '@/pages/LandingPage';
 
 describe('37 Music Studio Public Landing Page (Phase 2B)', () => {
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
+    setGalleryRepositoryAdapter(createInMemoryGalleryRepositoryAdapter([]));
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    resetGalleryRepositoryAdapter();
     cleanup();
   });
 
@@ -253,20 +260,74 @@ describe('37 Music Studio Public Landing Page (Phase 2B)', () => {
     expect(screen.getByLabelText(/preferred date/i).value).toBe(getTodayLocalDateString());
   });
 
-  it('opens the accessible gallery viewer dialog and cycles through studio images', async () => {
+  it('opens the accessible gallery viewer dialog and cycles through published studio images while hiding old static demo SVGs', async () => {
     const user = userEvent.setup();
+
+    // When empty, shows editorial empty state and never shows demo SVG gallery assets
+    const { container } = render(<App />);
+    expect(await screen.findByText(/studio photos coming soon\./i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /view all photos/i })).toBeNull();
+    expect(container.innerHTML).not.toMatch(
+      /gallery-guitar\.svg|gallery-drums\.svg|gallery-mic\.svg|gallery-console\.svg/i,
+    );
+    cleanup();
+
+    // Seed published photos in Firestore adapter and verify dynamic gallery & lightbox navigation
+    setGalleryRepositoryAdapter(
+      createInMemoryGalleryRepositoryAdapter([
+        {
+          id: 'gal-pub-1',
+          title: 'Live Room A Tracking Setup',
+          category: 'Live Room (Room A)',
+          altText: 'Full band tracking setup inside Live Room A',
+          caption: 'Evening tracking session',
+          cloudinaryPublicId: '37musicstudio/gallery/live-room-a',
+          cloudinaryAssetId: 'asset-pub-1',
+          secureUrl:
+            'https://res.cloudinary.com/fodgcil9/image/upload/v1/37musicstudio/gallery/live-room-a.webp',
+          resourceType: 'image',
+          format: 'webp',
+          width: 1600,
+          height: 1200,
+          bytes: 420000,
+          status: 'published',
+          sortOrder: 1000,
+          version: 1,
+        },
+        {
+          id: 'gal-pub-2',
+          title: 'Control Room B Mixing Console',
+          category: 'Control Room (Room B)',
+          altText: 'Mixing console and studio monitors in Control Room B',
+          caption: 'Control desk view',
+          cloudinaryPublicId: '37musicstudio/gallery/control-room-b',
+          cloudinaryAssetId: 'asset-pub-2',
+          secureUrl:
+            'https://res.cloudinary.com/fodgcil9/image/upload/v1/37musicstudio/gallery/control-room-b.webp',
+          resourceType: 'image',
+          format: 'webp',
+          width: 1600,
+          height: 1200,
+          bytes: 380000,
+          status: 'published',
+          sortOrder: 2000,
+          version: 1,
+        },
+      ]),
+    );
+
     render(<App />);
 
-    const viewAllButton = screen.getByRole('button', { name: /view all photos/i });
+    const viewAllButton = await screen.findByRole('button', { name: /view all photos/i });
     await user.click(viewAllButton);
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/backline photo slot/i)).toBeTruthy();
+    expect(within(dialog).getByText(/live room a tracking setup/i)).toBeTruthy();
 
     const nextButton = within(dialog).getByRole('button', { name: /next studio image/i });
     await user.click(nextButton);
 
-    expect(within(dialog).getByText(/live session photo slot/i)).toBeTruthy();
+    expect(within(dialog).getByText(/control room b mixing console/i)).toBeTruthy();
   });
 
   it('shows honest pending notices for unconfirmed Maps, WhatsApp, and social actions', async () => {

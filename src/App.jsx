@@ -5,6 +5,7 @@ import { AdminBookkeepingPage } from '@/features/admin/bookkeeping/pages/AdminBo
 import { AdminCalendarPage } from '@/features/admin/calendar/pages/AdminCalendarPage';
 import { AdminCommissionAndFeePage } from '@/features/admin/commission/pages/AdminCommissionAndFeePage';
 import { AdminCustomersPage } from '@/features/admin/customer/pages/AdminCustomersPage';
+import { AdminGalleryPage } from '@/features/admin/gallery/pages/AdminGalleryPage';
 import { AdminInventoryPage } from '@/features/admin/inventory/pages/AdminInventoryPage';
 import { AdminLayout } from '@/features/admin/layout/AdminLayout';
 import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
@@ -39,6 +40,7 @@ export function AppRoutes() {
         <Route path="commission-and-fee" element={<AdminCommissionAndFeePage />} />
         <Route path="inventory" element={<AdminInventoryPage />} />
         <Route path="pembukuan" element={<AdminBookkeepingPage />} />
+        <Route path="gallery" element={<AdminGalleryPage />} />
         <Route path="settings" element={<AdminSettingsPage />} />
         <Route path="settings/studio-profile" element={<StudioProfilePage />} />
         <Route path="settings/account-security" element={<AccountSecurityPage />} />

@@ -1824,5 +1824,121 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    function isValidGalleryItemShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'title',
+          'category',
+          'altText',
+          'caption',
+          'cloudinaryPublicId',
+          'cloudinaryAssetId',
+          'secureUrl',
+          'resourceType',
+          'format',
+          'width',
+          'height',
+          'bytes',
+          'status',
+          'sortOrder',
+          'uploadedAt',
+          'uploadedByUid',
+          'createdAt',
+          'createdByUid',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && data.size() == 22
+        && data.schemaVersion == 1
+        && data.title is string
+        && data.title.trim().size() >= 2
+        && data.title.trim().size() <= 120
+        && data.category is string
+        && data.category.trim().size() >= 2
+        && data.category.trim().size() <= 60
+        && data.altText is string
+        && data.altText.size() <= 220
+        && data.caption is string
+        && data.caption.size() <= 400
+        && data.cloudinaryPublicId is string
+        && data.cloudinaryPublicId.trim().size() >= 1
+        && data.cloudinaryPublicId.size() <= 240
+        && data.cloudinaryAssetId is string
+        && data.cloudinaryAssetId.trim().size() >= 1
+        && data.cloudinaryAssetId.size() <= 120
+        && data.secureUrl is string
+        && data.secureUrl.size() <= 600
+        && data.secureUrl.matches('^https://res\\.cloudinary\\.com/[a-zA-Z0-9_-]+/image/upload/[^\\s]+$')
+        && data.resourceType == 'image'
+        && data.format is string
+        && data.format in ['jpg', 'jpeg', 'png', 'webp', 'avif']
+        && data.width is int
+        && data.width >= 1
+        && data.width <= 6000
+        && data.height is int
+        && data.height >= 1
+        && data.height <= 6000
+        && data.bytes is int
+        && data.bytes >= 1
+        && data.bytes <= 10485760
+        && data.status is string
+        && data.status in ['draft', 'published', 'archived']
+        && (data.status != 'published' || data.altText.trim().size() >= 3)
+        && data.sortOrder is int
+        && data.sortOrder >= 0
+        && data.uploadedAt is timestamp
+        && data.uploadedByUid is string
+        && data.uploadedByUid.size() >= 1
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.createdByUid.size() >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidGalleryItemCreate(data) {
+      return isValidGalleryItemShape(data)
+        && data.version == 1
+        && data.uploadedByUid == request.auth.uid
+        && data.createdByUid == request.auth.uid;
+    }
+
+    function isValidGalleryItemUpdate(nextData, prevData) {
+      return isValidGalleryItemShape(nextData)
+        && nextData.version == prevData.version + 1
+        && nextData.cloudinaryPublicId == prevData.cloudinaryPublicId
+        && nextData.cloudinaryAssetId == prevData.cloudinaryAssetId
+        && nextData.secureUrl == prevData.secureUrl
+        && nextData.resourceType == prevData.resourceType
+        && nextData.format == prevData.format
+        && nextData.width == prevData.width
+        && nextData.height == prevData.height
+        && nextData.bytes == prevData.bytes
+        && nextData.uploadedAt == prevData.uploadedAt
+        && nextData.uploadedByUid == prevData.uploadedByUid
+        && nextData.createdAt == prevData.createdAt
+        && nextData.createdByUid == prevData.createdByUid
+        && !(prevData.status == 'archived' && nextData.status == 'published');
+    }
+
+    match /galleryItems/{galleryItemId} {
+      allow read: if isActiveOwner()
+        || (
+          resource.data.status == 'published'
+          && (request.auth == null || isActiveStaff())
+        );
+
+      allow create: if isActiveOwner()
+        && isValidGalleryItemCreate(request.resource.data);
+
+      allow update: if isActiveOwner()
+        && isValidGalleryItemUpdate(request.resource.data, resource.data);
+
+      allow delete: if false;
+    }
+
   }
 }

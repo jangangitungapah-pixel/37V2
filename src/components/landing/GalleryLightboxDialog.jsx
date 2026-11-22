@@ -39,7 +39,7 @@ export function GalleryLightboxDialog({ isOpen, activeIndex, items, onClose, onP
 
                 <div className="bg-studio-ink">
                   <StudioImage
-                    src={activeItem.src}
+                    src={activeItem.lightboxSrc || activeItem.src}
                     alt={activeItem.alt}
                     width={activeItem.width}
                     height={activeItem.height}

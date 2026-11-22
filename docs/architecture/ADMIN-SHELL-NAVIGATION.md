@@ -39,19 +39,20 @@ src/features/admin/
 
 ## 3. Navigation Menu Order & Route Map
 
-All eight menu items are defined in `src/features/admin/navigation/admin-navigation.js` in this exact locked sequence:
+All nine menu items are defined in `src/features/admin/navigation/admin-navigation.js` in this exact locked sequence:
 
-| Order | Menu Label             | Route Path                  | Lucide Icon       | Component                                                      |
-| ----: | ---------------------- | --------------------------- | ----------------- | -------------------------------------------------------------- |
-|     — | _(Index redirect)_     | `/admin`                    | —                 | Redirects to `/admin/dashboard`                                |
-|  `01` | **Dashboard**          | `/admin/dashboard`          | `LayoutDashboard` | `AdminDashboardPage`                                           |
-|  `02` | **Calendar**           | `/admin/calendar`           | `CalendarDays`    | `AdminModulePlaceholderPage` (`moduleId="calendar"`)           |
-|  `03` | **Customer**           | `/admin/customer`           | `UsersRound`      | `AdminModulePlaceholderPage` (`moduleId="customer"`)           |
-|  `04` | **Payment and Bill**   | `/admin/payment-and-bill`   | `ReceiptText`     | `AdminModulePlaceholderPage` (`moduleId="payment-and-bill"`)   |
-|  `05` | **Commission and Fee** | `/admin/commission-and-fee` | `HandCoins`       | `AdminModulePlaceholderPage` (`moduleId="commission-and-fee"`) |
-|  `06` | **Inventory**          | `/admin/inventory`          | `Boxes`           | `AdminModulePlaceholderPage` (`moduleId="inventory"`)          |
-|  `07` | **Pembukuan**          | `/admin/pembukuan`          | `BookOpenText`    | `AdminModulePlaceholderPage` (`moduleId="pembukuan"`)          |
-|  `08` | **Settings**           | `/admin/settings`           | `Settings2`       | `AdminModulePlaceholderPage` (`moduleId="settings"`)           |
+| Order | Menu Label             | Route Path                  | Lucide Icon       | Component                       |
+| ----: | ---------------------- | --------------------------- | ----------------- | ------------------------------- |
+|     — | _(Index redirect)_     | `/admin`                    | —                 | Redirects to `/admin/dashboard` |
+|  `01` | **Dashboard**          | `/admin/dashboard`          | `LayoutDashboard` | `AdminDashboardPage`            |
+|  `02` | **Calendar**           | `/admin/calendar`           | `CalendarDays`    | `AdminCalendarPage`             |
+|  `03` | **Customer**           | `/admin/customer`           | `UsersRound`      | `AdminCustomersPage`            |
+|  `04` | **Payment and Bill**   | `/admin/payment-and-bill`   | `ReceiptText`     | `AdminPaymentAndBillPage`       |
+|  `05` | **Commission and Fee** | `/admin/commission-and-fee` | `HandCoins`       | `AdminCommissionAndFeePage`     |
+|  `06` | **Inventory**          | `/admin/inventory`          | `Boxes`           | `AdminInventoryPage`            |
+|  `07` | **Pembukuan**          | `/admin/pembukuan`          | `BookOpenText`    | `AdminBookkeepingPage`          |
+|  `08` | **Gallery**            | `/admin/gallery`            | `Images`          | `AdminGalleryPage`              |
+|  `09` | **Settings**           | `/admin/settings`           | `Settings2`       | `AdminSettingsPage`             |
 
 ---
 

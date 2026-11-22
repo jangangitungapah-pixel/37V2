@@ -3,6 +3,7 @@ import {
   Boxes,
   CalendarDays,
   HandCoins,
+  Images,
   LayoutDashboard,
   ReceiptText,
   Settings2,
@@ -12,7 +13,7 @@ import {
 /**
  * Central navigation and route configuration for the 37 Music Studio Admin Shell.
  *
- * Menu order is strictly locked per Phase 4 specification:
+ * Menu order is strictly locked:
  * 01. Dashboard
  * 02. Calendar
  * 03. Customer
@@ -20,11 +21,8 @@ import {
  * 05. Commission and Fee
  * 06. Inventory
  * 07. Pembukuan
- * 08. Settings
- *
- * Note: Phase 4 intentionally grants both `owner` and `staff` roles identical
- * visibility and navigation access across all eight routes. Role-specific permissions
- * are deferred to a future user-directed phase.
+ * 08. Gallery
+ * 09. Settings
  */
 export const ADMIN_NAVIGATION_ITEMS = [
   {
@@ -133,8 +131,23 @@ export const ADMIN_NAVIGATION_ITEMS = [
     ],
   },
   {
-    id: 'settings',
+    id: 'gallery',
     order: '08',
+    label: 'Gallery',
+    path: 'gallery',
+    href: '/admin/gallery',
+    icon: Images,
+    eyebrow: 'GALERI FOTO STUDIO',
+    summary: 'Kelola pustaka foto studio dan kurasi foto yang tampil di halaman publik.',
+    scopeNotes: [
+      'Unggah foto resmi studio ke Cloudinary secara langsung',
+      'Atur judul, kategori, teks alternatif, dan status tayang',
+      'Susun urutan foto yang ditampilkan di Landing Page publik',
+    ],
+  },
+  {
+    id: 'settings',
+    order: '09',
     label: 'Settings',
     path: 'settings',
     href: '/admin/settings',

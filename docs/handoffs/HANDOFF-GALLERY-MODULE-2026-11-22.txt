@@ -1,0 +1,172 @@
+========================================================================
+37 MUSIC STUDIO — GALLERY MANAGEMENT & LANDING PAGE INTEGRATION HANDOFF
+Date: 2026-11-22
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Branch: main
+Base HEAD: 40bccf2fae05a2861de0d1ca547e5e9356768b8f
+========================================================================
+
+1. IMPLEMENTATION SUMMARY
+-------------------------
+Implemented the Gallery Management module (/admin/gallery) and dynamic public
+Landing Page Gallery integration for 37 Music Studio:
+
+- Top-Level Admin Navigation & Routing:
+  * Added "Gallery" at order 08 (/admin/gallery) and shifted "Settings" to order 09
+    in src/features/admin/navigation/admin-navigation.js.
+  * Mounted /admin/gallery inside RequireStaff & AdminLayout in src/App.jsx.
+  * Updated docs/architecture/ADMIN-SHELL-NAVIGATION.md and existing navigation
+    regression suites (admin-shell.test.jsx, settings.test.jsx, settings-center.test.jsx)
+    for the 9-item navigation menu.
+
+- Cloudinary Direct Unsigned Upload & Delivery Optimization:
+  * Configured public environment template (.env.example) with:
+    VITE_CLOUDINARY_CLOUD_NAME=fodgcil9
+    VITE_CLOUDINARY_UPLOAD_PRESET=37gallery
+  * Zero API Secret, API Key, or signed upload logic is present in client code,
+    environment files, logs, or docs.
+  * Direct unsigned POST to https://api.cloudinary.com/v1_1/fodgcil9/image/upload
+    using native FormData (file, upload_preset) with concurrency capped at 2 files.
+  * Client-side usability validation (JPG/JPEG/PNG/WEBP/AVIF only; rejects SVG, GIF,
+    video, PDF, executables; max 10 MB; max 6000 x 6000 px; rejects 0-byte files).
+  * Strict Cloudinary response validation (public_id, asset_id, HTTPS res.cloudinary.com
+    secure_url matching cloudName, resource_type == "image", format, positive integer
+    width, height, bytes).
+  * Partial failure recovery: if Cloudinary upload succeeds but Firestore metadata creation
+    fails, the validated Cloudinary response and pre-generated galleryItemId are preserved
+    in the queue state, displaying the cloudinaryPublicId and exposing "Retry Save Metadata"
+    without re-uploading the file.
+  * Responsive delivery transformations (f_auto,q_auto,c_limit,w_<width>) for Admin
+    thumbnails (w_600), Landing Page cards (w_900), and Lightbox view (w_1600).
+
+- Firestore Metadata Model, Publication, Ordering & Security Rules:
+  * Collection: galleryItems/{galleryItemId} (strict 22-key schema, schemaVersion: 1,
+    optimistic concurrency version starting at 1 and incrementing by +1 on every update).
+  * Status lifecycle: draft -> published -> draft (unpublish), or archived -> draft (restore).
+    Archived items cannot transition directly to published, and publishing requires valid
+    non-empty altText (>= 3 characters). Permanent Firestore deletion is disabled.
+  * Atomic two-document transaction swap (swapGallerySortOrderTransaction) for Move Up /
+    Move Down ordering of published items by sortOrder ASC.
+  * Added match /galleryItems/{galleryItemId} to firestore.rules and composite index
+    (status ASC, sortOrder ASC) to firestore.indexes.json (referenced in firebase.json).
+
+- Public Landing Page Dynamic Integration:
+  * Created usePublishedGallery() subscribing to where('status', '==', 'published'),
+    orderBy('sortOrder', 'asc'), limit(100) via Firestore onSnapshot.
+  * Removed the 4 static demo SVG items (gallery-guitar.svg, gallery-drums.svg,
+    gallery-mic.svg, gallery-console.svg) from landingPageContent.gallery.items.
+  * Preserved the Landing Page Neo-Brutalist Editorial design and GalleryLightboxDialog
+    while supporting Loading skeleton, Empty state ("Studio photos coming soon." with
+    "View all photos" hidden), Error fallback state, and Published responsive photo grid.
+
+2. NEW & MODIFIED FILES
+-----------------------
+Created:
+- firestore.indexes.json
+- src/features/admin/gallery/config/gallery-config.js
+- src/features/admin/gallery/utils/cloudinary-url.js
+- src/features/admin/gallery/utils/gallery-format.js
+- src/features/admin/gallery/utils/gallery-normalize.js
+- src/features/admin/gallery/schemas/gallery-schema.js
+- src/features/admin/gallery/services/cloudinary-upload-service.js
+- src/features/admin/gallery/services/gallery-service.js
+- src/features/admin/gallery/repositories/gallery-repository.js
+- src/features/admin/gallery/hooks/useGalleryItems.js
+- src/features/admin/gallery/hooks/useGalleryUpload.js
+- src/features/admin/gallery/hooks/usePublishedGallery.js
+- src/features/admin/gallery/components/GalleryEmptyState.jsx
+- src/features/admin/gallery/components/GalleryItemCard.jsx
+- src/features/admin/gallery/components/GalleryItemEditorDialog.jsx
+- src/features/admin/gallery/components/GalleryItemGrid.jsx
+- src/features/admin/gallery/components/GalleryItemPreviewDialog.jsx
+- src/features/admin/gallery/components/GalleryOwnerAccessNotice.jsx
+- src/features/admin/gallery/components/GalleryPublishStatusBadge.jsx
+- src/features/admin/gallery/components/GalleryToolbar.jsx
+- src/features/admin/gallery/components/GalleryUploadDropzone.jsx
+- src/features/admin/gallery/components/GalleryUploadQueue.jsx
+- src/features/admin/gallery/pages/AdminGalleryPage.jsx
+- src/features/admin/gallery/gallery.test.jsx
+- scripts/verify-gallery-module.ps1
+- docs/architecture/ADMIN-GALLERY-MANAGEMENT.md
+- docs/handoffs/HANDOFF-GALLERY-MODULE-2026-11-22.txt
+
+Modified:
+- .env.example
+- firebase.json
+- firestore.rules
+- src/App.jsx
+- src/data/landing-page-content.js
+- src/components/landing/GallerySection.jsx
+- src/components/landing/GalleryLightboxDialog.jsx
+- src/pages/LandingPage.test.jsx
+- src/features/admin/navigation/admin-navigation.js
+- src/features/admin/admin-shell.test.jsx
+- src/features/admin/settings/settings.test.jsx
+- src/features/admin/settings/settings-center.test.jsx
+- docs/architecture/ADMIN-SHELL-NAVIGATION.md
+
+3. CLOUDINARY & PRESET VERIFICATION STATUS
+------------------------------------------
+- Public configuration in .env.example:
+  VITE_CLOUDINARY_CLOUD_NAME=fodgcil9
+  VITE_CLOUDINARY_UPLOAD_PRESET=37gallery
+- Non-mutating endpoint probe against https://api.cloudinary.com/v1_1/fodgcil9/image/upload
+  with upload_preset=37gallery confirmed the endpoint is reachable and preset "37gallery"
+  passed unsigned preset whitelisting (proceeding directly to payload decode check without
+  requiring a signature). No real binary asset was uploaded to production Cloudinary during
+  automated tests.
+- Note for local dev (.env.local): .env.local was preserved untouched per repository policy.
+  Ensure VITE_CLOUDINARY_CLOUD_NAME=fodgcil9 and VITE_CLOUDINARY_UPLOAD_PRESET=37gallery
+  are present in .env.local when testing live browser uploads locally.
+
+4. TEST, EMULATOR, RESPONSIVE QA & BUILD RESULTS
+------------------------------------------------
+- Verification script: scripts/verify-gallery-module.ps1 (exit code 0)
+  * Scoped Prettier Format Check: PASS
+  * ESLint (npm run lint): PASS (0 errors, 0 warnings)
+  * Full Vitest Suite (npm run test:run): PASS (14 test files passed, 115 tests passed)
+    - src/features/admin/gallery/gallery.test.jsx: 9 passed (9)
+    - src/pages/LandingPage.test.jsx: 10 passed (10)
+    - src/features/admin/admin-shell.test.jsx: 5 passed (5)
+    - src/features/admin/settings/settings-center.test.jsx: 9 passed (9)
+    - src/features/admin/settings/settings.test.jsx: 7 passed (7)
+    - src/features/auth/auth.test.jsx: 12 passed (12)
+    - src/features/admin/calendar/calendar.test.jsx: 11 passed (11)
+    - src/features/admin/calendar/duration-discount.test.jsx: 16 passed (16)
+    - src/features/admin/customer/customer.test.jsx: 6 passed (6)
+    - src/features/admin/payment/payment.test.jsx: 6 passed (6)
+    - src/features/admin/commission/commission.test.jsx: 8 passed (8)
+    - src/features/admin/inventory/inventory.test.jsx: 6 passed (6)
+    - src/features/admin/bookkeeping/bookkeeping.test.jsx: 8 passed (8)
+    - src/lib/utils.test.js: 2 passed (2)
+  * Production Build (npm run build): PASS (4080 modules transformed, built in 11.08s)
+  * Verification Log: .logs/gallery-module-verification-20261122-064024.txt
+
+- Firebase Firestore Emulator Rules Verification (project: studio37classic):
+  * 32/32 rule assertions PASSED via firebase emulators:exec --only firestore:
+    - Anonymous read allowed on published, denied on draft/archived, denied on create/update/delete.
+    - Active Staff read allowed on published, denied on draft/archived, denied on create/update/archive.
+    - Inactive account denied on all galleryItems reads (including published).
+    - Active Owner allowed to read all statuses, create valid v1, and update valid v2.
+    - Invalid schema, empty altText on published, direct archived->published transition,
+      skipped version, mismatched updatedByUid, non-Cloudinary secureUrl, and delete all denied.
+    - Regression checks on settings, bookings, customers, invoices, bookkeepingEntries, and
+      inventoryItems all passed.
+
+- Headless Chromium Responsive & Visual QA:
+  * Audited /admin/gallery and /#gallery across 10 viewports:
+    286, 320, 360, 375, 390, 430, 768, 1024, 1280, 1440px.
+  * Result: TOTAL_CHECKS=20, FAILURES=0, RUNTIME_ERRORS=0.
+
+5. REMAINING LIMITATIONS & DEPLOYMENT STATUS
+--------------------------------------------
+- No git commit, git push, PR merge, Firebase Hosting deploy, Firestore Rules deploy, or
+  Firestore Indexes deploy was performed.
+- Composite index in firestore.indexes.json and updated rules in firestore.rules must be
+  deployed to Firebase production by the Owner when authorized.
+- Archiving an image removes it from public display without physically deleting the binary
+  asset in Cloudinary; physical deletion must be done manually in Cloudinary Console under
+  the Spark-only client architecture.
+- Next Recommended Phase: Operating Hours & Booking Rules or Live Studio Profile Public
+  Contact Wiring when authorized by the Owner.
+========================================================================

@@ -260,46 +260,12 @@ export const landingPageContent = {
     eyebrow: 'INSIDE THE STUDIO',
     heading: 'Proof, not renders.',
     subtitle:
-      'Development illustration placeholders shown below for layout review — real 37 Music Studio photographs remain pending.',
+      'Verified 37 Music Studio photography curated and published directly from the studio gallery.',
     ctaLabel: 'View all photos',
-    items: [
-      {
-        id: 'gallery-1',
-        title: 'Backline photo slot',
-        category: 'DEMO ILLUSTRATION 01',
-        src: '/images/demo/gallery-guitar.svg',
-        alt: 'Illustrative demo artwork representing a guitar close-up; real 37 Music Studio photo pending',
-        width: 600,
-        height: 680,
-      },
-      {
-        id: 'gallery-2',
-        title: 'Live session photo slot',
-        category: 'DEMO ILLUSTRATION 02',
-        src: '/images/demo/gallery-drums.svg',
-        alt: 'Illustrative demo artwork representing a drum session; real 37 Music Studio photo pending',
-        width: 600,
-        height: 680,
-      },
-      {
-        id: 'gallery-3',
-        title: 'Vocal booth photo slot',
-        category: 'DEMO ILLUSTRATION 03',
-        src: '/images/demo/gallery-mic.svg',
-        alt: 'Illustrative demo artwork representing a condenser microphone; real 37 Music Studio photo pending',
-        width: 600,
-        height: 680,
-      },
-      {
-        id: 'gallery-4',
-        title: 'Control desk photo slot',
-        category: 'DEMO ILLUSTRATION 04',
-        src: '/images/demo/gallery-console.svg',
-        alt: 'Illustrative demo artwork representing an audio console; real 37 Music Studio photo pending',
-        width: 600,
-        height: 680,
-      },
-    ],
+    emptyTitle: 'Studio photos coming soon.',
+    emptyDescription:
+      'Published 37 Music Studio session and room photographs will appear here as soon as they are curated by the studio owner.',
+    items: [],
   },
 
   bookingSection: {

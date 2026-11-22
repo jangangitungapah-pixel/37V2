@@ -134,16 +134,16 @@ describe('Settings Center Overview (/admin/settings)', () => {
     expect(screen.getByText('Firebase Authentication + Cloud Firestore')).toBeTruthy();
   });
 
-  it('navigates between /admin/settings and sub-pages inside AppRoutes while keeping 8 top-level sidebar links', async () => {
+  it('navigates between /admin/settings and sub-pages inside AppRoutes while keeping 9 top-level sidebar links', async () => {
     const adapter = createInMemoryStudioProfileAdapter(null);
     setStudioProfileRepositoryAdapter(adapter);
     const user = userEvent.setup();
 
     renderWithAuth(<AppRoutes />, { route: '/admin/settings' });
 
-    expect(ADMIN_NAVIGATION_ITEMS).toHaveLength(8);
+    expect(ADMIN_NAVIGATION_ITEMS).toHaveLength(9);
     const nav = screen.getByRole('navigation', { name: /admin workspace navigation/i });
-    expect(within(nav).getAllByRole('link')).toHaveLength(8);
+    expect(within(nav).getAllByRole('link')).toHaveLength(9);
 
     await user.click(screen.getByRole('link', { name: /open studio profile/i }));
     await waitFor(() => {
