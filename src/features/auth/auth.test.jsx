@@ -64,7 +64,7 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
     mockGetDoc.mockReset();
     mockOnAuthStateChanged.mockReset().mockImplementation((_auth, callback) => {
       queueMicrotask(() => callback(null));
-      return () => {};
+      return () => { };
     });
   });
 
@@ -79,11 +79,9 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
     // 1. Header has primary Book a session CTA and no nonfunctional Client Login preview button
     expect(screen.queryByRole('button', { name: /client login/i })).toBeNull();
     const headerNav = screen.getByRole('navigation', { name: /primary section navigation/i });
-    expect(
-      within(headerNav)
-        .getByRole('link', { name: /availability/i })
-        .getAttribute('href'),
-    ).toBe('/availability');
+    expect(within(headerNav).getByRole('link', { name: /availability/i }).getAttribute('href')).toBe(
+      '/availability',
+    );
 
     // 2. Footer Staff / Owner Login navigates cleanly to /staff/login
     const footerStaffLink = screen.getByRole('link', { name: /staff \/ owner login/i });
@@ -301,7 +299,7 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
     let resolveAuthCallback;
     mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
       resolveAuthCallback = callback;
-      return () => {};
+      return () => { };
     });
 
     renderWithRouter(['/admin']);
@@ -328,7 +326,7 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
 
     mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
       queueMicrotask(() => callback(persistedUser));
-      return () => {};
+      return () => { };
     });
     mockGetDoc.mockResolvedValue(
       createSnapshot('owner-uid-999', {

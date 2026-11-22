@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   PUBLIC_AVAILABILITY_QUERY_LIMIT,
-  PUBLIC_SLOT_INTERVAL_MINUTES,
+  PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES,
   PUBLIC_VIEW_MODES,
 } from '../config/public-availability-config';
 import { getPublicAvailabilityRepositoryAdapter } from '../repositories/public-availability-repository';
@@ -86,7 +86,7 @@ export function usePublicAvailability({
   viewMode = PUBLIC_VIEW_MODES.DAY,
   activeDateIso = '',
   roomFilter = 'all',
-  requestedDurationMinutes = PUBLIC_SLOT_INTERVAL_MINUTES,
+  requestedDurationMinutes = PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES,
   maxLimit = PUBLIC_AVAILABILITY_QUERY_LIMIT,
   enabled = true,
   now,

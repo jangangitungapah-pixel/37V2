@@ -25,6 +25,7 @@ import {
 import {
   PUBLIC_AVAILABILITY_ALLOWED_KEYS,
   PUBLIC_AVAILABILITY_SCHEMA_VERSION,
+  PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES,
   PUBLIC_OPERATING_END_MINUTE,
   PUBLIC_OPERATING_START_MINUTE,
   PUBLIC_SLOT_INTERVAL_MINUTES,
@@ -201,6 +202,32 @@ export function buildOperatingHalfHourSlots() {
 export const OPERATING_HALF_HOUR_SLOTS = buildOperatingHalfHourSlots();
 
 /**
+ * Generates all 13 1-hour public display slots between `10:00` (600) and `23:00` (1380):
+ * `[600, 660, 720, ..., 1320]` (`10:00–11:00` through `22:00–23:00`).
+ */
+export function buildOperatingHourlySlots() {
+  const slots = [];
+  for (
+    let startMinute = PUBLIC_OPERATING_START_MINUTE;
+    startMinute < PUBLIC_OPERATING_END_MINUTE;
+    startMinute += PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES
+  ) {
+    const endMinute = startMinute + PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES;
+    slots.push({
+      startMinute,
+      endMinute,
+      startLabel: formatMinuteOfDay(startMinute),
+      endLabel: formatMinuteOfDay(endMinute),
+      rangeLabel: formatMinuteRange(startMinute, endMinute, false),
+      isHourStart: true,
+    });
+  }
+  return slots;
+}
+
+export const OPERATING_HOURLY_SLOTS = buildOperatingHourlySlots();
+
+/**
  * Resolves the active date range (`startDate`, `endDate`, `days`) for Day or Week view
  * in `Asia/Jakarta`.
  */
@@ -329,29 +356,25 @@ export function evaluatePublicIntervalAvailability({
 }
 
 /**
- * Builds the 30-minute slot schedule for a single room (`room-a` or `room-b`) on a given `dateIso`.
+ * Builds the 1-hour public slot schedule (13 slots/day) for a single room (`room-a` or `room-b`) on a given `dateIso`.
  *
- * Distinguishes:
- * - `occupied`: the 30-minute block `[slot.startMinute, slot.endMinute)` itself is occupied
- * - `past`: the 30-minute block starts before current `Asia/Jakarta` time (and is not occupied)
- * - `duration_too_short`: the 30-minute block is free, but the requested `requestedDurationMinutes`
- *   (e.g. 120 minutes) would collide with an upcoming occupied block or exceed 23:00 closing time
- * - `available`: the full `requestedDurationMinutes` interval starting at `slot.startMinute` is free
+ * Canonical projections remain at 30-minute resolution so any overlapping booking (including legacy HH:30 sessions)
+ * marks the corresponding 1-hour block as `occupied` (fail-closed).
  */
 export function buildRoomDayAvailabilitySlots({
   dateIso,
   studioId,
   projections = [],
-  requestedDurationMinutes = PUBLIC_SLOT_INTERVAL_MINUTES,
+  requestedDurationMinutes = PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES,
   now = new Date(),
 } = {}) {
   const jakartaNow = getJakartaDateTimeParts(now);
   const safeDuration =
     Number.isInteger(Number(requestedDurationMinutes)) &&
-    Number(requestedDurationMinutes) >= PUBLIC_SLOT_INTERVAL_MINUTES &&
+    Number(requestedDurationMinutes) >= PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES &&
     Number(requestedDurationMinutes) % PUBLIC_SLOT_INTERVAL_MINUTES === 0
       ? Number(requestedDurationMinutes)
-      : PUBLIC_SLOT_INTERVAL_MINUTES;
+      : PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES;
 
   const roomProjections = (projections || []).filter(
     (p) => p && p.date === dateIso && p.studioId === studioId,
@@ -362,7 +385,7 @@ export function buildRoomDayAvailabilitySlots({
   let pastSlotsCount = 0;
   let selectableStartCount = 0;
 
-  const slots = OPERATING_HALF_HOUR_SLOTS.map((baseSlot) => {
+  const slots = OPERATING_HOURLY_SLOTS.map((baseSlot) => {
     const isBlockOccupied = roomProjections.some((proj) =>
       doTimeIntervalsOverlap(
         baseSlot.startMinute,
@@ -462,7 +485,7 @@ export function buildRoomDayAvailabilitySlots({
     occupiedSlotsCount,
     pastSlotsCount,
     selectableStartCount,
-    totalSlotsCount: OPERATING_HALF_HOUR_SLOTS.length,
+    totalSlotsCount: OPERATING_HOURLY_SLOTS.length,
   };
 }
 
@@ -473,7 +496,7 @@ export function buildPublicAvailabilityScheduleMatrix({
   days = [],
   roomFilter = 'all',
   projections = [],
-  requestedDurationMinutes = PUBLIC_SLOT_INTERVAL_MINUTES,
+  requestedDurationMinutes = PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES,
   now = new Date(),
 } = {}) {
   const visibleRooms =

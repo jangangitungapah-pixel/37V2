@@ -3,7 +3,8 @@
  *
  * Enforces the 37 Music Studio operating schedule in `Asia/Jakarta` (`WIB`, UTC+7):
  * - Operating Window: `10:00` (600) to `23:00` (1380)
- * - Slot Granularity: `30 minutes` (26 slots per room per day)
+ * - Canonical Storage Granularity: `30 minutes` (26 slots per room per day)
+ * - Public Display Granularity: `60 minutes` (13 hourly slots per room per day)
  * - Rooms: `room-a` (Room A — Live Room) and `room-b` (Room B — Control + Booth)
  */
 
@@ -17,7 +18,8 @@ import {
 export const PUBLIC_AVAILABILITY_TIME_ZONE = STUDIO_TIME_ZONE;
 export const PUBLIC_OPERATING_START_MINUTE = OPERATING_START_MINUTE; // 600 (10:00)
 export const PUBLIC_OPERATING_END_MINUTE = OPERATING_END_MINUTE; // 1380 (23:00)
-export const PUBLIC_SLOT_INTERVAL_MINUTES = SLOT_INTERVAL_MINUTES; // 30
+export const PUBLIC_SLOT_INTERVAL_MINUTES = SLOT_INTERVAL_MINUTES; // 30 (canonical Firestore & rule grain)
+export const PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES = 60; // 60 (1-hour public schedule slots)
 
 export const PUBLIC_AVAILABILITY_SCHEMA_VERSION = 1;
 export const PUBLIC_AVAILABILITY_QUERY_LIMIT = 300;

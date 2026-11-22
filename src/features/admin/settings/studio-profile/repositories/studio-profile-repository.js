@@ -228,7 +228,9 @@ export function createInMemoryStudioProfileAdapter(
       const targetPublicAdapter =
         linkedPublicSiteAdapter || getPublicSiteSettingsRepositoryAdapter();
       const fallbackPublic =
-        targetPublicAdapter?._getStoredDoc?.() || storedPublicDoc || DEFAULT_PUBLIC_SITE_SETTINGS;
+        targetPublicAdapter?._getStoredDoc?.() ||
+        storedPublicDoc ||
+        DEFAULT_PUBLIC_SITE_SETTINGS;
 
       const nextPublicDoc = buildSanitizedPublicSiteSettingsWriteDoc({
         studioProfilePayload: payload,

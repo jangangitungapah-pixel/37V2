@@ -67,8 +67,8 @@ export function PublicAvailabilityGrid({
                   </span>
                 </div>
                 <p className="font-display mt-1 text-lg leading-tight font-black uppercase sm:text-2xl">
-                  {selectedSlot.fullDateLabel} • {selectedSlot.startLabel} WIB
-                  {selectedSlot.durationMinutes > 30 ? ` (${selectedSlot.rangeLabel} WIB)` : ''}
+                  {selectedSlot.fullDateLabel} • {selectedSlot.startLabel} WIB (
+                  {selectedSlot.rangeLabel} WIB)
                 </p>
                 <p className="text-studio-ink/80 mt-0.5 font-mono text-[10px] font-semibold sm:text-[11px]">
                   Tentative slot — confirmed after studio team verification.

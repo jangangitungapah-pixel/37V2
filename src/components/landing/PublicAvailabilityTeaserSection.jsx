@@ -48,9 +48,9 @@ export function PublicAvailabilityTeaserSection({ now } = {}) {
             </h2>
 
             <p className="mt-4 text-sm leading-relaxed text-neutral-300 sm:text-base">
-              Inspect open 30-minute time blocks across Room A and Room B before contacting the
-              studio. Pick a free start time and carry your selection straight into the booking
-              request form.
+              Inspect open 1-hour time slots across Room A and Room B before contacting the studio.
+              Pick a free start time and carry your selection straight into the booking request
+              form.
             </p>
 
             {/* Availability Legend */}
@@ -61,7 +61,7 @@ export function PublicAvailabilityTeaserSection({ now } = {}) {
                   aria-hidden="true"
                 />
                 <span className="font-bold text-white uppercase">Available:</span>
-                <span className="text-neutral-300">Open 30-minute start time</span>
+                <span className="text-neutral-300">Open 1-hour time slot</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <span
@@ -174,7 +174,7 @@ export function PublicAvailabilityTeaserSection({ now } = {}) {
                 <p className="mt-2.5 text-xs leading-relaxed text-neutral-300 sm:text-sm">
                   {!isLoading && !isReady
                     ? 'Availability data is not ready yet. Open the public availability page or submit your preferred date and time in the booking request form below.'
-                    : 'Browse 30-minute time blocks from 10:00 to 23:00 WIB across Room A (Live Room) and Room B (Control + Booth) without logging in.'}
+                    : 'Browse 1-hour time slots from 10:00 to 23:00 WIB across Room A (Live Room) and Room B (Control + Booth) without logging in.'}
                 </p>
 
                 <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">

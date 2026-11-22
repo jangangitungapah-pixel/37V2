@@ -17,7 +17,7 @@ import { PublicAvailabilityHeader } from '../components/PublicAvailabilityHeader
 import { PublicAvailabilityLegend } from '../components/PublicAvailabilityLegend';
 import { PublicAvailabilityToolbar } from '../components/PublicAvailabilityToolbar';
 import {
-  PUBLIC_SLOT_INTERVAL_MINUTES,
+  PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES,
   PUBLIC_VIEW_MODES,
 } from '../config/public-availability-config';
 import { usePublicAvailability } from '../hooks/usePublicAvailability';
@@ -82,7 +82,7 @@ export function PublicAvailabilityPage({ now } = {}) {
     getInitialRoomFilter(searchParams.get('room')),
   );
   const [requestedDurationMinutes, setRequestedDurationMinutes] = useState(
-    PUBLIC_SLOT_INTERVAL_MINUTES,
+    PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES,
   );
   const [selectedSlot, setSelectedSlot] = useState(null);
 
@@ -223,7 +223,7 @@ export function PublicAvailabilityPage({ now } = {}) {
     params.set('time', slot.startLabel);
     const serviceToCarry = initialServiceParam || slot.defaultService || 'rehearsal';
     params.set('service', serviceToCarry);
-    if (slot.durationMinutes && slot.durationMinutes > PUBLIC_SLOT_INTERVAL_MINUTES) {
+    if (slot.durationMinutes && slot.durationMinutes > PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES) {
       params.set('duration', mapDurationMinutesToInquiryLabel(slot.durationMinutes));
     }
     navigate(`/?${params.toString()}#booking`);

@@ -1,12 +1,12 @@
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 
 import {
+  PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES,
   PUBLIC_ROOM_FILTER_OPTIONS,
   PUBLIC_VIEW_MODES,
 } from '../config/public-availability-config';
 
 const DURATION_FILTER_CHOICES = [
-  { minutes: 30, label: 'Any (30m+)' },
   { minutes: 60, label: '1 hour' },
   { minutes: 120, label: '2 hours' },
   { minutes: 180, label: '3 hours' },
@@ -176,7 +176,9 @@ export function PublicAvailabilityToolbar({
                 value={requestedDurationMinutes}
                 onChange={(e) => onDurationChange(Number(e.target.value))}
                 className={`border-studio-ink h-10 flex-1 border-2 px-2.5 font-mono text-xs font-bold sm:w-40 sm:flex-initial ${
-                  requestedDurationMinutes > 30 ? 'bg-studio-lime/35' : 'bg-studio-ivory'
+                  requestedDurationMinutes > PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES
+                    ? 'bg-studio-lime/35'
+                    : 'bg-studio-ivory'
                 }`}
               >
                 {DURATION_FILTER_CHOICES.map((opt) => (

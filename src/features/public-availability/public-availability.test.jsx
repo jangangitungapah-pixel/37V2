@@ -95,6 +95,7 @@ import {
   evaluatePublicIntervalAvailability,
   hasOnlySanitizedPublicAvailabilityKeys,
   OPERATING_HALF_HOUR_SLOTS,
+  OPERATING_HOURLY_SLOTS,
 } from './utils/public-availability-calculation';
 
 // Fixed reference time: 2026-11-25 at 13:15 WIB (06:15 UTC), minuteOfDay = 795
@@ -105,7 +106,7 @@ const FIXED_TOMORROW_ISO = '2026-11-26';
 function mockUnauthenticatedVisitor() {
   mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
     queueMicrotask(() => callback(null));
-    return () => {};
+    return () => { };
   });
 }
 
@@ -115,7 +116,7 @@ function mockAuthenticatedActor(role = 'owner', uid = 'owner-uid-1') {
 
   mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
     queueMicrotask(() => callback({ uid, email, displayName }));
-    return () => {};
+    return () => { };
   });
 
   mockGetDoc.mockResolvedValue({
@@ -698,14 +699,19 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
   });
 
   describe('F. Time, Operating Window (10:00-23:00), Duration-Fit & Fail-Closed States', () => {
-    it('supports all 26 half-hour slots from 10:00 to 23:00 (including 22:00-23:00), disables past slots on today, and enforces full duration fit', () => {
-      // 10:00 (600) to 23:00 (1380) = 13 hours = 26 half-hour slots
-      expect(OPERATING_HALF_HOUR_SLOTS).toHaveLength(26);
-      expect(OPERATING_HALF_HOUR_SLOTS[0].startLabel).toBe('10:00');
-      expect(OPERATING_HALF_HOUR_SLOTS[25].startLabel).toBe('22:30');
-      expect(OPERATING_HALF_HOUR_SLOTS[25].endLabel).toBe('23:00');
+    it('supports all 13 hourly public slots from 10:00 to 23:00 (while preserving 26 half-hour canonical slots), disables past slots, flags partial HH:30 overlaps as occupied, and enforces full duration fit', () => {
+      // Public display uses 13 1-hour slots (10:00–11:00 through 22:00–23:00)
+      expect(OPERATING_HOURLY_SLOTS).toHaveLength(13);
+      expect(OPERATING_HOURLY_SLOTS[0].startLabel).toBe('10:00');
+      expect(OPERATING_HOURLY_SLOTS[0].rangeLabel).toBe('10:00 – 11:00');
+      expect(OPERATING_HOURLY_SLOTS[12].startLabel).toBe('22:00');
+      expect(OPERATING_HOURLY_SLOTS[12].endLabel).toBe('23:00');
+      expect(OPERATING_HOURLY_SLOTS.some((s) => s.startLabel.endsWith(':30'))).toBe(false);
 
-      // On FIXED_TODAY_ISO at 13:15 WIB (795), slots before 13:30 (810) are PAST
+      // Canonical 30-minute granularity remains 26 slots for Admin Booking Request compatibility
+      expect(OPERATING_HALF_HOUR_SLOTS).toHaveLength(26);
+
+      // On FIXED_TODAY_ISO at 13:15 WIB (795), hourly slots starting before 13:15 (10:00..13:00) are PAST
       // Suppose Room A has an occupied session at 15:00–17:00 (900–1020) and a late session at 22:00–23:00 (1320–1380)
       const projections = [
         {
@@ -733,33 +739,55 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
         now: FIXED_NOW,
       });
 
+      expect(daySlots.slots).toHaveLength(13);
+      expect(daySlots.totalSlotsCount).toBe(13);
+      expect(daySlots.slots.some((s) => s.startLabel.endsWith(':30'))).toBe(false);
+
       const byLabel = new Map(daySlots.slots.map((s) => [s.startLabel, s]));
 
-      // 10:00 and 13:00 are in the past relative to 13:15 WIB
+      // 10:00..13:00 are in the past relative to 13:15 WIB
       expect(byLabel.get('10:00').state).toBe(PUBLIC_SLOT_STATES.PAST);
       expect(byLabel.get('13:00').state).toBe(PUBLIC_SLOT_STATES.PAST);
 
-      // 13:30 has only 90 minutes free before 15:00 occupied session -> cannot fit 120m!
-      expect(byLabel.get('13:30').state).toBe(PUBLIC_SLOT_STATES.DURATION_TOO_SHORT);
-      expect(byLabel.get('13:30').isSelectable).toBe(false);
+      // 14:00 has only 60 minutes free before 15:00 occupied session -> cannot fit 120m!
       expect(byLabel.get('14:00').state).toBe(PUBLIC_SLOT_STATES.DURATION_TOO_SHORT);
-      expect(byLabel.get('14:30').state).toBe(PUBLIC_SLOT_STATES.DURATION_TOO_SHORT);
+      expect(byLabel.get('14:00').isSelectable).toBe(false);
 
-      // 15:00..16:30 are occupied
+      // 15:00 and 16:00 are occupied
       expect(byLabel.get('15:00').state).toBe(PUBLIC_SLOT_STATES.OCCUPIED);
-      expect(byLabel.get('16:30').state).toBe(PUBLIC_SLOT_STATES.OCCUPIED);
+      expect(byLabel.get('16:00').state).toBe(PUBLIC_SLOT_STATES.OCCUPIED);
 
-      // Adjacent session at 17:00 has 17:00–22:00 free (5 hours) -> 17:00..20:00 can fit 120m!
+      // 17:00..20:00 have 17:00–22:00 free (5 hours) -> can fit 120m!
       expect(byLabel.get('17:00').state).toBe(PUBLIC_SLOT_STATES.AVAILABLE);
       expect(byLabel.get('17:00').isSelectable).toBe(true);
       expect(byLabel.get('20:00').state).toBe(PUBLIC_SLOT_STATES.AVAILABLE);
 
-      // 20:30 has only 90m before the 22:00–23:00 late session -> DURATION_TOO_SHORT
-      expect(byLabel.get('20:30').state).toBe(PUBLIC_SLOT_STATES.DURATION_TOO_SHORT);
+      // 21:00 has only 60m before the 22:00–23:00 late session -> DURATION_TOO_SHORT
+      expect(byLabel.get('21:00').state).toBe(PUBLIC_SLOT_STATES.DURATION_TOO_SHORT);
 
-      // 22:00 and 22:30 are occupied by the late session ending at 23:00
+      // 22:00 is occupied by the late session ending at 23:00
       expect(byLabel.get('22:00').state).toBe(PUBLIC_SLOT_STATES.OCCUPIED);
-      expect(byLabel.get('22:30').state).toBe(PUBLIC_SLOT_STATES.OCCUPIED);
+
+      // Legacy partial HH:30 booking (11:30–12:30) fail-closed marks BOTH 11:00 and 12:00 hourly slots as occupied
+      const halfHourOverlapSlots = buildRoomDayAvailabilitySlots({
+        dateIso: FIXED_TOMORROW_ISO,
+        studioId: 'room-a',
+        projections: [
+          {
+            id: 'p_legacy_half',
+            date: FIXED_TOMORROW_ISO,
+            studioId: 'room-a',
+            startMinute: 690, // 11:30
+            endMinute: 750, // 12:30
+          },
+        ],
+        now: FIXED_NOW,
+      });
+      const tomorrowMap = new Map(halfHourOverlapSlots.slots.map((s) => [s.startLabel, s]));
+      expect(tomorrowMap.get('10:00').state).toBe(PUBLIC_SLOT_STATES.AVAILABLE);
+      expect(tomorrowMap.get('11:00').state).toBe(PUBLIC_SLOT_STATES.OCCUPIED);
+      expect(tomorrowMap.get('12:00').state).toBe(PUBLIC_SLOT_STATES.OCCUPIED);
+      expect(tomorrowMap.get('13:00').state).toBe(PUBLIC_SLOT_STATES.AVAILABLE);
 
       // Room B is completely unaffected by Room A's projections
       const roomBEval = evaluatePublicIntervalAvailability({

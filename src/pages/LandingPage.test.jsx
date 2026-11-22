@@ -116,9 +116,9 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
     expect(screen.getByLabelText(/room preference/i).value).toBe('room-b');
 
     await user.click(screen.getByRole('button', { name: /send inquiry — mix & master/i }));
-    expect(
-      screen.getByRole('button', { name: /^mix & master$/i }).getAttribute('aria-pressed'),
-    ).toBe('true');
+    expect(screen.getByRole('button', { name: /^mix & master$/i }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
     expect(screen.queryByLabelText(/room preference/i)).toBeNull();
     expect(screen.getByTestId('post-production-inquiry-notice')).toBeTruthy();
 
@@ -176,11 +176,8 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
       bookingInquirySchema.safeParse({ ...basePayload, preferredDate: yesterdayStr }).success,
     ).toBe(false);
     expect(
-      bookingInquirySchema.safeParse({
-        ...basePayload,
-        preferredDate: todayStr,
-        privacyConsent: false,
-      }).success,
+      bookingInquirySchema.safeParse({ ...basePayload, preferredDate: todayStr, privacyConsent: false })
+        .success,
     ).toBe(false);
     expect(
       bookingInquirySchema.safeParse({ ...basePayload, preferredDate: tomorrowStr }).success,
@@ -390,14 +387,10 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
       screen.getByRole('heading', { level: 2, name: /find your next open session\./i }),
     ).toBeTruthy();
     expect(
-      screen
-        .getByRole('link', { name: /check room availability \(room a\)/i })
-        .getAttribute('href'),
+      screen.getByRole('link', { name: /check room availability \(room a\)/i }).getAttribute('href'),
     ).toBe('/availability?room=room-a');
     expect(
-      screen
-        .getByRole('link', { name: /check room availability \(room b\)/i })
-        .getAttribute('href'),
+      screen.getByRole('link', { name: /check room availability \(room b\)/i }).getAttribute('href'),
     ).toBe('/availability?room=room-b');
     expect(screen.getByRole('link', { name: /view full availability/i }).getAttribute('href')).toBe(
       '/availability',

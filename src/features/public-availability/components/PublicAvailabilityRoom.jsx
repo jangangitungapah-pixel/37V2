@@ -1,7 +1,7 @@
 import { ArrowRight, Check, Clock, Lock, Sliders, Volume2 } from 'lucide-react';
 
 import {
-  PUBLIC_SLOT_INTERVAL_MINUTES,
+  PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES,
   PUBLIC_SLOT_STATES,
   PUBLIC_VIEW_MODES,
 } from '../config/public-availability-config';
@@ -42,7 +42,7 @@ export function PublicAvailabilityRoom({
   onNextDay,
   selectedSlot,
   onSelectSlot,
-  requestedDurationMinutes = PUBLIC_SLOT_INTERVAL_MINUTES,
+  requestedDurationMinutes = PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES,
 }) {
   const daySchedules = room.daySchedules || [];
   const activeDaySchedule =
@@ -179,7 +179,7 @@ export function PublicAvailabilityRoom({
         </div>
       ) : null}
 
-      {/* Active Day Schedule + Grouped 30-Minute Slots */}
+      {/* Active Day Schedule + Grouped 1-Hour Slots */}
       {activeDaySchedule ? (
         <div className="space-y-4 p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -188,9 +188,9 @@ export function PublicAvailabilityRoom({
                 {activeDaySchedule.fullLabel}
               </h3>
               <p className="text-studio-muted-ink mt-0.5 font-mono text-[11px]">
-                {requestedDurationMinutes > PUBLIC_SLOT_INTERVAL_MINUTES
-                  ? `Showing start times fitting a ${requestedDurationMinutes}-minute session`
-                  : 'Tap an open start time to prefill your booking request'}
+                {requestedDurationMinutes > PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES
+                  ? `Showing hourly start times fitting a ${requestedDurationMinutes / 60}-hour session`
+                  : 'Tap an open 1-hour slot to prefill your booking request'}
               </p>
             </div>
 
@@ -216,7 +216,7 @@ export function PublicAvailabilityRoom({
             <div className="border-studio-ink/30 bg-studio-ivory flex flex-wrap items-center justify-between gap-2 border p-3">
               <span className="text-studio-ink font-mono text-xs font-bold">
                 No open slots available on this date
-                {requestedDurationMinutes > PUBLIC_SLOT_INTERVAL_MINUTES
+                {requestedDurationMinutes > PUBLIC_DISPLAY_SLOT_INTERVAL_MINUTES
                   ? ' for this duration'
                   : ''}
                 .
@@ -276,9 +276,14 @@ export function PublicAvailabilityRoom({
                           className="border-studio-ink bg-studio-ink text-studio-ivory flex min-h-14 flex-col justify-between border-2 p-2.5 opacity-95"
                         >
                           <div className="flex items-center justify-between gap-1">
-                            <span className="font-mono text-sm leading-none font-extrabold">
-                              {slot.startLabel}
-                            </span>
+                            <div>
+                              <span className="block font-mono text-sm leading-none font-extrabold">
+                                {slot.startLabel}
+                              </span>
+                              <span className="mt-0.5 block font-mono text-[10px] text-neutral-400">
+                                {slot.rangeLabel}
+                              </span>
+                            </div>
                             <Lock
                               className="text-studio-orange h-3.5 w-3.5 shrink-0"
                               aria-hidden="true"
@@ -301,9 +306,14 @@ export function PublicAvailabilityRoom({
                           aria-label={`${slot.rangeLabel} WIB — Past time`}
                           className="border-studio-ink/25 bg-studio-ivory/70 text-studio-muted-ink flex min-h-14 flex-col justify-between border p-2.5 opacity-60"
                         >
-                          <span className="font-mono text-sm leading-none font-bold">
-                            {slot.startLabel}
-                          </span>
+                          <div>
+                            <span className="block font-mono text-sm leading-none font-bold">
+                              {slot.startLabel}
+                            </span>
+                            <span className="mt-0.5 block font-mono text-[10px] opacity-80">
+                              {slot.rangeLabel}
+                            </span>
+                          </div>
                           <span className="mt-1 font-mono text-[10px] font-semibold uppercase">
                             Past
                           </span>
@@ -322,9 +332,14 @@ export function PublicAvailabilityRoom({
                           className="border-studio-ink/60 bg-studio-orange/10 text-studio-ink flex min-h-14 flex-col justify-between border-[1.5px] border-dashed p-2.5"
                         >
                           <div className="flex items-center justify-between gap-1">
-                            <span className="font-mono text-sm leading-none font-bold">
-                              {slot.startLabel}
-                            </span>
+                            <div>
+                              <span className="block font-mono text-sm leading-none font-bold">
+                                {slot.startLabel}
+                              </span>
+                              <span className="text-studio-muted-ink mt-0.5 block font-mono text-[10px]">
+                                {slot.rangeLabel}
+                              </span>
+                            </div>
                             <Clock
                               className="text-studio-orange h-3 w-3 shrink-0"
                               aria-hidden="true"
@@ -344,7 +359,7 @@ export function PublicAvailabilityRoom({
                           data-testid={`slot-${room.id}-${slot.dateIso}-${slot.startLabel}`}
                           data-slot-state="available"
                           aria-pressed={Boolean(isSelected)}
-                          aria-label={`Select ${room.shortLabel} on ${slot.dateIso} at ${slot.startLabel} WIB (Available)`}
+                          aria-label={`Select ${room.shortLabel} on ${slot.dateIso} at ${slot.rangeLabel} WIB (Available)`}
                           onClick={() =>
                             onSelectSlot?.({
                               dateIso: slot.dateIso,
@@ -366,10 +381,19 @@ export function PublicAvailabilityRoom({
                               : 'border-studio-ink bg-studio-white text-studio-ink hover:bg-studio-lime shadow-[2px_2px_0px_#151515]'
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="font-mono text-sm leading-none font-extrabold">
-                              {slot.startLabel}
-                            </span>
+                          <div className="flex items-start justify-between gap-1">
+                            <div>
+                              <span className="block font-mono text-sm leading-none font-extrabold">
+                                {slot.startLabel}
+                              </span>
+                              <span
+                                className={`mt-0.5 block font-mono text-[10px] font-medium ${
+                                  isSelected ? 'text-white/85' : 'text-studio-muted-ink'
+                                }`}
+                              >
+                                {slot.rangeLabel}
+                              </span>
+                            </div>
                             {isSelected ? (
                               <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                             ) : (
