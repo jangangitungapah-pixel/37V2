@@ -101,8 +101,14 @@ import {
   CLIENT_PROFILE_SOURCE,
   CLIENT_SUSPENDED_MESSAGE,
 } from './config/client-portal-config';
+import { ClientPortalLayout } from './layout/ClientPortalLayout';
+import { ClientBookSessionPage } from './pages/ClientBookSessionPage';
+import { ClientBookingsPage } from './pages/ClientBookingsPage';
+import { ClientInvoicesPage } from './pages/ClientInvoicesPage';
 import { ClientLoginPage } from './pages/ClientLoginPage';
 import { ClientPortalHomePage } from './pages/ClientPortalHomePage';
+import { ClientPortalNotFoundPage } from './pages/ClientPortalNotFoundPage';
+import { ClientProfilePage } from './pages/ClientProfilePage';
 import {
   createInMemoryClientPortalRepositoryAdapter,
   resetClientPortalRepositoryAdapter,
@@ -159,13 +165,20 @@ function renderPortalRouter({ initialEntries = ['/portal/login'] } = {}) {
           />
           <Route path="/portal/login" element={<ClientLoginPage />} />
           <Route
-            path="/portal/*"
+            path="/portal"
             element={
               <RequireClient>
-                <ClientPortalHomePage />
+                <ClientPortalLayout />
               </RequireClient>
             }
-          />
+          >
+            <Route index element={<ClientPortalHomePage />} />
+            <Route path="book" element={<ClientBookSessionPage />} />
+            <Route path="bookings" element={<ClientBookingsPage />} />
+            <Route path="invoices" element={<ClientInvoicesPage />} />
+            <Route path="profile" element={<ClientProfilePage />} />
+            <Route path="*" element={<ClientPortalNotFoundPage />} />
+          </Route>
           <Route
             path="/admin/dashboard"
             element={
@@ -260,11 +273,11 @@ describe('Client Portal Phase 1 — Google Auth, Instant Provisioning & Security
     const btn = await screen.findByTestId('client-google-login-button');
     fireEvent.click(btn);
 
-    expect(await screen.findByTestId('client-portal-home')).toBeTruthy();
-    expect(screen.getByText(/Akun Client Aktif/i)).toBeTruthy();
-    expect(screen.getByText(/Profil Client Pribadi/i)).toBeTruthy();
+    expect(await screen.findByTestId('client-portal-shell')).toBeTruthy();
+    expect(screen.getByTestId('client-portal-home')).toBeTruthy();
+    expect(screen.getByText(/Welcome back, Raka Studio/i)).toBeTruthy();
+    expect(screen.getByText(/Active Client/i)).toBeTruthy();
     expect(screen.getAllByText('studiofan@gmail.com').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Ruang Client Portal Siap/i)).toBeTruthy();
 
     const state = clientAdapter._inspectState();
     const account = state.clientAccounts.get('client-brand-new-1');

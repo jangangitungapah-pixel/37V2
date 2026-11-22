@@ -19,8 +19,14 @@ import { StudioProfilePage } from '@/features/admin/settings/pages/StudioProfile
 import { RequireOwner } from '@/features/auth/RequireOwner';
 import { RequireStaff } from '@/features/auth/RequireStaff';
 import { RequireClient } from '@/features/client-portal/components/RequireClient';
+import { ClientPortalLayout } from '@/features/client-portal/layout/ClientPortalLayout';
+import { ClientBookSessionPage } from '@/features/client-portal/pages/ClientBookSessionPage';
+import { ClientBookingsPage } from '@/features/client-portal/pages/ClientBookingsPage';
+import { ClientInvoicesPage } from '@/features/client-portal/pages/ClientInvoicesPage';
 import { ClientLoginPage } from '@/features/client-portal/pages/ClientLoginPage';
 import { ClientPortalHomePage } from '@/features/client-portal/pages/ClientPortalHomePage';
+import { ClientPortalNotFoundPage } from '@/features/client-portal/pages/ClientPortalNotFoundPage';
+import { ClientProfilePage } from '@/features/client-portal/pages/ClientProfilePage';
 import { AdminCustomerReviewsPage } from '@/features/customer-reviews/pages/AdminCustomerReviewsPage';
 import { PublicAvailabilityPage } from '@/features/public-availability/pages/PublicAvailabilityPage';
 import { PublicReviewSubmissionPage } from '@/features/public-reviews/pages/PublicReviewSubmissionPage';
@@ -39,13 +45,20 @@ export function AppRoutes() {
       <Route path="/privacy" element={<PrivacyNoticePage />} />
       <Route path="/portal/login" element={<ClientLoginPage />} />
       <Route
-        path="/portal/*"
+        path="/portal"
         element={
           <RequireClient>
-            <ClientPortalHomePage />
+            <ClientPortalLayout />
           </RequireClient>
         }
-      />
+      >
+        <Route index element={<ClientPortalHomePage />} />
+        <Route path="book" element={<ClientBookSessionPage />} />
+        <Route path="bookings" element={<ClientBookingsPage />} />
+        <Route path="invoices" element={<ClientInvoicesPage />} />
+        <Route path="profile" element={<ClientProfilePage />} />
+        <Route path="*" element={<ClientPortalNotFoundPage />} />
+      </Route>
       <Route path="/staff/login" element={<StaffLoginPage />} />
       <Route
         path="/admin"

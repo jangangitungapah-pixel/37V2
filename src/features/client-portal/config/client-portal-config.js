@@ -15,6 +15,10 @@ export const CLIENT_PORTAL_SCHEMA_VERSION = 1;
 export const CLIENT_PORTAL_ROUTES = Object.freeze({
   LOGIN: '/portal/login',
   HOME: '/portal',
+  BOOK: '/portal/book',
+  BOOKINGS: '/portal/bookings',
+  INVOICES: '/portal/invoices',
+  PROFILE: '/portal/profile',
 });
 
 export const CLIENT_SUSPENDED_MESSAGE =

@@ -1,0 +1,132 @@
+================================================================================
+HANDOFF — 37 MUSIC STUDIO CLIENT PORTAL (PHASE 2)
+Client Portal Spatial Ambient Shell & Page Placeholders
+================================================================================
+
+1. BASELINE COMMIT & RINGKASAN IMPLEMENTASI
+-------------------------------------------
+Audited baseline commit: ded3a421662bd3f401e95c810949340811adbc89
+
+Phase 2 menghadirkan Application Shell penuh untuk Client Portal menggunakan
+Spatial Ambient Design System yang sama persis dengan Admin Portal:
+- Persistent Desktop Sidebar (264px expanded / 80px collapsed) dengan animasi
+  active lime pill dan aksen indicator signal orange.
+- Responsive Mobile Navigation Drawer (<1024px) berbasis @base-ui/react/dialog
+  + motion/react (tanpa bottom bar, lengkap dengan Escape, backdrop, dan
+  focus restoration).
+- Sticky translucent Client Topbar dengan breadcrumb `37 Studio > [Page Title]`,
+  identitas Google Client + avatar/initials fallback, badge `CLIENT`, link
+  opsional Public Site (`/`), dan Sign Out -> `/portal/login`.
+- Centered `max-w-[1440px]` workspace, page entrance motion (`0.18s`,
+  `useReducedMotion()` respected), Workspace Footer, dan satu `<Toaster />`.
+- Nested protected routing di bawah satu `<RequireClient>` parent guard.
+- Lima halaman utama dengan komposisi placeholder kontekstual yang unik serta
+  halaman not-found internal (`/portal/*`).
+
+2. DAFTAR FILE YANG DIBUAT
+--------------------------
+Client Navigation & Shell:
+- src/features/client-portal/navigation/client-navigation.js
+- src/features/client-portal/components/ClientSidebarNavItem.jsx
+- src/features/client-portal/components/ClientSidebar.jsx
+- src/features/client-portal/components/ClientMobileDrawer.jsx
+- src/features/client-portal/components/ClientTopbar.jsx
+- src/features/client-portal/components/ClientPortalFooter.jsx
+- src/features/client-portal/components/ClientPortalPagePlaceholder.jsx
+- src/features/client-portal/layout/ClientPortalLayout.jsx
+
+Client Pages & Tests:
+- src/features/client-portal/pages/ClientBookSessionPage.jsx
+- src/features/client-portal/pages/ClientBookingsPage.jsx
+- src/features/client-portal/pages/ClientInvoicesPage.jsx
+- src/features/client-portal/pages/ClientProfilePage.jsx
+- src/features/client-portal/pages/ClientPortalNotFoundPage.jsx
+- src/features/client-portal/client-portal-shell.test.jsx
+
+Dokumentasi & Handoff:
+- docs/architecture/CLIENT-PORTAL-SHELL.md
+- docs/handoffs/HANDOFF-CLIENT-PORTAL-PHASE-2.txt
+
+3. DAFTAR FILE YANG DIMODIFIKASI
+--------------------------------
+- src/features/admin/design-system/admin-design-tokens.css
+  (memperluas cakupan `--sa-*`, `.sa-*`, overlay, reduced-motion, & print
+   ke `[data-client-portal='true']` dan `[data-client-portal-layer='true']`
+   tanpa mengubah selector atau visual Admin Portal)
+- src/features/admin/design-system/AdminSurface.jsx (update JSDoc comment)
+- src/styles/index.css (menambahkan exclusion `:not([data-client-portal] *)` &
+  `:not([data-client-portal-layer] *)` pada rule reset button/input global)
+- src/features/client-portal/config/client-portal-config.js
+  (menambahkan route BOOK, BOOKINGS, INVOICES, PROFILE)
+- src/features/client-portal/pages/ClientPortalHomePage.jsx
+  (diperbarui menjadi halaman Overview Phase 2 penuh: Welcome Hero, Account
+   Snapshot `—`, 4 Quick Access cards, Next Session & Recent Activity panels)
+- src/App.jsx (mengubah `/portal/*` menjadi nested protected route `/portal`)
+- src/features/client-portal/client-portal.test.jsx (diperbarui untuk nested
+  `ClientPortalLayout` + Page Placeholders Phase 2)
+- docs/architecture/ADMIN-PORTAL-SPATIAL-AMBIENT-DESIGN-SYSTEM.md
+- scripts/test-firestore-rules.mjs (pembersihan blok duplikat Section 2B dari
+  baseline agar ESLint & Node dapat mem-parse file; `firestore.rules` tidak
+  diubah sama sekali)
+
+4. ROUTES CLIENT PORTAL YANG TERSEDIA
+-------------------------------------
+- `/portal/login`     -> ClientLoginPage (public, di luar shell)
+- `/portal`           -> ClientPortalHomePage (01 Overview, protected)
+- `/portal/book`      -> ClientBookSessionPage (02 Book a Session, protected)
+- `/portal/bookings`  -> ClientBookingsPage (03 My Bookings, protected)
+- `/portal/invoices`  -> ClientInvoicesPage (04 Invoices & Payments, protected)
+- `/portal/profile`   -> ClientProfilePage (05 My Profile, protected, read-only)
+- `/portal/*`         -> ClientPortalNotFoundPage (protected client fallback)
+
+5. PLACEHOLDER & BATASAN FUNGSIONAL PHASE 2
+-------------------------------------------
+- Tidak ada koleksi Firestore baru, tidak ada perubahan `firestore.rules`.
+- Tidak ada query koleksi Firestore (`collection`, `query`, `getDocs`) pada
+  seluruh halaman placeholder; semua angka snapshot memakai `—`.
+- Tidak ada data booking palsu, invoice palsu, nominal pembayaran palsu,
+  tombol "Pay Now", maupun form edit profil.
+- `My Profile` hanya mengonsumsi data terotorisasi dari `AuthContext` (`user`,
+  `clientAccount`, `clientProfile`) dan tidak pernah menampilkan `uid`,
+  `customerId`, `clientCustomerLinks`, atau `customerEmailIndex`.
+- Responsive breakpoint & focus contract diverifikasi secara arsitektural
+  (mengadopsi kelas & pola Admin Shell untuk 320px–1440px, drawer scrim,
+  `Escape`, backdrop close, dan focus restoration pada test JSDOM).
+
+6. HASIL VERIFIKASI TERAKHIR (LULUS SEMUA SETELAH EDIT TERAKHIR)
+----------------------------------------------------------------
+1. Prettier Check: All matched files use Prettier code style.
+2. ESLint (`npm run lint`): Exit code 0 (0 errors, 0 warnings).
+3. Vitest (`npm run test:run`): 21 test files passed (21), 196 tests passed (196)
+   - `client-portal-shell.test.jsx`: 3 passed
+   - `client-portal.test.jsx`: 11 passed
+   - `admin-shell.test.jsx`: 5 passed
+   - `LandingPage.test.jsx`: 10 passed
+   - `auth.test.jsx`: 13 passed
+   - + seluruh modul Admin & Public lain lolos 100%.
+4. Vite Production Build (`npm run build`): `vite v8.3.8`, `4211 modules transformed`,
+   `built in 16.89s` (exit code 0).
+5. Firebase Firestore Emulator (`npm run test:rules`): Exit code 0 —
+   `ALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!`.
+
+7. LIMITASI & REKOMENDASI PHASE 3 (CLIENT BOOKING & AVAILABILITY)
+-----------------------------------------------------------------
+Limitasi saat ini:
+- Lima halaman portal masih berupa UI shell & contextual placeholder tanpa
+  sinkronisasi jadwal booking, submission reservasi, atau billing ledger.
+- Verifikasi viewport fisik 320px–1440px di browser Chromium/headless belum
+  dijalankan langsung pada fase ini (struktur responsive divalidasi melalui
+  parity kelas Admin Shell dan unit/integration test JSDOM).
+
+Rekomendasi Phase 3 (Client Booking & Availability):
+1. Proyeksi jadwal ketersediaan room studio (read-only / real-time availability
+   projection) untuk halaman `Book a Session` (/portal/book).
+2. Integrasi alur pengajuan permintaan booking langsung oleh Client terautentikasi
+   tanpa membocorkan data internal booking pelanggan lain (`clientBookings`
+   atau client-safe request projection dengan Firestore Security Rules ketat).
+3. Penampilan daftar permintaan & sesi Client pada `My Bookings` (/portal/bookings)
+   dan ringkasan "Next Session" / "Account Snapshot" pada `Overview` (/portal).
+
+Catatan: Tidak ada `git commit`, `git push`, `git merge`, maupun `firebase deploy`
+yang dijalankan.
+================================================================================

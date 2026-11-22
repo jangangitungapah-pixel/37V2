@@ -3,22 +3,23 @@
 **Phase:** 10 — Admin Portal Visual System Overhaul  
 **Date:** 19 November 2026  
 **Repository:** `jangangitungapah-pixel/37V2`  
-**Scope:** Strictly authenticated Admin Portal (`/admin/*` & portaled admin dialogs/drawers)
+**Scope:** Strictly authenticated Admin Portal (`/admin/*`) and Client Portal Workspace (`/portal`, `/portal/book`, `/portal/bookings`, `/portal/invoices`, `/portal/profile` & portaled overlay layers)
 
 ---
 
 ## 1. Visual Direction & Architectural Boundaries
 
-Phase 10 transitions the entire authenticated Admin Workspace away from the Landing Page Neo-Brutalist style (`2px` black outlines, hard offset shadows, `brutal-card`, `cal-card`, uppercase monospace labels) to the **Spatial Ambient Workspace** visual system.
+Phase 10 transitions the authenticated portal workspaces away from the Landing Page Neo-Brutalist style (`2px` black outlines, hard offset shadows, `brutal-card`, `cal-card`, uppercase monospace labels) to the **Spatial Ambient Workspace** visual system.
 
 ### Key Principles
 
 1. **Brand Palette Continuity:** Preserves the exact 37 Music Studio palette (`#F1EEE4` Ivory, `#151515` Obsidian Ink, `#C8F13A` Signal Lime, `#FF4B22` Signal Orange, `#FFFFFF` Elevated Surface) while shifting from high-contrast graphic borders to layered hairline boundaries and diffused elevation.
-2. **Scoped Boundary (`/` vs `/admin/*`):**
+2. **Scoped Boundary (`/` vs `/admin/*` & `/portal/*`):**
    - Root wrapper in `src/features/admin/layout/AdminLayout.jsx` sets `data-admin-portal="true"`.
-   - Portaled UI layers (drawers & dialogs rendered outside the root node via `@base-ui/react`) set `data-admin-portal-layer="true"`.
-   - Every custom CSS token and `.sa-*` utility class is strictly scoped to `[data-admin-portal='true']` and `[data-admin-portal-layer='true']`.
-   - The Public Landing Page (`/`), Staff Login (`/staff/login`), `RequireStaff`, `.brutal-card`/`.brutal-btn` global styles, and A4 `@media print` `#studio-print-portal` document sheets (`InvoiceDocumentSheet`, `PaymentReceiptSheet`) remain completely unaffected.
+   - Root wrapper in `src/features/client-portal/layout/ClientPortalLayout.jsx` sets `data-client-portal="true"`.
+   - Portaled UI layers (drawers & dialogs rendered outside the root node via `@base-ui/react`) set `data-admin-portal-layer="true"` or `data-client-portal-layer="true"`.
+   - Every custom CSS token and `.sa-*` utility class is strictly scoped to `[data-admin-portal='true']`, `[data-admin-portal-layer='true']`, `[data-client-portal='true']`, and `[data-client-portal-layer='true']`.
+   - The Public Landing Page (`/`), Staff Login (`/staff/login`), Client Login (`/portal/login`), `RequireStaff`, `RequireClient`, `.brutal-card`/`.brutal-btn` global styles, and A4 `@media print` `#studio-print-portal` document sheets (`InvoiceDocumentSheet`, `PaymentReceiptSheet`) remain completely unaffected.
 3. **Zero Functional / Business Logic Changes:** All routes, Firebase/Firestore services, repositories, Zod schemas, pricing math, discount calculations, invoice generation, commission calculations, and ARIA test contracts remain preserved.
 
 ---

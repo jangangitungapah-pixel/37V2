@@ -10,7 +10,7 @@ const VARIANT_CLASSES = {
 
 /**
  * Spatial Ambient surface container. Renders semantic element with soft elevation
- * and hairline boundaries strictly scoped inside the Admin Portal.
+ * and hairline boundaries strictly scoped inside authenticated Admin & Client Workspaces.
  */
 export function AdminSurface({
   as: Component = 'div',

@@ -107,7 +107,7 @@ body {
     [data-customer-scoped] *
   ):not([data-payment-scoped] *):not([data-commission-scoped] *):not([data-admin-portal] *):not(
     [data-admin-portal-layer] *
-  ) {
+  ):not([data-client-portal] *):not([data-client-portal-layer] *) {
   font: inherit;
 }
 
