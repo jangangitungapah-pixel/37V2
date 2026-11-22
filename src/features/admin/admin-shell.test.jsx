@@ -33,7 +33,7 @@ vi.mock('firebase/firestore', () => ({
   startAfter: vi.fn(),
   onSnapshot: vi.fn((_q, onNext) => {
     queueMicrotask(() => onNext({ docs: [] }));
-    return () => {};
+    return () => { };
   }),
 }));
 
@@ -65,7 +65,7 @@ function mockAuthenticatedRole(role = 'owner') {
 
   mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
     queueMicrotask(() => callback({ uid, email, displayName }));
-    return () => {};
+    return () => { };
   });
 
   mockGetDoc.mockResolvedValue({
@@ -281,7 +281,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     // 1. Unauthenticated visitor blocked from /admin/dashboard and /admin/settings
     mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
       queueMicrotask(() => callback(null));
-      return () => {};
+      return () => { };
     });
 
     renderAdminAt('/admin/settings');

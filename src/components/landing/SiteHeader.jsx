@@ -3,7 +3,12 @@ import { Dialog } from '@base-ui/react/dialog';
 import { ArrowRight, CalendarClock, Clock, Menu, X } from 'lucide-react';
 import { Link } from 'react-router';
 
-export function SiteHeader({ utilityStrip, header, onNavigate, mobileMenuTriggerRef }) {
+export function SiteHeader({
+  utilityStrip,
+  header,
+  onNavigate,
+  mobileMenuTriggerRef,
+}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const hoursLabel = utilityStrip.hoursText || '10:00 – 23:00 WIB';
 

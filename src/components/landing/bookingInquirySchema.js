@@ -1,15 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
-import {
-  parseDurationToMinutes,
-  parseTimeStringToMinute,
-} from '@/features/admin/booking-requests/utils/booking-request-normalize';
-import {
-  OPERATING_END_MINUTE,
-  OPERATING_START_MINUTE,
-  SLOT_INTERVAL_MINUTES,
-} from '@/features/admin/calendar/config/calendar-config';
+import { parseDurationToMinutes, parseTimeStringToMinute } from '@/features/admin/booking-requests/utils/booking-request-normalize';
+import { OPERATING_END_MINUTE, OPERATING_START_MINUTE, SLOT_INTERVAL_MINUTES } from '@/features/admin/calendar/config/calendar-config';
 import { isValidPhoneNumber } from '@/features/admin/customer/utils/phone-number';
 import { isDateNotInPast, isValidBookingCalendarDate } from '@/lib/booking-date';
 
