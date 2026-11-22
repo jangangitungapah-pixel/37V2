@@ -18,6 +18,9 @@ import { PriceAndFeeSettingsPage } from '@/features/admin/settings/pages/PriceAn
 import { StudioProfilePage } from '@/features/admin/settings/pages/StudioProfilePage';
 import { RequireOwner } from '@/features/auth/RequireOwner';
 import { RequireStaff } from '@/features/auth/RequireStaff';
+import { RequireClient } from '@/features/client-portal/components/RequireClient';
+import { ClientLoginPage } from '@/features/client-portal/pages/ClientLoginPage';
+import { ClientPortalHomePage } from '@/features/client-portal/pages/ClientPortalHomePage';
 import { AdminCustomerReviewsPage } from '@/features/customer-reviews/pages/AdminCustomerReviewsPage';
 import { PublicAvailabilityPage } from '@/features/public-availability/pages/PublicAvailabilityPage';
 import { PublicReviewSubmissionPage } from '@/features/public-reviews/pages/PublicReviewSubmissionPage';
@@ -34,6 +37,15 @@ export function AppRoutes() {
       <Route path="/review" element={<PublicReviewSubmissionPage />} />
       <Route path="/review/:token" element={<PublicReviewSubmissionPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />
+      <Route path="/portal/login" element={<ClientLoginPage />} />
+      <Route
+        path="/portal/*"
+        element={
+          <RequireClient>
+            <ClientPortalHomePage />
+          </RequireClient>
+        }
+      />
       <Route path="/staff/login" element={<StaffLoginPage />} />
       <Route
         path="/admin"

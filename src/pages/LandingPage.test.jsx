@@ -92,8 +92,11 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
       screen.getByRole('heading', { level: 2, name: /don’t rehearse in a garage\./i }),
     ).toBeTruthy();
 
-    // No nonfunctional Client Login button in public UI
+    // No nonfunctional Client Login button in public UI, and production header exposes Client Portal Login link
     expect(screen.queryByRole('button', { name: /client login/i })).toBeNull();
+    const headerLoginLink = screen.getByTestId('header-login-link');
+    expect(headerLoginLink.textContent).toMatch(/login/i);
+    expect(headerLoginLink.getAttribute('href')).toBe('/portal/login');
 
     // No fake testimonials or unverified rating numbers rendered when zero published reviews exist
     expect(screen.queryByTestId('verified-testimonials-section')).toBeNull();

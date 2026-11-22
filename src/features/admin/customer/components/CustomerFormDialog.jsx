@@ -35,6 +35,9 @@ export function CustomerFormDialog({
   const [phone, setPhone] = useState(() =>
     mode === 'phone' && customer ? '' : customer?.phoneDisplay || '',
   );
+  const [email, setEmail] = useState(() =>
+    mode === 'edit' && customer ? customer.email || customer.emailNormalized || '' : '',
+  );
   const [notes, setNotes] = useState(() =>
     mode === 'edit' && customer ? customer.notes || '' : '',
   );
@@ -58,7 +61,7 @@ export function CustomerFormDialog({
     setSubmitError('');
 
     if (mode === 'create') {
-      const validation = validateCustomerCreateInput({ displayName, phone, notes });
+      const validation = validateCustomerCreateInput({ displayName, phone, email, notes });
       if (!validation.isValid) {
         setFieldErrors(validation.errors);
         return;
@@ -88,7 +91,7 @@ export function CustomerFormDialog({
         }
 
         await onSubmitCreate?.({
-          input: { displayName, phone, notes },
+          input: { displayName, phone, email, notes },
           allowSharedPhone: Boolean(duplicateCheck?.confirmedSeparate),
         });
         onOpenChange?.(false);
@@ -101,7 +104,7 @@ export function CustomerFormDialog({
     }
 
     if (mode === 'edit' && customer) {
-      const validation = validateCustomerEditInput({ displayName, notes });
+      const validation = validateCustomerEditInput({ displayName, email, notes });
       if (!validation.isValid) {
         setFieldErrors(validation.errors);
         return;
@@ -112,7 +115,7 @@ export function CustomerFormDialog({
         await onSubmitEdit?.({
           customerId: customer.id,
           expectedVersion: customer.version,
-          input: { displayName, notes },
+          input: { displayName, email, notes },
         });
         onOpenChange?.(false);
       } catch (err) {
@@ -374,6 +377,34 @@ export function CustomerFormDialog({
                   <p className="mt-1.5 text-[11px] text-[#666159]">
                     Mengganti nomor utama tidak mengubah catatan nomor HP pada booking yang sudah
                     lewat.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {mode !== 'phone' ? (
+              <div>
+                <label
+                  htmlFor="customer-form-email"
+                  className="block text-xs font-semibold text-[#151515]"
+                >
+                  Email Google Customer{' '}
+                  <span className="font-normal text-[#666159]">
+                    (Opsional — untuk Client Portal)
+                  </span>
+                </label>
+                <input
+                  id="customer-form-email"
+                  type="email"
+                  inputMode="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="contoh: musisi@gmail.com"
+                  className="sa-input mt-1.5 min-h-10.5 w-full px-3.5 py-2 text-sm font-medium"
+                />
+                {fieldErrors.email ? (
+                  <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
+                    {fieldErrors.email}
                   </p>
                 ) : null}
               </div>

@@ -11,7 +11,11 @@ import {
   normalizeBookingRecord,
 } from '@/features/admin/calendar/repositories/calendar-booking-repository';
 
-import { normalizeCustomerRecord, normalizePhoneIndexRecord } from '../schemas/customer-schema';
+import {
+  normalizeCustomerRecord,
+  normalizeEmailIndexRecord,
+  normalizePhoneIndexRecord,
+} from '../schemas/customer-schema';
 import {
   chunkArray,
   FIRESTORE_IN_QUERY_CHUNK_SIZE,
@@ -38,15 +42,14 @@ function getTimestampMillis(value) {
 export function createFirestoreCustomerRepositoryAdapter() {
   return {
     async runAtomicTransaction(transactionWork) {
-      const [{ doc, runTransaction, serverTimestamp }, { getFirebaseDb }] = await Promise.all([
-        import('firebase/firestore'),
-        import('@/lib/firebase/firestore'),
-      ]);
+      const [{ deleteField, doc, runTransaction, serverTimestamp }, { getFirebaseDb }] =
+        await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
       const db = getFirebaseDb();
 
       return runTransaction(db, async (tx) => {
         const txContext = {
           nowValue: () => serverTimestamp(),
+          deleteFieldValue: () => deleteField(),
           async getCustomer(customerId) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMERS, customerId);
             const snap = await tx.get(ref);
@@ -56,6 +59,18 @@ export function createFirestoreCustomerRepositoryAdapter() {
             const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMER_PHONE_INDEX, phoneHash);
             const snap = await tx.get(ref);
             return snap.exists() ? normalizePhoneIndexRecord(snap.id, snap.data()) : null;
+          },
+          async getEmailIndex(emailNormalized) {
+            if (!emailNormalized) return null;
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMER_EMAIL_INDEX, emailNormalized);
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizeEmailIndexRecord(snap.id, snap.data()) : null;
+          },
+          async getClientProfile(customerId) {
+            if (!customerId) return null;
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CLIENT_PROFILES, customerId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? { id: snap.id, ...snap.data() } : null;
           },
           async getBooking(bookingId) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKINGS, bookingId);
@@ -72,6 +87,18 @@ export function createFirestoreCustomerRepositoryAdapter() {
           },
           setPhoneIndex(phoneHash, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMER_PHONE_INDEX, phoneHash);
+            tx.set(ref, data);
+          },
+          setEmailIndex(emailNormalized, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMER_EMAIL_INDEX, emailNormalized);
+            tx.set(ref, data);
+          },
+          deleteEmailIndex(emailNormalized) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CUSTOMER_EMAIL_INDEX, emailNormalized);
+            tx.delete(ref);
+          },
+          setClientProfile(customerId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CLIENT_PROFILES, customerId);
             tx.set(ref, data);
           },
           updateBooking(bookingId, data) {
@@ -111,6 +138,19 @@ export function createFirestoreCustomerRepositoryAdapter() {
       const db = getFirebaseDb();
       const snap = await getDoc(doc(db, FIRESTORE_COLLECTIONS.CUSTOMER_PHONE_INDEX, phoneHash));
       return snap.exists() ? normalizePhoneIndexRecord(snap.id, snap.data()) : null;
+    },
+
+    async getEmailIndex(emailNormalized) {
+      if (!emailNormalized) return null;
+      const [{ doc, getDoc }, { getFirebaseDb }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@/lib/firebase/firestore'),
+      ]);
+      const db = getFirebaseDb();
+      const snap = await getDoc(
+        doc(db, FIRESTORE_COLLECTIONS.CUSTOMER_EMAIL_INDEX, emailNormalized),
+      );
+      return snap.exists() ? normalizeEmailIndexRecord(snap.id, snap.data()) : null;
     },
 
     subscribeCustomers({ maxLimit = CUSTOMERS_DEFAULT_QUERY_LIMIT, onData, onError }) {
@@ -252,6 +292,12 @@ export function createInMemoryCustomerRepositoryAdapter(bookingAdapterOrStore = 
 
   const customers = sharedStore?.customers || new Map();
   const phoneIndex = sharedStore?.phoneIndex || new Map();
+  const emailIndex = sharedStore?.emailIndex || new Map();
+  const clientProfiles = sharedStore?.clientProfiles || new Map();
+  if (sharedStore) {
+    sharedStore.emailIndex = emailIndex;
+    sharedStore.clientProfiles = clientProfiles;
+  }
   const bookings = sharedStore?.bookings || new Map();
   const customerSubscribers = sharedStore?.customerSubscribers || new Set();
   const notifyCustomers =
@@ -283,10 +329,20 @@ export function createInMemoryCustomerRepositoryAdapter(bookingAdapterOrStore = 
   }
 
   return {
+    _clientBridge: {
+      customers,
+      phoneIndex,
+      emailIndex,
+      clientProfiles,
+      enqueueTx,
+    },
+
     _inspectState() {
       return {
         customers: new Map(customers),
         phoneIndex: new Map(phoneIndex),
+        emailIndex: new Map(emailIndex),
+        clientProfiles: new Map(clientProfiles),
         bookings: new Map(bookings),
       };
     },
@@ -295,6 +351,8 @@ export function createInMemoryCustomerRepositoryAdapter(bookingAdapterOrStore = 
       return enqueueTx(async () => {
         const stagedCustomers = new Map(customers);
         const stagedPhoneIndex = new Map(phoneIndex);
+        const stagedEmailIndex = new Map(emailIndex);
+        const stagedClientProfiles = new Map(clientProfiles);
         const stagedBookings = new Map(bookings);
         let writeStarted = false;
 
@@ -313,6 +371,20 @@ export function createInMemoryCustomerRepositoryAdapter(bookingAdapterOrStore = 
             }
             const item = stagedPhoneIndex.get(hash);
             return item ? normalizePhoneIndexRecord(hash, item) : null;
+          },
+          async getEmailIndex(normalizedEmail) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedEmailIndex.get(normalizedEmail);
+            return item ? normalizeEmailIndexRecord(normalizedEmail, item) : null;
+          },
+          async getClientProfile(customerId) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedClientProfiles.get(customerId);
+            return item ? { ...item } : null;
           },
           async getBooking(id) {
             if (writeStarted) {
@@ -334,6 +406,18 @@ export function createInMemoryCustomerRepositoryAdapter(bookingAdapterOrStore = 
             writeStarted = true;
             stagedPhoneIndex.set(hash, normalizePhoneIndexRecord(hash, data));
           },
+          setEmailIndex(normalizedEmail, data) {
+            writeStarted = true;
+            stagedEmailIndex.set(normalizedEmail, normalizeEmailIndexRecord(normalizedEmail, data));
+          },
+          deleteEmailIndex(normalizedEmail) {
+            writeStarted = true;
+            stagedEmailIndex.delete(normalizedEmail);
+          },
+          setClientProfile(customerId, data) {
+            writeStarted = true;
+            stagedClientProfiles.set(customerId, { id: customerId, ...data });
+          },
           updateBooking(id, data) {
             writeStarted = true;
             const prev = stagedBookings.get(id) || {};
@@ -347,6 +431,10 @@ export function createInMemoryCustomerRepositoryAdapter(bookingAdapterOrStore = 
         for (const [k, v] of stagedCustomers) customers.set(k, v);
         phoneIndex.clear();
         for (const [k, v] of stagedPhoneIndex) phoneIndex.set(k, v);
+        emailIndex.clear();
+        for (const [k, v] of stagedEmailIndex) emailIndex.set(k, v);
+        clientProfiles.clear();
+        for (const [k, v] of stagedClientProfiles) clientProfiles.set(k, v);
         bookings.clear();
         for (const [k, v] of stagedBookings) bookings.set(k, v);
 
@@ -375,6 +463,11 @@ export function createInMemoryCustomerRepositoryAdapter(bookingAdapterOrStore = 
     async getPhoneIndex(phoneHash) {
       const item = phoneIndex.get(phoneHash);
       return item ? normalizePhoneIndexRecord(phoneHash, item) : null;
+    },
+
+    async getEmailIndex(normalizedEmail) {
+      const item = emailIndex.get(normalizedEmail);
+      return item ? normalizeEmailIndexRecord(normalizedEmail, item) : null;
     },
 
     subscribeCustomers({ maxLimit = CUSTOMERS_DEFAULT_QUERY_LIMIT, onData }) {

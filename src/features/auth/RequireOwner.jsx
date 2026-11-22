@@ -6,7 +6,7 @@ import { AdminButton, AdminSurface } from '@/features/admin/design-system';
 import { useAuth } from './AuthContext';
 
 export function RequireOwner({ children }) {
-  const { status, user, profile, role } = useAuth();
+  const { status, accountType, user, profile, role } = useAuth();
   const location = useLocation();
 
   if (status === 'loading') {
@@ -38,7 +38,7 @@ export function RequireOwner({ children }) {
     );
   }
 
-  if (status !== 'authenticated' || !user?.uid) {
+  if (status !== 'authenticated' || !user?.uid || accountType === 'client' || role === 'client') {
     return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;
   }
 

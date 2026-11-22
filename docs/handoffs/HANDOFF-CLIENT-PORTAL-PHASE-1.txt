@@ -1,0 +1,116 @@
+================================================================================
+HANDOFF — 37 MUSIC STUDIO CLIENT PORTAL (PHASE 1)
+Client Login, Google Authentication & Instant Account Provisioning
+================================================================================
+
+1. RINGKASAN IMPLEMENTASI
+-------------------------
+Phase 1 menghadirkan gerbang login Client Portal (/portal/login), autentikasi
+Google Firebase (signInWithPopup + fallback signInWithRedirect), instant
+account provisioning berstatus 'active' (tanpa pending approval / antrean
+persetujuan Owner), pemetaan email terverifikasi ke Customer Profile studio
+melalui customerEmailIndex & clientProfiles, proteksi rute Client (/portal/*),
+serta isolasi keamanan penuh antara Client Portal dan Admin Portal (/admin/*).
+
+2. DAFTAR FILE YANG DIBUAT
+--------------------------
+Client Portal Module:
+- src/features/client-portal/config/client-portal-config.js
+- src/features/client-portal/utils/client-auth-helpers.js
+- src/features/client-portal/repositories/client-portal-repository.js
+- src/features/client-portal/services/client-auth-service.js
+- src/features/client-portal/components/RequireClient.jsx
+- src/features/client-portal/pages/ClientLoginPage.jsx
+- src/features/client-portal/pages/ClientPortalHomePage.jsx
+- src/features/client-portal/client-portal.test.jsx
+
+Customer Email Utility:
+- src/features/admin/customer/utils/customer-email.js
+
+Dokumentasi & Handoff:
+- docs/architecture/CLIENT-PORTAL-PHASE-1-AUTH.md
+- docs/handoffs/HANDOFF-CLIENT-PORTAL-PHASE-1.txt
+
+3. DAFTAR FILE YANG DIMODIFIKASI
+--------------------------------
+Auth, Routing & Footer:
+- src/features/auth/AuthProvider.jsx
+- src/features/auth/RequireStaff.jsx
+- src/features/auth/RequireOwner.jsx
+- src/App.jsx
+- src/components/landing/SiteFooter.jsx
+
+Customer Identity, Email Index & Calendar Preservation:
+- src/features/admin/calendar/repositories/calendar-booking-repository.js
+- src/features/admin/calendar/services/calendar-booking-service.js
+- src/features/admin/customer/schemas/customer-schema.js
+- src/features/admin/customer/repositories/customer-repository.js
+- src/features/admin/customer/services/customer-service.js
+- src/features/admin/customer/services/customer-migration-service.js
+- src/features/admin/customer/components/CustomerFormDialog.jsx
+- src/features/admin/customer/components/CustomerDetailDrawer.jsx
+  (plus formatting adjustment by Prettier on related customer module files)
+
+Security Rules & Emulator Suite:
+- firestore.rules
+- scripts/test-firestore-rules.mjs
+
+4. RINGKASAN FIRESTORE RULES & KOLEKSI PHASE 1
+----------------------------------------------
+- customers/{customerId}:
+  - Tetap khusus isActiveStaff() (allow read: if isActiveStaff()), mendukung
+    field opsional email & emailNormalized (18–20 keys).
+  - Client tidak pernah bisa membaca customers/{customerId}.
+- customerEmailIndex/{normalizedEmail}:
+  - Dokumen lookup email ternormalisasi milik Staff/Owner.
+  - Client dengan Google email terverifikasi (sign_in_provider == 'google.com'
+    && email_verified == true && !isAnyStaffProfile()) hanya boleh GET dokumen
+    email miliknya sendiri. Dilarang list maupun tulis.
+- clientProfiles/{customerId}:
+  - Proyeksi aman khusus Client (tanpa notes internal, alias, riwayat telepon,
+    atau UID staff).
+  - Boleh dibaca oleh isActiveStaff() atau isActiveClient() yang terikat pada
+    customerId + kepemilikan clientCustomerLinks/{customerId}.
+  - Client terisolasi (isolated_client_profile) boleh update displayName &
+    photoURL miliknya sendiri.
+- clientAccounts/{uid}:
+  - role == 'client', status in ['active', 'suspended'] (zero pending state).
+  - Staff/Owner (!isAnyStaffProfile()) dilarang membuat clientAccounts.
+  - Client baru langsung berstatus 'active' saat Google Auth terverifikasi.
+  - Owner boleh update status ('active' <-> 'suspended'); Client boleh update
+    displayName & photoURL saat masih aktif; allow delete: if false.
+- clientCustomerLinks/{customerId}:
+  - Pengunci kepemilikan atomik 1:1 (ownerUid) agar satu Customer tidak dapat
+    diklaim oleh lebih dari satu akun Client Google (allow update: if false).
+
+5. HASIL VERIFIKASI TERAKHIR (LULUS SEMUA SETELAH EDIT TERAKHIR)
+----------------------------------------------------------------
+1. Prettier Check: All matched files use Prettier code style.
+2. ESLint (`npm run lint`): Exit code 0 (0 errors, 0 warnings).
+3. Vitest (`npm run test:run`): 20 test files passed, 192 tests passed
+   (termasuk 10 test Client Portal Phase 1, 13 test Auth Staff/Owner,
+   test Customer, Gallery, Calendar, Reviews, Settings, Bookkeeping & Reset).
+4. Vite Production Build (`npm run build`): 4198 modules transformed,
+   built in 18.18s (exit code 0).
+5. Real Firebase Firestore Emulator (`npm run test:rules`): Exit code 0,
+   mencetak `ALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!`
+   termasuk `Client Portal Phase 1 rules (Google provisioning, email index,
+   isolation & suspension) passed` dan seluruh regression check lain.
+
+6. DEPLOYMENT CHECKLIST MANUAL (TIDAK DIDEPLOY OTOMATIS)
+--------------------------------------------------------
+1. Pastikan Google Sign-In Provider aktif pada Firebase Console ->
+   Authentication -> Sign-in method.
+2. Pastikan domain produksi/staging terdaftar pada Authentication -> Settings ->
+   Authorized domains.
+3. Deploy Firestore Security Rules terlebih dahulu:
+   firebase deploy --only firestore:rules
+4. Deploy frontend hosting setelah environment variables Firebase terverifikasi:
+   npm run build && firebase deploy --only hosting
+5. Opsional (operasional): Staff/Owner dapat mengisi field "Email Google
+   Customer" pada modul Customer Admin (/admin/customer) untuk pelanggan
+   lama agar otomatis tertaut ke profil pelanggan saat login Google pertama.
+
+Catatan keamanan eksekusi: tidak ada `git commit`, `git push`, `git merge`,
+maupun `firebase deploy` yang dijalankan.
+================================================================================

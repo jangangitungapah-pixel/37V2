@@ -33,6 +33,10 @@ export const landingPageContent = {
       { label: 'Availability', href: '/availability', isRoute: true },
       { label: 'Contact', href: '#contact' },
     ],
+    loginCta: {
+      label: 'Login',
+      href: '/portal/login',
+    },
     primaryCta: {
       label: 'Book a session',
       href: '#booking',
@@ -131,11 +135,7 @@ export const landingPageContent = {
         title: 'Rehearsal',
         description:
           'Dedicated studio rehearsal sessions for bands and ensembles with full backline readiness.',
-        features: [
-          'Group rehearsal floor',
-          '30-minute slot scheduling',
-          'Room A & Room B options',
-        ],
+        features: ['Group rehearsal floor', '30-minute slot scheduling', 'Room A & Room B options'],
         publicPriceLabel: '',
         ctaLabel: 'Request rehearsal',
         defaultRoom: 'room-a',
@@ -263,7 +263,8 @@ export const landingPageContent = {
             'Once details are agreed via WhatsApp, we lock your official calendar booking and send confirmation.',
         },
       ],
-      reassuranceNote: 'Submitting a request notifies the studio desk directly — zero account required.',
+      reassuranceNote:
+        'Submitting a request notifies the studio desk directly — zero account required.',
     },
     form: {
       heading: 'Send booking request',

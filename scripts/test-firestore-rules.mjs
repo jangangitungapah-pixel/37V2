@@ -11,7 +11,7 @@ function base64Url(obj) {
   return Buffer.from(JSON.stringify(obj)).toString('base64url');
 }
 
-function makeEmulatorJwt(uid, email) {
+function makeEmulatorJwt(uid, email, { signInProvider = 'password', emailVerified = true } = {}) {
   const header = base64Url({ alg: 'none', typ: 'JWT' });
   const nowSec = Math.floor(Date.now() / 1000);
   const payload = base64Url({
@@ -23,10 +23,10 @@ function makeEmulatorJwt(uid, email) {
     iat: nowSec,
     exp: nowSec + 3600,
     email,
-    email_verified: true,
+    email_verified: emailVerified,
     firebase: {
       identities: { email: [email] },
-      sign_in_provider: 'password',
+      sign_in_provider: signInProvider,
     },
   });
   return `${header}.${payload}.`;
@@ -69,6 +69,38 @@ function toFsFields(obj) {
 const TOKEN_OWNER = makeEmulatorJwt('owner-1', 'owner@37music.id');
 const TOKEN_STAFF = makeEmulatorJwt('staff-1', 'staff@37music.id');
 const TOKEN_INACTIVE_OWNER = makeEmulatorJwt('inactive-owner-1', 'inactive@37music.id');
+const TOKEN_GOOGLE_OWNER = makeEmulatorJwt('owner-1', 'owner@37music.id', {
+  signInProvider: 'google.com',
+  emailVerified: true,
+});
+const TOKEN_GOOGLE_STAFF = makeEmulatorJwt('staff-1', 'staff@37music.id', {
+  signInProvider: 'google.com',
+  emailVerified: true,
+});
+const TOKEN_CLIENT_MATCHED = makeEmulatorJwt('client-matched-1', 'matched@gmail.com', {
+  signInProvider: 'google.com',
+  emailVerified: true,
+});
+const TOKEN_CLIENT_NEW = makeEmulatorJwt('client-new-1', 'newclient@gmail.com', {
+  signInProvider: 'google.com',
+  emailVerified: true,
+});
+const TOKEN_CLIENT_ATTACKER = makeEmulatorJwt('client-attacker-1', 'attacker@gmail.com', {
+  signInProvider: 'google.com',
+  emailVerified: true,
+});
+const TOKEN_CLIENT_AMBIGUOUS = makeEmulatorJwt('client-ambig-1', 'shared@gmail.com', {
+  signInProvider: 'google.com',
+  emailVerified: true,
+});
+const TOKEN_CLIENT_UNVERIFIED = makeEmulatorJwt('client-unverified-1', 'unverified@gmail.com', {
+  signInProvider: 'google.com',
+  emailVerified: false,
+});
+const TOKEN_CLIENT_PASSWORD = makeEmulatorJwt('client-password-1', 'pwuser@gmail.com', {
+  signInProvider: 'password',
+  emailVerified: true,
+});
 const SERVER_TS = { _ts: new Date('2026-11-22T10:00:00.000Z').toISOString() };
 
 async function clearDb() {
@@ -1566,11 +1598,7 @@ async function runTests() {
       },
     ],
   });
-  assert.equal(
-    rotateInvRes.status,
-    200,
-    `Rotation failed: ${JSON.stringify(rotateInvRes.body)}`,
-  );
+  assert.equal(rotateInvRes.status, 200, `Rotation failed: ${JSON.stringify(rotateInvRes.body)}`);
 
   // Public gets 403 for revoked validHashA
   assert.equal(
@@ -1621,7 +1649,11 @@ async function runTests() {
       },
     ],
   });
-  assert.equal(directPublishedAttempt.status, 403, 'Public cannot create directly published review');
+  assert.equal(
+    directPublishedAttempt.status,
+    403,
+    'Public cannot create directly published review',
+  );
 
   // Public CANNOT create customerReview without atomically consuming active invitation
   const soloReviewAttempt = await userRequest('POST', ':commit', null, {
@@ -1653,7 +1685,11 @@ async function runTests() {
       },
     ],
   });
-  assert.equal(soloReviewAttempt.status, 403, 'Public review create requires atomic invitation consume');
+  assert.equal(
+    soloReviewAttempt.status,
+    403,
+    'Public review create requires atomic invitation consume',
+  );
 
   // Public CAN atomically submit pending review + consume validHashB
   const validPublicSubmit = await userRequest('POST', ':commit', null, {
@@ -1857,6 +1893,725 @@ async function runTests() {
   );
   console.log('✓ Customer Review invitation, atomic submission, RBAC & moderation rules passed');
 
+  // 2C. CLIENT PORTAL PHASE 1 SECURITY RULES (Auth Provisioning, Email Matching, RBAC & Isolation)
+  // Unauthenticated access to client portal collections is always denied
+  for (const unauthPath of [
+    'clientAccounts/client-matched-1',
+    'clientProfiles/cust_email_matched',
+    'customerEmailIndex/matched@gmail.com',
+    'clientCustomerLinks/cust_email_matched',
+  ]) {
+    assert.equal(
+      (await userRequest('GET', `/${unauthPath}`, null)).status,
+      403,
+      `Unauthenticated visitor denied GET ${unauthPath}`,
+    );
+  }
+
+  // Unverified Google user & non-Google password user cannot read customerEmailIndex or provision Client accounts
+  assert.equal(
+    (await userRequest('GET', '/customerEmailIndex/unverified@gmail.com', TOKEN_CLIENT_UNVERIFIED))
+      .status,
+    403,
+    'Unverified Google user denied GET customerEmailIndex',
+  );
+  assert.equal(
+    (await userRequest('GET', '/customerEmailIndex/pwuser@gmail.com', TOKEN_CLIENT_PASSWORD))
+      .status,
+    403,
+    'Password-provider user denied GET customerEmailIndex',
+  );
+
+  // Staff creates Customer + Email Index + Client-Safe Profile atomically
+  const staffCreateEmailCustomerRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customers/cust_email_matched`,
+          fields: toFsFields({
+            displayName: 'Band Matched',
+            normalizedName: 'band matched',
+            phoneDisplay: '+62 812-7777-8888',
+            phoneNormalized: '+6281277778888',
+            email: 'matched@gmail.com',
+            emailNormalized: 'matched@gmail.com',
+            nameAliases: [],
+            previousPhones: [],
+            status: 'active',
+            mergedIntoCustomerId: null,
+            historyCustomerIds: ['cust_email_matched'],
+            bookingCount: 0,
+            firstBookingDate: '',
+            lastBookingDate: '',
+            notes: 'VIP internal studio note must NEVER leak to Client',
+            createdByUid: 'staff-1',
+            updatedByUid: 'staff-1',
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientProfiles/cust_email_matched`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'cust_email_matched',
+            ownerUid: null,
+            profileSource: 'linked_customer',
+            displayName: 'Band Matched',
+            emailNormalized: 'matched@gmail.com',
+            phoneDisplay: '+62 812-7777-8888',
+            photoURL: '',
+            status: 'active',
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/customerEmailIndex/matched@gmail.com`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            emailNormalized: 'matched@gmail.com',
+            customerId: 'cust_email_matched',
+            status: 'active',
+            updatedByUid: 'staff-1',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/customerEmailIndex/shared@gmail.com`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            emailNormalized: 'shared@gmail.com',
+            customerId: '',
+            status: 'ambiguous',
+            updatedByUid: 'staff-1',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    staffCreateEmailCustomerRes.status,
+    200,
+    `Staff creating customer + emailIndex + clientProfile failed: ${JSON.stringify(staffCreateEmailCustomerRes.body)}`,
+  );
+
+  // customerEmailIndex RBAC: verified Google Client can GET ONLY own normalized email doc; never list/write
+  assert.equal(
+    (await userRequest('GET', '/customerEmailIndex/matched@gmail.com', TOKEN_CLIENT_MATCHED))
+      .status,
+    200,
+    'Verified Google client can GET own customerEmailIndex',
+  );
+  assert.equal(
+    (await userRequest('GET', '/customerEmailIndex/attacker@gmail.com', TOKEN_CLIENT_MATCHED))
+      .status,
+    403,
+    'Client denied GET another email in customerEmailIndex',
+  );
+  assert.equal(
+    (await userRequest('GET', '/customerEmailIndex', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client denied LIST customerEmailIndex',
+  );
+  assert.equal(
+    (await userRequest('GET', '/customerEmailIndex', TOKEN_STAFF)).status,
+    403,
+    'Staff denied LIST customerEmailIndex',
+  );
+  assert.equal(
+    (await userRequest('GET', '/customerEmailIndex', TOKEN_OWNER)).status,
+    200,
+    'Owner allowed LIST customerEmailIndex',
+  );
+  assert.equal(
+    (await userRequest('DELETE', '/customerEmailIndex/matched@gmail.com', TOKEN_CLIENT_MATCHED))
+      .status,
+    403,
+    'Client denied deleting customerEmailIndex',
+  );
+
+  // Staff / Owner accounts with Google claims CANNOT create clientAccounts or hijack Client role
+  const staffSelfClientAttempt = await userRequest('POST', ':commit', TOKEN_GOOGLE_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/staff-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'staff-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'client_staff-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'staff@37music.id',
+            displayName: 'Staff User',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/client_staff-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'client_staff-1',
+            ownerUid: 'staff-1',
+            emailNormalized: 'staff@37music.id',
+            profileSource: 'isolated_client_profile',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientProfiles/client_staff-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'client_staff-1',
+            ownerUid: 'staff-1',
+            profileSource: 'isolated_client_profile',
+            displayName: 'Staff User',
+            emailNormalized: 'staff@37music.id',
+            phoneDisplay: '',
+            photoURL: '',
+            status: 'active',
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    staffSelfClientAttempt.status,
+    403,
+    'Staff account cannot create clientAccounts doc even with Google claims',
+  );
+
+  // Ambiguous customerEmailIndex blocks linked provisioning (cannot link to arbitrary customerId)
+  const ambigLinkAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_AMBIGUOUS, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-ambig-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-ambig-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'cust_email_matched',
+            profileSource: 'linked_customer',
+            emailNormalized: 'shared@gmail.com',
+            displayName: 'Ambiguous Client',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/cust_email_matched`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'cust_email_matched',
+            ownerUid: 'client-ambig-1',
+            emailNormalized: 'shared@gmail.com',
+            profileSource: 'linked_customer',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    ambigLinkAttempt.status,
+    403,
+    'Ambiguous email client denied linking to existing customer',
+  );
+
+  // Client with unverified Google email denied creating isolated account
+  const unverifiedCreateAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_UNVERIFIED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-unverified-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-unverified-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'client_client-unverified-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'unverified@gmail.com',
+            displayName: 'Unverified User',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/client_client-unverified-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'client_client-unverified-1',
+            ownerUid: 'client-unverified-1',
+            emailNormalized: 'unverified@gmail.com',
+            profileSource: 'isolated_client_profile',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientProfiles/client_client-unverified-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'client_client-unverified-1',
+            ownerUid: 'client-unverified-1',
+            profileSource: 'isolated_client_profile',
+            displayName: 'Unverified User',
+            emailNormalized: 'unverified@gmail.com',
+            phoneDisplay: '',
+            photoURL: '',
+            status: 'active',
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    unverifiedCreateAttempt.status,
+    403,
+    'Unverified Google email cannot create clientAccounts doc',
+  );
+
+  // Matched Client creates atomic linked account + customer ownership lock (instant active, zero pending)
+  const linkedClientCreateRes = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-matched-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-matched-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'cust_email_matched',
+            profileSource: 'linked_customer',
+            emailNormalized: 'matched@gmail.com',
+            displayName: 'Matched Musician',
+            photoURL: 'https://lh3.googleusercontent.com/matched.jpg',
+            authProvider: 'google.com',
+            emailVerified: true,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/cust_email_matched`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'cust_email_matched',
+            ownerUid: 'client-matched-1',
+            emailNormalized: 'matched@gmail.com',
+            profileSource: 'linked_customer',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    linkedClientCreateRes.status,
+    200,
+    `Linked client atomic create failed: ${JSON.stringify(linkedClientCreateRes.body)}`,
+  );
+
+  // Active linked Client reads own account and client-safe clientProfile, NEVER raw customers or admin docs
+  assert.equal(
+    (await userRequest('GET', '/clientAccounts/client-matched-1', TOKEN_CLIENT_MATCHED)).status,
+    200,
+    'Client can GET own clientAccount',
+  );
+  assert.equal(
+    (await userRequest('GET', '/clientProfiles/cust_email_matched', TOKEN_CLIENT_MATCHED)).status,
+    200,
+    'Active linked Client can GET bound clientProfiles projection',
+  );
+  for (const forbiddenAdminPath of [
+    'customers/cust_email_matched',
+    'bookings/bkg_1',
+    'invoices/inv_bkg_1',
+    'paymentTransactions/pay_1',
+    'bookkeepingEntries/bk_1',
+    'publicBookingRequests/req_1',
+    'settings/pricing',
+    'staffProfiles/owner-1',
+    'systemOperations/factoryReset',
+  ]) {
+    assert.equal(
+      (await userRequest('GET', `/${forbiddenAdminPath}`, TOKEN_CLIENT_MATCHED)).status,
+      403,
+      `Active Client MUST be denied reading admin path ${forbiddenAdminPath}`,
+    );
+  }
+
+  // Another client CANNOT hijack already-claimed customer or read someone else's account/profile
+  assert.equal(
+    (await userRequest('GET', '/clientAccounts/client-matched-1', TOKEN_CLIENT_ATTACKER)).status,
+    403,
+    'Attacker denied reading another clientAccount',
+  );
+  assert.equal(
+    (await userRequest('GET', '/clientProfiles/cust_email_matched', TOKEN_CLIENT_ATTACKER)).status,
+    403,
+    'Attacker denied reading linked clientProfile',
+  );
+  assert.equal(
+    (await userRequest('GET', '/clientCustomerLinks/cust_email_matched', TOKEN_CLIENT_ATTACKER))
+      .status,
+    403,
+    'Attacker denied reading clientCustomerLinks',
+  );
+  const attackerClaimAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_ATTACKER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-attacker-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-attacker-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'cust_email_matched',
+            profileSource: 'linked_customer',
+            emailNormalized: 'attacker@gmail.com',
+            displayName: 'Attacker',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/cust_email_matched`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'cust_email_matched',
+            ownerUid: 'client-attacker-1',
+            emailNormalized: 'attacker@gmail.com',
+            profileSource: 'linked_customer',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    attackerClaimAttempt.status,
+    403,
+    'Attacker cannot claim already-linked customer or spoof matched email',
+  );
+
+  // Unmatched Google client creates isolated profile + link + account atomically
+  const isolatedCreateRes = await userRequest('POST', ':commit', TOKEN_CLIENT_NEW, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-new-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-new-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'client_client-new-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'newclient@gmail.com',
+            displayName: 'New Client Musician',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/client_client-new-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'client_client-new-1',
+            ownerUid: 'client-new-1',
+            emailNormalized: 'newclient@gmail.com',
+            profileSource: 'isolated_client_profile',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientProfiles/client_client-new-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'client_client-new-1',
+            ownerUid: 'client-new-1',
+            profileSource: 'isolated_client_profile',
+            displayName: 'New Client Musician',
+            emailNormalized: 'newclient@gmail.com',
+            phoneDisplay: '',
+            photoURL: '',
+            status: 'active',
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    isolatedCreateRes.status,
+    200,
+    `Isolated client atomic create failed: ${JSON.stringify(isolatedCreateRes.body)}`,
+  );
+  assert.equal(
+    (await userRequest('GET', '/clientProfiles/client_client-new-1', TOKEN_CLIENT_NEW)).status,
+    200,
+    'Isolated client can GET own isolated clientProfile',
+  );
+
+  // Client cannot escalate role/status/customerId, but can update safe displayName/photoURL
+  const fetchedNewAcct = await userRequest('GET', '/clientAccounts/client-new-1', TOKEN_CLIENT_NEW);
+  const newCreatedAtTs = fetchedNewAcct.body.fields.createdAt.timestampValue;
+  const selfEscalateAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_NEW, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-new-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-new-1',
+            role: 'owner',
+            status: 'active',
+            customerId: 'cust_email_matched',
+            profileSource: 'linked_customer',
+            emailNormalized: 'newclient@gmail.com',
+            displayName: 'New Client Musician',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            createdAt: { _ts: newCreatedAtTs },
+            version: 2,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(selfEscalateAttempt.status, 403, 'Client denied escalating role/customerId');
+
+  // Staff denied suspending clientAccount; Owner CAN suspend; suspended client locked out & cannot self-reactivate
+  const staffSuspendAttempt = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-new-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-new-1',
+            role: 'client',
+            status: 'suspended',
+            customerId: 'client_client-new-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'newclient@gmail.com',
+            displayName: 'New Client Musician',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            createdAt: { _ts: newCreatedAtTs },
+            version: 2,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(staffSuspendAttempt.status, 403, 'Staff denied suspending Client account');
+
+  const ownerSuspendRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-new-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-new-1',
+            role: 'client',
+            status: 'suspended',
+            customerId: 'client_client-new-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'newclient@gmail.com',
+            displayName: 'New Client Musician',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            createdAt: { _ts: newCreatedAtTs },
+            version: 2,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    ownerSuspendRes.status,
+    200,
+    `Owner suspending client account failed: ${JSON.stringify(ownerSuspendRes.body)}`,
+  );
+
+  // Suspended Client can read own clientAccounts/{uid} (for clear notice), CANNOT read clientProfiles or self-reactivate
+  assert.equal(
+    (await userRequest('GET', '/clientAccounts/client-new-1', TOKEN_CLIENT_NEW)).status,
+    200,
+    'Suspended client can read own account status for neutral suspension check',
+  );
+  assert.equal(
+    (await userRequest('GET', '/clientProfiles/client_client-new-1', TOKEN_CLIENT_NEW)).status,
+    403,
+    'Suspended client denied reading own clientProfile',
+  );
+  const selfReactivateAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_NEW, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-new-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-new-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'client_client-new-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'newclient@gmail.com',
+            displayName: 'New Client Musician',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            createdAt: { _ts: newCreatedAtTs },
+            version: 3,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(selfReactivateAttempt.status, 403, 'Suspended client cannot self-reactivate');
+
+  // Nobody can delete clientAccounts documents directly
+  assert.equal(
+    (await userRequest('DELETE', '/clientAccounts/client-matched-1', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client denied deleting clientAccounts',
+  );
+  assert.equal(
+    (await userRequest('DELETE', '/clientAccounts/client-matched-1', TOKEN_OWNER)).status,
+    403,
+    'Owner denied deleting clientAccounts',
+  );
+  console.log(
+    '✓ Client Portal Phase 1 rules (Google provisioning, email index, isolation & suspension) passed',
+  );
+
   // 3. systemOperations/factoryReset read & start authorization
   assert.equal(
     (await userRequest('GET', '/systemOperations/factoryReset', TOKEN_STAFF)).status,
@@ -2034,6 +2789,11 @@ async function runTests() {
     (await userRequest('DELETE', '/systemOperations/factoryReset', TOKEN_OWNER)).status,
     403,
     'Owner CANNOT delete systemOperations/factoryReset audit doc',
+  );
+  assert.equal(
+    (await userRequest('DELETE', '/clientAccounts/client-matched-1', TOKEN_OWNER)).status,
+    403,
+    'Owner CANNOT delete clientAccounts even during running Factory Reset',
   );
   console.log('✓ Preserved targets & Staff/Unauth delete protection passed');
 

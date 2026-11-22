@@ -457,6 +457,12 @@ export async function createBooking({
         updatedAt: timestamp,
         updatedByUid: cleanActorUid,
         version: (Number(targetExistingProfile.version) || 1) + 1,
+        ...(targetExistingProfile.emailNormalized
+          ? {
+              email: targetExistingProfile.email || targetExistingProfile.emailNormalized,
+              emailNormalized: targetExistingProfile.emailNormalized,
+            }
+          : {}),
       });
 
       // Ensure active index contains resolvedCustomerId

@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext';
 import { isAllowedStaffRole } from './auth-helpers';
 
 export function RequireStaff({ children }) {
-  const { status, profile, role } = useAuth();
+  const { status, accountType, profile, role } = useAuth();
   const location = useLocation();
 
   if (status === 'loading') {
@@ -39,9 +39,11 @@ export function RequireStaff({ children }) {
 
   const isAuthorized =
     status === 'authenticated' &&
+    accountType !== 'client' &&
     Boolean(profile) &&
     profile.active === true &&
-    isAllowedStaffRole(role);
+    isAllowedStaffRole(role) &&
+    isAllowedStaffRole(profile.role);
 
   if (!isAuthorized) {
     return <Navigate to="/staff/login" replace state={{ from: location.pathname }} />;

@@ -489,7 +489,7 @@ export function AdminCustomersPage() {
         actorUid={actorUid}
         activeCustomers={customers}
         onImportCompleted={() => {
-          refreshLegacyOverview().catch(() => { });
+          refreshLegacyOverview().catch(() => {});
         }}
       />
     </div>

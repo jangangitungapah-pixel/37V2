@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpRight, CalendarClock, KeyRound } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, CalendarClock, KeyRound, UserCheck } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { resolveSocialHref } from '@/lib/external-links';
@@ -126,6 +126,14 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
             >
               <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Check Room Availability</span>
+            </Link>
+
+            <Link
+              to="/portal/login"
+              className="hover:border-studio-lime hover:text-studio-lime mt-2 flex min-h-11 w-full items-center justify-center gap-2 border border-neutral-700 bg-neutral-900 px-4 py-2 font-mono text-[11px] font-bold text-neutral-200 uppercase transition-colors"
+            >
+              <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Client Portal</span>
             </Link>
 
             <Link

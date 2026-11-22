@@ -226,6 +226,13 @@ export function CustomerDetailDrawer({
                       {formatIndonesianTimestamp(customer.createdAt)}
                     </dd>
                   </div>
+
+                  <div>
+                    <dt className="text-[11px] font-medium text-[#666159]">Email Terdaftar</dt>
+                    <dd className="mt-0.5 text-xs font-medium break-all text-[#151515]">
+                      {customer.email || customer.emailNormalized || 'Belum diisi'}
+                    </dd>
+                  </div>
                 </dl>
 
                 {/* Previous Names / Aliases */}

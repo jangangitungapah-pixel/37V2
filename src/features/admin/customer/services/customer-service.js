@@ -20,6 +20,10 @@ import {
   validateCustomerPhoneUpdateInput,
 } from '../schemas/customer-schema';
 import {
+  CUSTOMER_EMAIL_INDEX_STATUS,
+  buildClientSafeCustomerProfilePayload,
+} from '../utils/customer-email';
+import {
   appendUniqueNameAlias,
   CUSTOMER_STATUS,
   mergeUniqueNameAliases,
@@ -66,6 +70,26 @@ function assertStaffActor(actorUid) {
     );
   }
   return clean;
+}
+
+function assertNoEmailIndexConflict(existingEmailIndex, targetCustomerId) {
+  if (!existingEmailIndex) return;
+  if (
+    existingEmailIndex.status === CUSTOMER_EMAIL_INDEX_STATUS.AMBIGUOUS ||
+    (existingEmailIndex.status === CUSTOMER_EMAIL_INDEX_STATUS.ACTIVE &&
+      existingEmailIndex.customerId &&
+      existingEmailIndex.customerId !== targetCustomerId)
+  ) {
+    throw createCustomerServiceError(
+      'customer/email-conflict',
+      'Email ini sudah terdaftar pada profil customer lain atau perlu resolusi konflik terlebih dahulu.',
+      {
+        emailNormalized: existingEmailIndex.emailNormalized,
+        existingCustomerId: existingEmailIndex.customerId,
+        status: existingEmailIndex.status,
+      },
+    );
+  }
 }
 
 /**
@@ -149,19 +173,32 @@ export async function createManualCustomer({
     throw createCustomerServiceError('customer/validation-error', firstMsg, validation.errors);
   }
 
-  const { displayName, normalizedName, phoneDisplay, phoneNormalized, notes } = validation.data;
+  const {
+    displayName,
+    normalizedName,
+    phoneDisplay,
+    phoneNormalized,
+    email,
+    emailNormalized,
+    notes,
+  } = validation.data;
   const phoneHash = await getPhoneNumberHash(phoneNormalized);
 
   return adapter.runAtomicTransaction(async (tx) => {
     // 1. ALL READS FIRST
-    const [existingCustomer, existingIndex] = await Promise.all([
+    const [existingCustomer, existingIndex, existingEmailIndex] = await Promise.all([
       tx.getCustomer(cleanCustomerId),
       tx.getPhoneIndex(phoneHash),
+      emailNormalized && typeof tx.getEmailIndex === 'function'
+        ? tx.getEmailIndex(emailNormalized)
+        : Promise.resolve(null),
     ]);
 
     if (existingCustomer) {
       return existingCustomer;
     }
+
+    assertNoEmailIndexConflict(existingEmailIndex, cleanCustomerId);
 
     const activeIds = Array.isArray(existingIndex?.activeCustomerIds)
       ? existingIndex.activeCustomerIds
@@ -202,6 +239,7 @@ export async function createManualCustomer({
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,
       version: 1,
+      ...(emailNormalized ? { email, emailNormalized } : {}),
     };
 
     const nextActiveIds = Array.from(new Set([...activeIds, cleanCustomerId]));
@@ -218,6 +256,32 @@ export async function createManualCustomer({
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,
     });
+
+    if (emailNormalized && typeof tx.setEmailIndex === 'function') {
+      tx.setEmailIndex(emailNormalized, {
+        schemaVersion: 1,
+        emailNormalized,
+        customerId: cleanCustomerId,
+        status: CUSTOMER_EMAIL_INDEX_STATUS.ACTIVE,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: (Number(existingEmailIndex?.version) || 0) + 1,
+      });
+    }
+
+    if (emailNormalized && typeof tx.setClientProfile === 'function') {
+      tx.setClientProfile(
+        cleanCustomerId,
+        buildClientSafeCustomerProfilePayload({
+          customerId: cleanCustomerId,
+          displayName,
+          emailNormalized,
+          phoneDisplay,
+          status: CUSTOMER_STATUS.ACTIVE,
+          timestamp,
+        }),
+      );
+    }
 
     return normalizeCustomerRecord(cleanCustomerId, customerDoc);
   });
@@ -247,7 +311,14 @@ export async function updateCustomerProfile({
     throw createCustomerServiceError('customer/validation-error', firstMsg, validation.errors);
   }
 
-  const { displayName, normalizedName, notes } = validation.data;
+  const {
+    displayName,
+    normalizedName,
+    email,
+    emailNormalized: requestedEmailNormalized,
+    notes,
+  } = validation.data;
+  const hasExplicitEmailInput = 'email' in (input || {});
 
   return adapter.runAtomicTransaction(async (tx) => {
     const existing = await tx.getCustomer(cleanCustomerId);
@@ -267,6 +338,35 @@ export async function updateCustomerProfile({
         'customer/stale-update',
         'Data customer telah diperbarui di sesi lain. Muat ulang detail customer terlebih dahulu.',
       );
+    }
+
+    const oldEmailNormalized = existing.emailNormalized || '';
+    const nextEmailNormalized = hasExplicitEmailInput
+      ? requestedEmailNormalized
+      : oldEmailNormalized;
+    const nextEmailRaw = hasExplicitEmailInput
+      ? email
+      : existing.email || existing.emailNormalized || '';
+    const emailChanged = nextEmailNormalized !== oldEmailNormalized;
+
+    const [oldEmailIndex, newEmailIndex, existingClientProfile] = await Promise.all([
+      oldEmailNormalized && typeof tx.getEmailIndex === 'function'
+        ? tx.getEmailIndex(oldEmailNormalized)
+        : Promise.resolve(null),
+      nextEmailNormalized &&
+      nextEmailNormalized !== oldEmailNormalized &&
+      typeof tx.getEmailIndex === 'function'
+        ? tx.getEmailIndex(nextEmailNormalized)
+        : Promise.resolve(null),
+      typeof tx.getClientProfile === 'function'
+        ? tx.getClientProfile(cleanCustomerId)
+        : Promise.resolve(null),
+    ]);
+
+    if (nextEmailNormalized && nextEmailNormalized !== oldEmailNormalized) {
+      assertNoEmailIndexConflict(newEmailIndex, cleanCustomerId);
+    } else if (nextEmailNormalized && oldEmailIndex) {
+      assertNoEmailIndexConflict(oldEmailIndex, cleanCustomerId);
     }
 
     const nextAliases =
@@ -294,9 +394,58 @@ export async function updateCustomerProfile({
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,
       version: (Number(existing.version) || 1) + 1,
+      ...(nextEmailNormalized || oldEmailNormalized
+        ? { email: nextEmailRaw, emailNormalized: nextEmailNormalized }
+        : {}),
     };
 
     tx.updateCustomer(cleanCustomerId, updatedFields);
+
+    if (
+      emailChanged &&
+      oldEmailNormalized &&
+      oldEmailIndex?.customerId === cleanCustomerId &&
+      typeof tx.deleteEmailIndex === 'function'
+    ) {
+      tx.deleteEmailIndex(oldEmailNormalized);
+    }
+
+    if (
+      nextEmailNormalized &&
+      existing.status === CUSTOMER_STATUS.ACTIVE &&
+      (emailChanged || !oldEmailIndex) &&
+      typeof tx.setEmailIndex === 'function'
+    ) {
+      const targetIndex = emailChanged ? newEmailIndex : oldEmailIndex;
+      tx.setEmailIndex(nextEmailNormalized, {
+        schemaVersion: 1,
+        emailNormalized: nextEmailNormalized,
+        customerId: cleanCustomerId,
+        status: CUSTOMER_EMAIL_INDEX_STATUS.ACTIVE,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: (Number(targetIndex?.version) || 0) + 1,
+      });
+    }
+
+    if (
+      (nextEmailNormalized || existingClientProfile) &&
+      typeof tx.setClientProfile === 'function'
+    ) {
+      tx.setClientProfile(
+        cleanCustomerId,
+        buildClientSafeCustomerProfilePayload({
+          customerId: cleanCustomerId,
+          displayName,
+          emailNormalized: nextEmailNormalized,
+          phoneDisplay: existing.phoneDisplay,
+          status: existing.status,
+          timestamp,
+          existingProfile: existingClientProfile,
+        }),
+      );
+    }
+
     return normalizeCustomerRecord(cleanCustomerId, updatedFields);
   });
 }
@@ -361,9 +510,12 @@ export async function updateCustomerPhone({
       ? await getPhoneNumberHash(existing.phoneNormalized)
       : '';
 
-    const [oldIndex, newIndex] = await Promise.all([
+    const [oldIndex, newIndex, existingClientProfile] = await Promise.all([
       oldHash ? tx.getPhoneIndex(oldHash) : Promise.resolve(null),
       tx.getPhoneIndex(newHash),
+      typeof tx.getClientProfile === 'function'
+        ? tx.getClientProfile(cleanCustomerId)
+        : Promise.resolve(null),
     ]);
 
     const conflictingIds = (newIndex?.activeCustomerIds || []).filter(
@@ -422,9 +574,30 @@ export async function updateCustomerPhone({
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,
       version: (Number(existing.version) || 1) + 1,
+      ...(existing.emailNormalized
+        ? {
+            email: existing.email || existing.emailNormalized,
+            emailNormalized: existing.emailNormalized,
+          }
+        : {}),
     };
 
     tx.updateCustomer(cleanCustomerId, updatedFields);
+
+    if (existingClientProfile && typeof tx.setClientProfile === 'function') {
+      tx.setClientProfile(
+        cleanCustomerId,
+        buildClientSafeCustomerProfilePayload({
+          customerId: cleanCustomerId,
+          displayName: existing.displayName,
+          emailNormalized: existing.emailNormalized || '',
+          phoneDisplay: newDisplay,
+          status: existing.status,
+          timestamp,
+          existingProfile: existingClientProfile,
+        }),
+      );
+    }
 
     // Move customerId from active -> historical on old phone index
     if (oldHash && oldIndex) {
@@ -505,7 +678,20 @@ export async function setCustomerArchiveStatus({
     const phoneHash = existing.phoneNormalized
       ? await getPhoneNumberHash(existing.phoneNormalized)
       : '';
-    const phoneIndex = phoneHash ? await tx.getPhoneIndex(phoneHash) : null;
+    const existingEmailNormalized = existing.emailNormalized || '';
+    const [phoneIndex, existingEmailIndex, existingClientProfile] = await Promise.all([
+      phoneHash ? tx.getPhoneIndex(phoneHash) : Promise.resolve(null),
+      existingEmailNormalized && typeof tx.getEmailIndex === 'function'
+        ? tx.getEmailIndex(existingEmailNormalized)
+        : Promise.resolve(null),
+      typeof tx.getClientProfile === 'function'
+        ? tx.getClientProfile(cleanCustomerId)
+        : Promise.resolve(null),
+    ]);
+
+    if (!archived && existingEmailNormalized) {
+      assertNoEmailIndexConflict(existingEmailIndex, cleanCustomerId);
+    }
 
     const timestamp = tx.nowValue();
     const updatedFields = {
@@ -527,9 +713,52 @@ export async function setCustomerArchiveStatus({
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,
       version: (Number(existing.version) || 1) + 1,
+      ...(existingEmailNormalized
+        ? {
+            email: existing.email || existingEmailNormalized,
+            emailNormalized: existingEmailNormalized,
+          }
+        : {}),
     };
 
     tx.updateCustomer(cleanCustomerId, updatedFields);
+
+    if (
+      archived &&
+      existingEmailNormalized &&
+      existingEmailIndex?.customerId === cleanCustomerId &&
+      typeof tx.deleteEmailIndex === 'function'
+    ) {
+      tx.deleteEmailIndex(existingEmailNormalized);
+    } else if (!archived && existingEmailNormalized && typeof tx.setEmailIndex === 'function') {
+      tx.setEmailIndex(existingEmailNormalized, {
+        schemaVersion: 1,
+        emailNormalized: existingEmailNormalized,
+        customerId: cleanCustomerId,
+        status: CUSTOMER_EMAIL_INDEX_STATUS.ACTIVE,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: (Number(existingEmailIndex?.version) || 0) + 1,
+      });
+    }
+
+    if (
+      (existingClientProfile || (!archived && existingEmailNormalized)) &&
+      typeof tx.setClientProfile === 'function'
+    ) {
+      tx.setClientProfile(
+        cleanCustomerId,
+        buildClientSafeCustomerProfilePayload({
+          customerId: cleanCustomerId,
+          displayName: existing.displayName,
+          emailNormalized: existingEmailNormalized,
+          phoneDisplay: existing.phoneDisplay,
+          status: nextStatus,
+          timestamp,
+          existingProfile: existingClientProfile,
+        }),
+      );
+    }
 
     if (phoneHash) {
       const currentActive = phoneIndex?.activeCustomerIds || [];
@@ -653,6 +882,47 @@ export async function mergeCustomerProfiles({
         ? await tx.getPhoneIndex(sourcePhoneHash)
         : targetPhoneIndex;
 
+    const targetEmailNormalized = target.emailNormalized || '';
+    const sourceEmailNormalized = source.emailNormalized || '';
+    const adoptedEmailNormalized = targetEmailNormalized || sourceEmailNormalized;
+    const adoptedEmailRaw = targetEmailNormalized
+      ? target.email || targetEmailNormalized
+      : sourceEmailNormalized
+        ? source.email || sourceEmailNormalized
+        : '';
+
+    const [targetEmailIndex, sourceEmailIndex, targetClientProfile, sourceClientProfile] =
+      await Promise.all([
+        targetEmailNormalized && typeof tx.getEmailIndex === 'function'
+          ? tx.getEmailIndex(targetEmailNormalized)
+          : Promise.resolve(null),
+        sourceEmailNormalized &&
+        sourceEmailNormalized !== targetEmailNormalized &&
+        typeof tx.getEmailIndex === 'function'
+          ? tx.getEmailIndex(sourceEmailNormalized)
+          : Promise.resolve(null),
+        typeof tx.getClientProfile === 'function'
+          ? tx.getClientProfile(targetId)
+          : Promise.resolve(null),
+        typeof tx.getClientProfile === 'function'
+          ? tx.getClientProfile(sourceId)
+          : Promise.resolve(null),
+      ]);
+
+    if (adoptedEmailNormalized && !targetEmailNormalized && sourceEmailIndex) {
+      if (
+        sourceEmailIndex.status === CUSTOMER_EMAIL_INDEX_STATUS.AMBIGUOUS ||
+        (sourceEmailIndex.customerId &&
+          sourceEmailIndex.customerId !== sourceId &&
+          sourceEmailIndex.customerId !== targetId)
+      ) {
+        throw createCustomerServiceError(
+          'customer/email-conflict',
+          'Email profil sumber bentrok dengan profil customer lain.',
+        );
+      }
+    }
+
     // 2. WRITES AFTER READS
     const timestamp = tx.nowValue();
 
@@ -715,6 +985,9 @@ export async function mergeCustomerProfiles({
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,
       version: (Number(target.version) || 1) + 1,
+      ...(adoptedEmailNormalized
+        ? { email: adoptedEmailRaw, emailNormalized: adoptedEmailNormalized }
+        : {}),
     };
 
     const updatedSource = {
@@ -736,10 +1009,82 @@ export async function mergeCustomerProfiles({
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,
       version: (Number(source.version) || 1) + 1,
+      ...(sourceEmailNormalized ? { email: '', emailNormalized: '' } : {}),
     };
 
     tx.updateCustomer(targetId, updatedTarget);
     tx.updateCustomer(sourceId, updatedSource);
+
+    if (
+      sourceEmailNormalized &&
+      targetEmailNormalized &&
+      sourceEmailNormalized !== targetEmailNormalized &&
+      sourceEmailIndex?.customerId === sourceId &&
+      typeof tx.deleteEmailIndex === 'function'
+    ) {
+      tx.deleteEmailIndex(sourceEmailNormalized);
+    } else if (
+      !targetEmailNormalized &&
+      sourceEmailNormalized &&
+      typeof tx.setEmailIndex === 'function'
+    ) {
+      tx.setEmailIndex(sourceEmailNormalized, {
+        schemaVersion: 1,
+        emailNormalized: sourceEmailNormalized,
+        customerId: targetId,
+        status: CUSTOMER_EMAIL_INDEX_STATUS.ACTIVE,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: (Number(sourceEmailIndex?.version) || 0) + 1,
+      });
+    } else if (
+      targetEmailNormalized &&
+      !targetEmailIndex &&
+      typeof tx.setEmailIndex === 'function'
+    ) {
+      tx.setEmailIndex(targetEmailNormalized, {
+        schemaVersion: 1,
+        emailNormalized: targetEmailNormalized,
+        customerId: targetId,
+        status: CUSTOMER_EMAIL_INDEX_STATUS.ACTIVE,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: 1,
+      });
+    }
+
+    if (sourceClientProfile && typeof tx.setClientProfile === 'function') {
+      tx.setClientProfile(
+        sourceId,
+        buildClientSafeCustomerProfilePayload({
+          customerId: sourceId,
+          displayName: source.displayName,
+          emailNormalized: '',
+          phoneDisplay: source.phoneDisplay,
+          status: CUSTOMER_STATUS.MERGED,
+          timestamp,
+          existingProfile: sourceClientProfile,
+        }),
+      );
+    }
+
+    if (
+      (targetClientProfile || adoptedEmailNormalized) &&
+      typeof tx.setClientProfile === 'function'
+    ) {
+      tx.setClientProfile(
+        targetId,
+        buildClientSafeCustomerProfilePayload({
+          customerId: targetId,
+          displayName: target.displayName,
+          emailNormalized: adoptedEmailNormalized,
+          phoneDisplay: target.phoneDisplay,
+          status: CUSTOMER_STATUS.ACTIVE,
+          timestamp,
+          existingProfile: targetClientProfile,
+        }),
+      );
+    }
 
     // Update Phone Index(es): source is no longer an active profile
     if (sourcePhoneHash === targetPhoneHash) {

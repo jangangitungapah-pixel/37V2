@@ -278,6 +278,12 @@ export async function importLegacyBookingHistory({
             updatedAt: now,
             updatedByUid: cleanActorUid,
             version: (Number(existingMatch.version) || 1) + 1,
+            ...(existingMatch.emailNormalized
+              ? {
+                  email: existingMatch.email || existingMatch.emailNormalized,
+                  emailNormalized: existingMatch.emailNormalized,
+                }
+              : {}),
           }),
         });
       } else {
@@ -456,6 +462,12 @@ export async function resolveNeedsReviewLegacyBooking({
         updatedAt: timestamp,
         updatedByUid: cleanActorUid,
         version: (Number(targetCustomer.version) || 1) + 1,
+        ...(targetCustomer.emailNormalized
+          ? {
+              email: targetCustomer.email || targetCustomer.emailNormalized,
+              emailNormalized: targetCustomer.emailNormalized,
+            }
+          : {}),
       });
 
       tx.updateBooking(cleanBookingId, {
@@ -516,6 +528,12 @@ export async function resolveNeedsReviewLegacyBooking({
         updatedAt: timestamp,
         updatedByUid: cleanActorUid,
         version: (Number(existingCustomer.version) || 1) + 1,
+        ...(existingCustomer.emailNormalized
+          ? {
+              email: existingCustomer.email || existingCustomer.emailNormalized,
+              emailNormalized: existingCustomer.emailNormalized,
+            }
+          : {}),
       });
     } else {
       tx.setCustomer(deterministicId, {

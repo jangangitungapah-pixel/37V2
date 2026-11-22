@@ -21,6 +21,49 @@ service cloud.firestore {
         && profile.data.role == 'owner';
     }
 
+    function isAnyStaffProfile() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/staffProfiles/$(request.auth.uid));
+    }
+
+    function isValidNormalizedEmail(value) {
+      return value is string
+        && value.size() >= 5
+        && value.size() <= 254
+        && value.matches('^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$');
+    }
+
+    function hasVerifiedGoogleEmail() {
+      return request.auth != null
+        && ('firebase' in request.auth.token)
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && ('email_verified' in request.auth.token)
+        && request.auth.token.email_verified == true
+        && ('email' in request.auth.token)
+        && request.auth.token.email is string
+        && isValidNormalizedEmail(request.auth.token.email.trim().lower());
+    }
+
+    function normalizedAuthEmail() {
+      return request.auth.token.email.trim().lower();
+    }
+
+    function getClientAccountDoc(uid) {
+      return get(/databases/$(database)/documents/clientAccounts/$(uid));
+    }
+
+    function isActiveClient() {
+      return request.auth != null
+        && !isAnyStaffProfile()
+        && hasVerifiedGoogleEmail()
+        && exists(/databases/$(database)/documents/clientAccounts/$(request.auth.uid))
+        && getClientAccountDoc(request.auth.uid).data.uid == request.auth.uid
+        && getClientAccountDoc(request.auth.uid).data.role == 'client'
+        && getClientAccountDoc(request.auth.uid).data.status == 'active'
+        && getClientAccountDoc(request.auth.uid).data.customerId is string
+        && getClientAccountDoc(request.auth.uid).data.customerId.size() >= 1;
+    }
+
     function getFactoryResetOperation() {
       return exists(/databases/$(database)/documents/systemOperations/factoryReset)
         ? get(/databases/$(database)/documents/systemOperations/factoryReset)
@@ -488,7 +531,30 @@ service cloud.firestore {
     }
 
     function isValidCustomerShape(data, customerId) {
-      return data.size() == 18
+      return data.keys().hasOnly([
+          'displayName',
+          'normalizedName',
+          'phoneDisplay',
+          'phoneNormalized',
+          'nameAliases',
+          'previousPhones',
+          'status',
+          'mergedIntoCustomerId',
+          'historyCustomerIds',
+          'bookingCount',
+          'firstBookingDate',
+          'lastBookingDate',
+          'notes',
+          'createdAt',
+          'createdByUid',
+          'updatedAt',
+          'updatedByUid',
+          'version',
+          'email',
+          'emailNormalized'
+        ])
+        && data.size() >= 18
+        && data.size() <= 20
         && data.displayName is string
         && data.displayName.size() >= 1
         && data.displayName.size() <= 120
@@ -520,7 +586,15 @@ service cloud.firestore {
         && data.updatedAt is timestamp
         && data.updatedByUid == request.auth.uid
         && data.version is int
-        && data.version >= 1;
+        && data.version >= 1
+        && (!('email' in data) || (data.email is string && data.email.size() <= 254))
+        && (
+          !('emailNormalized' in data)
+          || (
+            data.emailNormalized is string
+            && (data.emailNormalized == '' || isValidNormalizedEmail(data.emailNormalized))
+          )
+        );
     }
 
     function isValidPhoneIndex(data) {
@@ -3140,6 +3214,325 @@ service cloud.firestore {
         && isValidPublicReviewStatsWrite(request.resource.data);
 
       allow delete: if false;
+    }
+
+    // =========================================================================
+    // CLIENT PORTAL PHASE 1 — ACCOUNTS, VERIFIED EMAIL INDEX & CLIENT PROFILES
+    // =========================================================================
+
+    function isValidCustomerEmailIndex(data, normalizedEmail) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'emailNormalized',
+          'customerId',
+          'status',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && data.size() == 7
+        && data.schemaVersion == 1
+        && isValidNormalizedEmail(normalizedEmail)
+        && data.emailNormalized == normalizedEmail
+        && data.status in ['active', 'ambiguous']
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1
+        && (
+          (
+            data.status == 'active'
+            && data.customerId is string
+            && data.customerId.size() >= 1
+            && data.customerId.size() <= 120
+            && existsAfter(/databases/$(database)/documents/customers/$(data.customerId))
+            && existsAfter(/databases/$(database)/documents/clientProfiles/$(data.customerId))
+          ) || (
+            data.status == 'ambiguous'
+            && data.customerId == ''
+          )
+        );
+    }
+
+    match /customerEmailIndex/{normalizedEmail} {
+      allow get: if isActiveStaff()
+        || (
+          hasVerifiedGoogleEmail()
+          && !isAnyStaffProfile()
+          && normalizedAuthEmail() == normalizedEmail
+        );
+
+      allow list: if isActiveOwner();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidCustomerEmailIndex(request.resource.data, normalizedEmail)
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidCustomerEmailIndex(request.resource.data, normalizedEmail)
+        && request.resource.data.version == resource.data.version + 1;
+
+      allow delete: if (isActiveStaff() && !isFactoryResetLocked())
+        || canFactoryResetDelete();
+    }
+
+    function isValidClientProfileShape(data, customerId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'customerId',
+          'ownerUid',
+          'profileSource',
+          'displayName',
+          'emailNormalized',
+          'phoneDisplay',
+          'photoURL',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'version'
+        ])
+        && data.size() == 12
+        && data.schemaVersion == 1
+        && customerId is string
+        && customerId.size() >= 1
+        && customerId.size() <= 140
+        && data.customerId == customerId
+        && (data.ownerUid == null || (data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128))
+        && data.profileSource in ['linked_customer', 'isolated_client_profile']
+        && data.displayName is string
+        && data.displayName.trim().size() >= 1
+        && data.displayName.size() <= 120
+        && data.emailNormalized is string
+        && (data.emailNormalized == '' || isValidNormalizedEmail(data.emailNormalized))
+        && data.phoneDisplay is string
+        && data.phoneDisplay.size() <= 40
+        && data.photoURL is string
+        && data.photoURL.size() <= 500
+        && data.status in ['active', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidClientAccountShape(data, uid) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'uid',
+          'role',
+          'status',
+          'customerId',
+          'profileSource',
+          'emailNormalized',
+          'displayName',
+          'photoURL',
+          'authProvider',
+          'emailVerified',
+          'createdAt',
+          'updatedAt',
+          'version'
+        ])
+        && data.size() == 14
+        && data.schemaVersion == 1
+        && data.uid == uid
+        && data.role == 'client'
+        && data.status in ['active', 'suspended']
+        && data.customerId is string
+        && data.customerId.size() >= 1
+        && data.customerId.size() <= 140
+        && data.profileSource in ['linked_customer', 'isolated_client_profile']
+        && isValidNormalizedEmail(data.emailNormalized)
+        && data.displayName is string
+        && data.displayName.trim().size() >= 1
+        && data.displayName.size() <= 120
+        && data.photoURL is string
+        && data.photoURL.size() <= 500
+        && data.authProvider == 'google.com'
+        && data.emailVerified == true
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidClientCustomerLinkShape(data, customerId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'customerId',
+          'ownerUid',
+          'emailNormalized',
+          'profileSource',
+          'createdAt',
+          'version'
+        ])
+        && data.size() == 7
+        && data.schemaVersion == 1
+        && customerId is string
+        && customerId.size() >= 1
+        && customerId.size() <= 140
+        && data.customerId == customerId
+        && data.ownerUid is string
+        && data.ownerUid.size() >= 1
+        && data.ownerUid.size() <= 128
+        && isValidNormalizedEmail(data.emailNormalized)
+        && data.profileSource in ['linked_customer', 'isolated_client_profile']
+        && data.createdAt is timestamp
+        && data.version is int
+        && data.version == 1;
+    }
+
+    match /clientAccounts/{uid} {
+      allow get: if isActiveOwner()
+        || (request.auth != null && request.auth.uid == uid);
+
+      allow list: if isActiveOwner();
+
+      allow create: if hasVerifiedGoogleEmail()
+        && !isAnyStaffProfile()
+        && !isFactoryResetLocked()
+        && request.auth.uid == uid
+        && isValidClientAccountShape(request.resource.data, uid)
+        && request.resource.data.role == 'client'
+        && request.resource.data.status == 'active'
+        && request.resource.data.emailNormalized == normalizedAuthEmail()
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.version == 1
+        && !exists(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId))
+        && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId)).data.ownerUid == uid
+        && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId)).data.customerId == request.resource.data.customerId
+        && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId)).data.profileSource == request.resource.data.profileSource
+        && (
+          (
+            request.resource.data.profileSource == 'isolated_client_profile'
+            && request.resource.data.customerId == ('client_' + uid)
+            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.ownerUid == uid
+            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.customerId == request.resource.data.customerId
+            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.profileSource == 'isolated_client_profile'
+            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.status == 'active'
+          ) || (
+            request.resource.data.profileSource == 'linked_customer'
+            && exists(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail()))
+            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.status == 'active'
+            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.customerId == request.resource.data.customerId
+            && exists(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId))
+            && get(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.status == 'active'
+            && get(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.emailNormalized == normalizedAuthEmail()
+          )
+        );
+
+      allow update: if (
+          isActiveOwner()
+          && isValidClientAccountShape(request.resource.data, uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'version'])
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.version == resource.data.version + 1
+        ) || (
+          isActiveClient()
+          && request.auth.uid == uid
+          && resource.data.status == 'active'
+          && isValidClientAccountShape(request.resource.data, uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt', 'version'])
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.version == resource.data.version + 1
+        );
+
+      allow delete: if false;
+    }
+
+    match /clientCustomerLinks/{customerId} {
+      allow get: if isActiveOwner()
+        || (request.auth != null && resource != null && resource.data.ownerUid == request.auth.uid);
+
+      allow list: if isActiveOwner();
+
+      allow create: if hasVerifiedGoogleEmail()
+        && !isAnyStaffProfile()
+        && !isFactoryResetLocked()
+        && isValidClientCustomerLinkShape(request.resource.data, customerId)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.emailNormalized == normalizedAuthEmail()
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/clientAccounts/$(request.auth.uid)).data.customerId == customerId
+        && getAfter(/databases/$(database)/documents/clientAccounts/$(request.auth.uid)).data.profileSource == request.resource.data.profileSource
+        && (
+          (
+            request.resource.data.profileSource == 'isolated_client_profile'
+            && customerId == ('client_' + request.auth.uid)
+          ) || (
+            request.resource.data.profileSource == 'linked_customer'
+            && exists(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail()))
+            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.status == 'active'
+            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.customerId == customerId
+          )
+        );
+
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /clientProfiles/{customerId} {
+      allow get: if isActiveStaff()
+        || (
+          isActiveClient()
+          && getClientAccountDoc(request.auth.uid).data.customerId == customerId
+          && exists(/databases/$(database)/documents/clientCustomerLinks/$(customerId))
+          && get(/databases/$(database)/documents/clientCustomerLinks/$(customerId)).data.ownerUid == request.auth.uid
+        );
+
+      allow list: if isActiveStaff();
+
+      allow create: if !isFactoryResetLocked()
+        && (
+          (
+            isActiveStaff()
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.ownerUid == null
+            && request.resource.data.profileSource == 'linked_customer'
+            && existsAfter(/databases/$(database)/documents/customers/$(customerId))
+          ) || (
+            hasVerifiedGoogleEmail()
+            && !isAnyStaffProfile()
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && customerId == ('client_' + request.auth.uid)
+            && request.resource.data.ownerUid == request.auth.uid
+            && request.resource.data.profileSource == 'isolated_client_profile'
+            && request.resource.data.emailNormalized == normalizedAuthEmail()
+            && request.resource.data.phoneDisplay == ''
+            && request.resource.data.status == 'active'
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.version == 1
+            && getAfter(/databases/$(database)/documents/clientAccounts/$(request.auth.uid)).data.customerId == customerId
+            && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(customerId)).data.ownerUid == request.auth.uid
+          )
+        );
+
+      allow update: if !isFactoryResetLocked()
+        && (
+          (
+            isActiveStaff()
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.customerId == resource.data.customerId
+            && request.resource.data.ownerUid == resource.data.ownerUid
+            && request.resource.data.profileSource == resource.data.profileSource
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.version == resource.data.version + 1
+          ) || (
+            isActiveClient()
+            && resource.data.profileSource == 'isolated_client_profile'
+            && resource.data.ownerUid == request.auth.uid
+            && getClientAccountDoc(request.auth.uid).data.customerId == customerId
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt', 'version'])
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.version == resource.data.version + 1
+          )
+        );
+
+      allow delete: if canFactoryResetDelete();
     }
 
   }

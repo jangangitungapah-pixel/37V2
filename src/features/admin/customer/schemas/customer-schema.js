@@ -10,6 +10,11 @@ import {
   normalizeCustomerName,
 } from '../utils/customer-identity';
 import {
+  CUSTOMER_EMAIL_INDEX_STATUS,
+  isValidCustomerEmail,
+  normalizeCustomerEmail,
+} from '../utils/customer-email';
+import {
   formatPhoneDisplay,
   isValidPhoneNumber,
   normalizePhoneNumber,
@@ -29,6 +34,15 @@ export const customerCreateSchema = z.object({
       message:
         'Masukkan nomor HP / WhatsApp yang valid (contoh: 081234567890 atau +6281234567890).',
     }),
+  email: z
+    .string()
+    .trim()
+    .max(254, 'Email maksimal 254 karakter.')
+    .optional()
+    .default('')
+    .refine((val) => !val || isValidCustomerEmail(val), {
+      message: 'Masukkan alamat email yang valid (contoh: nama@domain.com).',
+    }),
   notes: z.string().trim().max(1000, 'Catatan maksimal 1000 karakter.').optional().default(''),
 });
 
@@ -38,6 +52,15 @@ export const customerEditSchema = z.object({
     .trim()
     .min(2, 'Nama customer minimal 2 karakter.')
     .max(120, 'Nama customer maksimal 120 karakter.'),
+  email: z
+    .string()
+    .trim()
+    .max(254, 'Email maksimal 254 karakter.')
+    .optional()
+    .default('')
+    .refine((val) => !val || isValidCustomerEmail(val), {
+      message: 'Masukkan alamat email yang valid (contoh: nama@domain.com).',
+    }),
   notes: z.string().trim().max(1000, 'Catatan maksimal 1000 karakter.').optional().default(''),
 });
 
@@ -69,6 +92,7 @@ export function validateCustomerCreateInput(input = {}) {
   const parsed = customerCreateSchema.safeParse({
     displayName: String(input.displayName ?? ''),
     phone: String(input.phone ?? ''),
+    email: String(input.email ?? ''),
     notes: String(input.notes ?? ''),
   });
 
@@ -82,6 +106,8 @@ export function validateCustomerCreateInput(input = {}) {
   }
 
   const phoneNormalized = normalizePhoneNumber(parsed.data.phone);
+  const email = parsed.data.email;
+  const emailNormalized = normalizeCustomerEmail(email);
   return {
     isValid: true,
     errors: {},
@@ -90,17 +116,20 @@ export function validateCustomerCreateInput(input = {}) {
       normalizedName: normalizeCustomerName(parsed.data.displayName),
       phoneDisplay: formatPhoneDisplay(phoneNormalized),
       phoneNormalized,
+      email,
+      emailNormalized,
       notes: parsed.data.notes,
     },
   };
 }
 
 /**
- * Validates customer edit form input (displayName + notes).
+ * Validates customer edit form input (displayName + optional email + notes).
  */
 export function validateCustomerEditInput(input = {}) {
   const parsed = customerEditSchema.safeParse({
     displayName: String(input.displayName ?? ''),
+    email: String(input.email ?? ''),
     notes: String(input.notes ?? ''),
   });
 
@@ -113,12 +142,16 @@ export function validateCustomerEditInput(input = {}) {
     return { isValid: false, errors, data: null };
   }
 
+  const email = parsed.data.email;
+  const emailNormalized = normalizeCustomerEmail(email);
   return {
     isValid: true,
     errors: {},
     data: {
       displayName: parsed.data.displayName,
       normalizedName: normalizeCustomerName(parsed.data.displayName),
+      email,
+      emailNormalized,
       notes: parsed.data.notes,
     },
   };
@@ -212,6 +245,8 @@ export function normalizeCustomerRecord(id, data = {}) {
     bookingCount: Math.max(0, Math.round(Number(data.bookingCount) || 0)),
     firstBookingDate: String(data.firstBookingDate || '').trim(),
     lastBookingDate: String(data.lastBookingDate || '').trim(),
+    email: String(data.email || '').trim(),
+    emailNormalized: normalizeCustomerEmail(data.emailNormalized || data.email || ''),
     notes: String(data.notes || ''),
     createdAt: data.createdAt ?? null,
     createdByUid: String(data.createdByUid || ''),
@@ -247,5 +282,29 @@ export function normalizePhoneIndexRecord(phoneHash, data = {}) {
         : 1,
     updatedAt: data.updatedAt ?? null,
     updatedByUid: String(data.updatedByUid || ''),
+  };
+}
+
+/**
+ * Normalizes a raw Firestore `customerEmailIndex/{emailNormalized}` document.
+ */
+export function normalizeEmailIndexRecord(emailId, data = {}) {
+  const emailNormalized = normalizeCustomerEmail(data.emailNormalized || emailId || '');
+  const validStatuses = new Set(Object.values(CUSTOMER_EMAIL_INDEX_STATUS));
+  const status = validStatuses.has(data.status)
+    ? data.status
+    : CUSTOMER_EMAIL_INDEX_STATUS.AMBIGUOUS;
+
+  return {
+    schemaVersion: Number(data.schemaVersion) || 1,
+    emailNormalized,
+    customerId: String(data.customerId || '').trim(),
+    status,
+    updatedAt: data.updatedAt ?? null,
+    updatedByUid: String(data.updatedByUid || ''),
+    version:
+      Number.isInteger(Number(data.version)) && Number(data.version) >= 1
+        ? Number(data.version)
+        : 1,
   };
 }
