@@ -1030,3 +1030,13 @@ These details can be provided while implementation is being prepared. Until conf
 10. Production domain.
 
 **Phase authority:** This PRD defines Phase 2 only. It does not authorize work on Phase 3. The user decides the next scope after reviewing Phase 2 results.
+
+---
+
+## 19. Post-Phase Addendum — Google Maps Reviews Social Proof Section
+
+Added after Phase 2 completion as a standalone public Landing Page enhancement (`src/components/landing/GoogleReviewsSection.jsx` and `src/lib/google-maps/places-client.js`):
+
+- **Placement:** Inserted independently in `src/pages/LandingPage.jsx` directly after `GallerySection` and before `PublicAvailabilityTeaserSection`, without modifying or replacing the existing Artist Testimonials mechanism in `TestimonialsAndContactSection.jsx`.
+- **Data Source & Boundary:** Frontend-only integration using **Google Maps JavaScript API — Places Library (New)** (`Place.fetchFields()`) targeting `37 Music Studio TANGERANG` (`VITE_GOOGLE_MAPS_PLACE_ID`, default `ChIJfYXPy6P-aS4RFCRQptFpsVg`), lazy-loaded on viewport approach via `IntersectionObserver`, holding review payloads in transient runtime memory only (zero Firestore/browser storage persistence).
+- **Fallback & Compliance:** Verifies business identity at runtime (`verifyStudioPlaceIdentity`), displays live aggregate rating/count, up to 5 attributed Google reviews in Google relevance order with direct `googleMapsURI` links, and degrades gracefully to `https://share.google/vNzc7I8OCvwMexEU9` when unconfigured, errored, or empty.
