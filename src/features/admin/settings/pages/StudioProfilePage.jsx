@@ -46,8 +46,10 @@ export function StudioProfilePage() {
     error: loadError,
   } = useStudioProfile();
 
-  const { settings: remotePublicSiteSettings, isPersisted: remotePublicIsPersisted } =
-    usePublicSiteSettings();
+  const {
+    settings: remotePublicSiteSettings,
+    isPersisted: remotePublicIsPersisted,
+  } = usePublicSiteSettings();
 
   const [savedSnapshot, setSavedSnapshot] = useState(null);
   const [publicDraftOverride, setPublicDraftOverride] = useState(null);
@@ -65,8 +67,9 @@ export function StudioProfilePage() {
   const serverIsPersisted = remoteIsPersisted || Boolean(savedSnapshot);
   const serverVersion = serverIsPersisted ? Number(serverProfile.version) || 1 : 0;
   const serverFormValues = extractStudioProfileFormValues(serverProfile);
-  const serverPublicEditableValues =
-    extractPublicSiteSettingsEditableValues(remotePublicSiteSettings);
+  const serverPublicEditableValues = extractPublicSiteSettingsEditableValues(
+    remotePublicSiteSettings,
+  );
   const effectivePublicValues = publicDraftOverride ?? serverPublicEditableValues;
 
   const {
@@ -387,7 +390,9 @@ export function StudioProfilePage() {
 
           <AdminSurface variant="card" className="p-4 sm:p-6">
             <div className="mb-4 border-b border-[#151515]/[0.08] pb-3">
-              <h3 className="text-base font-bold text-[#151515]">Pengaturan Website Publik</h3>
+              <h3 className="text-base font-bold text-[#151515]">
+                Pengaturan Website Publik
+              </h3>
               <p className="text-xs text-[#666159]">
                 Kelola jam operasional, layanan tampil, deskripsi ruangan, tautan sosial, dan SEO
                 halaman depan secara aman.

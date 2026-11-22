@@ -97,12 +97,12 @@ export function AdminCalendarPage() {
       sourceBookingRequest: null,
       initialSlot: shouldOpenNew
         ? {
-            date: initialDate,
-            studioId: paramStudioId === 'room-b' ? 'room-b' : 'room-a',
-            startMinute: 600,
-            defaultServiceId: 'rehearsal',
-            defaultOptionId: 'rehearsal-regular',
-          }
+          date: initialDate,
+          studioId: paramStudioId === 'room-b' ? 'room-b' : 'room-a',
+          startMinute: 600,
+          defaultServiceId: 'rehearsal',
+          defaultOptionId: 'rehearsal-regular',
+        }
         : null,
       editingBooking: null,
     };
@@ -125,13 +125,16 @@ export function AdminCalendarPage() {
 
     (async () => {
       try {
-        const loaded =
-          await getBookingRequestRepositoryAdapter().getBookingRequestById(requestIdParam);
+        const loaded = await getBookingRequestRepositoryAdapter().getBookingRequestById(
+          requestIdParam,
+        );
         if (isCancelled) return;
         loadedRequestKeyRef.current = loadKey;
 
         if (!loaded) {
-          setRequestLoadError(`Booking request "${requestIdParam}" tidak ditemukan di inbox.`);
+          setRequestLoadError(
+            `Booking request "${requestIdParam}" tidak ditemukan di inbox.`,
+          );
           return;
         }
         if (loaded.requestType !== BOOKING_REQUEST_TYPES.STUDIO_BOOKING) {
@@ -140,7 +143,10 @@ export function AdminCalendarPage() {
           );
           return;
         }
-        if (loaded.status === BOOKING_REQUEST_STATUS.CONFIRMED || loaded.linkedBookingId) {
+        if (
+          loaded.status === BOOKING_REQUEST_STATUS.CONFIRMED ||
+          loaded.linkedBookingId
+        ) {
           setRequestLoadError(
             `Request "${loaded.requestReference}" sudah dikonfirmasi ke booking ${loaded.linkedBookingId} dan tidak dapat dikonversi ulang.`,
           );
@@ -476,13 +482,12 @@ export function AdminCalendarPage() {
       {isOwner ? (
         <div
           data-testid="admin-public-availability-sync-banner"
-          className={`flex flex-col gap-2 rounded-2xl border px-4 py-2.5 text-xs ${
-            !isPublicMetaLoading && !publicMetaError && !isPublicScheduleReady
-              ? 'border-[#FF4B22]/35 bg-[#FFF4E8] text-[#7A271A]'
-              : isPublicScheduleReady
-                ? 'border-[#8BAD12]/35 bg-[#F4FBE0] text-[#243300]'
-                : 'border-[#151515]/10 bg-white/85 text-[#46433D]'
-          }`}
+          className={`flex flex-col gap-2 rounded-2xl border px-4 py-2.5 text-xs ${!isPublicMetaLoading && !publicMetaError && !isPublicScheduleReady
+            ? 'border-[#FF4B22]/35 bg-[#FFF4E8] text-[#7A271A]'
+            : isPublicScheduleReady
+              ? 'border-[#8BAD12]/35 bg-[#F4FBE0] text-[#243300]'
+              : 'border-[#151515]/10 bg-white/85 text-[#46433D]'
+            }`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -531,11 +536,10 @@ export function AdminCalendarPage() {
                 type="button"
                 onClick={() => handleSyncPublicAvailability({ silent: false })}
                 disabled={isSyncingPublicCalendar}
-                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  !isPublicMetaLoading && !publicMetaError && !isPublicScheduleReady
-                    ? 'border-[#151515] bg-[#151515] text-white hover:bg-[#FF4B22]'
-                    : 'border-[#151515]/15 bg-white text-[#151515] hover:bg-[#151515] hover:text-white'
-                }`}
+                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${!isPublicMetaLoading && !publicMetaError && !isPublicScheduleReady
+                  ? 'border-[#151515] bg-[#151515] text-white hover:bg-[#FF4B22]'
+                  : 'border-[#151515]/15 bg-white text-[#151515] hover:bg-[#151515] hover:text-white'
+                  }`}
               >
                 <RefreshCw
                   className={`h-3 w-3 ${isSyncingPublicCalendar ? 'animate-spin' : ''}`}

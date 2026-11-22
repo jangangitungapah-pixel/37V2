@@ -183,10 +183,7 @@ export function DashboardNeedsAttention({
                         : ' · Post-Production'}
                     </p>
                   </div>
-                  <ArrowUpRight
-                    className="h-3.5 w-3.5 shrink-0 text-[#46433D]"
-                    aria-hidden="true"
-                  />
+                  <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-[#46433D]" aria-hidden="true" />
                 </Link>
               </li>
             ))}
