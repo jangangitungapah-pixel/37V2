@@ -1,0 +1,146 @@
+37 MUSIC STUDIO — DANGER AREA & OPERATIONAL FACTORY RESET HANDOFF
+=====================================================================
+
+1. REPOSITORY & BASELINE STATUS
+-------------------------------
+- Repository: https://github.com/jangangitungapah-pixel/37V2
+- Target Branch: main
+- Audited Baseline Commit: 6a9483ddbbee7e90f35f32eedd27e27c5bfc6547
+- Commit / Push / Deploy Status:
+  * NOT COMMITTED (git commit intentionally omitted per authorization rules)
+  * NOT PUSHED / MERGED
+  * NOT DEPLOYED (`firestore.rules` and hosting bundle have NOT been deployed to Firebase)
+  * Factory Reset was NEVER run against live `studio37classic` Firestore
+  * `.env.local` was left untouched
+
+2. FILES CREATED
+----------------
+- Auth & Route Guard:
+  * src/features/auth/RequireOwner.jsx
+- Danger Area & Factory Reset Module:
+  * src/features/admin/settings/danger-area/config/factory-reset-config.js
+  * src/features/admin/settings/danger-area/utils/factory-reset-validation.js
+  * src/features/admin/settings/danger-area/utils/factory-reset-manifest.js
+  * src/features/admin/settings/danger-area/repositories/factory-reset-repository.js
+  * src/features/admin/settings/danger-area/services/factory-reset-auth-service.js
+  * src/features/admin/settings/danger-area/services/factory-reset-service.js
+  * src/features/admin/settings/danger-area/hooks/useFactoryReset.js
+  * src/features/admin/settings/danger-area/components/DangerAreaOverview.jsx
+  * src/features/admin/settings/danger-area/components/FactoryResetWarning.jsx
+  * src/features/admin/settings/danger-area/components/FactoryResetPreservedData.jsx
+  * src/features/admin/settings/danger-area/components/FactoryResetPreview.jsx
+  * src/features/admin/settings/danger-area/components/FactoryResetConfirmDialog.jsx
+  * src/features/admin/settings/danger-area/components/FactoryResetProgress.jsx
+  * src/features/admin/settings/danger-area/components/FactoryResetResult.jsx
+  * src/features/admin/settings/danger-area/pages/DangerAreaPage.jsx
+  * src/features/admin/settings/danger-area/factory-reset.test.jsx
+- Emulator Test Harness & Documentation:
+  * scripts/test-firestore-rules.mjs
+  * docs/architecture/FACTORY-RESET-AND-DANGER-AREA.md
+  * HANDOFF-DANGER-AREA-FACTORY-RESET.txt
+
+3. FILES MODIFIED
+-----------------
+- Security Rules & Emulator Config:
+  * firestore.rules
+  * firebase.json (added Firestore emulator host 127.0.0.1:8088)
+  * package.json (added `"test:rules"` script)
+  * .gitignore (added `firestore-debug.log*` and `firebase-debug.log*`)
+- Auth & Re-authentication:
+  * src/features/auth/auth-helpers.js (`mapReauthErrorToMessage`)
+  * src/features/auth/auth-service.js (`reauthenticateCurrentStaff`)
+  * src/features/auth/AuthProvider.jsx (`lastReauthenticatedAt`, `reauthenticate`)
+  * src/features/auth/auth.test.jsx
+- Admin Routing, Layout & Settings Integration:
+  * src/App.jsx (registered `/admin/settings/danger-area` wrapped in `<RequireOwner>`)
+  * src/features/admin/settings/pages/AdminSettingsPage.jsx (Owner-only Danger Area card)
+  * src/features/admin/settings/settings-center.test.jsx
+  * src/features/admin/layout/AdminLayout.jsx (persistent Maintenance Mode banner when locked)
+  * src/features/admin/calendar/repositories/calendar-booking-repository.js (`FIRESTORE_COLLECTIONS.SYSTEM_OPERATIONS`)
+  * src/features/admin/calendar/pages/AdminCalendarPage.jsx (`isFactoryResetLocked` guards on auto/manual sync)
+- Existing Rule-Contract Test Suites Aligned:
+  * src/features/admin/booking-requests/booking-requests.test.jsx
+  * src/features/admin/bookkeeping/bookkeeping.test.jsx
+  * src/features/admin/calendar/calendar.test.jsx
+  * src/features/admin/commission/commission.test.jsx
+  * src/features/admin/payment/payment.test.jsx
+
+4. ARCHITECTURE & SECURITY SUMMARY
+----------------------------------
+- Deletion Targets (18 dependency-ordered targets in `FACTORY_RESET_DELETION_MANIFEST`):
+  1. `publicBookingRequests/{requestId}/communications` (subcollection)
+  2. `publicBookingRequests/{requestId}/activities` (subcollection)
+  3. `publicBookingRequests`
+  4. `bookingEvents`
+  5. `bookingSlots`
+  6. `publicAvailability`
+  7. `paymentTransactions`
+  8. `invoices`
+  9. `commissionReviewResolutions`
+  10. `commissionPostingItems`
+  11. `commissionBatches`
+  12. `bookkeepingSettlements`
+  13. `bookkeepingEntries`
+  14. `inventoryMovements`
+  15. `inventoryItems`
+  16. `customerPhoneIndex`
+  17. `customers`
+  18. `bookings`
+- Preserved Assets & Configuration:
+  * Firebase Auth user accounts, `staffProfiles/{uid}`, `settings/studioProfile`,
+    `settings/pricing`, `bookkeepingSettings/default`, `publicSiteSettings/site`,
+    `bookingRequestMessageTemplates`, `galleryItems`, `landingPagePlacements`,
+    and Cloudinary media assets (never deleted).
+  * `publicAvailabilityMetadata/status` is marked `isReady: false` during reset and
+    reinitialized to `{ isReady: true, backfilledFromDate: <Jakarta ISO date> }`
+    only after all 18 targets verify at 0 remaining docs.
+  * `systemOperations/factoryReset` stores non-PII execution state & audit summary;
+    deletion is denied in Security Rules.
+- Security Controls & Execution Model:
+  * Defense-in-depth RBAC: Owner-only UI card, `<RequireOwner>`, `assertActiveOwnerActor`,
+    Firebase Auth current-password reauthentication (`EmailAuthProvider.credential` +
+    `reauthenticateWithCredential`), and Firestore Security Rules (`isActiveOwner()`,
+    `isFactoryResetRunning()`, `canFactoryResetDelete()`, `isFactoryResetLocked()`).
+  * Manual 3-stage confirmation (`RESET 37 MUSIC STUDIO` with paste/drop blocked on
+    `#factory-reset-confirm-phrase`, acknowledgment checkbox, single-flight button
+    `DELETE ALL OPERATIONAL DATA`).
+  * Bounded batch deletion (`FACTORY_RESET_BATCH_SIZE = 10`, ordered by `documentId()`),
+    cursor-based resumability, monotonic progress state (`stateBox.current`),
+    and safe cancel strictly blocked after first committed deletion (`totalDeletedCount > 0`
+    or `completedCollections.length > 0`).
+
+5. VERIFICATION RESULTS (RUN AFTER FINAL SOURCE EDIT)
+-----------------------------------------------------
+1. `npx prettier --check` (all created/modified code, config, script, and doc files):
+   - Result: PASSED (`All matched files use Prettier code style!`)
+2. `npm run test:rules` (real local Firestore Emulator `cloud-firestore-emulator-v1.22.0.jar`, project `demo-studio37-rules`):
+   - Result: PASSED (`ALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!`, exit code 0)
+   - Verified: IDLE delete denials across all 18 operational paths; heavy 6h 19-write Staff
+     `createBooking` transaction passing within Firestore Rules call budget; `customerPhoneIndex`
+     list RBAC (Owner 200, Staff 403, Unauth 403); `systemOperations/factoryReset` RBAC;
+     Maintenance Lock blocking operational writes; preserved collection delete denials even
+     during `running`; 10-doc batch delete + all 18 operational deletes; unsafe post-delete
+     cancel denial; pause/resume; `verificationSummary.allZero == true` completion gate;
+     and post-completion unlock.
+3. `npm run lint` (`eslint .`):
+   - Result: PASSED (0 errors, 0 warnings, exit code 0)
+4. `npm run test:run`:
+   - Result: PASSED — Test Files: 18 passed (18), Tests: 172 passed (172)
+   - Key newly added / updated suites verified:
+     * `src/features/admin/settings/danger-area/factory-reset.test.jsx`: 10 passed (10)
+     * `src/features/auth/auth.test.jsx`: 13 passed (13)
+     * `src/features/admin/settings/settings-center.test.jsx`: 11 passed (11)
+5. `npm run build` (`vite build`):
+   - Result: PASSED — 4161 modules transformed, built in 20.84s (exit code 0)
+
+6. NEXT ACTIONS REQUIRED BEFORE PRODUCTION USE
+----------------------------------------------
+1. Review `git status` and `git diff`, then commit changes when ready.
+2. Deploy updated Cloud Firestore Security Rules before allowing production use of Danger Area:
+   `firebase deploy --only firestore:rules`
+   (Without deploying `firestore.rules`, client calls to `systemOperations/factoryReset`,
+   Owner listing on `customerPhoneIndex`, and reset batch deletes will be rejected by live rules.)
+3. Build and deploy Hosting after `firestore.rules` is active when authorized:
+   `npm run build && firebase deploy --only hosting`
+4. Before running Factory Reset on live production data, export/record any required
+   financial summaries externally, as deletion is permanently irreversible once committed.

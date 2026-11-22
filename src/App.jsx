@@ -13,8 +13,10 @@ import { AdminDashboardPage } from '@/features/admin/pages/AdminDashboardPage';
 import { AdminPaymentAndBillPage } from '@/features/admin/payment/pages/AdminPaymentAndBillPage';
 import { AccountSecurityPage } from '@/features/admin/settings/pages/AccountSecurityPage';
 import { AdminSettingsPage } from '@/features/admin/settings/pages/AdminSettingsPage';
+import { DangerAreaPage } from '@/features/admin/settings/danger-area/pages/DangerAreaPage';
 import { PriceAndFeeSettingsPage } from '@/features/admin/settings/pages/PriceAndFeeSettingsPage';
 import { StudioProfilePage } from '@/features/admin/settings/pages/StudioProfilePage';
+import { RequireOwner } from '@/features/auth/RequireOwner';
 import { RequireStaff } from '@/features/auth/RequireStaff';
 import { PublicAvailabilityPage } from '@/features/public-availability/pages/PublicAvailabilityPage';
 import { LandingPage } from '@/pages/LandingPage';
@@ -51,6 +53,14 @@ export function AppRoutes() {
         <Route path="settings/studio-profile" element={<StudioProfilePage />} />
         <Route path="settings/account-security" element={<AccountSecurityPage />} />
         <Route path="settings/price-and-fee" element={<PriceAndFeeSettingsPage />} />
+        <Route
+          path="settings/danger-area"
+          element={
+            <RequireOwner>
+              <DangerAreaPage />
+            </RequireOwner>
+          }
+        />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

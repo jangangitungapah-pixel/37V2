@@ -21,6 +21,148 @@ service cloud.firestore {
         && profile.data.role == 'owner';
     }
 
+    function getFactoryResetOperation() {
+      return exists(/databases/$(database)/documents/systemOperations/factoryReset)
+        ? get(/databases/$(database)/documents/systemOperations/factoryReset)
+        : null;
+    }
+
+    function isFactoryResetLocked() {
+      let op = getFactoryResetOperation();
+      return op != null
+        && op.data.status in ['running', 'paused', 'failed'];
+    }
+
+    function isFactoryResetRunning() {
+      let op = getFactoryResetOperation();
+      return op != null
+        && op.data.status == 'running'
+        && op.data.operationId is string
+        && op.data.operationId.size() >= 8;
+    }
+
+    function canFactoryResetDelete() {
+      return isActiveOwner() && isFactoryResetRunning();
+    }
+
+    function isValidFactoryResetVerificationSummary(summary) {
+      return summary == null
+        || (
+          summary is map
+          && summary.keys().hasOnly([
+            'allZero',
+            'checkedCollectionsCount',
+            'remainingTotal'
+          ])
+          && summary.size() == 3
+          && summary.allZero is bool
+          && summary.checkedCollectionsCount is int
+          && summary.checkedCollectionsCount >= 0
+          && summary.remainingTotal is int
+          && summary.remainingTotal >= 0
+        );
+    }
+
+    function isValidFactoryResetOperationShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'operationId',
+          'status',
+          'initiatedByUid',
+          'initiatedAt',
+          'currentCollection',
+          'lastProcessedDocumentId',
+          'completedCollections',
+          'deletedDocumentCounts',
+          'totalDeletedCount',
+          'startedAt',
+          'updatedAt',
+          'completedAt',
+          'lastErrorCode',
+          'lastErrorMessage',
+          'verificationSummary'
+        ])
+        && data.size() == 16
+        && data.schemaVersion == 1
+        && data.operationId is string
+        && data.operationId.size() >= 8
+        && data.operationId.size() <= 80
+        && data.status in ['running', 'paused', 'failed', 'completed', 'cancelled']
+        && data.initiatedByUid is string
+        && data.initiatedByUid.size() >= 1
+        && data.initiatedAt is timestamp
+        && data.currentCollection is string
+        && data.currentCollection.size() <= 80
+        && data.lastProcessedDocumentId is string
+        && data.lastProcessedDocumentId.size() <= 160
+        && data.completedCollections is list
+        && data.completedCollections.size() <= 25
+        && data.deletedDocumentCounts is map
+        && data.deletedDocumentCounts.size() <= 25
+        && data.totalDeletedCount is int
+        && data.totalDeletedCount >= 0
+        && data.startedAt is timestamp
+        && data.updatedAt is timestamp
+        && (data.completedAt == null || data.completedAt is timestamp)
+        && data.lastErrorCode is string
+        && data.lastErrorCode.size() <= 80
+        && data.lastErrorMessage is string
+        && data.lastErrorMessage.size() <= 400
+        && isValidFactoryResetVerificationSummary(data.verificationSummary);
+    }
+
+    function isValidFactoryResetOperationCreate(data) {
+      return isValidFactoryResetOperationShape(data)
+        && data.status == 'running'
+        && data.initiatedByUid == request.auth.uid
+        && data.totalDeletedCount == 0
+        && data.completedCollections.size() == 0
+        && data.completedAt == null
+        && data.verificationSummary == null;
+    }
+
+    function isValidFactoryResetOperationUpdate(nextData, prevData) {
+      return isValidFactoryResetOperationShape(nextData)
+        && (
+          (
+            prevData.status in ['completed', 'cancelled']
+            && nextData.status == 'running'
+            && nextData.operationId != prevData.operationId
+            && nextData.initiatedByUid == request.auth.uid
+            && nextData.totalDeletedCount == 0
+            && nextData.completedCollections.size() == 0
+            && nextData.completedAt == null
+            && nextData.verificationSummary == null
+          ) || (
+            prevData.status in ['running', 'paused', 'failed']
+            && nextData.operationId == prevData.operationId
+            && nextData.initiatedByUid == prevData.initiatedByUid
+            && nextData.initiatedAt == prevData.initiatedAt
+            && nextData.startedAt == prevData.startedAt
+            && nextData.totalDeletedCount >= prevData.totalDeletedCount
+            && (
+              nextData.status != 'cancelled'
+              || (
+                prevData.totalDeletedCount == 0
+                && nextData.totalDeletedCount == 0
+                && prevData.completedCollections.size() == 0
+                && nextData.completedCollections.size() == 0
+              )
+            )
+            && (
+              nextData.status != 'completed'
+              || (
+                prevData.status == 'running'
+                && nextData.completedAt is timestamp
+                && nextData.verificationSummary is map
+                && nextData.verificationSummary.allZero == true
+                && nextData.verificationSummary.remainingTotal == 0
+              )
+            )
+          )
+        );
+    }
+
     function isValidBookingKeys(data) {
       return data.keys().hasOnly([
         'customerId',
@@ -1530,6 +1672,21 @@ service cloud.firestore {
                  && request.auth.uid == uid;
     }
 
+    match /systemOperations/{operationId} {
+      allow get: if isActiveOwner() && operationId == 'factoryReset';
+      allow list: if false;
+
+      allow create: if isActiveOwner()
+        && operationId == 'factoryReset'
+        && isValidFactoryResetOperationCreate(request.resource.data);
+
+      allow update: if isActiveOwner()
+        && operationId == 'factoryReset'
+        && isValidFactoryResetOperationUpdate(request.resource.data, resource.data);
+
+      allow delete: if false;
+    }
+
     match /settings/pricing {
       allow get: if isActiveStaff();
       allow list: if false;
@@ -1564,12 +1721,14 @@ service cloud.firestore {
       allow read: if isActiveStaff();
 
       allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidCustomerShape(request.resource.data, customerId)
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.status == 'active'
         && request.resource.data.version == 1;
 
       allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidCustomerShape(request.resource.data, customerId)
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.createdByUid == resource.data.createdByUid
@@ -1578,28 +1737,31 @@ service cloud.firestore {
             || (request.resource.data.status == 'merged'
                 && request.resource.data.mergedIntoCustomerId == resource.data.mergedIntoCustomerId));
 
-      allow delete: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /customerPhoneIndex/{phoneHash} {
       allow get: if isActiveStaff();
-      allow list: if false;
+      allow list: if isActiveOwner();
 
       allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidPhoneIndex(request.resource.data)
         && request.resource.data.version == 1;
 
       allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidPhoneIndex(request.resource.data)
         && request.resource.data.version == resource.data.version + 1;
 
-      allow delete: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /bookings/{bookingId} {
       allow read: if isActiveStaff();
 
       allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidBookingKeys(request.resource.data)
         && isValidBookingShape(request.resource.data)
         && hasValidBookingCustomerLinkAfter(request.resource.data)
@@ -1609,6 +1771,7 @@ service cloud.firestore {
         && request.resource.data.version == 1;
 
       allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
         && (
           isLegacyBookingCustomerLinkUpdate(request.resource.data, resource.data)
           || (
@@ -1625,13 +1788,14 @@ service cloud.firestore {
           )
         );
 
-      allow delete: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /bookingSlots/{slotId} {
       allow read: if isActiveStaff();
 
       allow create, update: if isActiveStaff()
+        && !isFactoryResetLocked()
         && request.resource.data.keys().hasOnly([
           'bookingId',
           'date',
@@ -1661,13 +1825,15 @@ service cloud.firestore {
           /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
         ).data.sessionStatus != 'cancelled';
 
-      allow delete: if isActiveStaff();
+      allow delete: if canFactoryResetDelete()
+        || (!isFactoryResetLocked() && isActiveStaff());
     }
 
     match /bookingEvents/{eventId} {
       allow read: if isActiveStaff();
 
       allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
         && request.resource.data.keys().hasOnly([
           'bookingId',
           'eventType',
@@ -1686,13 +1852,15 @@ service cloud.firestore {
           /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
         );
 
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /invoices/{invoiceId} {
       allow read: if isActiveStaff();
 
       allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidInvoiceBase(request.resource.data, invoiceId)
         && request.resource.data.invoiceStatus in ['draft', 'issued']
         && request.resource.data.voidReason == ''
@@ -1702,6 +1870,7 @@ service cloud.firestore {
         && isValidInitialInvoicePaymentLinkAfter(request.resource.data, invoiceId);
 
       allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidInvoiceBase(request.resource.data, invoiceId)
         && isInvoiceImmutableFieldsUnchanged(request.resource.data, resource.data)
         && request.resource.data.version == resource.data.version + 1
@@ -1711,40 +1880,47 @@ service cloud.firestore {
           || isValidInvoiceDueDateUpdate(request.resource.data, resource.data)
         );
 
-      allow delete: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /paymentTransactions/{transactionId} {
       allow read: if isActiveStaff();
 
       allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidPaymentTransactionCreate(request.resource.data, transactionId);
 
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /commissionBatches/{batchId} {
       allow read: if isActiveOwner();
 
       allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
         && isValidCommissionBatchCreate(request.resource.data, batchId);
 
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /commissionPostingItems/{itemId} {
       allow read: if isActiveOwner();
 
       allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
         && isValidCommissionPostingItemCreate(request.resource.data, itemId);
 
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /bookkeepingEntries/{entryId} {
       allow read: if isActiveOwner();
 
       allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
         && (
           isValidCommissionBookkeepingEntryCreate(request.resource.data, entryId)
           || isValidManualIncomeBookkeepingEntryCreate(request.resource.data, entryId)
@@ -1753,22 +1929,25 @@ service cloud.firestore {
         );
 
       allow update: if isActiveOwner()
+        && !isFactoryResetLocked()
         && isBookkeepingImmutableFieldsUnchanged(request.resource.data, resource.data)
         && (
           isValidBookkeepingSettlementAggregateUpdate(request.resource.data, resource.data, entryId)
           || isValidManualBookkeepingReversalMarkUpdate(request.resource.data, resource.data, entryId)
         );
 
-      allow delete: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /bookkeepingSettlements/{settlementId} {
       allow read: if isActiveOwner();
 
       allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
         && isValidBookkeepingSettlementCreate(request.resource.data, settlementId);
 
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /bookkeepingSettings/{docId} {
@@ -1785,15 +1964,18 @@ service cloud.firestore {
       allow read: if isActiveOwner();
 
       allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
         && isValidCommissionReviewResolutionCreate(request.resource.data, resolutionId);
 
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /inventoryItems/{itemId} {
       allow read: if isActiveStaff();
 
       allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidInventoryItemShape(request.resource.data)
         && request.resource.data.isActive == true
         && request.resource.data.createdByUid == request.auth.uid
@@ -1801,6 +1983,7 @@ service cloud.firestore {
         && isValidInventoryInitialLink(request.resource.data, itemId);
 
       allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidInventoryItemShape(request.resource.data)
         && request.resource.data.itemType == resource.data.itemType
         && request.resource.data.createdAt == resource.data.createdAt
@@ -1812,16 +1995,18 @@ service cloud.firestore {
           || isValidInventoryMovementLinkedUpdate(request.resource.data, resource.data, itemId)
         );
 
-      allow delete: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     match /inventoryMovements/{movementId} {
       allow read: if isActiveStaff();
 
       allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidInventoryMovementCreate(request.resource.data, movementId);
 
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
     }
 
     function isValidGalleryItemShape(data) {
@@ -2162,11 +2347,12 @@ service cloud.firestore {
       allow read: if true;
 
       allow create, update: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidPublicAvailabilityProjectionShape(request.resource.data)
         && isPublicAvailabilityMatchedToCanonicalBookingAfter(request.resource.data, bookingId);
 
-      allow delete: if isActiveStaff()
-        && isPublicAvailabilityDeleteAllowedAfter(bookingId);
+      allow delete: if canFactoryResetDelete()
+        || (!isFactoryResetLocked() && isActiveStaff() && isPublicAvailabilityDeleteAllowedAfter(bookingId));
     }
 
     match /publicAvailabilityMetadata/{docId} {
@@ -2525,25 +2711,31 @@ service cloud.firestore {
     match /publicBookingRequests/{requestId} {
       allow read: if isActiveStaff();
 
-      allow create: if isValidPublicBookingRequestCreate(request.resource.data, requestId);
+      allow create: if !isFactoryResetLocked()
+        && isValidPublicBookingRequestCreate(request.resource.data, requestId);
 
       allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
         && isValidBookingRequestStaffUpdate(request.resource.data, resource.data);
 
-      allow delete: if false;
+      allow delete: if canFactoryResetDelete();
 
       match /communications/{eventId} {
         allow read: if isActiveStaff();
         allow create: if isActiveStaff()
+          && !isFactoryResetLocked()
           && isValidBookingRequestCommunicationCreate(request.resource.data);
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if canFactoryResetDelete();
       }
 
       match /activities/{eventId} {
         allow read: if isActiveStaff();
         allow create: if isActiveStaff()
+          && !isFactoryResetLocked()
           && isValidBookingRequestActivityCreate(request.resource.data);
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if canFactoryResetDelete();
       }
     }
 

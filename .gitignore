@@ -14,6 +14,8 @@ dist-ssr/
 # Logs and local verification output
 .logs/
 logs/
+firestore-debug.log*
+firebase-debug.log*
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*

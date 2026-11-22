@@ -149,6 +149,25 @@ describe('Settings Center Overview (/admin/settings)', () => {
     expect(screen.getByText('Asia/Jakarta (WIB)')).toBeTruthy();
     expect(screen.getByText('Indonesian locale, 24-hour format')).toBeTruthy();
     expect(screen.getByText('Firebase Authentication + Cloud Firestore')).toBeTruthy();
+
+    // Owner-only Danger Area card is visible for Owner
+    const dangerCard = screen.getByTestId('settings-danger-area-card');
+    expect(within(dangerCard).getByText('OWNER ONLY')).toBeTruthy();
+    expect(
+      within(dangerCard)
+        .getByRole('link', { name: /open danger area/i })
+        .getAttribute('href'),
+    ).toBe('/admin/settings/danger-area');
+  });
+
+  it('hides Danger Area card from non-Owner Staff on /admin/settings', () => {
+    renderWithAuth(<AdminSettingsPage />, {
+      route: '/admin/settings',
+      authValue: buildAuthValue({ uid: 'staff-1', role: 'staff', email: 'staff@37music.id' }),
+    });
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Settings' })).toBeTruthy();
+    expect(screen.queryByTestId('settings-danger-area-card')).toBeNull();
   });
 
   it('navigates between /admin/settings and sub-pages inside AppRoutes while keeping 10 top-level sidebar links', async () => {

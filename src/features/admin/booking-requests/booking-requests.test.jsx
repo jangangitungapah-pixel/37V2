@@ -555,10 +555,11 @@ describe('Phase H — Public Booking Request Workflow, Calendar Conversion & Wha
       );
       expect(rulesSource).toContain('allow delete: if false;');
 
-      // Immutable subcollections
+      // Immutable subcollections outside Factory Reset
       expect(rulesSource).toContain('match /communications/{eventId}');
       expect(rulesSource).toContain('match /activities/{eventId}');
-      expect(rulesSource).toContain('allow update, delete: if false;');
+      expect(rulesSource).toContain('allow update: if false;');
+      expect(rulesSource).toContain('allow delete: if canFactoryResetDelete();');
 
       // WhatsApp Templates
       expect(rulesSource).toContain('match /bookingRequestMessageTemplates/{templateId}');

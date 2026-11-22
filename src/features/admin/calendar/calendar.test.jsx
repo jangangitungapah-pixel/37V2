@@ -974,9 +974,10 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       expect(rulesContent).toContain('existsAfter(');
       expect(rulesContent).toContain('getAfter(');
 
-      // 5. BookingEvents rules: append-only (update, delete denied)
+      // 5. BookingEvents rules: append-only (update denied, delete scoped to Factory Reset)
       expect(rulesContent).toContain('match /bookingEvents/{eventId}');
-      expect(rulesContent).toContain('allow update, delete: if false;');
+      expect(rulesContent).toContain('allow update: if false;');
+      expect(rulesContent).toContain('allow delete: if canFactoryResetDelete();');
     });
   });
 });

@@ -7,6 +7,13 @@ const mockSignInWithEmailAndPassword = vi.fn();
 const mockSendPasswordResetEmail = vi.fn();
 const mockSignOut = vi.fn();
 const mockOnAuthStateChanged = vi.fn();
+const mockReauthenticateWithCredential = vi.fn();
+const mockEmailCredential = vi.fn((email, password) => ({
+  providerId: 'password',
+  email,
+  password,
+}));
+const mockAuthInstance = { app: { name: '[DEFAULT]' }, currentUser: null };
 const mockGetDoc = vi.fn();
 const mockDoc = vi.fn((_db, collectionName, docId) => ({
   path: `${collectionName}/${docId}`,
@@ -15,7 +22,11 @@ const mockDoc = vi.fn((_db, collectionName, docId) => ({
 const mockIsFirebaseConfigured = vi.fn(() => true);
 
 vi.mock('firebase/auth', () => ({
-  getAuth: vi.fn(() => ({ app: { name: '[DEFAULT]' } })),
+  getAuth: vi.fn(() => mockAuthInstance),
+  EmailAuthProvider: {
+    credential: (...args) => mockEmailCredential(...args),
+  },
+  reauthenticateWithCredential: (...args) => mockReauthenticateWithCredential(...args),
   signInWithEmailAndPassword: (...args) => mockSignInWithEmailAndPassword(...args),
   sendPasswordResetEmail: (...args) => mockSendPasswordResetEmail(...args),
   signOut: (...args) => mockSignOut(...args),
@@ -35,6 +46,7 @@ vi.mock('@/lib/firebase/client', () => ({
 
 import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
+import { useAuth } from './AuthContext';
 
 function renderWithRouter(initialEntries = ['/']) {
   return render(
@@ -58,13 +70,16 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
     mockIsFirebaseConfigured.mockReturnValue(true);
+    mockAuthInstance.currentUser = null;
     mockSignInWithEmailAndPassword.mockReset();
     mockSendPasswordResetEmail.mockReset();
+    mockReauthenticateWithCredential.mockReset();
+    mockEmailCredential.mockClear();
     mockSignOut.mockReset().mockResolvedValue(undefined);
     mockGetDoc.mockReset();
     mockOnAuthStateChanged.mockReset().mockImplementation((_auth, callback) => {
       queueMicrotask(() => callback(null));
-      return () => { };
+      return () => {};
     });
   });
 
@@ -79,9 +94,11 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
     // 1. Header has primary Book a session CTA and no nonfunctional Client Login preview button
     expect(screen.queryByRole('button', { name: /client login/i })).toBeNull();
     const headerNav = screen.getByRole('navigation', { name: /primary section navigation/i });
-    expect(within(headerNav).getByRole('link', { name: /availability/i }).getAttribute('href')).toBe(
-      '/availability',
-    );
+    expect(
+      within(headerNav)
+        .getByRole('link', { name: /availability/i })
+        .getAttribute('href'),
+    ).toBe('/availability');
 
     // 2. Footer Staff / Owner Login navigates cleanly to /staff/login
     const footerStaffLink = screen.getByRole('link', { name: /staff \/ owner login/i });
@@ -299,7 +316,7 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
     let resolveAuthCallback;
     mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
       resolveAuthCallback = callback;
-      return () => { };
+      return () => {};
     });
 
     renderWithRouter(['/admin']);
@@ -326,7 +343,7 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
 
     mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
       queueMicrotask(() => callback(persistedUser));
-      return () => { };
+      return () => {};
     });
     mockGetDoc.mockResolvedValue(
       createSnapshot('owner-uid-999', {
@@ -398,6 +415,88 @@ describe('Phase 3 — Staff & Owner Authentication, Authorization & Admin Portal
     await user.click(screen.getByRole('button', { name: /send reset instructions/i }));
     expect((await screen.findByRole('alert')).textContent).toMatch(
       /too many attempts; try again later\./i,
+    );
+  });
+
+  it('reauthenticates current active Owner password, sets lastReauthenticatedAt, and rejects wrong password cleanly', async () => {
+    const ownerUser = {
+      uid: 'owner-uid-reauth',
+      email: 'owner@37musicstudio.com',
+      displayName: 'Studio Owner',
+    };
+    mockAuthInstance.currentUser = ownerUser;
+    mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
+      queueMicrotask(() => callback(ownerUser));
+      return () => {};
+    });
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      id: 'owner-uid-reauth',
+      data: () => ({
+        displayName: 'Studio Owner',
+        email: 'owner@37musicstudio.com',
+        role: 'owner',
+        active: true,
+      }),
+    });
+
+    const wrongCredErr = new Error('Wrong password');
+    wrongCredErr.code = 'auth/wrong-password';
+    mockReauthenticateWithCredential
+      .mockRejectedValueOnce(wrongCredErr)
+      .mockResolvedValueOnce({ user: ownerUser });
+
+    function ReauthHarness() {
+      const auth = useAuth();
+      return (
+        <div>
+          <span data-testid="reauth-ts">{auth.lastReauthenticatedAt ?? 'none'}</span>
+          <button
+            type="button"
+            onClick={() => {
+              auth.reauthenticate('WrongPass!').catch(() => {});
+            }}
+          >
+            Reauth Wrong
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void auth.reauthenticate('ValidOwnerPass!37');
+            }}
+          >
+            Reauth Valid
+          </button>
+        </div>
+      );
+    }
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AppProviders>
+          <ReauthHarness />
+        </AppProviders>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('reauth-ts').textContent).toBe('none');
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Reauth Wrong' }));
+    await waitFor(() => {
+      expect(mockReauthenticateWithCredential).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId('reauth-ts').textContent).toBe('none');
+
+    await user.click(screen.getByRole('button', { name: 'Reauth Valid' }));
+    await waitFor(() => {
+      expect(Number(screen.getByTestId('reauth-ts').textContent)).toBeGreaterThan(0);
+    });
+    expect(mockEmailCredential).toHaveBeenLastCalledWith(
+      'owner@37musicstudio.com',
+      'ValidOwnerPass!37',
     );
   });
 });

@@ -16,7 +16,8 @@
     "format:check": "prettier --check .",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-studio37-rules \"node scripts/test-firestore-rules.mjs\""
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

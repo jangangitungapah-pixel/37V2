@@ -69,3 +69,38 @@ export function mapPasswordResetErrorToMessage(error) {
       return 'Unable to send password reset instructions right now. Please try again.';
   }
 }
+
+export function mapReauthErrorToMessage(error) {
+  const code = error?.code || '';
+
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-mismatch':
+      return 'Password yang Anda masukkan tidak sesuai.';
+    case 'auth/missing-password':
+      return 'Masukkan password akun Anda saat ini untuk melanjutkan.';
+    case 'auth/no-current-user':
+    case 'auth/user-token-expired':
+    case 'auth/requires-recent-login':
+      return 'Sesi autentikasi telah kedaluwarsa. Silakan masuk ulang sebagai Owner.';
+    case 'auth/too-many-requests':
+      return 'Terlalu banyak percobaan autentikasi ulang. Tunggu beberapa saat lalu coba lagi.';
+    case 'auth/network-request-failed':
+      return 'Koneksi jaringan bermasalah. Periksa koneksi Anda lalu coba lagi.';
+    case 'auth/user-disabled':
+      return 'Akun dinonaktifkan; hubungi pemilik studio.';
+    case 'staff/account-inactive':
+      return 'Profil akun Anda berstatus nonaktif.';
+    case 'staff/profile-missing':
+    case 'staff/invalid-role':
+    case 'owner/required':
+      return 'Hanya Owner Studio aktif yang dapat melakukan autentikasi ulang tindakan ini.';
+    case 'firebase/not-configured':
+    case 'auth/configuration-not-found':
+    case 'auth/invalid-api-key':
+      return 'Konfigurasi Firebase belum lengkap.';
+    default:
+      return 'Gagal memverifikasi password saat ini. Silakan periksa kembali dan coba lagi.';
+  }
+}

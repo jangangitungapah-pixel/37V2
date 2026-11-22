@@ -1,11 +1,32 @@
-import { Bell, Building2, Clock, Globe, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { useContext } from 'react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  Bell,
+  Building2,
+  Clock,
+  Globe,
+  ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
+} from 'lucide-react';
+import { Link } from 'react-router';
 
 import { AdminPageHeader, AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
+import { AuthContext } from '@/features/auth/AuthContext';
 
 import { SettingsBreadcrumb } from '../components/SettingsBreadcrumb';
 import { SettingsModuleCard } from '../components/SettingsModuleCard';
 
 export function AdminSettingsPage() {
+  const auth = useContext(AuthContext);
+  const isActiveOwner = Boolean(
+    auth?.profile &&
+    auth.profile.active === true &&
+    auth.role === 'owner' &&
+    auth.profile.role === 'owner',
+  );
+
   return (
     <div data-calendar-scoped="true" className="space-y-4 sm:space-y-7">
       <AdminPageHeader
@@ -16,7 +37,7 @@ export function AdminSettingsPage() {
         description="Pusat konfigurasi identitas studio, tarif layanan, kebijakan operasional, serta keamanan akun admin 37 Music Studio."
         meta={
           <AdminStatusBadge tone="ivory" size="sm">
-            3 Modul Aktif
+            {isActiveOwner ? '4 Modul Aktif' : '3 Modul Aktif'}
           </AdminStatusBadge>
         }
       >
@@ -176,6 +197,63 @@ export function AdminSettingsPage() {
           </div>
         </dl>
       </AdminSurface>
+
+      {/* Group C — Owner-Only Danger Area */}
+      {isActiveOwner ? (
+        <section aria-labelledby="settings-group-danger-heading" className="space-y-3 sm:space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2
+                id="settings-group-danger-heading"
+                className="text-base font-bold tracking-tight text-[#151515] sm:text-lg"
+              >
+                Danger Zone
+              </h2>
+              <p className="text-xs text-[#666159]">
+                Pengelolaan penghapusan permanen data operasional khusus Studio Owner.
+              </p>
+            </div>
+            <AdminStatusBadge tone="danger" size="sm">
+              OWNER ONLY
+            </AdminStatusBadge>
+          </div>
+
+          <AdminSurface
+            as="article"
+            variant="card"
+            data-testid="settings-danger-area-card"
+            className="flex flex-col justify-between gap-4 border-red-200 bg-white p-4 sm:flex-row sm:items-center sm:p-6"
+          >
+            <div className="flex items-start gap-3.5">
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700">
+                <ShieldAlert className="h-5 w-5 stroke-[1.9]" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-bold tracking-tight text-[#151515] sm:text-xl">
+                    Danger Area
+                  </h3>
+                  <AdminStatusBadge tone="danger" icon={AlertTriangle} size="sm">
+                    OWNER ONLY
+                  </AdminStatusBadge>
+                </div>
+                <p className="text-xs leading-relaxed text-[#666159] sm:text-sm">
+                  Zona tindakan destruktif untuk pengelolaan dan penghapusan permanen data
+                  operasional studio.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to="/admin/settings/danger-area"
+              className="inline-flex min-h-10.5 shrink-0 items-center justify-between gap-3 rounded-[10px] border border-red-300 bg-red-50 px-4 py-2 text-xs font-semibold text-red-800 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white"
+            >
+              <span>Open Danger Area</span>
+              <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+            </Link>
+          </AdminSurface>
+        </section>
+      ) : null}
     </div>
   );
 }

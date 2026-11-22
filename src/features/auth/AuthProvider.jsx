@@ -5,8 +5,10 @@ import {
   createAuthError,
   mapAuthErrorToMessage,
   mapPasswordResetErrorToMessage,
+  mapReauthErrorToMessage,
 } from './auth-helpers';
 import {
+  reauthenticateCurrentStaff,
   requestStaffPasswordReset,
   signInStaffWithEmailPassword,
   signOutStaff,
@@ -22,6 +24,7 @@ export function AuthProvider({ children }) {
     role: null,
     authError: null,
   });
+  const [lastReauthenticatedAt, setLastReauthenticatedAt] = useState(null);
 
   const verifiedCacheRef = useRef({ uid: null, profile: null });
   const loginInFlightRef = useRef(false);
@@ -39,6 +42,7 @@ export function AuthProvider({ children }) {
 
       if (!firebaseUser) {
         verifiedCacheRef.current = { uid: null, profile: null };
+        setLastReauthenticatedAt(null);
         setAuthState((prev) => ({
           status: 'unauthenticated',
           user: null,
@@ -160,6 +164,7 @@ export function AuthProvider({ children }) {
     ++verificationCounterRef.current;
     verifiedCacheRef.current = { uid: null, profile: null };
     loginInFlightRef.current = false;
+    setLastReauthenticatedAt(null);
 
     await signOutStaff();
 
@@ -170,6 +175,43 @@ export function AuthProvider({ children }) {
       role: null,
       authError: null,
     });
+  }, []);
+
+  const reauthenticate = useCallback(async (password) => {
+    try {
+      const result = await reauthenticateCurrentStaff(password);
+      verifiedCacheRef.current = {
+        uid: result.user.uid,
+        profile: result.profile,
+      };
+      setLastReauthenticatedAt(result.reauthenticatedAt);
+      setAuthState({
+        status: 'authenticated',
+        user: result.user,
+        profile: result.profile,
+        role: result.profile.role,
+        authError: null,
+      });
+      return result;
+    } catch (error) {
+      if (
+        error?.code === 'staff/account-inactive' ||
+        error?.code === 'staff/profile-missing' ||
+        error?.code === 'staff/invalid-role'
+      ) {
+        verifiedCacheRef.current = { uid: null, profile: null };
+        setLastReauthenticatedAt(null);
+        setAuthState({
+          status: 'unauthenticated',
+          user: null,
+          profile: null,
+          role: null,
+          authError: mapAuthErrorToMessage(error),
+        });
+      }
+      const message = mapReauthErrorToMessage(error);
+      throw createAuthError(error?.code || 'auth/reauth-failed', message);
+    }
   }, []);
 
   const resetPassword = useCallback(async (email) => {
@@ -192,12 +234,22 @@ export function AuthProvider({ children }) {
       status: authState.status,
       role: authState.role,
       authError: authState.authError,
+      lastReauthenticatedAt,
       login,
       logout,
+      reauthenticate,
       resetPassword,
       clearAuthError,
     }),
-    [authState, clearAuthError, login, logout, resetPassword],
+    [
+      authState,
+      clearAuthError,
+      lastReauthenticatedAt,
+      login,
+      logout,
+      reauthenticate,
+      resetPassword,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

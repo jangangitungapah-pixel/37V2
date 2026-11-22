@@ -740,7 +740,8 @@ describe('Phase 9 — Commission & Fee Management (Review, Approval & Bookkeepin
       expect(rulesContent).toContain(
         'function isValidCommissionReviewResolutionCreate(data, resolutionId)',
       );
-      expect(rulesContent).toContain('allow update, delete: if false;');
+      expect(rulesContent).toContain('allow update: if false;');
+      expect(rulesContent).toContain('allow delete: if canFactoryResetDelete();');
     });
   });
 

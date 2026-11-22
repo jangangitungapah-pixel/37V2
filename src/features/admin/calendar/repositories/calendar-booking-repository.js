@@ -34,6 +34,7 @@ export const FIRESTORE_COLLECTIONS = {
   BOOKKEEPING_SETTINGS: 'bookkeepingSettings',
   INVENTORY_ITEMS: 'inventoryItems',
   INVENTORY_MOVEMENTS: 'inventoryMovements',
+  SYSTEM_OPERATIONS: 'systemOperations',
 };
 
 /**

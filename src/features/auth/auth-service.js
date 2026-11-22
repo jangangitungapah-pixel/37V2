@@ -74,6 +74,52 @@ export async function requestStaffPasswordReset(email) {
 }
 
 /**
+ * Re-authenticates the currently signed-in Firebase Authentication user with their current
+ * Email/Password credential and re-verifies `staffProfiles/{uid}`.
+ *
+ * Never persists, logs, or trims the password.
+ */
+export async function reauthenticateCurrentStaff(password) {
+  if (!isFirebaseConfigured()) {
+    throw createAuthError('firebase/not-configured', 'Firebase configuration is incomplete.');
+  }
+
+  const rawPassword = typeof password === 'string' ? password : '';
+  if (!rawPassword) {
+    throw createAuthError(
+      'auth/missing-password',
+      'Masukkan password akun Anda saat ini untuk melanjutkan.',
+    );
+  }
+
+  const { auth, EmailAuthProvider, reauthenticateWithCredential, signOut } =
+    await loadFirebaseAuthDeps();
+  const currentUser = auth?.currentUser;
+
+  if (!currentUser || !currentUser.uid || !currentUser.email) {
+    throw createAuthError(
+      'auth/no-current-user',
+      'Tidak ada sesi Firebase Auth aktif dengan alamat email yang valid.',
+    );
+  }
+
+  const credential = EmailAuthProvider.credential(currentUser.email, rawPassword);
+  await reauthenticateWithCredential(currentUser, credential);
+
+  try {
+    const profile = await fetchAndValidateStaffProfile(currentUser);
+    return {
+      user: currentUser,
+      profile,
+      reauthenticatedAt: Date.now(),
+    };
+  } catch (profileError) {
+    await signOut(auth).catch(() => {});
+    throw profileError;
+  }
+}
+
+/**
  * Signs out the active Firebase Authentication session.
  */
 export async function signOutStaff() {

@@ -1144,8 +1144,9 @@ describe('Bookkeeping & Financial Control Center (/admin/pembukuan)', () => {
         'function isValidBookkeepingSettlementCreate(data, settlementId)',
       );
 
-      // Settlements append-only & entries cannot be permanently deleted
-      expect(rulesContent).toContain('allow update, delete: if false;');
+      // Settlements append-only & entries cannot be permanently deleted outside Factory Reset
+      expect(rulesContent).toContain('allow update: if false;');
+      expect(rulesContent).toContain('allow delete: if canFactoryResetDelete();');
       expect(rulesContent).toContain('allow delete: if false;');
     });
   });
