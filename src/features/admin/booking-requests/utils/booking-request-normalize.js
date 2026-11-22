@@ -215,6 +215,17 @@ export function normalizeBookingRequestRecord(id, raw = {}) {
     source: Object.values(BOOKING_REQUEST_SOURCES).includes(raw.source)
       ? raw.source
       : BOOKING_REQUEST_SOURCES.PUBLIC_LANDING_PAGE,
+    clientUid: raw.clientUid ? String(raw.clientUid).trim() : '',
+    customerId: raw.customerId ? String(raw.customerId).trim() : '',
+    serviceOptionId: raw.serviceOptionId ? String(raw.serviceOptionId).trim() : '',
+    serviceOptionName: raw.serviceOptionName ? String(raw.serviceOptionName).trim() : '',
+    pricingVersion:
+      raw.pricingVersion !== null &&
+      raw.pricingVersion !== undefined &&
+      raw.pricingVersion !== '' &&
+      Number.isInteger(Number(raw.pricingVersion))
+        ? Number(raw.pricingVersion)
+        : null,
     assignedStaffUid: String(raw.assignedStaffUid || '').trim(),
     assignedStaffName: String(raw.assignedStaffName || '').trim(),
     lastCommunicationAt: raw.lastCommunicationAt ?? null,
@@ -275,17 +286,32 @@ export function normalizeActivityEvent(id, raw = {}) {
  * against active internal Studio Pricing Settings (`deliveryMode === 'studio'`).
  * Never assumes Landing Page service IDs exist unchanged in internal pricing settings.
  */
-export function mapPublicServiceToInternalPricing(publicServiceId, serviceTypes = []) {
-  const requestType = resolveRequestTypeFromPublicService(publicServiceId);
-  if (requestType !== BOOKING_REQUEST_TYPES.STUDIO_BOOKING) {
+export function mapPublicServiceToInternalPricing(
+  publicServiceId,
+  serviceTypes = [],
+  requestedOptionId = '',
+) {
+  const cleanPublicId = String(publicServiceId || '')
+    .trim()
+    .toLowerCase();
+  const cleanRequestedOptionId = String(requestedOptionId || '').trim();
+
+  const matchingWfaService = (serviceTypes || []).find(
+    (svc) =>
+      svc &&
+      svc.deliveryMode === DELIVERY_MODES.WFA &&
+      String(svc.id || '').toLowerCase() === cleanPublicId,
+  );
+
+  const requestType = resolveRequestTypeFromPublicService(cleanPublicId);
+  if (requestType !== BOOKING_REQUEST_TYPES.STUDIO_BOOKING || matchingWfaService) {
     return {
       isEligible: false,
       isMapped: false,
       requiresManualSelection: false,
       serviceTypeId: '',
       serviceOptionId: '',
-      reason:
-        'Layanan Mix & Master bersifat Post-Production (WFA) dan tidak membuat booking ruangan studio.',
+      reason: 'Layanan Mix & Master / Post-Production (WFA) tidak membuat booking ruangan studio.',
     };
   }
 
@@ -309,9 +335,48 @@ export function mapPublicServiceToInternalPricing(publicServiceId, serviceTypes 
     };
   }
 
-  const cleanPublicId = String(publicServiceId || '')
-    .trim()
-    .toLowerCase();
+  if (cleanRequestedOptionId) {
+    const preferredService =
+      activeStudioServices.find((svc) => String(svc.id || '').toLowerCase() === cleanPublicId) ||
+      null;
+    const optionOnPreferred = preferredService?.bookableOptions?.find(
+      (opt) => opt.id === cleanRequestedOptionId,
+    );
+    if (preferredService && optionOnPreferred) {
+      return {
+        isEligible: true,
+        isMapped: true,
+        requiresManualSelection: false,
+        serviceTypeId: preferredService.id,
+        serviceOptionId: optionOnPreferred.id,
+        reason: '',
+      };
+    }
+
+    for (const svc of activeStudioServices) {
+      const matchedOpt = svc.bookableOptions.find((opt) => opt.id === cleanRequestedOptionId);
+      if (matchedOpt) {
+        return {
+          isEligible: true,
+          isMapped: true,
+          requiresManualSelection: false,
+          serviceTypeId: svc.id,
+          serviceOptionId: matchedOpt.id,
+          reason: '',
+        };
+      }
+    }
+
+    return {
+      isEligible: true,
+      isMapped: false,
+      requiresManualSelection: true,
+      serviceTypeId: '',
+      serviceOptionId: '',
+      reason:
+        'Paket / opsi layanan pilihan Client sudah tidak aktif di Price & Fee Settings. Staff harus memilih layanan pengganti secara manual.',
+    };
+  }
 
   const exactIdMatch = activeStudioServices.find(
     (svc) => String(svc.id || '').toLowerCase() === cleanPublicId,

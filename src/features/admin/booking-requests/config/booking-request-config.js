@@ -14,6 +14,7 @@ export const BOOKING_REQUEST_TYPES = Object.freeze({
 export const BOOKING_REQUEST_SOURCES = Object.freeze({
   PUBLIC_LANDING_PAGE: 'public_landing_page',
   PUBLIC_AVAILABILITY_CALENDAR: 'public_availability_calendar',
+  CLIENT_PORTAL: 'client_portal',
 });
 
 export const BOOKING_REQUEST_STATUS = Object.freeze({

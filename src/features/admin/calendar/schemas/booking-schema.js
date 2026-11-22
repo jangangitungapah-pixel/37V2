@@ -20,6 +20,7 @@ import {
 } from '../config/calendar-config';
 import {
   calculateBookingPricingSnapshot,
+  findServiceExtensionHourlyRate,
   parseMoneyInput,
   resolveServiceAndOption,
 } from '../utils/booking-pricing';
@@ -199,14 +200,15 @@ export function validateServiceStep(
 }
 
 /**
- * Resolves the effective duration in minutes from form state (locking to Fixed Shift
- * duration when a `fixed_shift` subcategory is selected, otherwise using preset or custom duration).
+ * Resolves the effective duration in minutes from form state (allowing hourly extension
+ * beyond Fixed Shift duration ONLY when an active hourly rate exists for that service type,
+ * otherwise locking to Fixed Shift duration).
  */
 export function resolveFormDurationMinutes(
   formValues = {},
   pricingSettings = DEFAULT_PRICING_SETTINGS,
 ) {
-  const { option } = resolveServiceAndOption({
+  const { serviceType, option } = resolveServiceAndOption({
     serviceTypeId: formValues.serviceTypeId,
     serviceOptionId: formValues.serviceOptionId,
     serviceId: formValues.serviceId,
@@ -215,18 +217,28 @@ export function resolveFormDurationMinutes(
     pricingSettings,
   });
 
+  const requestedDuration =
+    formValues.durationPreset === 'custom'
+      ? Number(formValues.customDurationMinutes)
+      : Number(formValues.durationPreset);
+
   if (
     option?.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
     Number(option.pricing.durationMinutes) > 0
   ) {
-    return Number(option.pricing.durationMinutes);
+    const baseDuration = Number(option.pricing.durationMinutes);
+    const extensionHourlyRate = findServiceExtensionHourlyRate(serviceType);
+    if (
+      extensionHourlyRate > 0 &&
+      Number.isFinite(requestedDuration) &&
+      requestedDuration > baseDuration
+    ) {
+      return requestedDuration;
+    }
+    return baseDuration;
   }
 
-  if (formValues.durationPreset === 'custom') {
-    return Number(formValues.customDurationMinutes);
-  }
-
-  return Number(formValues.durationPreset);
+  return requestedDuration;
 }
 
 /**

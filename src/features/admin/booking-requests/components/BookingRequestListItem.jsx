@@ -4,7 +4,11 @@ import { formatSettingsTimestamp } from '@/features/admin/settings/utils/setting
 
 import { BOOKING_REQUEST_STATUS, BOOKING_REQUEST_TYPES } from '../config/booking-request-config';
 import { formatRequestDurationLabel } from '../utils/booking-request-normalize';
-import { BookingRequestStatusBadge, BookingRequestTypeBadge } from './BookingRequestStatusBadge';
+import {
+  BookingRequestSourceBadge,
+  BookingRequestStatusBadge,
+  BookingRequestTypeBadge,
+} from './BookingRequestStatusBadge';
 
 export function BookingRequestListItem({ request, isSelected = false, onSelect }) {
   const isNew = request.status === BOOKING_REQUEST_STATUS.NEW;
@@ -37,6 +41,7 @@ export function BookingRequestListItem({ request, isSelected = false, onSelect }
             </span>
             <BookingRequestStatusBadge status={request.status} size="sm" />
             <BookingRequestTypeBadge requestType={request.requestType} size="sm" />
+            <BookingRequestSourceBadge source={request.source} size="sm" />
           </div>
 
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -54,7 +59,10 @@ export function BookingRequestListItem({ request, isSelected = false, onSelect }
               <span>{request.contactPhoneDisplay || request.contactPhone}</span>
             </span>
 
-            <span className="font-semibold text-[#151515]">{request.serviceLabelSnapshot}</span>
+            <span className="font-semibold text-[#151515]">
+              {request.serviceLabelSnapshot}
+              {request.serviceOptionName ? ` · ${request.serviceOptionName}` : ''}
+            </span>
 
             {!isPostProd ? (
               <span className="inline-flex items-center gap-1">

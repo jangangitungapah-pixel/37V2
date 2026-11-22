@@ -1,0 +1,128 @@
+================================================================================
+HANDOFF — 37 MUSIC STUDIO CLIENT PORTAL (PHASE 3)
+Book a Session: Self-Service Booking & Project Inquiry
+================================================================================
+
+1. BASELINE COMMIT & ARCHITECTURE SUMMARY
+----------------------------------------
+Audited baseline commit: 42e1622cf600754640f8b07864786b896c24143a
+Architecture constraints preserved:
+- React 19 + Vite 8 + JavaScript / JSX + Tailwind CSS v4
+- Firebase Authentication + Cloud Firestore + Firebase Hosting (Spark Plan)
+- Zero Cloud Functions, zero Workers, zero paid backend, zero payment gateway
+- Spatial Ambient Design System preserved inside Client Portal (`[data-client-portal='true']`)
+
+2. IMPLEMENTED FEATURES & MODULES
+---------------------------------
+A. Customer-Safe Public Pricing Catalog Projection (`src/features/public-pricing/`):
+- Document: `publicPricingCatalog/current` (`schemaVersion: 2`, `version`, `serviceTypes`, `updatedAt`).
+- `buildPublicPricingProjection()` strips all internal `fees`, `operationalSettings`,
+  `updatedByUid`, inactive services/options, and `unconfigured` options.
+- `usePublicPricingCatalog()` and `normalizePublicPricingCatalog()` fail closed on missing,
+  invalid, or leaked internal fields (never falling back to hardcoded `DEFAULT_PRICING_SETTINGS`).
+- Owner `Save Changes` in `pricing-settings-repository.js` atomically writes both
+  `settings/pricing` and `publicPricingCatalog/current` in a single Firestore transaction.
+- Mounted `useOwnerPublicPricingAutoSync` (`OwnerPublicPricingSyncContext`) in `AdminLayout.jsx`
+  so an active Owner automatically heals missing/stale `publicPricingCatalog/current` from
+  persisted V2 `settings/pricing` (never auto-migrating legacy V1), backed by manual recovery
+  and live sync status in `PublicPricingSyncBanner.jsx`.
+- `/portal/book` displays honest unpublished status with `Check Again` and WhatsApp contact actions
+  whenever `publicPricingCatalog/current` is missing or unreadable.
+
+B. Canonical & Customer-Safe Pricing Calculation Reconciliation:
+- Extracted `computeCustomerPricingCore()` in `src/features/admin/calendar/utils/booking-pricing.js`
+  shared by Admin `calculateBookingPricingSnapshot()` and Customer `calculateCustomerPriceEstimate()`:
+  - Hourly billing rounds up per studio hour (`Math.ceil(durationMinutes / 60) * hourlyRate`).
+  - Fixed Shift supports hourly extension only using an active `hourly` option rate from
+    within the same `serviceType` (`findServiceExtensionHourlyRate`), never inventing rates.
+  - Rehearsal completed-3h-block duration discount applies without stacking and caps at subtotal.
+  - Manual Quote returns `isManualQuote: true, estimatedTotal: null` ("Custom Quote").
+  - `calculateCustomerPriceEstimate()` omits all internal fees and returns `null` if catalog missing.
+- Updated `resolveFormDurationMinutes()` in `booking-schema.js` and `BookingFormDialog.jsx`
+  to respect extendable Fixed Shift durations when an active hourly add-on rate exists.
+
+C. 3-Step Self-Service Wizard on `/portal/book`:
+- Replaced placeholder `ClientBookSessionPage.jsx` with a two-branch 3-step Spatial Ambient flow:
+  - Studio Booking (`Rehearsal`, `Recording`, active Studio services):
+    1. Select Session -> 2. Choose Schedule -> 3. Review & Send
+  - Post-Production Inquiry (`Mixing` / `Mastering`, active WFA services):
+    1. Select Service -> 2. Project Details -> 3. Review & Send (no rooms, duration, or calendar UI)
+- Schedule step subscribes to `usePublicAvailability()`, merges Room A & B slots cleanly in
+  `No Preference ('any')` mode, fails closed when availability sync is pending/errored, and
+  automatically clears stale start slots when room, date, or duration changes.
+- Contact step prefills Client profile details, displays honest tentative disclaimer, enforces
+  explicit privacy consent + honeypot + single-flight lock, and renders an honest
+  `Request Received · Pending Studio Review` receipt (`REQ-...`) without fabricating booking confirmation.
+
+D. Booking Request Extension & Admin Conversion Integration:
+- Added `BOOKING_REQUEST_SOURCES.CLIENT_PORTAL` (`client_portal`).
+- Created `submitClientBookingRequest()` persisting exact 38-key requests (existing 33 keys plus
+  `clientUid`, `customerId`, `serviceOptionId`, `serviceOptionName`, `pricingVersion`) while leaving
+  33-key anonymous public landing/availability requests unchanged.
+- Surfaced `Client Portal` badge, `serviceOptionName`, and `pricingVersion` in
+  `BookingRequestListItem.jsx`, `BookingRequestDetailDrawer.jsx`, and `BookingFormDialog.jsx`.
+- Extended `mapPublicServiceToInternalPricing()` and `AdminCalendarPage.jsx` to map exact
+  `serviceOptionId` & extended duration into Booking Form, or require manual selection with warning
+  if that option is no longer active.
+
+E. Firestore Security Rules & Emulator Suite:
+- `publicPricingCatalog/current`: readable for `docId == 'current'`; `list`/`delete` denied;
+  create/update allowed for `isActiveOwner()` only, rejecting forbidden fee/operational keys.
+- `publicBookingRequests/{requestId}`: anonymous 33-key path unchanged; `client_portal` 38-key
+  creates require `isActiveClient()`, matching `clientUid`/`customerId`, `status == 'new'`,
+  `linkedBookingId == null`, and active `pricingVersion == publicPricingCatalog/current.version`;
+  active Clients may read/list only their own `client_portal` requests and cannot update/delete;
+  Staff conversion/status updates preserve Client ownership & package fields immutably.
+
+3. CREATED & MODIFIED FILES
+---------------------------
+Created:
+- src/features/public-pricing/config/public-pricing-config.js
+- src/features/public-pricing/utils/public-pricing-projection.js
+- src/features/public-pricing/repositories/public-pricing-repository.js
+- src/features/public-pricing/hooks/usePublicPricingCatalog.js
+- src/features/public-pricing/hooks/useOwnerPublicPricingAutoSync.js
+- src/features/public-pricing/context/OwnerPublicPricingSyncContext.js
+- src/features/admin/settings/components/PublicPricingSyncBanner.jsx
+- src/features/client-portal/utils/client-booking-notes.js
+- src/features/client-portal/components/booking/ClientBookingStepper.jsx
+- src/features/client-portal/components/booking/ClientBookingStepSelectSession.jsx
+- src/features/client-portal/components/booking/ClientBookingStepSchedule.jsx
+- src/features/client-portal/components/booking/ClientBookingStepProjectDetails.jsx
+- src/features/client-portal/components/booking/ClientBookingStepReview.jsx
+- src/features/client-portal/components/booking/ClientBookingSuccessView.jsx
+- src/features/client-portal/client-booking.test.jsx
+- docs/architecture/CLIENT-BOOKING-AND-SESSION-WORKFLOW.md
+- docs/handoffs/HANDOFF-CLIENT-PORTAL-PHASE-3-BOOKING.txt
+
+Modified:
+- src/features/admin/layout/AdminLayout.jsx
+- src/features/admin/settings/hooks/usePricingSettings.js
+- src/features/admin/settings/pricing/repositories/pricing-settings-repository.js
+- src/features/admin/settings/pricing/services/pricing-settings-service.js
+- src/features/admin/settings/pages/PriceAndFeeSettingsPage.jsx
+- src/features/admin/calendar/utils/booking-pricing.js
+- src/features/admin/calendar/schemas/booking-schema.js
+- src/features/admin/calendar/components/BookingFormDialog.jsx
+- src/features/admin/calendar/pages/AdminCalendarPage.jsx
+- src/features/admin/booking-requests/config/booking-request-config.js
+- src/features/admin/booking-requests/utils/booking-request-validation.js
+- src/features/admin/booking-requests/utils/booking-request-normalize.js
+- src/features/admin/booking-requests/services/booking-request-service.js
+- src/features/admin/booking-requests/components/BookingRequestStatusBadge.jsx
+- src/features/admin/booking-requests/components/BookingRequestListItem.jsx
+- src/features/admin/booking-requests/components/BookingRequestDetailDrawer.jsx
+- src/features/client-portal/pages/ClientBookSessionPage.jsx
+- src/features/client-portal/client-portal-shell.test.jsx
+- src/features/admin/calendar/calendar.test.jsx
+- src/features/admin/settings/settings.test.jsx
+- firestore.rules
+- scripts/test-firestore-rules.mjs
+
+4. VERIFICATION COMMANDS
+------------------------
+- `npm run lint`
+- `npm run test:run`
+- `npm run build`
+- `npm run test:rules`
+================================================================================

@@ -175,7 +175,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       expect(invalidCheck.errors.durationMinutes).toBeTruthy();
       expect(invalidCheck.errors.dpAmount).toBeTruthy();
 
-      // Valid custom 90-minute Rehearsal (1.5h * Rp 100.000 = Rp 150.000) with Rp 50.000 DP
+      // Valid custom 90-minute Rehearsal (ceil(90/60) = 2 billable hours * Rp 100.000 = Rp 200.000) with Rp 50.000 DP
       const validCheck = validateBookingFormPayload({
         customerName: 'Dimas Saputra',
         phone: '081234567890',
@@ -194,9 +194,9 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       });
 
       expect(validCheck.isValid).toBe(true);
-      expect(validCheck.pricing.totalAmount).toBe(150000);
+      expect(validCheck.pricing.totalAmount).toBe(200000);
       expect(validCheck.pricing.initialPaidAmount).toBe(50000);
-      expect(validCheck.pricing.remainingBalance).toBe(100000);
+      expect(validCheck.pricing.remainingBalance).toBe(150000);
     });
 
     it('creates a booking atomically with deterministic 30-minute slot locks and prevents concurrent double-booking of the same room slot', async () => {

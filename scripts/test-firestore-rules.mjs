@@ -506,6 +506,7 @@ async function runTests() {
     'settings/pricing',
     'bookkeepingSettings/default',
     'publicSiteSettings/site',
+    'publicPricingCatalog/current',
     'bookingRequestMessageTemplates/tpl_1',
     'galleryItems/gal_1',
     'landingPagePlacements/room-a',
@@ -2045,6 +2046,673 @@ async function runTests() {
     '✓ Client Portal Phase 1 rules (Google provisioning, email index, isolation & suspension) passed',
   );
 
+  // 2D. CLIENT PORTAL PHASE 3 SECURITY RULES (publicPricingCatalog + client_portal bookingRequests)
+  const samplePublicCatalogServiceTypes = [
+    {
+      id: 'rehearsal',
+      name: 'Rehearsal',
+      description: 'Band rehearsal',
+      deliveryMode: 'studio',
+      sortOrder: 1,
+      options: [
+        {
+          id: 'rehearsal-regular',
+          name: 'Reguler',
+          description: 'Per jam',
+          sortOrder: 1,
+          pricing: {
+            mode: 'hourly',
+            hourlyRate: 100000,
+            durationMinutes: null,
+            basePrice: null,
+            discountAmount: 0,
+            projectPrice: null,
+            unitLabel: '',
+          },
+          discountRules: [],
+        },
+        {
+          id: 'pkg-rehearsal-3h',
+          name: 'Paket Rehearsal 3 Jam',
+          description: 'Hemat 30rb',
+          sortOrder: 2,
+          pricing: {
+            mode: 'fixed_shift',
+            hourlyRate: null,
+            durationMinutes: 180,
+            basePrice: 300000,
+            discountAmount: 30000,
+            projectPrice: null,
+            unitLabel: '',
+          },
+          discountRules: [],
+        },
+      ],
+    },
+    {
+      id: 'mixing',
+      name: 'Mixing',
+      description: 'Post-production mix & master',
+      deliveryMode: 'wfa',
+      sortOrder: 2,
+      options: [
+        {
+          id: 'mixing-regular',
+          name: 'Mixing Lagu',
+          description: 'Per lagu',
+          sortOrder: 1,
+          pricing: {
+            mode: 'manual_quote',
+            hourlyRate: null,
+            durationMinutes: null,
+            basePrice: null,
+            discountAmount: 0,
+            projectPrice: null,
+            unitLabel: 'per lagu',
+          },
+          discountRules: [],
+        },
+      ],
+    },
+  ];
+
+  // Unauthenticated, Staff, Active Client denied writing publicPricingCatalog/current
+  for (const [label, tok] of [
+    ['Anon', null],
+    ['Staff', TOKEN_STAFF],
+    ['Client', TOKEN_CLIENT_MATCHED],
+  ]) {
+    const deniedWrite = await userRequest('POST', ':commit', tok, {
+      writes: [
+        {
+          update: {
+            name: `${DB_ROOT}/publicPricingCatalog/current`,
+            fields: toFsFields({
+              schemaVersion: 2,
+              version: 1,
+              serviceTypes: samplePublicCatalogServiceTypes,
+            }),
+          },
+          updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        },
+      ],
+    });
+    assert.equal(deniedWrite.status, 403, `${label} denied writing publicPricingCatalog/current`);
+  }
+
+  // Fail-closed: client_portal booking request denied before publicPricingCatalog/current exists
+  const buildClientRequestFields = (overrides = {}) => ({
+    schemaVersion: 1,
+    requestReference: 'REQ-CLNT0001',
+    requestType: 'studio_booking',
+    status: 'new',
+    statusReason: '',
+    customerName: 'Matched Client Musician',
+    bandName: 'Matched Sound',
+    contactPhone: '+6281234567890',
+    publicServiceId: 'rehearsal',
+    serviceLabelSnapshot: 'Rehearsal',
+    requestedRoomId: 'room-a',
+    preferredDate: '2026-11-28',
+    preferredStartMinute: 600,
+    preferredDurationMinutes: 180,
+    targetDeadline: null,
+    notes: 'Butuh Paket 3 Jam',
+    privacyConsent: true,
+    consentVersion: 'v1',
+    source: 'client_portal',
+    clientUid: 'client-matched-1',
+    customerId: 'cust_email_matched',
+    serviceOptionId: 'pkg-rehearsal-3h',
+    serviceOptionName: 'Paket Rehearsal 3 Jam',
+    pricingVersion: 2,
+    assignedStaffUid: '',
+    assignedStaffName: '',
+    lastCommunicationAt: null,
+    lastCommunicationType: '',
+    lastCommunicationStatus: '',
+    linkedBookingId: null,
+    confirmedBookingSnapshot: null,
+    confirmedAt: null,
+    confirmedByUid: '',
+    appCheckState: 'unconfigured',
+    updatedByUid: '',
+    version: 1,
+    ...overrides,
+  });
+
+  const beforeCatalogCreateAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_client_missing_cat`,
+          fields: toFsFields(buildClientRequestFields({ pricingVersion: 1 })),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    beforeCatalogCreateAttempt.status,
+    403,
+    'Client request denied before publicPricingCatalog/current is published',
+  );
+
+  // Owner denied leaking fees / operationalSettings / updatedByUid inside publicPricingCatalog/current
+  const forbiddenCatalogLeak = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicPricingCatalog/current`,
+          fields: toFsFields({
+            schemaVersion: 2,
+            version: 1,
+            serviceTypes: samplePublicCatalogServiceTypes,
+            operationalSettings: { dailyMealAllowancePerStaff: 25000 },
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(
+    forbiddenCatalogLeak.status,
+    403,
+    'Owner denied writing forbidden operationalSettings',
+  );
+
+  // Owner denied writing non-current doc ID in publicPricingCatalog
+  const nonCurrentCatalog = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicPricingCatalog/draft`,
+          fields: toFsFields({
+            schemaVersion: 2,
+            version: 1,
+            serviceTypes: samplePublicCatalogServiceTypes,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(nonCurrentCatalog.status, 403, 'Owner denied writing non-current docId');
+
+  // Owner CAN atomically write settings/pricing + publicPricingCatalog/current (version 2)
+  const ownerAtomicPricingSync = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/settings/pricing`,
+          fields: toFsFields({
+            schemaVersion: 2,
+            version: 2,
+            serviceTypes: samplePublicCatalogServiceTypes.map((svc) => ({
+              ...svc,
+              isActive: true,
+              options: svc.options.map((opt) => ({
+                ...opt,
+                isActive: true,
+                fees: {
+                  staff: { mode: 'fixed', amount: 15000 },
+                  owner: { mode: 'none', amount: 0 },
+                  recordingOperator: { mode: 'none', amount: 0 },
+                },
+              })),
+            })),
+            operationalSettings: { dailyMealAllowancePerStaff: 25000 },
+            updatedByUid: 'owner-1',
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicPricingCatalog/current`,
+          fields: toFsFields({
+            schemaVersion: 2,
+            version: 2,
+            serviceTypes: samplePublicCatalogServiceTypes,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(
+    ownerAtomicPricingSync.status,
+    200,
+    `Owner atomic sync settings/pricing + publicPricingCatalog/current failed: ${JSON.stringify(ownerAtomicPricingSync.body)}`,
+  );
+
+  // Anon & Active Client can GET publicPricingCatalog/current, DENIED LIST collection & DELETE
+  assert.equal((await userRequest('GET', '/publicPricingCatalog/current', null)).status, 200);
+  assert.equal(
+    (await userRequest('GET', '/publicPricingCatalog/current', TOKEN_CLIENT_MATCHED)).status,
+    200,
+  );
+  assert.equal((await userRequest('GET', '/publicPricingCatalog', null)).status, 403);
+  assert.equal(
+    (await userRequest('DELETE', '/publicPricingCatalog/current', TOKEN_OWNER)).status,
+    403,
+  );
+
+  // Anonymous user CANNOT submit source='client_portal', while public_landing_page STILL works
+  const anonSpoofClientSource = await userRequest('POST', ':commit', null, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_anon_spoof_cp`,
+          fields: toFsFields(buildClientRequestFields()),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    anonSpoofClientSource.status,
+    403,
+    'Anonymous denied submitting client_portal source',
+  );
+
+  // Client denied submitting stale pricingVersion, spoofed clientUid, spoofed customerId, or confirmed status
+  for (const [desc, overrides] of [
+    ['stale pricingVersion', { pricingVersion: 1 }],
+    ['spoofed clientUid', { clientUid: 'other-client-uid' }],
+    ['spoofed customerId', { customerId: 'cust_other' }],
+    ['self-confirmed status', { status: 'confirmed' }],
+    ['prefilled linkedBookingId', { linkedBookingId: 'bkg_fake' }],
+  ]) {
+    const badAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+      writes: [
+        {
+          update: {
+            name: `${DB_ROOT}/publicBookingRequests/req_client_bad_01`,
+            fields: toFsFields(buildClientRequestFields(overrides)),
+          },
+          updateTransforms: [
+            { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+            { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+          ],
+          currentDocument: { exists: false },
+        },
+      ],
+    });
+    assert.equal(badAttempt.status, 403, `Client denied ${desc}`);
+  }
+
+  // Suspended client (client-new-1) DENIED creating client_portal booking request
+  const suspendedCreateAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_NEW, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_client_susp_01`,
+          fields: toFsFields(
+            buildClientRequestFields({
+              clientUid: 'client-new-1',
+              customerId: 'client_client-new-1',
+            }),
+          ),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(suspendedCreateAttempt.status, 403, 'Suspended client denied creating request');
+
+  // Active Client SUCCEEDS submitting valid client_portal studio_booking & post_production_inquiry
+  const validClientStudioReq = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_client_studio_1`,
+          fields: toFsFields(buildClientRequestFields()),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    validClientStudioReq.status,
+    200,
+    `Client studio booking request create failed: ${JSON.stringify(validClientStudioReq.body)}`,
+  );
+
+  const validClientMixReq = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_client_mix_1`,
+          fields: toFsFields(
+            buildClientRequestFields({
+              requestReference: 'REQ-CLNT0002',
+              requestType: 'post_production_inquiry',
+              publicServiceId: 'mixing',
+              serviceLabelSnapshot: 'Mixing',
+              serviceOptionId: 'mixing-regular',
+              serviceOptionName: 'Mixing Lagu',
+              requestedRoomId: null,
+              preferredDate: null,
+              preferredStartMinute: null,
+              preferredDurationMinutes: null,
+              targetDeadline: '2026-12-05',
+              notes: 'Single Indie Pop • 32 tracks',
+            }),
+          ),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    validClientMixReq.status,
+    200,
+    `Client WFA inquiry create failed: ${JSON.stringify(validClientMixReq.body)}`,
+  );
+
+  // Active Client can GET own request, CANNOT update/delete, CANNOT GET other requests (`req_1` anonymous or another client)
+  assert.equal(
+    (await userRequest('GET', '/publicBookingRequests/req_client_studio_1', TOKEN_CLIENT_MATCHED))
+      .status,
+    200,
+    'Active client can GET own client_portal request',
+  );
+  assert.equal(
+    (await userRequest('GET', '/publicBookingRequests/req_1', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client denied reading anonymous req_1',
+  );
+  assert.equal(
+    (await userRequest('GET', '/publicBookingRequests/req_client_studio_1', null)).status,
+    403,
+    'Anonymous denied reading client_portal request',
+  );
+  assert.equal(
+    (
+      await userRequest(
+        'DELETE',
+        '/publicBookingRequests/req_client_studio_1',
+        TOKEN_CLIENT_MATCHED,
+      )
+    ).status,
+    403,
+    'Client denied deleting own request',
+  );
+
+  // Provision second active client and verify cross-client read isolation
+  await adminSetDoc('clientAccounts/client-attacker-1', {
+    schemaVersion: 1,
+    uid: 'client-attacker-1',
+    role: 'client',
+    status: 'active',
+    customerId: 'client_client-attacker-1',
+    profileSource: 'isolated_client_profile',
+    emailNormalized: 'attacker@gmail.com',
+    displayName: 'Other Client',
+    photoURL: '',
+    authProvider: 'google.com',
+    emailVerified: true,
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
+  assert.equal(
+    (await userRequest('GET', '/publicBookingRequests/req_client_studio_1', TOKEN_CLIENT_ATTACKER))
+      .status,
+    403,
+    'Other active client denied reading matched client request',
+  );
+
+  // List / runQuery checks: active client CAN query own client_portal requests; cross-client & suspended DENIED
+  const matchedOwnListRes = await userRequest('POST', ':runQuery', TOKEN_CLIENT_MATCHED, {
+    structuredQuery: {
+      from: [{ collectionId: 'publicBookingRequests' }],
+      where: {
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'source' },
+                op: 'EQUAL',
+                value: { stringValue: 'client_portal' },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'clientUid' },
+                op: 'EQUAL',
+                value: { stringValue: 'client-matched-1' },
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.equal(
+    matchedOwnListRes.status,
+    200,
+    `Active client listing own requests failed: ${JSON.stringify(matchedOwnListRes.body)}`,
+  );
+
+  const crossClientListRes = await userRequest('POST', ':runQuery', TOKEN_CLIENT_ATTACKER, {
+    structuredQuery: {
+      from: [{ collectionId: 'publicBookingRequests' }],
+      where: {
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'source' },
+                op: 'EQUAL',
+                value: { stringValue: 'client_portal' },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'clientUid' },
+                op: 'EQUAL',
+                value: { stringValue: 'client-matched-1' },
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.equal(
+    crossClientListRes.status,
+    403,
+    'Other active client denied listing matched client requests',
+  );
+
+  const suspendedListRes = await userRequest('POST', ':runQuery', TOKEN_CLIENT_NEW, {
+    structuredQuery: {
+      from: [{ collectionId: 'publicBookingRequests' }],
+      where: {
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'source' },
+                op: 'EQUAL',
+                value: { stringValue: 'client_portal' },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'clientUid' },
+                op: 'EQUAL',
+                value: { stringValue: 'client-new-1' },
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+  assert.equal(suspendedListRes.status, 403, 'Suspended client denied listing requests');
+
+  // Staff can transition & atomically confirm Client Portal request (preserving all 38 keys + client ownership),
+  // while DENIED altering Client serviceOptionId/clientUid
+  const fetchedClientReq = await userRequest(
+    'GET',
+    '/publicBookingRequests/req_client_studio_1',
+    TOKEN_STAFF,
+  );
+  assert.equal(fetchedClientReq.status, 200, 'Staff can read Client Portal request');
+  const clientReqCreatedAtTs = fetchedClientReq.body.fields.createdAt.timestampValue;
+
+  const staffTamperOptionAttempt = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_client_studio_1`,
+          fields: toFsFields({
+            ...buildClientRequestFields(),
+            serviceOptionId: 'rehearsal-regular',
+            status: 'in_review',
+            assignedStaffUid: 'staff-1',
+            assignedStaffName: 'Staff Studio',
+            createdAt: { _ts: clientReqCreatedAtTs },
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    staffTamperOptionAttempt.status,
+    403,
+    'Staff denied tampering client serviceOptionId',
+  );
+
+  const staffAtomicConfirmRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_client_portal_1`,
+          fields: toFsFields({
+            customerId: 'cust_email_matched',
+            customerName: 'Matched Client Musician',
+            phone: '081277778888',
+            phoneNormalized: '+6281277778888',
+            bandName: 'Matched Sound',
+            studioId: 'room-a',
+            serviceTypeId: 'rehearsal',
+            serviceTypeName: 'Rehearsal',
+            serviceOptionId: 'pkg-rehearsal-3h',
+            serviceOptionName: 'Paket Rehearsal 3 Jam',
+            deliveryMode: 'studio',
+            pricingMode: 'fixed_shift',
+            pricingSettingsVersion: 2,
+            serviceId: 'rehearsal',
+            serviceLabel: 'Rehearsal',
+            packageId: 'pkg-rehearsal-3h',
+            packageLabel: 'Paket Rehearsal 3 Jam',
+            recordingTypeId: '',
+            recordingTypeLabel: '',
+            date: '2026-11-28',
+            startMinute: 600,
+            durationMinutes: 180,
+            endMinute: 780,
+            timeZone: 'Asia/Jakarta',
+            unitRate: 100000,
+            subtotal: 300000,
+            discountAmount: 30000,
+            totalAmount: 270000,
+            automaticDiscount: null,
+            commissionSnapshot: {
+              schemaVersion: 2,
+              settingsVersion: 2,
+              staff: { basis: 'fixed', rate: 20000, amount: 20000 },
+              owner: { basis: 'none', rate: 0, amount: 0 },
+              recordingOperator: { basis: 'none', rate: 0, amount: 0 },
+            },
+            initialPaymentStatus: 'unpaid',
+            initialPaidAmount: 0,
+            paymentMethod: '',
+            sessionStatus: 'upcoming',
+            notes: 'Converted from Client Portal',
+            createdAt: SERVER_TS,
+            createdByUid: 'staff-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'staff-1',
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_client_studio_1`,
+          fields: toFsFields({
+            ...buildClientRequestFields(),
+            status: 'confirmed',
+            assignedStaffUid: 'staff-1',
+            assignedStaffName: 'Staff Studio',
+            linkedBookingId: 'bkg_client_portal_1',
+            confirmedBookingSnapshot: {
+              bookingId: 'bkg_client_portal_1',
+              bookingReference: 'BKG-CP001',
+              studioId: 'room-a',
+              studioName: 'Room A — Live Room',
+              serviceTypeName: 'Rehearsal',
+              serviceOptionName: 'Paket Rehearsal 3 Jam',
+              date: '2026-11-28',
+              startMinute: 600,
+              endMinute: 780,
+              durationMinutes: 180,
+            },
+            confirmedAt: SERVER_TS,
+            confirmedByUid: 'staff-1',
+            createdAt: { _ts: clientReqCreatedAtTs },
+            updatedAt: SERVER_TS,
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    staffAtomicConfirmRes.status,
+    200,
+    `Staff atomic confirm of Client Portal request failed: ${JSON.stringify(staffAtomicConfirmRes.body)}`,
+  );
+
+  console.log(
+    '✓ Client Portal Phase 3 rules (publicPricingCatalog & client_portal bookingRequests) passed',
+  );
+
   // 3. systemOperations/factoryReset read & start authorization
   assert.equal(
     (await userRequest('GET', '/systemOperations/factoryReset', TOKEN_STAFF)).status,
@@ -2251,8 +2919,9 @@ async function runTests() {
   }
   console.log('✓ Owner 10-doc batch delete & all 20 operational manifest targets passed');
 
-  // 7. Public site settings remain readable & publicBookingRequests inaccessible after deletion
+  // 7. Public site settings & public pricing catalog remain readable; publicBookingRequests inaccessible after deletion
   assert.equal((await userRequest('GET', '/publicSiteSettings/site', null)).status, 200);
+  assert.equal((await userRequest('GET', '/publicPricingCatalog/current', null)).status, 200);
   assert.equal((await userRequest('GET', '/publicBookingRequests/req_1', null)).status, 403);
 
   // 8. Owner can update progress, fail-guard unsafe cancel after deletion, pause, resume, reinit publicAvailabilityMetadata, and complete ONLY with verificationSummary.allZero == true

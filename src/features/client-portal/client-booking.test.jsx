@@ -1,0 +1,837 @@
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const portalBookingMocks = vi.hoisted(() => ({
+  auth: { currentUser: null },
+  listeners: new Set(),
+  signOut: vi.fn(),
+  getRedirectResult: vi.fn(),
+  staffLookup: null,
+}));
+
+vi.mock('@/lib/firebase/client', () => ({
+  isFirebaseConfigured: () => true,
+  getFirebaseApp: () => ({ name: '[DEFAULT]' }),
+}));
+
+vi.mock('@/lib/firebase/auth', () => ({
+  getFirebaseAuth: () => portalBookingMocks.auth,
+}));
+
+vi.mock('@/lib/firebase/firestore', () => ({
+  getFirebaseDb: () => ({ _mockDb: true }),
+}));
+
+vi.mock('firebase/auth', () => {
+  class MockGoogleAuthProvider {
+    setCustomParameters() { }
+  }
+
+  return {
+    GoogleAuthProvider: MockGoogleAuthProvider,
+    signInWithEmailAndPassword: vi.fn(),
+    signInWithPopup: vi.fn(),
+    signInWithRedirect: vi.fn(),
+    getRedirectResult: (...args) => portalBookingMocks.getRedirectResult(...args),
+    sendPasswordResetEmail: vi.fn(),
+    signOut: (...args) => portalBookingMocks.signOut(...args),
+    onAuthStateChanged: (_auth, callback) => {
+      portalBookingMocks.listeners.add(callback);
+      queueMicrotask(() => {
+        if (portalBookingMocks.listeners.has(callback)) {
+          callback(portalBookingMocks.auth.currentUser);
+        }
+      });
+      return () => {
+        portalBookingMocks.listeners.delete(callback);
+      };
+    },
+  };
+});
+
+vi.mock('firebase/firestore', () => ({
+  getFirestore: vi.fn(() => ({ _mockDb: true })),
+  Timestamp: { fromDate: (d) => d },
+  doc: (_db, col, id) => ({ col, id, path: `${col}/${id}` }),
+  getDoc: async (docRef) => {
+    if (docRef?.col === 'staffProfiles' && typeof portalBookingMocks.staffLookup === 'function') {
+      const result = await portalBookingMocks.staffLookup(docRef.id);
+      return {
+        exists: () => Boolean(result?.exists),
+        data: () => result?.data || null,
+      };
+    }
+    return {
+      exists: () => false,
+      data: () => null,
+    };
+  },
+  collection: vi.fn(),
+  query: vi.fn(),
+  where: vi.fn(),
+  orderBy: vi.fn(),
+  limit: vi.fn(),
+  startAfter: vi.fn(),
+  getDocs: vi.fn(async () => ({ docs: [] })),
+  onSnapshot: vi.fn((_q, onNext) => {
+    queueMicrotask(() => onNext({ docs: [] }));
+    return () => { };
+  }),
+  runTransaction: vi.fn(),
+  serverTimestamp: vi.fn(() => ({ _serverTimestamp: true })),
+}));
+
+import { AppRoutes } from '@/App';
+import { AppProviders } from '@/app/providers/AppProviders';
+import {
+  BOOKING_REQUEST_SOURCES,
+  BOOKING_REQUEST_TYPES,
+} from '@/features/admin/booking-requests/config/booking-request-config';
+import {
+  createInMemoryBookingRequestRepositoryAdapter,
+  resetBookingRequestRepositoryAdapter,
+  setBookingRequestRepositoryAdapter,
+} from '@/features/admin/booking-requests/repositories/booking-request-repository';
+import { resetPublicSubmissionCooldownForTests } from '@/features/admin/booking-requests/services/booking-request-service';
+import { mapPublicServiceToInternalPricing } from '@/features/admin/booking-requests/utils/booking-request-normalize';
+import {
+  resetBookingRepositoryAdapter,
+  setBookingRepositoryAdapter,
+} from '@/features/admin/calendar/repositories/calendar-booking-repository';
+import { resolveFormDurationMinutes } from '@/features/admin/calendar/schemas/booking-schema';
+import { createInMemoryBookingRepositoryAdapter } from '@/features/admin/calendar/services/calendar-booking-service';
+import {
+  calculateBookingPricingSnapshot,
+  calculateCustomerPriceEstimate,
+} from '@/features/admin/calendar/utils/booking-pricing';
+import {
+  getJakartaTodayIso,
+  shiftCalendarDate,
+} from '@/features/admin/calendar/utils/calendar-date';
+import {
+  createInMemoryCustomerRepositoryAdapter,
+  resetCustomerRepositoryAdapter,
+  setCustomerRepositoryAdapter,
+} from '@/features/admin/customer/repositories/customer-repository';
+import {
+  createInMemoryPaymentRepositoryAdapter,
+  resetPaymentRepositoryAdapter,
+  setPaymentRepositoryAdapter,
+} from '@/features/admin/payment/repositories/payment-repository';
+import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
+import {
+  createInMemoryPricingSettingsAdapter,
+  resetPricingSettingsRepositoryAdapter,
+  setPricingSettingsRepositoryAdapter,
+} from '@/features/admin/settings/pricing/repositories/pricing-settings-repository';
+import {
+  savePricingSettings,
+  syncPublicPricingCatalog,
+} from '@/features/admin/settings/pricing/services/pricing-settings-service';
+import { clonePricingSettings } from '@/features/admin/settings/pricing/utils/normalize-pricing-settings';
+import {
+  createInMemoryPublicAvailabilityRepositoryAdapter,
+  resetPublicAvailabilityRepositoryAdapter,
+  setPublicAvailabilityRepositoryAdapter,
+} from '@/features/public-availability/repositories/public-availability-repository';
+import {
+  createInMemoryPublicPricingCatalogAdapter,
+  resetPublicPricingCatalogRepositoryAdapter,
+  setPublicPricingCatalogRepositoryAdapter,
+} from '@/features/public-pricing/repositories/public-pricing-repository';
+import {
+  buildPublicPricingProjection,
+  normalizePublicPricingCatalog,
+} from '@/features/public-pricing/utils/public-pricing-projection';
+import { queryClient } from '@/lib/query-client';
+
+import {
+  CLIENT_ACCOUNT_STATUS,
+  CLIENT_PROFILE_SOURCE,
+  CLIENT_ROLE,
+} from './config/client-portal-config';
+import {
+  createInMemoryClientPortalRepositoryAdapter,
+  resetClientPortalRepositoryAdapter,
+  setClientPortalRepositoryAdapter,
+} from './repositories/client-portal-repository';
+
+function seedAuthenticatedClient(
+  clientAdapter,
+  {
+    uid = 'client-book-uid-1',
+    customerId = 'cust_book_client_1',
+    email = 'dimas.band@gmail.com',
+    displayName = 'Dimas Pratama',
+    phoneDisplay = '+62 812-5555-8888',
+  } = {},
+) {
+  clientAdapter._seedClientProfile(customerId, {
+    customerId,
+    ownerUid: null,
+    profileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+    displayName,
+    emailNormalized: email,
+    phoneDisplay,
+    photoURL: '',
+    status: 'active',
+  });
+  clientAdapter._seedClientCustomerLink(customerId, {
+    customerId,
+    ownerUid: uid,
+    emailNormalized: email,
+    profileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+  });
+  clientAdapter._seedClientAccount(uid, {
+    uid,
+    role: CLIENT_ROLE,
+    status: CLIENT_ACCOUNT_STATUS.ACTIVE,
+    customerId,
+    profileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+    emailNormalized: email,
+    displayName,
+    photoURL: '',
+    authProvider: 'google.com',
+    emailVerified: true,
+  });
+
+  portalBookingMocks.auth.currentUser = {
+    uid,
+    email,
+    displayName,
+    photoURL: '',
+    emailVerified: true,
+    providerId: 'google.com',
+    providerData: [{ providerId: 'google.com' }],
+    getIdTokenResult: async () => ({
+      claims: {
+        email_verified: true,
+        firebase: { sign_in_provider: 'google.com' },
+      },
+    }),
+  };
+}
+
+function seedAuthenticatedStaff(clientAdapter, role = 'owner', uid = 'owner-uid-1') {
+  const email = role === 'owner' ? 'owner@37music.id' : 'staff@37music.id';
+  const displayName = role === 'owner' ? '37 Studio Owner' : 'Rina Studio Staff';
+  clientAdapter._seedStaffProfile(uid, {
+    displayName,
+    email,
+    role,
+    active: true,
+  });
+  portalBookingMocks.auth.currentUser = {
+    uid,
+    email,
+    displayName,
+    emailVerified: true,
+    providerId: 'password',
+    providerData: [{ providerId: 'password' }],
+    getIdTokenResult: async () => ({
+      claims: { email_verified: true, firebase: { sign_in_provider: 'password' } },
+    }),
+  };
+}
+
+function renderAppAt(initialEntry = '/portal/book') {
+  return render(
+    <AppProviders>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <AppRoutes />
+      </MemoryRouter>
+    </AppProviders>,
+  );
+}
+
+describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Pricing Projection & Admin Integration', () => {
+  let clientAdapter;
+  let pricingAdapter;
+  let publicPricingAdapter;
+  let publicAvailabilityAdapter;
+  let bookingRequestAdapter;
+  let bookingAdapter;
+  const todayIso = getJakartaTodayIso();
+  const tomorrowIso = shiftCalendarDate(todayIso, 1);
+
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+    resetPublicSubmissionCooldownForTests();
+    queryClient.clear();
+
+    clientAdapter = createInMemoryClientPortalRepositoryAdapter();
+    setClientPortalRepositoryAdapter(clientAdapter);
+    portalBookingMocks.staffLookup = (uid) => clientAdapter.hasStaffProfile(uid);
+    portalBookingMocks.auth.currentUser = null;
+    portalBookingMocks.listeners.clear();
+    portalBookingMocks.signOut.mockReset();
+    portalBookingMocks.getRedirectResult.mockReset().mockResolvedValue(null);
+
+    const publishedCatalog = buildPublicPricingProjection({
+      ...DEFAULT_PRICING_SETTINGS,
+      version: 2,
+    });
+    publicPricingAdapter = createInMemoryPublicPricingCatalogAdapter(publishedCatalog);
+    setPublicPricingCatalogRepositoryAdapter(publicPricingAdapter);
+
+    pricingAdapter = createInMemoryPricingSettingsAdapter(
+      { ...clonePricingSettings(DEFAULT_PRICING_SETTINGS), version: 2 },
+      { publicPricingAdapter },
+    );
+    setPricingSettingsRepositoryAdapter(pricingAdapter);
+
+    bookingAdapter = createInMemoryBookingRepositoryAdapter();
+    setBookingRepositoryAdapter(bookingAdapter);
+    setCustomerRepositoryAdapter(createInMemoryCustomerRepositoryAdapter(bookingAdapter));
+    setPaymentRepositoryAdapter(createInMemoryPaymentRepositoryAdapter(bookingAdapter));
+
+    publicAvailabilityAdapter = createInMemoryPublicAvailabilityRepositoryAdapter({
+      initialMetadata: { isReady: true, backfilledFromDate: todayIso },
+      initialProjections: [
+        // Room A occupied 14:00-16:00 tomorrow; Room B occupied 10:00-14:00 and 14:00-18:00?
+        // Leave 14:00 open on Room B only, 10:00 occupied on both Room A and Room B!
+        {
+          id: 'proj_room_a_10',
+          schemaVersion: 1,
+          date: tomorrowIso,
+          studioId: 'room-a',
+          startMinute: 600,
+          endMinute: 720,
+        },
+        {
+          id: 'proj_room_b_10',
+          schemaVersion: 1,
+          date: tomorrowIso,
+          studioId: 'room-b',
+          startMinute: 600,
+          endMinute: 720,
+        },
+        {
+          id: 'proj_room_a_14',
+          schemaVersion: 1,
+          date: tomorrowIso,
+          studioId: 'room-a',
+          startMinute: 840,
+          endMinute: 960,
+        },
+      ],
+    });
+    setPublicAvailabilityRepositoryAdapter(publicAvailabilityAdapter);
+
+    bookingRequestAdapter = createInMemoryBookingRequestRepositoryAdapter(bookingAdapter);
+    setBookingRequestRepositoryAdapter(bookingRequestAdapter);
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetClientPortalRepositoryAdapter();
+    resetPublicPricingCatalogRepositoryAdapter();
+    resetPricingSettingsRepositoryAdapter();
+    resetBookingRepositoryAdapter();
+    resetCustomerRepositoryAdapter();
+    resetPaymentRepositoryAdapter();
+    resetPublicAvailabilityRepositoryAdapter();
+    resetBookingRequestRepositoryAdapter();
+    portalBookingMocks.listeners.clear();
+    portalBookingMocks.staffLookup = null;
+    queryClient.clear();
+  });
+
+  it('A. Projects clean publicPricingCatalog/current without fees/unconfigured items and fails closed on invalid shapes', () => {
+    const projected = buildPublicPricingProjection({
+      ...DEFAULT_PRICING_SETTINGS,
+      version: 5,
+    });
+
+    expect(projected.schemaVersion).toBe(2);
+    expect(projected.version).toBe(5);
+
+    // Zero internal fee or operational fields anywhere in the projected object
+    const serialized = JSON.stringify(projected);
+    expect(serialized).not.toContain('fees');
+    expect(serialized).not.toContain('operationalSettings');
+    expect(serialized).not.toContain('updatedByUid');
+    expect(serialized).not.toContain('dailyMealAllowancePerStaff');
+
+    // Inactive & unconfigured options (pkg-rehearsal-6h, rec-lite, rec-pro, rec-drum-only) stripped
+    const rehearsal = projected.serviceTypes.find((s) => s.id === 'rehearsal');
+    expect(rehearsal.options.map((o) => o.id)).toEqual([
+      'rehearsal-regular',
+      'pkg-rehearsal-3h',
+      'pkg-rehearsal-5h',
+    ]);
+    const recording = projected.serviceTypes.find((s) => s.id === 'recording');
+    expect(recording.options.map((o) => o.id)).toEqual([
+      'live-recording-3h',
+      'rec-others',
+      'tracking-regular',
+      'multitrack-shift-6h',
+    ]);
+
+    // Normalization fails closed on missing doc or forbidden key leak
+    expect(normalizePublicPricingCatalog(null).isValid).toBe(false);
+    expect(
+      normalizePublicPricingCatalog({
+        ...projected,
+        operationalSettings: { dailyMealAllowancePerStaff: 25000 },
+      }).isValid,
+    ).toBe(false);
+    expect(
+      normalizePublicPricingCatalog({
+        ...projected,
+        serviceTypes: [
+          {
+            ...rehearsal,
+            options: [
+              {
+                ...rehearsal.options[0],
+                fees: { staff: { mode: 'fixed', amount: 15000 } },
+              },
+            ],
+          },
+        ],
+      }).isValid,
+    ).toBe(false);
+  });
+
+  it('B. Owner atomic save & Admin auto-sync / manual retry sync publicPricingCatalog/current while blocking Staff mutations and preserving legacy V1', async () => {
+    const user = userEvent.setup();
+
+    // Staff denied saving or syncing
+    await expect(
+      syncPublicPricingCatalog({
+        actorUid: 'staff-uid-2',
+        actorRole: 'staff',
+        adapter: pricingAdapter,
+      }),
+    ).rejects.toMatchObject({ code: 'pricing/owner-only' });
+
+    // Owner saves updated rate -> atomically publishes v3 publicPricingCatalog/current
+    const updatedSettings = clonePricingSettings(DEFAULT_PRICING_SETTINGS);
+    updatedSettings.serviceTypes[0].options[0].pricing.hourlyRate = 110000;
+    const savedV3 = await savePricingSettings({
+      actorUid: 'owner-uid-1',
+      actorRole: 'owner',
+      expectedVersion: 2,
+      settings: updatedSettings,
+      adapter: pricingAdapter,
+    });
+    expect(savedV3.version).toBe(3);
+    expect(publicPricingAdapter._getStoredDoc().version).toBe(3);
+    expect(publicPricingAdapter._getStoredDoc().serviceTypes[0].options[0].pricing.hourlyRate).toBe(
+      110000,
+    );
+
+    // 1. When publicPricingCatalog/current is missing but settings/pricing v3 is persisted,
+    // an active Owner opening Admin Settings automatically heals and syncs v3 without altering settings/pricing
+    publicPricingAdapter._setStoredDoc(null);
+    seedAuthenticatedStaff(clientAdapter, 'owner', 'owner-uid-1');
+
+    renderAppAt('/admin/settings/price-and-fee');
+
+    await waitFor(() => {
+      expect(publicPricingAdapter._getStoredDoc()?.version).toBe(3);
+    });
+    expect(
+      await screen.findByText(/public pricing catalog v3 berhasil disinkronkan/i),
+    ).toBeTruthy();
+    expect(pricingAdapter._getStoredDoc().version).toBe(3);
+    cleanup();
+
+    // 2. When auto-sync fails once due to transient error, Owner sees clear error banner and can manually retry
+    publicPricingAdapter._setStoredDoc(null);
+    pricingAdapter._setNextSyncError({
+      code: 'unavailable',
+      message: 'Temporary sync error',
+    });
+
+    renderAppAt('/admin/settings/price-and-fee');
+
+    await screen.findByRole('button', { name: /sync public catalog/i });
+    const alertBanner = await screen.findByRole('alert');
+    expect(alertBanner.textContent).toContain('Koneksi ke Firestore terputus');
+    expect(publicPricingAdapter._getStoredDoc()).toBeNull();
+
+    const manualSyncBtn = screen.getByRole('button', { name: /sync public catalog/i });
+    await user.click(manualSyncBtn);
+
+    await waitFor(() => {
+      expect(publicPricingAdapter._getStoredDoc()?.version).toBe(3);
+    });
+    expect(
+      await screen.findByText(/public pricing catalog v3 berhasil disinkronkan/i),
+    ).toBeTruthy();
+  });
+
+  it('C. Matches customer-facing calculator and Admin BookingSnapshot math (hourly ceil, Rehearsal 3h discount, Fixed Shift + hourly extension, manual_quote null)', () => {
+    const catalog = publicPricingAdapter._getStoredDoc();
+
+    // 1. Hourly ceiling: 90m -> 2h * 100k = 200k; 150m -> 3h * 100k = 300k
+    const reh90Est = calculateCustomerPriceEstimate({
+      catalog,
+      serviceTypeId: 'rehearsal',
+      serviceOptionId: 'rehearsal-regular',
+      durationMinutes: 90,
+    });
+    const reh90Admin = calculateBookingPricingSnapshot({
+      serviceTypeId: 'rehearsal',
+      serviceOptionId: 'rehearsal-regular',
+      durationMinutes: 90,
+      pricingSettings: DEFAULT_PRICING_SETTINGS,
+    });
+    expect(reh90Est.estimatedTotal).toBe(200000);
+    expect(reh90Admin.totalAmount).toBe(200000);
+
+    // 2. Rehearsal 3h/5h/6h automatic block discount matches identically
+    for (const [mins, expected] of [
+      [180, 270000],
+      [300, 470000],
+      [360, 540000],
+    ]) {
+      const cust = calculateCustomerPriceEstimate({
+        catalog,
+        serviceTypeId: 'rehearsal',
+        serviceOptionId: 'rehearsal-regular',
+        durationMinutes: mins,
+      });
+      const admin = calculateBookingPricingSnapshot({
+        serviceTypeId: 'rehearsal',
+        serviceOptionId: 'rehearsal-regular',
+        durationMinutes: mins,
+        pricingSettings: DEFAULT_PRICING_SETTINGS,
+      });
+      expect(cust.estimatedTotal).toBe(expected);
+      expect(admin.totalAmount).toBe(expected);
+    }
+
+    // 3. Fixed Shift + hourly extension using active hourly option rate from same serviceType
+    // Paket Rehearsal 3 Jam (300k - 30k = 270k) + 1h Reguler (100k) = 370k
+    const pkgExtEst = calculateCustomerPriceEstimate({
+      catalog,
+      serviceTypeId: 'rehearsal',
+      serviceOptionId: 'pkg-rehearsal-3h',
+      durationMinutes: 240,
+    });
+    const pkgExtAdmin = calculateBookingPricingSnapshot({
+      serviceTypeId: 'rehearsal',
+      serviceOptionId: 'pkg-rehearsal-3h',
+      durationMinutes: 240,
+      pricingSettings: DEFAULT_PRICING_SETTINGS,
+    });
+    expect(pkgExtEst.canExtendDuration).toBe(true);
+    expect(pkgExtEst.extensionHourlyRate).toBe(100000);
+    expect(pkgExtEst.extensionAmount).toBe(100000);
+    expect(pkgExtEst.discountAmount).toBe(30000);
+    expect(pkgExtEst.estimatedTotal).toBe(370000);
+    expect(pkgExtAdmin.totalAmount).toBe(370000);
+    expect(
+      resolveFormDurationMinutes(
+        {
+          serviceTypeId: 'rehearsal',
+          serviceOptionId: 'pkg-rehearsal-3h',
+          durationPreset: 'custom',
+          customDurationMinutes: '240',
+        },
+        DEFAULT_PRICING_SETTINGS,
+      ),
+    ).toBe(240);
+
+    // Live Recording 3h (420k) + 1h Tracking Reguler (150k) = 570k
+    const recExtEst = calculateCustomerPriceEstimate({
+      catalog,
+      serviceTypeId: 'recording',
+      serviceOptionId: 'live-recording-3h',
+      durationMinutes: 240,
+    });
+    const recExtAdmin = calculateBookingPricingSnapshot({
+      serviceTypeId: 'recording',
+      serviceOptionId: 'live-recording-3h',
+      durationMinutes: 240,
+      pricingSettings: DEFAULT_PRICING_SETTINGS,
+    });
+    expect(recExtEst.estimatedTotal).toBe(570000);
+    expect(recExtAdmin.totalAmount).toBe(570000);
+
+    // Fixed Shift CANNOT extend when serviceType has no active hourly option (never invents rate)
+    const noHourlyCatalog = {
+      ...catalog,
+      serviceTypes: catalog.serviceTypes.map((svc) =>
+        svc.id === 'rehearsal'
+          ? { ...svc, options: svc.options.filter((opt) => opt.id === 'pkg-rehearsal-3h') }
+          : svc,
+      ),
+    };
+    const lockedShiftEst = calculateCustomerPriceEstimate({
+      catalog: noHourlyCatalog,
+      serviceTypeId: 'rehearsal',
+      serviceOptionId: 'pkg-rehearsal-3h',
+      durationMinutes: 240,
+    });
+    expect(lockedShiftEst.canExtendDuration).toBe(false);
+    expect(lockedShiftEst.durationMinutes).toBe(180);
+    expect(lockedShiftEst.estimatedTotal).toBe(270000);
+
+    // 4. Manual quote returns null estimatedTotal (never fake Rp 0) + zero fees + fail closed on null catalog
+    const manualQuote = calculateCustomerPriceEstimate({
+      catalog,
+      serviceTypeId: 'recording',
+      serviceOptionId: 'rec-others',
+      durationMinutes: 180,
+    });
+    expect(manualQuote.isManualQuote).toBe(true);
+    expect(manualQuote.estimatedTotal).toBeNull();
+    expect(manualQuote).not.toHaveProperty('commissionSnapshot');
+    expect(
+      calculateCustomerPriceEstimate({ catalog: null, serviceTypeId: 'rehearsal' }),
+    ).toBeNull();
+  });
+
+  it('D. Fails closed when catalog or availability is unready, runs 3-step Studio Booking flow with extended Fixed Shift + Room Any merge, prevents double submits, and persists 38-key Client Portal request', async () => {
+    const user = userEvent.setup();
+    seedAuthenticatedClient(clientAdapter, {
+      displayName: 'Dimas Pratama',
+      phoneDisplay: '+62 812-5555-8888',
+    });
+
+    // 1. Fail closed when publicPricingCatalog/current is missing: shows honest unpublished notice + Check Again button
+    publicPricingAdapter._setStoredDoc(null);
+    renderAppAt('/portal/book');
+    const unavailableState = await screen.findByTestId('client-pricing-unavailable-state');
+    expect(unavailableState.textContent).toContain('Studio pricing catalog is not published yet');
+    expect(unavailableState.textContent).not.toContain('currently being synchronized');
+    expect(screen.queryByTestId('client-booking-step-select-session')).toBeNull();
+
+    // Publish publicPricingCatalog/current and click Check Again -> enters booking wizard
+    publicPricingAdapter._setStoredDoc(
+      buildPublicPricingProjection({ ...DEFAULT_PRICING_SETTINGS, version: 2 }),
+    );
+    await user.click(screen.getByRole('button', { name: /check again/i }));
+
+    // Step 1: Select Session (Rehearsal -> Paket Rehearsal 3 Jam)
+    expect(await screen.findByTestId('client-booking-step-select-session')).toBeTruthy();
+    await user.click(screen.getByTestId('client-service-card-rehearsal'));
+    await user.click(screen.getByTestId('client-option-card-pkg-rehearsal-3h'));
+    await user.click(screen.getByRole('button', { name: /continue to schedule/i }));
+
+    // Step 2: Choose Schedule -> switch date to tomorrow -> duration defaults to 3h -> extend to 4h
+    expect(await screen.findByTestId('client-booking-step-schedule')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /next day/i }));
+    await user.click(screen.getByTestId('client-duration-btn-240'));
+
+    expect(screen.getByTestId('client-schedule-price-badge').textContent).toContain('370.000');
+
+    // No Preference ('any'): 10:00 occupied in BOTH rooms -> booked; 14:00 occupied only in Room A -> selectable showing Room B!
+    await waitFor(() => {
+      expect(screen.getByTestId('client-slot-10:00').getAttribute('data-slot-state')).toBe(
+        'occupied',
+      );
+      expect(screen.getByTestId('client-slot-14:00').getAttribute('data-slot-state')).toBe(
+        'available',
+      );
+    });
+    expect(screen.getByTestId('client-slot-14:00').textContent).toContain('Room B');
+
+    await user.click(screen.getByTestId('client-slot-14:00'));
+    await user.click(screen.getByTestId('client-schedule-continue-btn'));
+
+    // Step 3: Review & Send (prefilled contact, consent check, honest non-confirmation)
+    expect(await screen.findByTestId('client-booking-step-review')).toBeTruthy();
+    expect(screen.getByLabelText(/your name/i).value).toBe('Dimas Pratama');
+    expect(screen.getByLabelText(/whatsapp \/ phone number/i).value).toBe('+62 812-5555-8888');
+    expect(screen.getByTestId('client-booking-price-summary').textContent).toContain('370.000');
+
+    await user.type(screen.getByLabelText(/band \/ artist name/i), 'Midnight Echo');
+    await user.type(screen.getByLabelText(/notes for studio crew/i), 'Bring extra cymbal stand');
+
+    // Without privacy consent -> validation error, zero saved docs
+    await user.click(screen.getByTestId('client-booking-submit-btn'));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(bookingRequestAdapter._inspectState().requests.size).toBe(0);
+
+    // Check consent & submit (verify single-flight guard by clicking twice)
+    await user.click(screen.getByRole('checkbox'));
+    await Promise.all([
+      user.click(screen.getByTestId('client-booking-submit-btn')),
+      user.click(screen.getByTestId('client-booking-submit-btn')),
+    ]);
+
+    expect(await screen.findByTestId('client-booking-success-view')).toBeTruthy();
+    expect(screen.getByText(/Request Received · Pending Studio Review/i)).toBeTruthy();
+
+    const storedRequests = Array.from(bookingRequestAdapter._inspectState().requests.values());
+    expect(storedRequests).toHaveLength(1);
+    expect(storedRequests[0]).toMatchObject({
+      requestType: BOOKING_REQUEST_TYPES.STUDIO_BOOKING,
+      source: BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+      clientUid: 'client-book-uid-1',
+      customerId: 'cust_book_client_1',
+      publicServiceId: 'rehearsal',
+      serviceOptionId: 'pkg-rehearsal-3h',
+      serviceOptionName: 'Paket 3 Hours',
+      pricingVersion: 2,
+      requestedRoomId: 'any',
+      preferredDate: tomorrowIso,
+      preferredStartMinute: 840,
+      preferredDurationMinutes: 240,
+      bandName: 'Midnight Echo',
+      status: 'new',
+    });
+  });
+
+  it('E. Completes 3-step Mix & Master project inquiry cleanly without studio rooms, availability slots, or duration pickers', async () => {
+    const user = userEvent.setup();
+    seedAuthenticatedClient(clientAdapter);
+
+    renderAppAt('/portal/book');
+    expect(await screen.findByTestId('client-booking-step-select-session')).toBeTruthy();
+
+    // Select WFA service (Mixing -> Mixing Reguler)
+    await user.click(screen.getByTestId('client-service-card-mixing'));
+    await user.click(screen.getByTestId('client-option-card-mixing-regular'));
+    await user.click(screen.getByRole('button', { name: /continue to project details/i }));
+
+    // Step 2: Project Details ONLY (no Room A / Room B / time slots!)
+    expect(await screen.findByTestId('client-booking-step-project-details')).toBeTruthy();
+    expect(screen.queryByTestId('client-booking-step-schedule')).toBeNull();
+    expect(screen.queryByRole('group', { name: /choose room preference/i })).toBeNull();
+    expect(screen.queryByRole('group', { name: /choose session duration/i })).toBeNull();
+
+    await user.type(screen.getByLabelText(/project \/ artist name/i), 'Senja EP');
+    await user.click(screen.getByRole('button', { name: 'EP' }));
+    await user.type(screen.getByLabelText(/track count/i), '5');
+    fireEvent.change(screen.getByLabelText(/target deadline/i), {
+      target: { value: tomorrowIso },
+    });
+    await user.type(
+      screen.getByLabelText(/project brief \/ references/i),
+      'Warm indie rock mix reference',
+    );
+    await user.click(screen.getByRole('button', { name: /continue to review/i }));
+
+    // Step 3: Review & Send
+    expect(await screen.findByTestId('client-booking-step-review')).toBeTruthy();
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByTestId('client-booking-submit-btn'));
+
+    expect(await screen.findByTestId('client-booking-success-view')).toBeTruthy();
+
+    const storedRequests = Array.from(bookingRequestAdapter._inspectState().requests.values());
+    expect(storedRequests).toHaveLength(1);
+    expect(storedRequests[0]).toMatchObject({
+      requestType: BOOKING_REQUEST_TYPES.POST_PRODUCTION_INQUIRY,
+      source: BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+      publicServiceId: 'mixing',
+      serviceOptionId: 'mixing-regular',
+      serviceOptionName: 'Mixing Reguler',
+      requestedRoomId: null,
+      preferredDate: null,
+      preferredStartMinute: null,
+      preferredDurationMinutes: null,
+      targetDeadline: tomorrowIso,
+      bandName: 'Senja EP',
+    });
+    expect(storedRequests[0].notes).toContain('[Project Type: EP • Tracks: 5]');
+    expect(storedRequests[0].notes).toContain('Warm indie rock mix reference');
+  });
+
+  it('F. Integrates Client Portal booking requests into Admin Inbox, Detail Drawer & Calendar BookingFormDialog with exact serviceOptionId + duration mapping and stale-option safeguard', async () => {
+    const user = userEvent.setup();
+
+    // Verify stale/deactivated serviceOptionId requires manual selection
+    const withoutPkg = clonePricingSettings(DEFAULT_PRICING_SETTINGS);
+    withoutPkg.serviceTypes[0].options = withoutPkg.serviceTypes[0].options.map((opt) =>
+      opt.id === 'pkg-rehearsal-3h' ? { ...opt, isActive: false } : opt,
+    );
+    const missingMap = mapPublicServiceToInternalPricing(
+      'rehearsal',
+      withoutPkg.serviceTypes,
+      'pkg-rehearsal-3h',
+    );
+    expect(missingMap.requiresManualSelection).toBe(true);
+    expect(missingMap.serviceOptionId).toBe('');
+
+    // Seed a Client Portal Studio Booking request into Admin Inbox
+    await bookingRequestAdapter.createPublicBookingRequest({
+      requestId: 'req_client_portal_int1',
+      payload: {
+        schemaVersion: 1,
+        requestReference: 'REQ-CPINT001',
+        requestType: BOOKING_REQUEST_TYPES.STUDIO_BOOKING,
+        status: 'new',
+        statusReason: '',
+        customerName: 'Dimas Client',
+        bandName: 'Midnight Echo',
+        contactPhone: '+6281255558888',
+        publicServiceId: 'rehearsal',
+        serviceLabelSnapshot: 'Rehearsal',
+        requestedRoomId: 'room-b',
+        preferredDate: tomorrowIso,
+        preferredStartMinute: 840,
+        preferredDurationMinutes: 240,
+        targetDeadline: null,
+        notes: 'Client extended 4h pkg',
+        privacyConsent: true,
+        consentVersion: 'v1',
+        source: BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+        clientUid: 'client-book-uid-1',
+        customerId: 'cust_book_client_1',
+        serviceOptionId: 'pkg-rehearsal-3h',
+        serviceOptionName: 'Paket 3 Hours',
+        pricingVersion: 2,
+        assignedStaffUid: '',
+        assignedStaffName: '',
+        lastCommunicationAt: null,
+        lastCommunicationType: '',
+        lastCommunicationStatus: '',
+        linkedBookingId: null,
+        confirmedBookingSnapshot: null,
+        confirmedAt: null,
+        confirmedByUid: '',
+        appCheckState: 'unconfigured',
+        updatedByUid: '',
+        version: 1,
+      },
+    });
+
+    seedAuthenticatedStaff(clientAdapter, 'staff', 'staff-uid-1');
+
+    // Open Admin Booking Requests Inbox -> inspect badge & open Drawer
+    renderAppAt('/admin/booking-requests');
+    expect(await screen.findByText('REQ-CPINT001')).toBeTruthy();
+    expect(screen.getAllByText('Client Portal').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Rehearsal · Paket 3 Hours/i)).toBeTruthy();
+
+    await user.click(screen.getByText('REQ-CPINT001'));
+    expect(await screen.findByText(/Katalog Publik v2/i)).toBeTruthy();
+
+    // Navigate to Calendar conversion link
+    const convertLink = screen.getByTestId('convert-to-calendar-booking-link');
+    await user.click(convertLink);
+
+    const dialog = await screen.findByRole('dialog', { name: /tambah booking/i });
+    const reqBanner = within(dialog).getByTestId('booking-form-request-banner');
+    expect(reqBanner.textContent).toContain('Client Portal');
+    expect(reqBanner.textContent).toContain('Paket 3 Hours');
+
+    // Exact serviceOptionId + extended 240m (Rp 370.000) prefilled identically!
+    expect(within(dialog).getAllByText(/Rp\s*370\.000/).length).toBeGreaterThan(0);
+
+    await user.click(within(dialog).getByRole('button', { name: /simpan booking/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /tambah booking/i })).toBeNull();
+    });
+
+    const bookings = Array.from(bookingAdapter._inspectState().bookings.values());
+    expect(bookings).toHaveLength(1);
+    expect(bookings[0]).toMatchObject({
+      serviceTypeId: 'rehearsal',
+      serviceOptionId: 'pkg-rehearsal-3h',
+      durationMinutes: 240,
+      subtotal: 400000,
+      discountAmount: 30000,
+      totalAmount: 370000,
+    });
+  });
+});

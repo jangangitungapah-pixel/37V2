@@ -403,16 +403,18 @@ describe('Phase 6 V2 — Service Catalog & Tariff Model Redesign', () => {
         },
       });
 
-      // 1. Hourly exact 30-min proportion: 2.5 hours (150m) * 100k = 250k (NOT rounded to 3h!)
+      // 1. Hourly ceiling billing: 2.5 hours (150m) rounds up to 3 billable hours * 100k = 300k
+      //    (discount rules still evaluate against actual studio duration of 150m -> discountAmount 0;
+      //    staff hourly commission still pays for actual 2.5h studio time -> 25k)
       const rehearsal2_5h = calculateBookingPricingSnapshot({
         serviceTypeId: 'rehearsal',
         serviceOptionId: 'rehearsal-regular',
         durationMinutes: 150,
         pricingSettings: customV2,
       });
-      expect(rehearsal2_5h.subtotal).toBe(250000);
+      expect(rehearsal2_5h.subtotal).toBe(300000);
       expect(rehearsal2_5h.discountAmount).toBe(0);
-      expect(rehearsal2_5h.totalAmount).toBe(250000);
+      expect(rehearsal2_5h.totalAmount).toBe(300000);
       expect(rehearsal2_5h.commissionSnapshot).toEqual({
         schemaVersion: 2,
         staff: { basis: 'hourly', rate: 10000, amount: 25000 },

@@ -2440,6 +2440,44 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function isValidPublicPricingCatalogShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'version',
+          'serviceTypes',
+          'updatedAt'
+        ])
+        && data.size() == 4
+        && !data.keys().hasAny([
+          'fees',
+          'operationalSettings',
+          'updatedByUid',
+          'defaultStaffCommission',
+          'defaultOwnerCommission',
+          'staffCommissionAmount',
+          'recordingOperatorCommissionAmount',
+          'rehearsalStaffCommissionPerHour',
+          'dailyMealAllowancePerStaff'
+        ])
+        && data.schemaVersion == 2
+        && data.version is int
+        && data.version >= 1
+        && data.serviceTypes is list
+        && data.serviceTypes.size() <= 20
+        && data.updatedAt is timestamp;
+    }
+
+    match /publicPricingCatalog/{docId} {
+      allow get: if docId == 'current';
+      allow list: if false;
+
+      allow create, update: if isActiveOwner()
+        && docId == 'current'
+        && isValidPublicPricingCatalogShape(request.resource.data);
+
+      allow delete: if false;
+    }
+
     function isValidPublicSiteSettingsShape(data) {
       return data.keys().hasOnly([
           'schemaVersion',
@@ -2552,11 +2590,110 @@ service cloud.firestore {
       ]) && data.size() == 33;
     }
 
+    function isValidClientBookingRequestKeys(data) {
+      return data.keys().hasOnly([
+        'schemaVersion',
+        'requestReference',
+        'requestType',
+        'status',
+        'statusReason',
+        'customerName',
+        'bandName',
+        'contactPhone',
+        'publicServiceId',
+        'serviceLabelSnapshot',
+        'requestedRoomId',
+        'preferredDate',
+        'preferredStartMinute',
+        'preferredDurationMinutes',
+        'targetDeadline',
+        'notes',
+        'privacyConsent',
+        'consentVersion',
+        'source',
+        'clientUid',
+        'customerId',
+        'serviceOptionId',
+        'serviceOptionName',
+        'pricingVersion',
+        'assignedStaffUid',
+        'assignedStaffName',
+        'lastCommunicationAt',
+        'lastCommunicationType',
+        'lastCommunicationStatus',
+        'linkedBookingId',
+        'confirmedBookingSnapshot',
+        'confirmedAt',
+        'confirmedByUid',
+        'appCheckState',
+        'createdAt',
+        'updatedAt',
+        'updatedByUid',
+        'version'
+      ]) && data.size() == 38;
+    }
+
+    function isValidPublicBookingRequestScheduleShape(data) {
+      return (
+        data.requestType == 'studio_booking'
+        && data.requestedRoomId in ['room-a', 'room-b', 'any']
+        && data.preferredDate is string
+        && data.preferredDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.preferredStartMinute is int
+        && data.preferredStartMinute >= 600
+        && data.preferredStartMinute < 1380
+        && data.preferredStartMinute % 30 == 0
+        && data.preferredDurationMinutes is int
+        && data.preferredDurationMinutes >= 60
+        && data.preferredDurationMinutes <= 780
+        && data.preferredDurationMinutes % 30 == 0
+        && data.preferredStartMinute + data.preferredDurationMinutes <= 1380
+        && data.targetDeadline == null
+      ) || (
+        data.requestType == 'post_production_inquiry'
+        && data.requestedRoomId == null
+        && data.preferredDate == null
+        && data.preferredStartMinute == null
+        && data.preferredDurationMinutes == null
+        && (data.targetDeadline == null || (data.targetDeadline is string && data.targetDeadline.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+      );
+    }
+
+    function isValidClientPortalBookingRequestCreate(data) {
+      return isActiveClient()
+        && isValidClientBookingRequestKeys(data)
+        && data.source == 'client_portal'
+        && data.clientUid == request.auth.uid
+        && data.customerId == getClientAccountDoc(request.auth.uid).data.customerId
+        && data.publicServiceId is string
+        && data.publicServiceId.trim().size() >= 2
+        && data.publicServiceId.size() <= 80
+        && data.serviceOptionId is string
+        && data.serviceOptionId.trim().size() >= 1
+        && data.serviceOptionId.size() <= 80
+        && data.serviceOptionName is string
+        && data.serviceOptionName.trim().size() >= 1
+        && data.serviceOptionName.size() <= 100
+        && data.pricingVersion is int
+        && data.pricingVersion >= 1
+        && exists(/databases/$(database)/documents/publicPricingCatalog/current)
+        && get(/databases/$(database)/documents/publicPricingCatalog/current).data.schemaVersion == 2
+        && data.pricingVersion == get(/databases/$(database)/documents/publicPricingCatalog/current).data.version;
+    }
+
+    function isValidAnonymousPublicBookingRequestCreate(data) {
+      return isValidPublicBookingRequestKeys(data)
+        && data.source in ['public_landing_page', 'public_availability_calendar']
+        && (
+          (data.requestType == 'studio_booking' && data.publicServiceId in ['rehearsal', 'recording'])
+          || (data.requestType == 'post_production_inquiry' && data.publicServiceId == 'mix-master')
+        );
+    }
+
     function isValidPublicBookingRequestCreate(data, requestId) {
       return requestId is string
         && requestId.size() >= 8
         && requestId.size() <= 80
-        && isValidPublicBookingRequestKeys(data)
         && data.schemaVersion == 1
         && data.requestReference is string
         && data.requestReference.matches('^REQ-[A-Z0-9]{8}$')
@@ -2565,7 +2702,6 @@ service cloud.firestore {
         && data.version == 1
         && data.privacyConsent == true
         && data.consentVersion == 'v1'
-        && data.source in ['public_landing_page', 'public_availability_calendar']
         && data.customerName is string
         && data.customerName.trim().size() >= 2
         && data.customerName.trim().size() <= 100
@@ -2575,7 +2711,7 @@ service cloud.firestore {
         && data.contactPhone.matches('^\\+[1-9][0-9]{7,14}$')
         && data.serviceLabelSnapshot is string
         && data.serviceLabelSnapshot.trim().size() >= 2
-        && data.serviceLabelSnapshot.size() <= 60
+        && data.serviceLabelSnapshot.size() <= 80
         && data.notes is string
         && data.notes.size() <= 600
         && data.appCheckState in ['verified', 'unconfigured']
@@ -2591,33 +2727,10 @@ service cloud.firestore {
         && data.confirmedBookingSnapshot == null
         && data.confirmedAt == null
         && data.confirmedByUid == ''
+        && isValidPublicBookingRequestScheduleShape(data)
         && (
-          (
-            data.requestType == 'studio_booking'
-            && data.publicServiceId in ['rehearsal', 'recording']
-            && data.requestedRoomId in ['room-a', 'room-b', 'any']
-            && data.preferredDate is string
-            && data.preferredDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
-            && data.preferredStartMinute is int
-            && data.preferredStartMinute >= 600
-            && data.preferredStartMinute < 1380
-            && data.preferredStartMinute % 30 == 0
-            && data.preferredDurationMinutes is int
-            && data.preferredDurationMinutes >= 60
-            && data.preferredDurationMinutes <= 780
-            && data.preferredDurationMinutes % 30 == 0
-            && data.preferredStartMinute + data.preferredDurationMinutes <= 1380
-            && data.targetDeadline == null
-          )
-          || (
-            data.requestType == 'post_production_inquiry'
-            && data.publicServiceId == 'mix-master'
-            && data.requestedRoomId == null
-            && data.preferredDate == null
-            && data.preferredStartMinute == null
-            && data.preferredDurationMinutes == null
-            && (data.targetDeadline == null || (data.targetDeadline is string && data.targetDeadline.matches('^\\d{4}-\\d{2}-\\d{2}$')))
-          )
+          isValidAnonymousPublicBookingRequestCreate(data)
+          || isValidClientPortalBookingRequestCreate(data)
         );
     }
 
@@ -2639,6 +2752,11 @@ service cloud.firestore {
         && nextData.privacyConsent == prevData.privacyConsent
         && nextData.consentVersion == prevData.consentVersion
         && nextData.source == prevData.source
+        && nextData.get('clientUid', '') == prevData.get('clientUid', '')
+        && nextData.get('customerId', '') == prevData.get('customerId', '')
+        && nextData.get('serviceOptionId', '') == prevData.get('serviceOptionId', '')
+        && nextData.get('serviceOptionName', '') == prevData.get('serviceOptionName', '')
+        && nextData.get('pricingVersion', null) == prevData.get('pricingVersion', null)
         && nextData.appCheckState == prevData.appCheckState
         && nextData.createdAt == prevData.createdAt;
     }
@@ -2712,7 +2830,11 @@ service cloud.firestore {
     }
 
     function isValidBookingRequestStaffUpdate(nextData, prevData) {
-      return isValidPublicBookingRequestKeys(nextData)
+      return (
+          prevData.source == 'client_portal'
+            ? isValidClientBookingRequestKeys(nextData)
+            : isValidPublicBookingRequestKeys(nextData)
+        )
         && isBookingRequestCustomerFieldsUnchanged(nextData, prevData)
         && nextData.version == prevData.version + 1
         && nextData.updatedByUid == request.auth.uid
@@ -2783,7 +2905,20 @@ service cloud.firestore {
     }
 
     match /publicBookingRequests/{requestId} {
-      allow read: if isActiveStaff();
+      allow get: if isActiveStaff()
+        || (
+          isActiveClient()
+          && resource != null
+          && resource.data.source == 'client_portal'
+          && resource.data.clientUid == request.auth.uid
+        );
+
+      allow list: if isActiveStaff()
+        || (
+          isActiveClient()
+          && resource.data.source == 'client_portal'
+          && resource.data.clientUid == request.auth.uid
+        );
 
       allow create: if !isFactoryResetLocked()
         && isValidPublicBookingRequestCreate(request.resource.data, requestId);

@@ -1,6 +1,7 @@
 import { AdminStatusBadge } from '@/features/admin/design-system';
 
 import {
+  BOOKING_REQUEST_SOURCES,
   BOOKING_REQUEST_STATUS_META,
   BOOKING_REQUEST_TYPES,
 } from '../config/booking-request-config';
@@ -28,6 +29,18 @@ export function BookingRequestTypeBadge({ requestType, size = 'sm' }) {
   return (
     <AdminStatusBadge tone={isPostProd ? 'ink' : 'ivory'} size={size}>
       {isPostProd ? 'Post-Production' : 'Studio Room'}
+    </AdminStatusBadge>
+  );
+}
+
+export function BookingRequestSourceBadge({ source, size = 'sm' }) {
+  if (source !== BOOKING_REQUEST_SOURCES.CLIENT_PORTAL) {
+    return null;
+  }
+
+  return (
+    <AdminStatusBadge tone="lime" size={size}>
+      Client Portal
     </AdminStatusBadge>
   );
 }

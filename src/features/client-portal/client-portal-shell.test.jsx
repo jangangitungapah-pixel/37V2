@@ -95,6 +95,18 @@ vi.mock('firebase/firestore', () => ({
 
 import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
+import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
+import {
+  createInMemoryPublicAvailabilityRepositoryAdapter,
+  resetPublicAvailabilityRepositoryAdapter,
+  setPublicAvailabilityRepositoryAdapter,
+} from '@/features/public-availability/repositories/public-availability-repository';
+import {
+  createInMemoryPublicPricingCatalogAdapter,
+  resetPublicPricingCatalogRepositoryAdapter,
+  setPublicPricingCatalogRepositoryAdapter,
+} from '@/features/public-pricing/repositories/public-pricing-repository';
+import { buildPublicPricingProjection } from '@/features/public-pricing/utils/public-pricing-projection';
 import { queryClient } from '@/lib/query-client';
 
 import {
@@ -210,6 +222,16 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
     Element.prototype.scrollIntoView = vi.fn();
     clientAdapter = createInMemoryClientPortalRepositoryAdapter();
     setClientPortalRepositoryAdapter(clientAdapter);
+    setPublicPricingCatalogRepositoryAdapter(
+      createInMemoryPublicPricingCatalogAdapter(
+        buildPublicPricingProjection(DEFAULT_PRICING_SETTINGS),
+      ),
+    );
+    setPublicAvailabilityRepositoryAdapter(
+      createInMemoryPublicAvailabilityRepositoryAdapter({
+        initialMetadata: { isReady: true, backfilledFromDate: '2026-01-01' },
+      }),
+    );
 
     shellMocks.staffLookup = (uid) => clientAdapter.hasStaffProfile(uid);
     shellMocks.auth.currentUser = null;
@@ -227,6 +249,8 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
   afterEach(() => {
     cleanup();
     resetClientPortalRepositoryAdapter();
+    resetPublicPricingCatalogRepositoryAdapter();
+    resetPublicAvailabilityRepositoryAdapter();
     shellMocks.listeners.clear();
     shellMocks.staffLookup = null;
     queryClient.clear();
@@ -340,9 +364,9 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
     await user.click(within(sidebarNav).getByRole('link', { name: 'Book a Session' }));
     expect(await screen.findByTestId('client-book-session-page')).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: 'Book a Session' })).toBeTruthy();
-    expect(screen.getByText('Rehearsal')).toBeTruthy();
+    expect(await screen.findByText('Rehearsal')).toBeTruthy();
     expect(screen.getByText('Recording')).toBeTruthy();
-    expect(screen.getByText('Mix & Master')).toBeTruthy();
+    expect(screen.getAllByText(/Mix & Master/i).length).toBeGreaterThan(0);
 
     await user.click(within(sidebarNav).getByRole('link', { name: 'My Bookings' }));
     expect(await screen.findByTestId('client-bookings-page')).toBeTruthy();

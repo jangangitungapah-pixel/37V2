@@ -37,16 +37,23 @@ const E164_PATTERN = /^\+[1-9][0-9]{7,14}$/;
  * Validates and normalizes an incoming public booking request or post-production inquiry
  * before persisting to `publicBookingRequests/{requestId}`.
  */
-export function validatePublicBookingRequestInput(rawInput = {}, { now = new Date() } = {}) {
+export function validatePublicBookingRequestInput(
+  rawInput = {},
+  {
+    now = new Date(),
+    allowedPublicServiceIds = ALLOWED_PUBLIC_SERVICE_IDS,
+    resolvedRequestType = null,
+    serviceLabelOverride = '',
+  } = {},
+) {
   const errors = {};
   const todayIso = getJakartaTodayIso(now);
 
   const customerName = String(rawInput?.customerName ?? rawInput?.clientName ?? '').trim();
   const bandName = String(rawInput?.bandName ?? '').trim();
   const rawPhone = String(rawInput?.contactPhone ?? rawInput?.contactNumber ?? '').trim();
-  const publicServiceId = String(rawInput?.publicServiceId ?? rawInput?.service ?? '')
-    .trim()
-    .toLowerCase();
+  const rawServiceId = String(rawInput?.publicServiceId ?? rawInput?.service ?? '').trim();
+  const publicServiceIdLower = rawServiceId.toLowerCase();
   const notes = String(rawInput?.notes ?? '').trim();
   const privacyConsent = rawInput?.privacyConsent === true;
 
@@ -70,7 +77,12 @@ export function validatePublicBookingRequestInput(rawInput = {}, { now = new Dat
     errors.contactPhone = 'Please enter a valid WhatsApp or phone number (8–15 digits).';
   }
 
-  if (!ALLOWED_PUBLIC_SERVICE_IDS.has(publicServiceId)) {
+  const allowedServiceSet =
+    allowedPublicServiceIds instanceof Set ? allowedPublicServiceIds : ALLOWED_PUBLIC_SERVICE_IDS;
+  const matchedServiceAllowed =
+    allowedServiceSet.has(rawServiceId) || allowedServiceSet.has(publicServiceIdLower);
+
+  if (!rawServiceId || !matchedServiceAllowed) {
     errors.publicServiceId = 'Please select a valid session category.';
   }
 
@@ -83,7 +95,14 @@ export function validatePublicBookingRequestInput(rawInput = {}, { now = new Dat
       'Please agree to let 37 Music Studio use your contact details to respond to this request.';
   }
 
-  const requestType = resolveRequestTypeFromPublicService(publicServiceId);
+  const requestType =
+    resolvedRequestType === BOOKING_REQUEST_TYPES.POST_PRODUCTION_INQUIRY ||
+    resolvedRequestType === BOOKING_REQUEST_TYPES.STUDIO_BOOKING
+      ? resolvedRequestType
+      : resolveRequestTypeFromPublicService(publicServiceIdLower);
+
+  const publicServiceId =
+    allowedPublicServiceIds === ALLOWED_PUBLIC_SERVICE_IDS ? publicServiceIdLower : rawServiceId;
 
   let requestedRoomId = null;
   let preferredDate = null;
@@ -176,7 +195,8 @@ export function validatePublicBookingRequestInput(rawInput = {}, { now = new Dat
           bandName,
           contactPhone: normalizedPhone,
           publicServiceId,
-          serviceLabelSnapshot: getPublicServiceLabel(publicServiceId),
+          serviceLabelSnapshot:
+            String(serviceLabelOverride || '').trim() || getPublicServiceLabel(publicServiceId),
           requestedRoomId,
           preferredDate,
           preferredStartMinute,

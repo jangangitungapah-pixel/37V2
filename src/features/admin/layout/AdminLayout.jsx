@@ -1,5 +1,5 @@
 import { useContext, useRef, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { AlertTriangle, Loader2, Lock, RefreshCw } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { Toaster } from 'sonner';
@@ -8,6 +8,8 @@ import { BookingRequestAlertsProvider } from '@/features/admin/booking-requests/
 import { useBookingRequestAlerts } from '@/features/admin/booking-requests/hooks/useBookingRequestAlerts';
 import { useFactoryResetStatus } from '@/features/admin/settings/danger-area/hooks/useFactoryReset';
 import { AuthContext } from '@/features/auth/AuthContext';
+import { OwnerPublicPricingSyncContext } from '@/features/public-pricing/context/OwnerPublicPricingSyncContext';
+import { useOwnerPublicPricingAutoSync } from '@/features/public-pricing/hooks/useOwnerPublicPricingAutoSync';
 
 import { AdminMobileDrawer } from '../components/AdminMobileDrawer';
 import { AdminSidebar } from '../components/AdminSidebar';
@@ -29,6 +31,12 @@ function AdminLayoutShell() {
   );
   const { isLocked: isFactoryResetLocked, operation: activeResetOp } = useFactoryResetStatus({
     enabled: isActiveOwner,
+  });
+
+  const ownerPricingSync = useOwnerPublicPricingAutoSync({
+    enabled: isActiveOwner && !isFactoryResetLocked,
+    actorUid: auth?.user?.uid || auth?.profile?.uid || '',
+    actorRole: auth?.role || auth?.profile?.role || '',
   });
 
   const { badgeLabel } = useBookingRequestAlerts();
@@ -116,7 +124,40 @@ function AdminLayoutShell() {
                 </Link>
               </div>
             ) : null}
-            <Outlet />
+            {isActiveOwner &&
+            ownerPricingSync.syncError &&
+            location.pathname !== '/admin/settings/price-and-fee' ? (
+              <div
+                role="alert"
+                data-testid="admin-public-pricing-sync-error-banner"
+                className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#FF4B22]/30 bg-[#FFEDE8] px-4 py-2.5 text-xs text-[#8C2B14]"
+              >
+                <span className="inline-flex items-center gap-2 font-medium">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#B92B0C]" aria-hidden="true" />
+                  <span>
+                    <strong>Public Pricing Catalog gagal disinkronkan:</strong>{' '}
+                    {ownerPricingSync.syncError}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  disabled={ownerPricingSync.isSyncing}
+                  onClick={ownerPricingSync.triggerSync}
+                  className="sa-control inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-[#151515] px-3 py-1 text-xs font-semibold text-white hover:bg-[#2a2926] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {ownerPricingSync.isSyncing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  <span>Sync Public Catalog</span>
+                </button>
+              </div>
+            ) : null}
+
+            <OwnerPublicPricingSyncContext.Provider value={ownerPricingSync}>
+              <Outlet />
+            </OwnerPublicPricingSyncContext.Provider>
           </motion.div>
         </main>
 

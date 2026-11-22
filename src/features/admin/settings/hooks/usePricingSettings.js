@@ -18,7 +18,7 @@ import {
  * Shared by Price and Fee Settings page, Calendar workspace, Booking pricing, and Fee estimation
  * without relying on localStorage as authoritative source.
  */
-export function usePricingSettings() {
+export function usePricingSettings({ enabled = true } = {}) {
   const adapter = getPricingSettingsRepositoryAdapter();
 
   const [state, setState] = useState(() => ({
@@ -30,6 +30,10 @@ export function usePricingSettings() {
   }));
 
   useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
+
     const unsubscribe = adapter.subscribePricingSettings({
       onData: ({ settings, isPersisted, migratedFromV1 }) => {
         setState({
@@ -52,9 +56,9 @@ export function usePricingSettings() {
     return () => {
       unsubscribe?.();
     };
-  }, [adapter]);
+  }, [adapter, enabled]);
 
-  const isLoading = state.resolvedAdapter !== adapter;
+  const isLoading = enabled ? state.resolvedAdapter !== adapter : false;
 
   const serviceTypes = useMemo(
     () => state.settings.serviceTypes || [],

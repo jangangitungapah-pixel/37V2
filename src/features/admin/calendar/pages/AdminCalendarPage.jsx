@@ -161,6 +161,7 @@ export function AdminCalendarPage() {
         const serviceMapping = mapPublicServiceToInternalPricing(
           loaded.publicServiceId,
           activeStudioServiceTypes,
+          loaded.serviceOptionId,
         );
         const targetDate = isValidIsoDateString(loaded.preferredDate)
           ? loaded.preferredDate

@@ -32,7 +32,11 @@ import {
 } from '../services/booking-request-service';
 import { formatRequestDurationLabel } from '../utils/booking-request-normalize';
 import { BookingRequestActivityTimeline } from './BookingRequestActivityTimeline';
-import { BookingRequestStatusBadge, BookingRequestTypeBadge } from './BookingRequestStatusBadge';
+import {
+  BookingRequestSourceBadge,
+  BookingRequestStatusBadge,
+  BookingRequestTypeBadge,
+} from './BookingRequestStatusBadge';
 import { WhatsAppMessageComposer } from './WhatsAppMessageComposer';
 
 const TRANSITION_BUTTON_META = {
@@ -134,6 +138,7 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
                   {request ? (
                     <BookingRequestTypeBadge requestType={request.requestType} size="sm" />
                   ) : null}
+                  {request ? <BookingRequestSourceBadge source={request.source} size="sm" /> : null}
                 </div>
                 <Dialog.Title className="mt-1.5 truncate text-lg font-bold text-white sm:text-xl">
                   {request?.customerName || 'Detail Booking Request'}
@@ -194,7 +199,13 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
                       </p>
                       <p className="mt-1 text-sm font-bold text-[#151515]">
                         {request.serviceLabelSnapshot}
+                        {request.serviceOptionName ? ` · ${request.serviceOptionName}` : ''}
                       </p>
+                      {request.pricingVersion ? (
+                        <p className="mt-0.5 font-mono text-[11px] text-[#666159]">
+                          Katalog Publik v{request.pricingVersion}
+                        </p>
+                      ) : null}
                       {request.requestType === BOOKING_REQUEST_TYPES.STUDIO_BOOKING ? (
                         <p className="mt-0.5 text-xs text-[#46433D]">
                           {request.requestedRoomLabel} • {request.preferredDate || '-'} •{' '}

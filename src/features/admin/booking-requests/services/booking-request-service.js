@@ -4,9 +4,15 @@ import {
   BOOKING_REQUEST_SCHEMA_VERSION,
   BOOKING_REQUEST_SOURCES,
   BOOKING_REQUEST_STATUS,
+  BOOKING_REQUEST_TYPES,
   PUBLIC_MIN_ELAPSED_MS,
   PUBLIC_SUBMIT_COOLDOWN_MS,
 } from '../config/booking-request-config';
+import { findServiceExtensionHourlyRate } from '@/features/admin/calendar/utils/booking-pricing';
+import {
+  DELIVERY_MODES,
+  PRICING_MODES,
+} from '@/features/admin/settings/pricing/config/default-pricing-settings';
 import {
   createBookingRequestRepositoryError,
   getBookingRequestRepositoryAdapter,
@@ -142,9 +148,10 @@ export async function submitPublicBookingRequest({
     });
   }
 
-  const resolvedSource = Object.values(BOOKING_REQUEST_SOURCES).includes(source)
-    ? source
-    : BOOKING_REQUEST_SOURCES.PUBLIC_LANDING_PAGE;
+  const resolvedSource =
+    source === BOOKING_REQUEST_SOURCES.PUBLIC_AVAILABILITY_CALENDAR
+      ? BOOKING_REQUEST_SOURCES.PUBLIC_AVAILABILITY_CALENDAR
+      : BOOKING_REQUEST_SOURCES.PUBLIC_LANDING_PAGE;
 
   const v = validation.data;
   const payload = {
@@ -167,6 +174,177 @@ export async function submitPublicBookingRequest({
     privacyConsent: true,
     consentVersion: BOOKING_REQUEST_CONSENT_VERSION,
     source: resolvedSource,
+    assignedStaffUid: '',
+    assignedStaffName: '',
+    lastCommunicationAt: null,
+    lastCommunicationType: '',
+    lastCommunicationStatus: '',
+    linkedBookingId: null,
+    confirmedBookingSnapshot: null,
+    confirmedAt: null,
+    confirmedByUid: '',
+    appCheckState: 'unconfigured',
+    updatedByUid: '',
+    version: 1,
+  };
+
+  const resolvedAdapter = adapter || getBookingRequestRepositoryAdapter();
+  const created = await resolvedAdapter.createPublicBookingRequest({ requestId, payload });
+  lastSuccessfulPublicSubmitAtMs = Date.now();
+  return created;
+}
+
+/**
+ * Validates and submits a tentative Studio Booking request or Mix & Master project inquiry
+ * on behalf of an authenticated active Client Portal user.
+ * Never fabricates confirmation and binds ownership + selected `publicPricingCatalog` snapshot.
+ */
+export async function submitClientBookingRequest({
+  input,
+  clientAuth,
+  publicCatalog,
+  requestId = generateBookingRequestId(),
+  honeypotValue = '',
+  formOpenedAtMs = 0,
+  minElapsedMs = PUBLIC_MIN_ELAPSED_MS,
+  cooldownMs = PUBLIC_SUBMIT_COOLDOWN_MS,
+  now = new Date(),
+  adapter = null,
+}) {
+  const cleanClientUid = String(clientAuth?.uid || '').trim();
+  const accountStatus = String(clientAuth?.clientAccount?.status || '')
+    .trim()
+    .toLowerCase();
+  const cleanCustomerId = String(
+    clientAuth?.customerId || clientAuth?.clientAccount?.customerId || '',
+  ).trim();
+
+  if (!cleanClientUid || accountStatus !== 'active' || !cleanCustomerId) {
+    throw createBookingRequestRepositoryError(
+      'booking-request/unauthorized-client',
+      'Akun Client aktif diperlukan untuk mengirim permintaan booking.',
+    );
+  }
+
+  if (
+    !publicCatalog ||
+    !Array.isArray(publicCatalog.serviceTypes) ||
+    publicCatalog.serviceTypes.length === 0 ||
+    !Number.isInteger(Number(publicCatalog.version)) ||
+    Number(publicCatalog.version) < 1
+  ) {
+    throw createBookingRequestRepositoryError(
+      'booking-request/catalog-unavailable',
+      'Katalog layanan & tarif publik belum tersedia. Silakan muat ulang atau hubungi admin studio.',
+    );
+  }
+
+  const requestedServiceId = String(input?.serviceTypeId || input?.publicServiceId || '').trim();
+  const requestedOptionId = String(input?.serviceOptionId || '').trim();
+
+  const selectedService = publicCatalog.serviceTypes.find((svc) => svc.id === requestedServiceId);
+  const selectedOption = selectedService?.options?.find((opt) => opt.id === requestedOptionId);
+
+  if (
+    !selectedService ||
+    !selectedOption ||
+    !selectedOption.pricing?.mode ||
+    selectedOption.pricing.mode === PRICING_MODES.UNCONFIGURED
+  ) {
+    throw createBookingRequestRepositoryError(
+      'booking-request/invalid-service-option',
+      'Layanan atau paket yang dipilih tidak lagi aktif di katalog studio.',
+    );
+  }
+
+  const guardResult = evaluateSubmissionAbuseGuards({
+    honeypotValue,
+    formOpenedAtMs,
+    minElapsedMs,
+    cooldownMs,
+    nowMs: now.getTime(),
+  });
+  if (!guardResult.allowed) {
+    throw createBookingRequestRepositoryError(guardResult.code, guardResult.message);
+  }
+
+  const resolvedRequestType =
+    selectedService.deliveryMode === DELIVERY_MODES.WFA
+      ? BOOKING_REQUEST_TYPES.POST_PRODUCTION_INQUIRY
+      : BOOKING_REQUEST_TYPES.STUDIO_BOOKING;
+
+  const allowedServiceIds = new Set(publicCatalog.serviceTypes.map((svc) => svc.id));
+  const validation = validatePublicBookingRequestInput(
+    {
+      ...input,
+      publicServiceId: selectedService.id,
+    },
+    {
+      now,
+      allowedPublicServiceIds: allowedServiceIds,
+      resolvedRequestType,
+      serviceLabelOverride: selectedService.name,
+    },
+  );
+
+  if (!validation.isValid) {
+    const firstMsg =
+      Object.values(validation.errors)[0] || 'Periksa kembali detail permintaan Anda.';
+    throw createBookingRequestRepositoryError('booking-request/validation-error', firstMsg, {
+      errors: validation.errors,
+    });
+  }
+
+  const v = validation.data;
+
+  if (
+    resolvedRequestType === BOOKING_REQUEST_TYPES.STUDIO_BOOKING &&
+    selectedOption.pricing.mode === PRICING_MODES.FIXED_SHIFT &&
+    Number(selectedOption.pricing.durationMinutes) > 0
+  ) {
+    const baseDuration = Number(selectedOption.pricing.durationMinutes);
+    const extensionRate = findServiceExtensionHourlyRate(selectedService);
+
+    if (v.preferredDurationMinutes < baseDuration) {
+      const errMsg = `Durasi minimal untuk ${selectedOption.name} adalah ${Math.round(baseDuration / 60)} jam (${baseDuration} menit).`;
+      throw createBookingRequestRepositoryError('booking-request/validation-error', errMsg, {
+        errors: { preferredDurationMinutes: errMsg },
+      });
+    }
+
+    if (v.preferredDurationMinutes > baseDuration && extensionRate === 0) {
+      const errMsg = `${selectedOption.name} menggunakan durasi tetap ${Math.round(baseDuration / 60)} jam tanpa perpanjangan per jam.`;
+      throw createBookingRequestRepositoryError('booking-request/validation-error', errMsg, {
+        errors: { preferredDurationMinutes: errMsg },
+      });
+    }
+  }
+
+  const payload = {
+    schemaVersion: BOOKING_REQUEST_SCHEMA_VERSION,
+    requestReference: deriveRequestReferenceFromId(requestId),
+    requestType: v.requestType,
+    status: BOOKING_REQUEST_STATUS.NEW,
+    statusReason: '',
+    customerName: v.customerName,
+    bandName: v.bandName,
+    contactPhone: v.contactPhone,
+    publicServiceId: selectedService.id,
+    serviceLabelSnapshot: selectedService.name,
+    requestedRoomId: v.requestedRoomId,
+    preferredDate: v.preferredDate,
+    preferredStartMinute: v.preferredStartMinute,
+    preferredDurationMinutes: v.preferredDurationMinutes,
+    targetDeadline: v.targetDeadline,
+    notes: v.notes,
+    privacyConsent: true,
+    consentVersion: BOOKING_REQUEST_CONSENT_VERSION,
+    source: BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+    clientUid: cleanClientUid,
+    customerId: cleanCustomerId,
+    serviceOptionId: selectedOption.id,
+    serviceOptionName: selectedOption.name,
+    pricingVersion: Math.max(1, Number(publicCatalog.version) || 1),
     assignedStaffUid: '',
     assignedStaffName: '',
     lastCommunicationAt: null,

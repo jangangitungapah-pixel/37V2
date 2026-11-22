@@ -17,6 +17,7 @@ import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 import { useAuth } from '@/features/auth/AuthContext';
 
 import { DailyMealAllowanceForm } from '../components/DailyMealAllowanceForm';
+import { PublicPricingSyncBanner } from '../components/PublicPricingSyncBanner';
 import { ServiceOptionDialog } from '../components/ServiceOptionDialog';
 import { ServiceTypeCard } from '../components/ServiceTypeCard';
 import { ServiceTypeDialog } from '../components/ServiceTypeDialog';
@@ -461,6 +462,13 @@ export function PriceAndFeeSettingsPage() {
             </span>
           </div>
         ) : null}
+
+        <PublicPricingSyncBanner
+          isOwner={isOwner}
+          isPersisted={isPersisted}
+          migratedFromV1={migratedFromV1}
+          serverVersion={serverSettings.version}
+        />
 
         {!isOwner ? (
           <div

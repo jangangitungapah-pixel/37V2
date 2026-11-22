@@ -79,3 +79,39 @@ export async function savePricingSettings({
     expectedVersion,
   });
 }
+
+/**
+ * Owner-only one-time/manual backfill that projects persisted `settings/pricing`
+ * into `publicPricingCatalog/current` without altering internal pricing or fees.
+ */
+export async function syncPublicPricingCatalog({
+  actorUid,
+  actorRole,
+  adapter = getPricingSettingsRepositoryAdapter(),
+}) {
+  const cleanActorUid = String(actorUid || '').trim();
+  if (!cleanActorUid) {
+    throw createPricingSettingsRepositoryError(
+      'pricing/missing-actor',
+      'Sesi autentikasi tidak ditemukan. Silakan login kembali sebelum menyinkronkan katalog.',
+    );
+  }
+
+  if (actorRole !== undefined && String(actorRole).trim().toLowerCase() !== 'owner') {
+    throw createPricingSettingsRepositoryError(
+      'pricing/owner-only',
+      'Hanya Owner yang berwenang mempublikasikan atau menyinkronkan Public Pricing Catalog.',
+    );
+  }
+
+  if (typeof adapter?.syncPublicPricingCatalogTransaction !== 'function') {
+    throw createPricingSettingsRepositoryError(
+      'pricing/sync-unsupported',
+      'Adapter penyimpanan harga tidak mendukung sinkronisasi Public Pricing Catalog.',
+    );
+  }
+
+  return adapter.syncPublicPricingCatalogTransaction({
+    actorUid: cleanActorUid,
+  });
+}
