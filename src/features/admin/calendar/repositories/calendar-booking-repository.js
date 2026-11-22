@@ -35,6 +35,10 @@ export const FIRESTORE_COLLECTIONS = {
   INVENTORY_ITEMS: 'inventoryItems',
   INVENTORY_MOVEMENTS: 'inventoryMovements',
   SYSTEM_OPERATIONS: 'systemOperations',
+  REVIEW_INVITATIONS: 'reviewInvitations',
+  REVIEW_INVITATION_INDEXES: 'reviewInvitationIndexes',
+  CUSTOMER_REVIEWS: 'customerReviews',
+  PUBLIC_REVIEW_STATS: 'publicReviewStats',
 };
 
 /**
@@ -190,6 +194,9 @@ export function normalizeBookingRecord(id, data = {}) {
   }
   if (data.phoneNormalized) {
     record.phoneNormalized = String(data.phoneNormalized).trim();
+  }
+  if (data.deliveryMode) {
+    record.deliveryMode = String(data.deliveryMode).trim();
   }
 
   if (data.serviceTypeId) {

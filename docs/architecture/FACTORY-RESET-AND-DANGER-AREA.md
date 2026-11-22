@@ -6,7 +6,7 @@ The **Danger Area & Operational Factory Reset** module (`/admin/settings/danger-
 
 ## 2. Explicit Scope — What Is Deleted vs. What Is Preserved
 
-### 2.1 Deleted Operational Targets (18 Targets in Dependency Order)
+### 2.1 Deleted Operational Targets (20 Targets in Dependency Order)
 
 Every deletion runs strictly against the explicit allowlisted `FACTORY_RESET_DELETION_MANIFEST` (`src/features/admin/settings/danger-area/config/factory-reset-config.js`) — never a wildcard database sweep:
 
@@ -29,7 +29,9 @@ Every deletion runs strictly against the explicit allowlisted `FACTORY_RESET_DEL
 |    15 | `inventoryItems`                       | `inventoryItems`                                   | Collection    | Inventory Master & Movements                 |
 |    16 | `customerPhoneIndex`                   | `customerPhoneIndex`                               | Collection    | Customer Records                             |
 |    17 | `customers`                            | `customers`                                        | Collection    | Customer Records                             |
-|    18 | `bookings`                             | `bookings`                                         | Collection    | Booking & Scheduling                         |
+|    18 | `reviewInvitations`                    | `reviewInvitations`                                | Collection    | Customer Review Invitations                  |
+|    19 | `reviewInvitationIndexes`              | `reviewInvitationIndexes`                          | Collection    | Customer Review Invitations                  |
+|    20 | `bookings`                             | `bookings`                                         | Collection    | Booking & Scheduling                         |
 
 **Subcollection Safety Invariant:** Steps 1 and 2 delete and verify empty every `communications` and `activities` subcollection document per parent `publicBookingRequests/{requestId}`, and Step 3 (`processTopLevelCollectionStep` for `publicBookingRequests`) additionally re-verifies child emptiness right before deleting each parent batch so orphaned subcollections cannot remain behind.
 
@@ -43,8 +45,9 @@ Every deletion runs strictly against the explicit allowlisted `FACTORY_RESET_DEL
 - **`publicSiteSettings/site`** (published website settings & copy).
 - **`bookingRequestMessageTemplates`** (WhatsApp operational templates).
 - **`galleryItems`** & **`landingPagePlacements`** (gallery photos and public landing page placements).
+- **`customerReviews`** & **`publicReviewStats/summary`** (published and moderated first-party customer reviews and aggregate review statistics; deletion explicitly blocked in Firestore Rules).
 - **Cloudinary Media Assets** (Factory Reset **never** invokes Cloudinary delete or admin APIs).
-- **`publicAvailabilityMetadata/status`** (preserved doc; set to `isReady: false` during reset execution and reinitialized to `{ isReady: true, backfilledFromDate: <today Asia/Jakarta ISO> }` once all 18 operational targets are verified empty).
+- **`publicAvailabilityMetadata/status`** (preserved doc; set to `isReady: false` during reset execution and reinitialized to `{ isReady: true, backfilledFromDate: <today Asia/Jakarta ISO> }` once all 20 operational targets are verified empty).
 - **`systemOperations/factoryReset`** (minimal non-PII operational state & audit record; delete denied in Firestore Rules).
 
 ## 3. Defense-in-Depth Security & Authorization
@@ -57,15 +60,15 @@ Every deletion runs strictly against the explicit allowlisted `FACTORY_RESET_DEL
    - `assertFreshReauthentication` enforces a 5-minute validity window (`FACTORY_RESET_REAUTH_WINDOW_MS = 300_000` ms) before `startFactoryReset` or `resumeFactoryReset`.
    - Raw password input is cleared immediately after verification and is never stored in React Query caches, `localStorage`, console logs, or `systemOperations/factoryReset`.
 5. **Cloud Firestore Security Rules (`firestore.rules`)**:
-   - Normal state (`idle`, `completed`, `cancelled`): `allow delete: if canFactoryResetDelete()` evaluates `false` across all 18 operational targets, so neither public visitors, Staff, nor Owner can delete operational records during normal operations.
-   - During Factory Reset (`systemOperations/factoryReset.status == 'running'`): `canFactoryResetDelete()` (`isActiveOwner() && isFactoryResetRunning()`) permits Owner batch deletes strictly on the 18 operational paths while preserved collections (`staffProfiles`, `settings/*`, `bookkeepingSettings`, `publicSiteSettings`, `bookingRequestMessageTemplates`, `galleryItems`, `landingPagePlacements`, `systemOperations`) remain strictly protected from deletion.
+   - Normal state (`idle`, `completed`, `cancelled`): `allow delete: if canFactoryResetDelete()` evaluates `false` across all 20 operational targets, so neither public visitors, Staff, nor Owner can delete operational records during normal operations.
+   - During Factory Reset (`systemOperations/factoryReset.status == 'running'`): `canFactoryResetDelete()` (`isActiveOwner() && isFactoryResetRunning()`) permits Owner batch deletes strictly on the 20 operational paths while preserved collections (`staffProfiles`, `settings/*`, `bookkeepingSettings`, `publicSiteSettings`, `bookingRequestMessageTemplates`, `galleryItems`, `landingPagePlacements`, `customerReviews`, `publicReviewStats`, `systemOperations`) remain strictly protected from deletion.
    - `customerPhoneIndex`: `allow list: if isActiveOwner()` enables Owner-only paginated enumeration and deletion during Factory Reset while Staff continue using single-document `get` lookups without phone-hash listing access.
 
 ## 4. Three-Stage Confirmation & Anti-Mistake Controls
 
 Execution requires completing all three stages inside `FactoryResetConfirmDialog`:
 
-1. **Stage 1 — Warning Review**: Explicit breakdown of the 18 deleted targets and preserved assets.
+1. **Stage 1 — Warning Review**: Explicit breakdown of the 20 deleted targets and preserved assets.
 2. **Stage 2 — Owner Password Re-Authentication**: Verifies current Firebase Auth password via `reauthenticateCurrentStaff`. Wrong password stays cleanly on Stage 2 with a mapped error.
 3. **Stage 3 — Manual Confirmation Phrase & Acknowledgment**:
    - Exact manual input `RESET 37 MUSIC STUDIO` (leading/trailing spaces trimmed, internal whitespace normalized).
@@ -79,10 +82,10 @@ Execution requires completing all three stages inside `FactoryResetConfirmDialog
 - **Not Globally Atomic:** Firestore transactions and batches cannot delete thousands of documents across 18 collections atomically. Deletion proceeds sequentially in small batches (`FACTORY_RESET_BATCH_SIZE = 10`, ordered by `documentId()`). Once the first batch is committed, deleted documents are **permanently irreversible**.
 - **Rule Evaluation Call Budget Considerations:** Each delete batch is capped at `<= 10` documents so every Security Rules check (`isActiveOwner()` + `getFactoryResetOperation()` per write/delete) stays comfortably inside Firestore's per-batch rule evaluation limits.
 - **Maintenance Lock (`isFactoryResetLocked()`):** While `systemOperations/factoryReset.status` is `'running'`, `'paused'`, or `'failed'`:
-  - `firestore.rules` blocks new operational creates/updates (`bookings`, `bookingSlots`, `bookingEvents`, `customers`, `customerPhoneIndex`, `invoices`, `paymentTransactions`, `commission*`, `bookkeeping*`, `inventory*`, `publicAvailability`, and `publicBookingRequests` + subcollections).
+  - `firestore.rules` blocks new operational creates/updates (`bookings`, `bookingSlots`, `bookingEvents`, `customers`, `customerPhoneIndex`, `invoices`, `paymentTransactions`, `commission*`, `bookkeeping*`, `inventory*`, `publicAvailability`, `reviewInvitations`, `reviewInvitationIndexes`, unauthenticated `customerReviews` creation, and `publicBookingRequests` + subcollections).
   - `AdminLayout.jsx` displays a persistent Owner banner (`admin-factory-reset-maintenance-banner`) linking directly back to `/admin/settings/danger-area`.
   - `AdminCalendarPage.jsx` disables auto-sync and manual `/availability` backfill while locked so background admin tabs do not fight an in-progress reset.
-- **Safe Cancellation vs. Resume-Only Guarantee:** Cancelling (`cancelFactoryResetBeforeDeletion`) is allowed **both in UI and Firestore Security Rules** ONLY while `totalDeletedCount == 0 && completedCollections.size() == 0`. Once any document is deleted, the operation cannot be rolled back or unlocked mid-way — the Owner must resume and complete verification across all 18 targets.
+- **Safe Cancellation vs. Resume-Only Guarantee:** Cancelling (`cancelFactoryResetBeforeDeletion`) is allowed **both in UI and Firestore Security Rules** ONLY while `totalDeletedCount == 0 && completedCollections.size() == 0`. Once any document is deleted, the operation cannot be rolled back or unlocked mid-way — the Owner must resume and complete verification across all 20 targets.
 
 ## 6. Resumability, Cursor Tracking & Completion Verification
 
@@ -90,7 +93,7 @@ Execution requires completing all three stages inside `FactoryResetConfirmDialog
 - On network loss, tab close, or transient Firestore failure:
   - In-flight `executeResetLoop` catches failures and persists `status: 'failed'` along with the latest `stateBox.current` cursor and counts (preserving monotonic `totalDeletedCount >= prevTotalDeletedCount`).
   - Re-opening `/admin/settings/danger-area` presents `FactoryResetProgress` where the Owner enters their current password and resumes (`resumeFactoryReset`) from the persisted cursor with the same immutable `operationId`.
-- Before marking `completed`, `verifyAllManifestTargetsEmpty` re-counts all 18 operational targets from scratch (`getCountFromServer` + paginated subcollection checks). Only if `remainingTotal === 0` (`allZero: true`) does the engine reinitialize `publicAvailabilityMetadata/status` (`isReady: true`) and write `status: 'completed'` (also enforced directly by Firestore Security Rules).
+- Before marking `completed`, `verifyAllManifestTargetsEmpty` re-counts all 20 operational targets from scratch (`getCountFromServer` + paginated subcollection checks). Only if `remainingTotal === 0` (`allZero: true`) does the engine reinitialize `publicAvailabilityMetadata/status` (`isReady: true`) and write `status: 'completed'` (also enforced directly by Firestore Security Rules).
 
 ## 7. Pre-Reset Backup Guidance
 

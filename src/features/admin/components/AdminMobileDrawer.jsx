@@ -1,12 +1,22 @@
+import { useContext } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
 import { ShieldCheck, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
+
+import { AuthContext } from '@/features/auth/AuthContext';
 
 import { ADMIN_NAVIGATION_ITEMS } from '../navigation/admin-navigation';
 import { AdminSidebarNavItem } from './AdminSidebarNavItem';
 
 export function AdminMobileDrawer({ open, onOpenChange, triggerRef, navBadges = {} }) {
   const prefersReducedMotion = useReducedMotion();
+  const auth = useContext(AuthContext);
+  const actorRole = String(auth?.role || auth?.profile?.role || '')
+    .trim()
+    .toLowerCase();
+  const visibleNavItems = ADMIN_NAVIGATION_ITEMS.filter(
+    (item) => !Array.isArray(item.roles) || item.roles.includes(actorRole),
+  );
 
   const handleClose = () => {
     onOpenChange(false);
@@ -68,7 +78,7 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef, navBadges = 
                 {/* Full Eight Navigation Items */}
                 <nav aria-label="Mobile admin workspace navigation" className="px-2.5 py-1.5">
                   <ul className="space-y-1">
-                    {ADMIN_NAVIGATION_ITEMS.map((item) => (
+                    {visibleNavItems.map((item) => (
                       <AdminSidebarNavItem
                         key={item.id}
                         item={item}

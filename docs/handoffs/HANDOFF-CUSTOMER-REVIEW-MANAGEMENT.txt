@@ -1,0 +1,214 @@
+================================================================================
+HANDOFF DOCUMENT — 37 MUSIC STUDIO
+FIRST-PARTY CUSTOMER REVIEW MANAGEMENT SYSTEM
+================================================================================
+Date: 2026-11-22
+Branch: main
+Audited Baseline Commit: 0f245668ea366f13019f464570fcc5184d652660
+Workspace Status: Uncommitted local changes only (no commits, pushes, merges, or deployments performed)
+
+--------------------------------------------------------------------------------
+1. OBJECTIVE & ARCHITECTURE SUMMARY
+--------------------------------------------------------------------------------
+Replaced the previous third-party Google Maps Places review integration and manual
+publicSiteSettings/site testimonial overrides with a first-party, booking-linked
+Customer Review Management System operating strictly within the approved
+Firebase Spark plan (Firebase Authentication + Cloud Firestore + Firebase Hosting).
+
+End-to-end lifecycle:
+1. Studio booking reaches sessionStatus == "completed" with actualCompletedAt,
+   deliveryMode == "studio", valid customerId, and normalized phone number.
+2. Active Staff or Owner opens the booking in Calendar -> BookingDetailDrawer
+   and clicks "REQUEST CUSTOMER REVIEW" (or "Buat Ulang Undangan").
+3. Client generates a high-entropy 64-hex random token (256 bits) in browser
+   memory, hashes it with SHA-256, and atomically writes
+   reviewInvitations/{tokenHash} + reviewInvitationIndexes/{bookingId}
+   (revoking any prior active invitation during rotation).
+4. ReviewInvitationShareDialog displays the transient /review/:token URL once
+   with a copy-to-clipboard button and a manual WhatsApp Click-to-Chat link
+   ("Open WhatsApp" -> https://wa.me/...). Staff manually chooses and sends in WhatsApp.
+5. Customer visits public /review/:token (with <meta name="referrer" content="no-referrer" />),
+   inspects non-PII session context, fills display name, 1-5 rating, written review,
+   and mandatory consent checkbox (consentToPublish: true).
+6. After optional Firebase App Check verification (ensureAppCheckTokenForPublicWrite)
+   and low-cost honeypot check, client commits an atomic 2-write transaction:
+   - creates customerReviews/{bookingId} with status == "pending"
+   - updates reviewInvitations/{tokenHash} from "active" to "submitted"
+7. Studio Owner opens Owner-only /admin/reviews ("Reviews" sidebar item, hidden
+   for Staff and enforced by RequireOwner) to moderate pending/published/
+   rejected/archived reviews without modifying customer review content/consent.
+8. Publishing or unpublishing atomically updates publicReviewStats/summary
+   (publishedCount, ratingSum, ratingDistribution).
+9. Public Landing Page (CustomerReviewsSection directly after GallerySection and
+   before PublicAvailabilityTeaserSection) subscribes only to published reviews
+   (status == "published", limit 9) and publicReviewStats/summary.
+
+--------------------------------------------------------------------------------
+2. GOOGLE MAPS REVIEWS REMOVAL & LEGACY TESTIMONIAL DEPRECATION
+--------------------------------------------------------------------------------
+Removed files:
+- src/components/landing/GoogleReviewsSection.jsx
+- src/components/landing/GoogleReviewsSection.test.jsx
+- src/lib/google-maps/places-client.js
+- docs/architecture/GOOGLE-MAPS-REVIEWS.md
+- docs/handoffs/HANDOFF-GOOGLE-MAPS-REVIEWS.txt
+
+Removed config keys:
+- VITE_GOOGLE_MAPS_API_KEY and VITE_GOOGLE_MAPS_PLACE_ID in .env.example
+
+Preserved unrelated features:
+- Official studio Google Maps location link (mapsUrl) and WhatsApp studio buttons
+  in TestimonialsAndContactSection.jsx remain intact.
+
+Deprecated manual testimonials:
+- TestimonialsAndContactSection.jsx no longer renders verified-testimonials-section
+  even when legacy publicSiteSettings/site.verifiedTestimonials entries exist.
+- PublicSiteSettingsForm.jsx removes the "Tambah Testimoni Terverifikasi" add form
+  while displaying a deprecation notice linking to /admin/reviews and keeping
+  legacy data safe.
+
+--------------------------------------------------------------------------------
+3. FILES CREATED
+--------------------------------------------------------------------------------
+Customer Reviews Domain, Repositories, Hooks & Admin UI:
+- src/features/customer-reviews/config/customer-review-config.js
+- src/features/customer-reviews/utils/review-token.js
+- src/features/customer-reviews/utils/customer-review-stats.js
+- src/features/customer-reviews/utils/customer-review-normalize.js
+- src/features/customer-reviews/schemas/customer-review-schema.js
+- src/features/customer-reviews/repositories/customer-review-repository.js
+- src/features/customer-reviews/services/review-invitation-service.js
+- src/features/customer-reviews/services/customer-review-submission-service.js
+- src/features/customer-reviews/services/customer-review-moderation-service.js
+- src/features/customer-reviews/services/public-review-stats-service.js
+- src/features/customer-reviews/hooks/useCustomerReviews.js
+- src/features/customer-reviews/hooks/useReviewInvitations.js
+- src/features/customer-reviews/hooks/usePublicCustomerReviews.js
+- src/features/customer-reviews/components/ReviewStatusBadge.jsx
+- src/features/customer-reviews/components/ReviewOverviewCards.jsx
+- src/features/customer-reviews/components/ReviewRatingDistribution.jsx
+- src/features/customer-reviews/components/ReviewInvitationShareDialog.jsx
+- src/features/customer-reviews/components/ReviewModerationDialog.jsx
+- src/features/customer-reviews/components/ReviewDetailDrawer.jsx
+- src/features/customer-reviews/components/ReviewInboxTable.jsx
+- src/features/customer-reviews/components/ReviewInvitationList.jsx
+- src/features/customer-reviews/components/BookingCustomerReviewSection.jsx
+- src/features/customer-reviews/pages/AdminCustomerReviewsPage.jsx
+- src/features/customer-reviews/customer-reviews.test.jsx
+
+Public Review Submission Flow & Landing Page Section:
+- src/features/public-reviews/services/public-review-service.js
+- src/features/public-reviews/components/CustomerReviewAccessState.jsx
+- src/features/public-reviews/components/CustomerReviewForm.jsx
+- src/features/public-reviews/components/CustomerReviewSuccess.jsx
+- src/features/public-reviews/pages/PublicReviewSubmissionPage.jsx
+- src/components/landing/CustomerReviewsSection.jsx
+
+Documentation:
+- docs/architecture/CUSTOMER-REVIEW-MANAGEMENT.md
+- docs/handoffs/HANDOFF-CUSTOMER-REVIEW-MANAGEMENT.txt
+
+--------------------------------------------------------------------------------
+4. FILES MODIFIED
+--------------------------------------------------------------------------------
+- .env.example
+- firestore.rules
+- firestore.indexes.json
+- scripts/test-firestore-rules.mjs
+- src/App.jsx
+- src/pages/LandingPage.jsx
+- src/pages/LandingPage.test.jsx
+- src/components/landing/TestimonialsAndContactSection.jsx
+- src/features/admin/navigation/admin-navigation.js
+- src/features/admin/components/AdminSidebar.jsx
+- src/features/admin/components/AdminMobileDrawer.jsx
+- src/features/admin/calendar/repositories/calendar-booking-repository.js
+- src/features/admin/calendar/components/BookingDetailDrawer.jsx
+- src/features/admin/settings/components/PublicSiteSettingsForm.jsx
+- src/features/admin/settings/danger-area/config/factory-reset-config.js
+- src/features/admin/settings/danger-area/repositories/factory-reset-repository.js
+- src/features/admin/settings/danger-area/components/FactoryResetResult.jsx
+- src/features/admin/settings/danger-area/factory-reset.test.jsx
+- src/features/admin/admin-shell.test.jsx
+- src/features/admin/settings/settings-center.test.jsx
+- src/features/admin/settings/settings.test.jsx
+- docs/architecture/FACTORY-RESET-AND-DANGER-AREA.md
+- docs/prd/PRD-LANDING-PAGE-PHASE-2-v0.2.md
+
+--------------------------------------------------------------------------------
+5. FIRESTORE SCHEMA, SECURITY RULES & INDEXES
+--------------------------------------------------------------------------------
+Collections added:
+- reviewInvitations/{tokenHash}
+- reviewInvitationIndexes/{bookingId}
+- customerReviews/{bookingId}
+- publicReviewStats/summary
+
+Composite Index added to firestore.indexes.json:
+- customerReviews: status ASC, publishedAt DESC (COLLECTION scope)
+
+Factory Reset alignment:
+- FACTORY_RESET_DELETION_MANIFEST updated from 18 to 20 targets:
+  reviewInvitations (order 18) and reviewInvitationIndexes (order 19) are
+  deleted right before bookings (order 20).
+- customerReviews and publicReviewStats/summary have `allow delete: if false`
+  in firestore.rules and are listed in FACTORY_RESET_PRESERVED_MANIFEST so
+  published customer reviews survive Operational Factory Reset.
+
+Note on booking normalization:
+- calendar-booking-repository.js normalizeBookingRecord now preserves explicit
+  data.deliveryMode even when serviceTypeId is unset, ensuring non-studio
+  ('wfa' / 'remote') bookings are reliably detected in eligibility checks.
+
+--------------------------------------------------------------------------------
+6. VERIFICATION RESULTS (EXECUTED AFTER FINAL CODE EDIT)
+--------------------------------------------------------------------------------
+1. ESLint (`npm run lint`):
+   - Result: PASSED (0 errors, 0 warnings)
+
+2. Vitest Suite (`npm run test:run`):
+   - Test Files: 19 passed (19)
+   - Tests: 182 passed (182)
+   - Duration: 103.25s
+
+3. Vite Production Build (`npm run build`):
+   - Result: PASSED (4190 modules transformed, built in 25.26s)
+
+4. Firestore Security Rules Emulator (`npm run test:rules`):
+   - Result: PASSED ("ALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!")
+   - Verified:
+     * Public cannot list reviewInvitations, reviewInvitationIndexes, or
+       publicReviewStats, and cannot query customerReviews without
+       status == 'published'.
+     * Public GET on reviewInvitations/{tokenHash} permits active unexpired
+       and submitted hashes, and returns uniform 403 for missing, revoked, or
+       expired tokens.
+     * Staff cannot issue invitations for non-completed bookings and cannot
+       moderate customerReviews or write publicReviewStats/summary.
+     * Public review submit requires paired atomic write consuming active
+       invitation (status active -> submitted) and setting review status to
+       'pending' with consentToPublish == true.
+     * Owner moderation preserves immutable customer text/consent and enforces
+       exact arithmetic consistency on publicReviewStats/summary.
+     * Factory Reset rules permit deleting all 20 operational targets when
+       running while blocking deletion of customerReviews & publicReviewStats.
+
+5. Prettier Style Check (`npx prettier --check` across all modified/added JS/JSX/MJS/JSON/MD files):
+   - Result: PASSED ("All matched files use Prettier code style!")
+
+6. Obsolete Google Places Reference Audit (`git grep`):
+   - Zero active code or .env.example references to GoogleReviewsSection,
+     places-client, VITE_GOOGLE_MAPS_API_KEY, or VITE_GOOGLE_MAPS_PLACE_ID.
+
+--------------------------------------------------------------------------------
+7. DEPLOYMENT CHECKLIST FOR NEXT SESSION / OWNER
+--------------------------------------------------------------------------------
+Before publishing live changes to production Firebase Hosting/Firestore:
+1. Review changes (`git status` / `git diff`) and commit cleanly.
+2. Deploy updated Security Rules and Firestore Indexes:
+     firebase deploy --only firestore:rules,firestore:indexes
+3. Build and deploy Firebase Hosting when ready:
+     npm run build && firebase deploy --only hosting
+4. Ensure Firebase App Check (ReCaptchaV3 site key) is configured in environment
+   variables and enforced responsibly if desired for unauthenticated writes.
+================================================================================

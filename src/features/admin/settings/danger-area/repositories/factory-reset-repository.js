@@ -364,6 +364,8 @@ export function createInMemoryFactoryResetRepositoryAdapter({
     ['bookingRequestMessageTemplates', new Map()],
     ['galleryItems', new Map()],
     ['landingPagePlacements', new Map()],
+    ['customerReviews', new Map()],
+    ['publicReviewStats', new Map()],
   ]);
   for (const [colName, docsList] of Object.entries(initialPreserved || {})) {
     if (!preservedCollectionsMap.has(colName)) {

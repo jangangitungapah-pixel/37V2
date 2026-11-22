@@ -24,6 +24,11 @@ import {
   setLandingPagePlacementAdapter,
 } from '@/features/admin/gallery/repositories/landing-page-placement-repository';
 import {
+  createInMemoryCustomerReviewRepositoryAdapter,
+  resetCustomerReviewRepositoryAdapter,
+  setCustomerReviewRepositoryAdapter,
+} from '@/features/customer-reviews/repositories/customer-review-repository';
+import {
   createInMemoryPublicAvailabilityRepositoryAdapter,
   resetPublicAvailabilityRepositoryAdapter,
   setPublicAvailabilityRepositoryAdapter,
@@ -46,6 +51,7 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
     setPublicSiteSettingsRepositoryAdapter(createInMemoryPublicSiteSettingsAdapter(null));
     setGalleryRepositoryAdapter(createInMemoryGalleryRepositoryAdapter([]));
     setLandingPagePlacementAdapter(createInMemoryLandingPagePlacementAdapter([]));
+    setCustomerReviewRepositoryAdapter(createInMemoryCustomerReviewRepositoryAdapter());
     setPublicAvailabilityRepositoryAdapter(
       createInMemoryPublicAvailabilityRepositoryAdapter({
         initialProjections: [],
@@ -61,11 +67,12 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
     resetPublicSiteSettingsRepositoryAdapter();
     resetGalleryRepositoryAdapter();
     resetLandingPagePlacementAdapter();
+    resetCustomerReviewRepositoryAdapter();
     resetPublicAvailabilityRepositoryAdapter();
     cleanup();
   });
 
-  it('renders production sections honestly without demo badges, fake testimonials, or broken Client Login preview CTAs', () => {
+  it('renders production sections honestly without demo badges, fake testimonials, or broken Client Login preview CTAs', async () => {
     const { container } = render(<App />);
 
     expect(
@@ -88,8 +95,10 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
     // No nonfunctional Client Login button in public UI
     expect(screen.queryByRole('button', { name: /client login/i })).toBeNull();
 
-    // No fake testimonials rendered when none approved
+    // No fake testimonials or unverified rating numbers rendered when zero published reviews exist
     expect(screen.queryByTestId('verified-testimonials-section')).toBeNull();
+    expect(screen.queryByTestId('customer-reviews-aggregate-card')).toBeNull();
+    expect(await screen.findByTestId('customer-reviews-empty-state')).toBeTruthy();
 
     const pageText = container.textContent || '';
     expect(pageText).not.toMatch(
@@ -116,9 +125,9 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
     expect(screen.getByLabelText(/room preference/i).value).toBe('room-b');
 
     await user.click(screen.getByRole('button', { name: /send inquiry — mix & master/i }));
-    expect(screen.getByRole('button', { name: /^mix & master$/i }).getAttribute('aria-pressed')).toBe(
-      'true',
-    );
+    expect(
+      screen.getByRole('button', { name: /^mix & master$/i }).getAttribute('aria-pressed'),
+    ).toBe('true');
     expect(screen.queryByLabelText(/room preference/i)).toBeNull();
     expect(screen.getByTestId('post-production-inquiry-notice')).toBeTruthy();
 
@@ -176,8 +185,11 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
       bookingInquirySchema.safeParse({ ...basePayload, preferredDate: yesterdayStr }).success,
     ).toBe(false);
     expect(
-      bookingInquirySchema.safeParse({ ...basePayload, preferredDate: todayStr, privacyConsent: false })
-        .success,
+      bookingInquirySchema.safeParse({
+        ...basePayload,
+        preferredDate: todayStr,
+        privacyConsent: false,
+      }).success,
     ).toBe(false);
     expect(
       bookingInquirySchema.safeParse({ ...basePayload, preferredDate: tomorrowStr }).success,
@@ -328,7 +340,8 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
     expect(within(dialog).getByText(/control room b mixing console/i)).toBeTruthy();
   });
 
-  it('consumes Owner-managed publicSiteSettings/site for Maps, WhatsApp, Social Links, and Verified Testimonials only', async () => {
+  it('consumes Owner-managed publicSiteSettings/site for Maps, WhatsApp, and Social Links while ignoring deprecated manual testimonials', async () => {
+    setCustomerReviewRepositoryAdapter(createInMemoryCustomerReviewRepositoryAdapter());
     setPublicSiteSettingsRepositoryAdapter(
       createInMemoryPublicSiteSettingsAdapter({
         studioName: '37 Music Studio',
@@ -372,8 +385,9 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
     expect(screen.queryByRole('button', { name: /tiktok/i })).toBeNull();
     expect(screen.queryByRole('link', { name: /tiktok/i })).toBeNull();
 
-    expect(screen.getByTestId('verified-testimonials-section')).toBeTruthy();
-    expect(screen.getByText(/raka \/ midnight static/i)).toBeTruthy();
+    // Deprecated manual testimonials from publicSiteSettings/site are never rendered
+    expect(screen.queryByTestId('verified-testimonials-section')).toBeNull();
+    expect(screen.queryByText(/raka \/ midnight static/i)).toBeNull();
   });
 
   it('exposes Availability links and renders Privacy Notice at /privacy', async () => {
@@ -387,10 +401,14 @@ describe('37 Music Studio Production Public Website & Booking Requests', () => {
       screen.getByRole('heading', { level: 2, name: /find your next open session\./i }),
     ).toBeTruthy();
     expect(
-      screen.getByRole('link', { name: /check room availability \(room a\)/i }).getAttribute('href'),
+      screen
+        .getByRole('link', { name: /check room availability \(room a\)/i })
+        .getAttribute('href'),
     ).toBe('/availability?room=room-a');
     expect(
-      screen.getByRole('link', { name: /check room availability \(room b\)/i }).getAttribute('href'),
+      screen
+        .getByRole('link', { name: /check room availability \(room b\)/i })
+        .getAttribute('href'),
     ).toBe('/availability?room=room-b');
     expect(screen.getByRole('link', { name: /view full availability/i }).getAttribute('href')).toBe(
       '/availability',

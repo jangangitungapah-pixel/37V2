@@ -165,7 +165,7 @@ afterEach(() => {
 });
 
 describe('Danger Area & Operational Factory Reset Engine', () => {
-  it('1. Dry Run Preview accurately counts all 18 operational targets without mutating anything and blocks incomplete preflight', async () => {
+  it('1. Dry Run Preview accurately counts all 20 operational targets without mutating anything and blocks incomplete preflight', async () => {
     const adapter = createInMemoryFactoryResetRepositoryAdapter(
       createFullOperationalSeed({ bookingsCount: 14 }),
     );
@@ -173,7 +173,7 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
 
     const preflight = await previewFactoryReset({ actor: owner, adapter });
     expect(preflight.isComplete).toBe(true);
-    expect(preflight.items).toHaveLength(18);
+    expect(preflight.items).toHaveLength(20);
     expect(preflight.topLevelDocumentCount).toBe(31);
     expect(preflight.subcollectionDocumentCount).toBe(6);
     expect(preflight.totalDeleteOperations).toBe(37);
@@ -347,7 +347,7 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     });
   });
 
-  it('5a. Deletion engine enforces <=10 batch limit, deletes subcollections before parent requests, empties all 18 targets, reinitializes availability, and preserves config/assets', async () => {
+  it('5a. Deletion engine enforces <=10 batch limit, deletes subcollections before parent requests, empties all 20 targets, reinitializes availability, and preserves config/assets', async () => {
     const adapter = createInMemoryFactoryResetRepositoryAdapter(
       createFullOperationalSeed({ bookingsCount: 25 }),
     );
@@ -371,7 +371,7 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     expect(result.totalDeletedCount).toBe(48);
     expect(result.verificationSummary).toEqual({
       allZero: true,
-      checkedCollectionsCount: 18,
+      checkedCollectionsCount: 20,
       remainingTotal: 0,
     });
 
@@ -392,7 +392,7 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     expect(parentIdx).toBeGreaterThan(commIdx);
     expect(parentIdx).toBeGreaterThan(actIdx);
 
-    // Preserved collections untouched
+    // Preserved collections untouched (including Customer Reviews & Public Review Stats)
     expect(state.preservedCounts).toEqual({
       staffProfiles: 2,
       settings: 2,
@@ -401,6 +401,8 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
       bookingRequestMessageTemplates: 1,
       galleryItems: 1,
       landingPagePlacements: 1,
+      customerReviews: 0,
+      publicReviewStats: 0,
     });
 
     // Public availability metadata reinitialized to empty ready state in Jakarta date
@@ -616,7 +618,7 @@ describe('Danger Area UI & Routes (/admin/settings/danger-area)', () => {
   });
 
   it('6c. Surfaces Maintenance Banner on AdminLayout when locked and supports password-verified Resume after interrupted failure', async () => {
-    const completedEarlierSteps = FACTORY_RESET_DELETION_MANIFEST.slice(0, 17).map(
+    const completedEarlierSteps = FACTORY_RESET_DELETION_MANIFEST.slice(0, 19).map(
       (step) => step.key,
     );
     const seed = createFullOperationalSeed({ bookingsCount: 3 });
@@ -673,5 +675,43 @@ describe('Danger Area UI & Routes (/admin/settings/danger-area)', () => {
     const resultSection = await screen.findByTestId('factory-reset-result-section');
     expect(within(resultSection).getByText(/factory reset completed/i)).toBeTruthy();
     expect(adapter._inspectState().operation.operationId).toBe('reset_resumable_001');
+  });
+
+  it('7. Deletes reviewInvitations and reviewInvitationIndexes while preserving customerReviews and publicReviewStats', async () => {
+    const seed = createFullOperationalSeed({ bookingsCount: 1 });
+    seed.initialCollections.reviewInvitations = [{ id: 'a'.repeat(64), bookingId: 'bkg_001' }];
+    seed.initialCollections.reviewInvitationIndexes = [
+      { id: 'bkg_001', activeInvitationId: 'a'.repeat(64) },
+    ];
+    seed.initialPreserved.customerReviews = [
+      { id: 'bkg_001', displayName: 'Nadia Vocal', rating: 5, status: 'published' },
+    ];
+    seed.initialPreserved.publicReviewStats = [{ id: 'summary', publishedCount: 1, ratingSum: 5 }];
+
+    const adapter = createInMemoryFactoryResetRepositoryAdapter(seed);
+    const owner = buildActor({ role: 'owner' });
+    const preflight = await previewFactoryReset({ actor: owner, adapter });
+
+    const byKey = Object.fromEntries(preflight.items.map((item) => [item.key, item.count]));
+    expect(byKey.reviewInvitations).toBe(1);
+    expect(byKey.reviewInvitationIndexes).toBe(1);
+
+    const fixedNow = new Date('2026-11-22T05:00:00.000Z');
+    const result = await startFactoryReset({
+      actor: owner,
+      preflight,
+      confirmationPhrase: FACTORY_RESET_CONFIRMATION_PHRASE,
+      acknowledged: true,
+      reauthenticatedAt: fixedNow.getTime(),
+      adapter,
+      now: fixedNow,
+    });
+
+    expect(result.status).toBe(FACTORY_RESET_STATUS.COMPLETED);
+    const state = adapter._inspectState();
+    expect(state.operationalCounts.reviewInvitations).toBe(0);
+    expect(state.operationalCounts.reviewInvitationIndexes).toBe(0);
+    expect(state.preservedCounts.customerReviews).toBe(1);
+    expect(state.preservedCounts.publicReviewStats).toBe(1);
   });
 });

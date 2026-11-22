@@ -18,7 +18,9 @@ import { PriceAndFeeSettingsPage } from '@/features/admin/settings/pages/PriceAn
 import { StudioProfilePage } from '@/features/admin/settings/pages/StudioProfilePage';
 import { RequireOwner } from '@/features/auth/RequireOwner';
 import { RequireStaff } from '@/features/auth/RequireStaff';
+import { AdminCustomerReviewsPage } from '@/features/customer-reviews/pages/AdminCustomerReviewsPage';
 import { PublicAvailabilityPage } from '@/features/public-availability/pages/PublicAvailabilityPage';
+import { PublicReviewSubmissionPage } from '@/features/public-reviews/pages/PublicReviewSubmissionPage';
 import { LandingPage } from '@/pages/LandingPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PrivacyNoticePage } from '@/pages/PrivacyNoticePage';
@@ -29,6 +31,8 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/availability" element={<PublicAvailabilityPage />} />
+      <Route path="/review" element={<PublicReviewSubmissionPage />} />
+      <Route path="/review/:token" element={<PublicReviewSubmissionPage />} />
       <Route path="/privacy" element={<PrivacyNoticePage />} />
       <Route path="/staff/login" element={<StaffLoginPage />} />
       <Route
@@ -49,6 +53,14 @@ export function AppRoutes() {
         <Route path="inventory" element={<AdminInventoryPage />} />
         <Route path="pembukuan" element={<AdminBookkeepingPage />} />
         <Route path="gallery" element={<AdminGalleryPage />} />
+        <Route
+          path="reviews"
+          element={
+            <RequireOwner>
+              <AdminCustomerReviewsPage />
+            </RequireOwner>
+          }
+        />
         <Route path="settings" element={<AdminSettingsPage />} />
         <Route path="settings/studio-profile" element={<StudioProfilePage />} />
         <Route path="settings/account-security" element={<AccountSecurityPage />} />

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 
 const PROJECT_ID = 'demo-studio37-rules';
 const EMULATOR_HOST = '127.0.0.1:8088';
@@ -459,6 +460,8 @@ async function runTests() {
     'inventoryItems/item_1',
     'inventoryMovements/mov_1',
     'publicAvailability/bkg_1',
+    'reviewInvitations/' + createHash('sha256').update('factory-reset-test-token-1').digest('hex'),
+    'reviewInvitationIndexes/bkg_1',
     'publicBookingRequests/req_1/communications/comm_1',
     'publicBookingRequests/req_1/activities/act_1',
     'publicBookingRequests/req_1',
@@ -475,6 +478,8 @@ async function runTests() {
     'galleryItems/gal_1',
     'landingPagePlacements/room-a',
     'publicAvailabilityMetadata/status',
+    'customerReviews/bkg_completed_review',
+    'publicReviewStats/summary',
   ];
 
   // 1. IDLE STATE: Unauthenticated, Staff, and Owner must ALL be DENIED deleting protected operational collections
@@ -722,6 +727,1136 @@ async function runTests() {
   );
   console.log('✓ customerPhoneIndex list RBAC (Owner vs Staff vs Unauth) passed');
 
+  // 2B. CUSTOMER REVIEW MANAGEMENT SECURITY RULES (Section 22.6)
+  // Seed a completed studio booking & operational invitation for later reset tests
+  await adminSetDoc('bookings/bkg_completed_review', {
+    customerId: 'cust_1',
+    customerName: 'Nadia Pratama',
+    phone: '081234567890',
+    phoneNormalized: '+6281234567890',
+    studioId: 'room-a',
+    serviceId: 'rehearsal',
+    serviceTypeName: 'Rehearsal Band',
+    serviceLabel: 'Rehearsal',
+    deliveryMode: 'studio',
+    date: '2026-11-20',
+    startMinute: 600,
+    durationMinutes: 120,
+    endMinute: 720,
+    timeZone: 'Asia/Jakarta',
+    totalAmount: 200000,
+    initialPaymentStatus: 'paid',
+    initialPaidAmount: 200000,
+    sessionStatus: 'completed',
+    actualCompletedAt: SERVER_TS,
+    notes: '',
+    version: 2,
+    createdByUid: 'owner-1',
+    updatedByUid: 'owner-1',
+  });
+
+  const resetInvHash = createHash('sha256').update('factory-reset-test-token-1').digest('hex');
+  await adminSetDoc(`reviewInvitations/${resetInvHash}`, {
+    schemaVersion: 1,
+    bookingId: 'bkg_1',
+    serviceLabelSnapshot: 'Rehearsal',
+    sessionDate: '2026-11-25',
+    studioId: 'room-a',
+    status: 'active',
+    issuedByUid: 'owner-1',
+    issuedAt: SERVER_TS,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    submittedAt: null,
+    revokedAt: null,
+    revokedByUid: '',
+    version: 1,
+  });
+  await adminSetDoc('reviewInvitationIndexes/bkg_1', {
+    schemaVersion: 1,
+    bookingId: 'bkg_1',
+    activeInvitationId: resetInvHash,
+    issuedAt: SERVER_TS,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    version: 1,
+  });
+
+  const validHashA = createHash('sha256').update('valid-customer-token-alpha-37').digest('hex');
+  const validHashB = createHash('sha256').update('valid-customer-token-beta-37').digest('hex');
+  const expiredHash = createHash('sha256').update('expired-customer-token-37').digest('hex');
+  const futureExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  // Unauthenticated cannot list reviewInvitations, reviewInvitationIndexes, or publicReviewStats
+  assert.equal(
+    (
+      await userRequest('POST', ':runQuery', null, {
+        structuredQuery: { from: [{ collectionId: 'reviewInvitations' }] },
+      })
+    ).status,
+    403,
+    'Public cannot list reviewInvitations',
+  );
+  assert.equal(
+    (
+      await userRequest('POST', ':runQuery', null, {
+        structuredQuery: { from: [{ collectionId: 'reviewInvitationIndexes' }] },
+      })
+    ).status,
+    403,
+    'Public cannot list reviewInvitationIndexes',
+  );
+  assert.equal(
+    (
+      await userRequest('POST', ':runQuery', null, {
+        structuredQuery: { from: [{ collectionId: 'publicReviewStats' }] },
+      })
+    ).status,
+    403,
+    'Public cannot list publicReviewStats',
+  );
+
+  // Staff CANNOT issue review invitation for an UPCOMING / uncompleted booking (bkg_1)
+  const upcomingInvAttempt = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashA}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_1',
+            serviceLabelSnapshot: 'Rehearsal',
+            sessionDate: '2026-11-25',
+            studioId: 'room-a',
+            status: 'active',
+            issuedByUid: 'staff-1',
+            expiresAt: futureExpiry,
+            submittedAt: null,
+            revokedAt: null,
+            revokedByUid: '',
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitationIndexes/bkg_1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_1',
+            activeInvitationId: validHashA,
+            expiresAt: futureExpiry,
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(upcomingInvAttempt.status, 403, 'Cannot issue invitation for non-completed booking');
+
+  // Staff CAN atomically issue invitation + index for a COMPLETED studio booking
+  const completedInvCreate = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashA}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            studioId: 'room-a',
+            status: 'active',
+            issuedByUid: 'staff-1',
+            expiresAt: futureExpiry,
+            submittedAt: null,
+            revokedAt: null,
+            revokedByUid: '',
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitationIndexes/bkg_completed_review`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            activeInvitationId: validHashA,
+            expiresAt: futureExpiry,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(
+    completedInvCreate.status,
+    200,
+    `Staff should create invitation for completed booking: ${JSON.stringify(completedInvCreate.body)}`,
+  );
+
+  // Public CAN GET active invitation by exact hash, CANNOT GET non-existent hash
+  assert.equal(
+    (await userRequest('GET', `/reviewInvitations/${validHashA}`, null)).status,
+    200,
+    'Public can GET active unexpired invitation',
+  );
+  assert.equal(
+    (await userRequest('GET', `/reviewInvitations/${'f'.repeat(64)}`, null)).status,
+    403,
+    'Public gets 403 for non-existent invitation hash',
+  );
+
+  // Seed expired invitation directly and verify Public GET is denied (403)
+  await adminSetDoc(`reviewInvitations/${expiredHash}`, {
+    schemaVersion: 1,
+    bookingId: 'bkg_completed_review',
+    serviceLabelSnapshot: 'Rehearsal Band',
+    sessionDate: '2026-11-20',
+    studioId: 'room-a',
+    status: 'active',
+    issuedByUid: 'staff-1',
+    issuedAt: SERVER_TS,
+    expiresAt: new Date(Date.now() - 86400 * 1000),
+    submittedAt: null,
+    revokedAt: null,
+    revokedByUid: '',
+    version: 1,
+  });
+  assert.equal(
+    (await userRequest('GET', `/reviewInvitations/${expiredHash}`, null)).status,
+    403,
+    'Public gets 403 for expired invitation',
+  );
+
+  // Staff CAN revoke validHashA while rotating to validHashB
+  const rotateInvRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashA}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            studioId: 'room-a',
+            status: 'revoked',
+            issuedByUid: 'staff-1',
+            issuedAt: SERVER_TS,
+            expiresAt: futureExpiry,
+            submittedAt: null,
+            revokedByUid: 'owner-1',
+            version: 2,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['status', 'revokedByUid', 'revokedAt', 'version'],
+        },
+        currentDocument: { exists: true },
+        updateTransforms: [{ fieldPath: 'revokedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashB}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            studioId: 'room-a',
+            status: 'active',
+            issuedByUid: 'owner-1',
+            expiresAt: futureExpiry,
+            submittedAt: null,
+            revokedAt: null,
+            revokedByUid: '',
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitationIndexes/bkg_completed_review`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            activeInvitationId: validHashB,
+            expiresAt: futureExpiry,
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(rotateInvRes.status, 200, `Rotation failed: ${JSON.stringify(rotateInvRes.body)}`);
+
+  // Public gets 403 for revoked validHashA
+  assert.equal(
+    (await userRequest('GET', `/reviewInvitations/${validHashA}`, null)).status,
+    403,
+    'Public gets 403 for revoked invitation',
+  );
+
+  // Public CANNOT create customerReview as directly 'published'
+  const directPublishedAttempt = await userRequest('POST', ':commit', null, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            invitationId: validHashB,
+            displayName: 'Nadia Band',
+            rating: 5,
+            reviewText: 'Kualitas ruangan dan alat musik terjaga sangat rapi sepanjang sesi.',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            consentToPublish: true,
+            consentVersion: 'customer-review-publication-v1',
+            status: 'published',
+            publishedAt: null,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashB}`,
+          fields: toFsFields({
+            status: 'submitted',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'submittedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [{ fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(
+    directPublishedAttempt.status,
+    403,
+    'Public cannot create directly published review',
+  );
+
+  // Public CANNOT create customerReview without atomically consuming active invitation
+  const soloReviewAttempt = await userRequest('POST', ':commit', null, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            invitationId: validHashB,
+            displayName: 'Nadia Band',
+            rating: 5,
+            reviewText: 'Kualitas ruangan dan alat musik terjaga sangat rapi sepanjang sesi.',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            consentToPublish: true,
+            consentVersion: 'customer-review-publication-v1',
+            status: 'pending',
+            publishedAt: null,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+    ],
+  });
+  assert.equal(
+    soloReviewAttempt.status,
+    403,
+    'Public review create requires atomic invitation consume',
+  );
+
+  // Public CAN atomically submit pending review + consume validHashB
+  const validPublicSubmit = await userRequest('POST', ':commit', null, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            invitationId: validHashB,
+            displayName: 'Nadia Band',
+            rating: 5,
+            reviewText: 'Kualitas ruangan dan alat musik terjaga sangat rapi sepanjang sesi.',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            consentToPublish: true,
+            consentVersion: 'customer-review-publication-v1',
+            status: 'pending',
+            publishedAt: null,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashB}`,
+          fields: toFsFields({
+            status: 'submitted',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'submittedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [{ fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(
+    validPublicSubmit.status,
+    200,
+    `Valid public review submission failed: ${JSON.stringify(validPublicSubmit.body)}`,
+  );
+
+  // Public gets 200 on submitted invitation status view, CANNOT list or read pending review
+  assert.equal(
+    (await userRequest('GET', `/reviewInvitations/${validHashB}`, null)).status,
+    200,
+    'Public can see submitted invitation state cleanly',
+  );
+  assert.equal(
+    (await userRequest('GET', '/customerReviews/bkg_completed_review', null)).status,
+    403,
+    'Public CANNOT read pending review',
+  );
+  assert.equal(
+    (
+      await userRequest('POST', ':runQuery', null, {
+        structuredQuery: { from: [{ collectionId: 'customerReviews' }] },
+      })
+    ).status,
+    403,
+    'Public CANNOT list customerReviews without published status filter',
+  );
+
+  // Staff CANNOT moderate pending review or mutate publicReviewStats
+  const staffPublishAttempt = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            status: 'published',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'publishedAt', 'updatedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [
+          { fieldPath: 'publishedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+    ],
+  });
+  assert.equal(staffPublishAttempt.status, 403, 'Staff CANNOT approve/publish review');
+
+  // Owner CANNOT alter customer reviewText during moderation
+  const ownerTamperAttempt = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            status: 'published',
+            reviewText: 'Edited by studio admin secretly!',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'reviewText', 'publishedAt', 'updatedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [
+          { fieldPath: 'publishedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+    ],
+  });
+  assert.equal(ownerTamperAttempt.status, 403, 'Owner CANNOT edit customer written reviewText');
+
+  // Owner CANNOT write mismatched ratingDistribution math to publicReviewStats/summary
+  const invalidStatsWrite = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicReviewStats/summary`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            publishedCount: 1,
+            ratingSum: 10,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 1 },
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(invalidStatsWrite.status, 403, 'Stats math inconsistency must be denied');
+
+  // Owner CAN atomically publish review + update publicReviewStats/summary
+  const validOwnerPublish = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            status: 'published',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'publishedAt', 'updatedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [
+          { fieldPath: 'publishedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicReviewStats/summary`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            publishedCount: 1,
+            ratingSum: 5,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 1 },
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(
+    validOwnerPublish.status,
+    200,
+    `Owner publish + stats commit failed: ${JSON.stringify(validOwnerPublish.body)}`,
+  );
+
+  // Public CAN now read published review, filtered published list, and publicReviewStats/summary
+  assert.equal(
+    (await userRequest('GET', '/customerReviews/bkg_completed_review', null)).status,
+    200,
+    'Public can GET published review',
+  );
+  assert.equal(
+    (await userRequest('GET', '/publicReviewStats/summary', null)).status,
+    200,
+    'Public can GET publicReviewStats/summary',
+  );
+  assert.equal(
+    (
+      await userRequest('POST', ':runQuery', null, {
+        structuredQuery: {
+          from: [{ collectionId: 'customerReviews' }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'status' },
+              op: 'EQUAL',
+              value: { stringValue: 'published' },
+            },
+          },
+        },
+      })
+    ).status,
+    200,
+    'Public can query published customerReviews',
+  );
+  console.log('✓ Customer Review invitation, atomic submission, RBAC & moderation rules passed');
+
+  // 2B. CUSTOMER REVIEW MANAGEMENT SECURITY RULES (Section 22.6)
+  // Seed a completed studio booking & operational invitation for later reset tests
+  await adminSetDoc('bookings/bkg_completed_review', {
+    customerId: 'cust_1',
+    customerName: 'Nadia Pratama',
+    phone: '081234567890',
+    phoneNormalized: '+6281234567890',
+    studioId: 'room-a',
+    serviceId: 'rehearsal',
+    serviceTypeName: 'Rehearsal Band',
+    serviceLabel: 'Rehearsal',
+    deliveryMode: 'studio',
+    date: '2026-11-20',
+    startMinute: 600,
+    durationMinutes: 120,
+    endMinute: 720,
+    timeZone: 'Asia/Jakarta',
+    totalAmount: 200000,
+    initialPaymentStatus: 'paid',
+    initialPaidAmount: 200000,
+    sessionStatus: 'completed',
+    actualCompletedAt: SERVER_TS,
+    notes: '',
+    version: 2,
+    createdByUid: 'owner-1',
+    updatedByUid: 'owner-1',
+  });
+
+  const resetInvHash = createHash('sha256').update('factory-reset-test-token-1').digest('hex');
+  await adminSetDoc(`reviewInvitations/${resetInvHash}`, {
+    schemaVersion: 1,
+    bookingId: 'bkg_1',
+    serviceLabelSnapshot: 'Rehearsal',
+    sessionDate: '2026-11-25',
+    studioId: 'room-a',
+    status: 'active',
+    issuedByUid: 'owner-1',
+    issuedAt: SERVER_TS,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    submittedAt: null,
+    revokedAt: null,
+    revokedByUid: '',
+    version: 1,
+  });
+  await adminSetDoc('reviewInvitationIndexes/bkg_1', {
+    schemaVersion: 1,
+    bookingId: 'bkg_1',
+    activeInvitationId: resetInvHash,
+    issuedAt: SERVER_TS,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    version: 1,
+  });
+
+  const validHashA = createHash('sha256').update('valid-customer-token-alpha-37').digest('hex');
+  const validHashB = createHash('sha256').update('valid-customer-token-beta-37').digest('hex');
+  const expiredHash = createHash('sha256').update('expired-customer-token-37').digest('hex');
+  const futureExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  // Unauthenticated cannot list reviewInvitations, reviewInvitationIndexes, or publicReviewStats
+  assert.equal(
+    (
+      await userRequest('POST', ':runQuery', null, {
+        structuredQuery: { from: [{ collectionId: 'reviewInvitations' }] },
+      })
+    ).status,
+    403,
+    'Public cannot list reviewInvitations',
+  );
+  assert.equal(
+    (
+      await userRequest('POST', ':runQuery', null, {
+        structuredQuery: { from: [{ collectionId: 'reviewInvitationIndexes' }] },
+      })
+    ).status,
+    403,
+    'Public cannot list reviewInvitationIndexes',
+  );
+  assert.equal(
+    (
+      await userRequest('POST', ':runQuery', null, {
+        structuredQuery: { from: [{ collectionId: 'publicReviewStats' }] },
+      })
+    ).status,
+    403,
+    'Public cannot list publicReviewStats',
+  );
+
+  // Staff CANNOT issue review invitation for an UPCOMING / uncompleted booking (bkg_1)
+  const upcomingInvAttempt = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashA}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_1',
+            serviceLabelSnapshot: 'Rehearsal',
+            sessionDate: '2026-11-25',
+            studioId: 'room-a',
+            status: 'active',
+            issuedByUid: 'staff-1',
+            expiresAt: futureExpiry,
+            submittedAt: null,
+            revokedAt: null,
+            revokedByUid: '',
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitationIndexes/bkg_1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_1',
+            activeInvitationId: validHashA,
+            expiresAt: futureExpiry,
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(upcomingInvAttempt.status, 403, 'Cannot issue invitation for non-completed booking');
+
+  // Staff CAN atomically issue invitation + index for a COMPLETED studio booking
+  const completedInvCreate = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashA}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            studioId: 'room-a',
+            status: 'active',
+            issuedByUid: 'staff-1',
+            expiresAt: futureExpiry,
+            submittedAt: null,
+            revokedAt: null,
+            revokedByUid: '',
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitationIndexes/bkg_completed_review`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            activeInvitationId: validHashA,
+            expiresAt: futureExpiry,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(
+    completedInvCreate.status,
+    200,
+    `Staff should create invitation for completed booking: ${JSON.stringify(completedInvCreate.body)}`,
+  );
+
+  // Public CAN GET active invitation by exact hash, CANNOT GET non-existent hash
+  assert.equal(
+    (await userRequest('GET', `/reviewInvitations/${validHashA}`, null)).status,
+    200,
+    'Public can GET active unexpired invitation',
+  );
+  assert.equal(
+    (await userRequest('GET', `/reviewInvitations/${'f'.repeat(64)}`, null)).status,
+    403,
+    'Public gets 403 for non-existent invitation hash',
+  );
+
+  // Seed expired invitation directly and verify Public GET is denied (403)
+  await adminSetDoc(`reviewInvitations/${expiredHash}`, {
+    schemaVersion: 1,
+    bookingId: 'bkg_completed_review',
+    serviceLabelSnapshot: 'Rehearsal Band',
+    sessionDate: '2026-11-20',
+    studioId: 'room-a',
+    status: 'active',
+    issuedByUid: 'staff-1',
+    issuedAt: SERVER_TS,
+    expiresAt: new Date(Date.now() - 86400 * 1000),
+    submittedAt: null,
+    revokedAt: null,
+    revokedByUid: '',
+    version: 1,
+  });
+  assert.equal(
+    (await userRequest('GET', `/reviewInvitations/${expiredHash}`, null)).status,
+    403,
+    'Public gets 403 for expired invitation',
+  );
+
+  // Staff CAN revoke validHashA while rotating to validHashB
+  const rotateInvRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashA}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            studioId: 'room-a',
+            status: 'revoked',
+            issuedByUid: 'staff-1',
+            issuedAt: SERVER_TS,
+            expiresAt: futureExpiry,
+            submittedAt: null,
+            revokedByUid: 'owner-1',
+            version: 2,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['status', 'revokedByUid', 'revokedAt', 'version'],
+        },
+        currentDocument: { exists: true },
+        updateTransforms: [{ fieldPath: 'revokedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashB}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            studioId: 'room-a',
+            status: 'active',
+            issuedByUid: 'owner-1',
+            expiresAt: futureExpiry,
+            submittedAt: null,
+            revokedAt: null,
+            revokedByUid: '',
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitationIndexes/bkg_completed_review`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            activeInvitationId: validHashB,
+            expiresAt: futureExpiry,
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+        updateTransforms: [{ fieldPath: 'issuedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(
+    rotateInvRes.status,
+    200,
+    `Rotation failed: ${JSON.stringify(rotateInvRes.body)}`,
+  );
+
+  // Public gets 403 for revoked validHashA
+  assert.equal(
+    (await userRequest('GET', `/reviewInvitations/${validHashA}`, null)).status,
+    403,
+    'Public gets 403 for revoked invitation',
+  );
+
+  // Public CANNOT create customerReview as directly 'published'
+  const directPublishedAttempt = await userRequest('POST', ':commit', null, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            invitationId: validHashB,
+            displayName: 'Nadia Band',
+            rating: 5,
+            reviewText: 'Kualitas ruangan dan alat musik terjaga sangat rapi sepanjang sesi.',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            consentToPublish: true,
+            consentVersion: 'customer-review-publication-v1',
+            status: 'published',
+            publishedAt: null,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashB}`,
+          fields: toFsFields({
+            status: 'submitted',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'submittedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [{ fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(directPublishedAttempt.status, 403, 'Public cannot create directly published review');
+
+  // Public CANNOT create customerReview without atomically consuming active invitation
+  const soloReviewAttempt = await userRequest('POST', ':commit', null, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            invitationId: validHashB,
+            displayName: 'Nadia Band',
+            rating: 5,
+            reviewText: 'Kualitas ruangan dan alat musik terjaga sangat rapi sepanjang sesi.',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            consentToPublish: true,
+            consentVersion: 'customer-review-publication-v1',
+            status: 'pending',
+            publishedAt: null,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+    ],
+  });
+  assert.equal(soloReviewAttempt.status, 403, 'Public review create requires atomic invitation consume');
+
+  // Public CAN atomically submit pending review + consume validHashB
+  const validPublicSubmit = await userRequest('POST', ':commit', null, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_completed_review',
+            invitationId: validHashB,
+            displayName: 'Nadia Band',
+            rating: 5,
+            reviewText: 'Kualitas ruangan dan alat musik terjaga sangat rapi sepanjang sesi.',
+            serviceLabelSnapshot: 'Rehearsal Band',
+            sessionDate: '2026-11-20',
+            consentToPublish: true,
+            consentVersion: 'customer-review-publication-v1',
+            status: 'pending',
+            publishedAt: null,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${validHashB}`,
+          fields: toFsFields({
+            status: 'submitted',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'submittedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [{ fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(
+    validPublicSubmit.status,
+    200,
+    `Valid public review submission failed: ${JSON.stringify(validPublicSubmit.body)}`,
+  );
+
+  // Public gets 200 on submitted invitation status view, CANNOT list or read pending review
+  assert.equal(
+    (await userRequest('GET', `/reviewInvitations/${validHashB}`, null)).status,
+    200,
+    'Public can see submitted invitation state cleanly',
+  );
+  assert.equal(
+    (await userRequest('GET', '/customerReviews/bkg_completed_review', null)).status,
+    403,
+    'Public CANNOT read pending review',
+  );
+  assert.equal(
+    (
+      await userRequest('POST', ':runQuery', null, {
+        structuredQuery: { from: [{ collectionId: 'customerReviews' }] },
+      })
+    ).status,
+    403,
+    'Public CANNOT list customerReviews without published status filter',
+  );
+
+  // Staff CANNOT moderate pending review or mutate publicReviewStats
+  const staffPublishAttempt = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            status: 'published',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'publishedAt', 'updatedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [
+          { fieldPath: 'publishedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+    ],
+  });
+  assert.equal(staffPublishAttempt.status, 403, 'Staff CANNOT approve/publish review');
+
+  // Owner CANNOT alter customer reviewText during moderation
+  const ownerTamperAttempt = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            status: 'published',
+            reviewText: 'Edited by studio admin secretly!',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'reviewText', 'publishedAt', 'updatedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [
+          { fieldPath: 'publishedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+    ],
+  });
+  assert.equal(ownerTamperAttempt.status, 403, 'Owner CANNOT edit customer written reviewText');
+
+  // Owner CANNOT write mismatched ratingDistribution math to publicReviewStats/summary
+  const invalidStatsWrite = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicReviewStats/summary`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            publishedCount: 1,
+            ratingSum: 10,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 1 },
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(invalidStatsWrite.status, 403, 'Stats math inconsistency must be denied');
+
+  // Owner CAN atomically publish review + update publicReviewStats/summary
+  const validOwnerPublish = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_completed_review`,
+          fields: toFsFields({
+            status: 'published',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'publishedAt', 'updatedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [
+          { fieldPath: 'publishedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicReviewStats/summary`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            publishedCount: 1,
+            ratingSum: 5,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 1 },
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(
+    validOwnerPublish.status,
+    200,
+    `Owner publish + stats commit failed: ${JSON.stringify(validOwnerPublish.body)}`,
+  );
+
+  // Public CAN now read published review, filtered published list, and publicReviewStats/summary
+  assert.equal(
+    (await userRequest('GET', '/customerReviews/bkg_completed_review', null)).status,
+    200,
+    'Public can GET published review',
+  );
+  assert.equal(
+    (await userRequest('GET', '/publicReviewStats/summary', null)).status,
+    200,
+    'Public can GET publicReviewStats/summary',
+  );
+  assert.equal(
+    (
+      await userRequest('POST', ':runQuery', null, {
+        structuredQuery: {
+          from: [{ collectionId: 'customerReviews' }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'status' },
+              op: 'EQUAL',
+              value: { stringValue: 'published' },
+            },
+          },
+        },
+      })
+    ).status,
+    200,
+    'Public can query published customerReviews',
+  );
+  console.log('✓ Customer Review invitation, atomic submission, RBAC & moderation rules passed');
+
   // 3. systemOperations/factoryReset read & start authorization
   assert.equal(
     (await userRequest('GET', '/systemOperations/factoryReset', TOKEN_STAFF)).status,
@@ -921,7 +2056,7 @@ async function runTests() {
     const delRes = await userRequest('DELETE', `/${opPath}`, TOKEN_OWNER);
     assert.equal(delRes.status, 200, `Owner reset delete failed for ${opPath}: ${delRes.status}`);
   }
-  console.log('✓ Owner 10-doc batch delete & all 18 operational manifest targets passed');
+  console.log('✓ Owner 10-doc batch delete & all 20 operational manifest targets passed');
 
   // 7. Public site settings remain readable & publicBookingRequests inaccessible after deletion
   assert.equal((await userRequest('GET', '/publicSiteSettings/site', null)).status, 200);
@@ -1061,7 +2196,7 @@ async function runTests() {
         startedAt: opStartedAt,
         lastErrorCode: '',
         lastErrorMessage: '',
-        verificationSummary: { allZero: false, checkedCollectionsCount: 18, remainingTotal: 2 },
+        verificationSummary: { allZero: false, checkedCollectionsCount: 20, remainingTotal: 2 },
       },
       false,
     ),
@@ -1088,7 +2223,7 @@ async function runTests() {
         startedAt: opStartedAt,
         lastErrorCode: '',
         lastErrorMessage: '',
-        verificationSummary: { allZero: true, checkedCollectionsCount: 18, remainingTotal: 0 },
+        verificationSummary: { allZero: true, checkedCollectionsCount: 20, remainingTotal: 0 },
       },
       false,
     ),

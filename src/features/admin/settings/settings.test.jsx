@@ -148,7 +148,7 @@ describe('Phase 6 V2 — Service Catalog & Tariff Model Redesign', () => {
       ).toBeTruthy();
 
       const sidebarNav = screen.getByRole('navigation', { name: /admin workspace navigation/i });
-      expect(within(sidebarNav).getAllByRole('link')).toHaveLength(10);
+      expect(within(sidebarNav).getAllByRole('link')).toHaveLength(11);
       expect(
         within(sidebarNav).getByRole('link', { name: 'Settings' }).getAttribute('aria-current'),
       ).toBe('page');

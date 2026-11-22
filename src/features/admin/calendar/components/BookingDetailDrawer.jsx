@@ -24,6 +24,7 @@ import {
   getPaymentStatusMeta,
 } from '@/features/admin/payment/utils/invoice-status';
 import { resolveBookingLatestPaymentView } from '@/features/admin/payment/utils/payment-calculation';
+import { BookingCustomerReviewSection } from '@/features/customer-reviews/components/BookingCustomerReviewSection';
 
 import {
   BOOKING_EVENT_LABELS,
@@ -668,7 +669,10 @@ export function BookingDetailDrawer({
               ) : null}
             </section>
 
-            {/* SECTION 3: ACTIVITY HISTORY (FIRESTORE BOOKING EVENTS) */}
+            {/* SECTION 3: CUSTOMER REVIEW INVITATION & MODERATION LINK */}
+            <BookingCustomerReviewSection booking={booking} readOnly={readOnly} now={now} />
+
+            {/* SECTION 4: ACTIVITY HISTORY (FIRESTORE BOOKING EVENTS) */}
             <section aria-labelledby="drawer-activity-heading" className="sa-card p-4 sm:p-5">
               <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3">
                 <div className="flex items-center gap-2">

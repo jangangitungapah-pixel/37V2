@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { BookingSection } from '@/components/landing/BookingSection';
+import { CustomerReviewsSection } from '@/components/landing/CustomerReviewsSection';
 import { GallerySection } from '@/components/landing/GallerySection';
-import { GoogleReviewsSection } from '@/components/landing/GoogleReviewsSection';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { PublicAvailabilityTeaserSection } from '@/components/landing/PublicAvailabilityTeaserSection';
 import { RoomsSection } from '@/components/landing/RoomsSection';
@@ -216,8 +216,8 @@ export function LandingPage({ content = landingPageContent }) {
         {/* Gallery ("Proof, not renders.") */}
         <GallerySection gallery={effectiveContent.gallery} />
 
-        {/* Google Maps Reviews — Live Social Proof Integration */}
-        <GoogleReviewsSection />
+        {/* Real Stories From Our Customers (Approved booking-linked reviews) */}
+        <CustomerReviewsSection />
 
         {/* Public Availability Teaser ("Find your next open session.") */}
         <PublicAvailabilityTeaserSection />

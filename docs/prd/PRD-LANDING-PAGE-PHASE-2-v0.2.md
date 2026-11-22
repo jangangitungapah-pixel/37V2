@@ -1033,10 +1033,10 @@ These details can be provided while implementation is being prepared. Until conf
 
 ---
 
-## 19. Post-Phase Addendum — Google Maps Reviews Social Proof Section
+## 19. Post-Phase Addendum — First-Party Customer Reviews Section (`CustomerReviewsSection`)
 
-Added after Phase 2 completion as a standalone public Landing Page enhancement (`src/components/landing/GoogleReviewsSection.jsx` and `src/lib/google-maps/places-client.js`):
+Added after Phase 2 completion and later upgraded to a first-party booking-linked Customer Review Management architecture (`src/components/landing/CustomerReviewsSection.jsx`), replacing both the temporary Google Maps Places section and manual Landing Page testimonial overrides:
 
-- **Placement:** Inserted independently in `src/pages/LandingPage.jsx` directly after `GallerySection` and before `PublicAvailabilityTeaserSection`, without modifying or replacing the existing Artist Testimonials mechanism in `TestimonialsAndContactSection.jsx`.
-- **Data Source & Boundary:** Frontend-only integration using **Google Maps JavaScript API — Places Library (New)** (`Place.fetchFields()`) targeting `37 Music Studio TANGERANG` (`VITE_GOOGLE_MAPS_PLACE_ID`, default `ChIJfYXPy6P-aS4RFCRQptFpsVg`), lazy-loaded on viewport approach via `IntersectionObserver`, holding review payloads in transient runtime memory only (zero Firestore/browser storage persistence).
-- **Fallback & Compliance:** Verifies business identity at runtime (`verifyStudioPlaceIdentity`), displays live aggregate rating/count, up to 5 attributed Google reviews in Google relevance order with direct `googleMapsURI` links, and degrades gracefully to `https://share.google/vNzc7I8OCvwMexEU9` when unconfigured, errored, or empty.
+- **Placement:** Inserted independently in `src/pages/LandingPage.jsx` directly after `GallerySection` and before `PublicAvailabilityTeaserSection`, while deprecating and removing the legacy manual `verifiedTestimonials` display column from `TestimonialsAndContactSection.jsx`.
+- **Data Source & Boundary:** Real-time Cloud Firestore subscriptions (`usePublicCustomerReviews`) reading strictly Owner-approved `customerReviews` (`status == 'published'`, `orderBy('publishedAt', 'desc')`, `limit(9)`) alongside `publicReviewStats/summary` inside the Firebase Spark architecture.
+- **Privacy, Moderation & Empty State:** Displays `REAL STORIES FROM OUR CUSTOMERS` / `THE SOUND OF GOOD EXPERIENCES.`, live average rating, 5-star indicators, published count, and a responsive non-autoplaying carousel with `BOOKING-LINKED REVIEW` attribution. Renders a clean restrained empty notice when zero reviews are published, never exposing unapproved reviews, customer contact PII, or fake ratings.

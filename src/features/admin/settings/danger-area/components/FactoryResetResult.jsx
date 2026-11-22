@@ -40,7 +40,7 @@ export function FactoryResetResult({ operation, onDoneResetView }) {
               </h2>
               <AdminStatusBadge tone="emerald" dot size="sm">
                 Terverifikasi Kosong (
-                {operation?.verificationSummary?.checkedCollectionsCount || 18} Target)
+                {operation?.verificationSummary?.checkedCollectionsCount || 20} Target)
               </AdminStatusBadge>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-[#46433D] sm:text-sm">

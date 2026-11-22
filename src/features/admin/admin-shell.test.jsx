@@ -33,7 +33,7 @@ vi.mock('firebase/firestore', () => ({
   startAfter: vi.fn(),
   onSnapshot: vi.fn((_q, onNext) => {
     queueMicrotask(() => onNext({ docs: [] }));
-    return () => { };
+    return () => {};
   }),
 }));
 
@@ -45,7 +45,7 @@ vi.mock('@/lib/firebase/client', () => ({
 import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
 
-const EXPECTED_MENU_LABELS = [
+const EXPECTED_STAFF_MENU_LABELS = [
   'Dashboard',
   'Calendar',
   'Booking Requests',
@@ -58,6 +58,8 @@ const EXPECTED_MENU_LABELS = [
   'Settings',
 ];
 
+const EXPECTED_OWNER_MENU_LABELS = [...EXPECTED_STAFF_MENU_LABELS, 'Reviews'];
+
 function mockAuthenticatedRole(role = 'owner') {
   const uid = role === 'owner' ? 'owner-uid-1' : 'staff-uid-2';
   const displayName = role === 'owner' ? '37 Music Studio Owner' : 'Rina Studio Staff';
@@ -65,7 +67,7 @@ function mockAuthenticatedRole(role = 'owner') {
 
   mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
     queueMicrotask(() => callback({ uid, email, displayName }));
-    return () => { };
+    return () => {};
   });
 
   mockGetDoc.mockResolvedValue({
@@ -116,7 +118,9 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
 
     const sidebarNav = screen.getByRole('navigation', { name: /admin workspace navigation/i });
     const navLinks = within(sidebarNav).getAllByRole('link');
-    expect(navLinks.map((link) => link.getAttribute('aria-label'))).toEqual(EXPECTED_MENU_LABELS);
+    expect(navLinks.map((link) => link.getAttribute('aria-label'))).toEqual(
+      EXPECTED_OWNER_MENU_LABELS,
+    );
 
     // Dashboard is active by default
     expect(navLinks[0].getAttribute('aria-current')).toBe('page');
@@ -147,6 +151,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
       { label: 'Pembukuan', path: '/admin/pembukuan', order: '08' },
       { label: 'Gallery', path: '/admin/gallery', order: '09' },
       { label: 'Settings', path: '/admin/settings', order: '10' },
+      { label: 'Reviews', path: '/admin/reviews', order: '11' },
     ];
 
     for (const mod of nonDashboardModules) {
@@ -190,6 +195,8 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
         ).toBeTruthy();
       } else if (mod.label === 'Settings') {
         expect(screen.getByRole('heading', { name: /price and fee settings/i })).toBeTruthy();
+      } else if (mod.label === 'Reviews') {
+        expect(screen.getByRole('heading', { level: 2, name: /customer reviews/i })).toBeTruthy();
       } else {
         expect(screen.getByText(`MENU ${mod.order} • DALAM PERSIAPAN`)).toBeTruthy();
         expect(
@@ -210,7 +217,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
 
     const aside = container.querySelector('aside[aria-label="Studio administration sidebar"]');
     expect(aside.getAttribute('data-collapsed')).toBe('false');
-    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(10);
+    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(11);
 
     // Collapse sidebar
     const collapseButton = screen.getByRole('button', { name: /collapse sidebar navigation/i });
@@ -231,7 +238,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     await user.click(expandButton);
 
     expect(aside.getAttribute('data-collapsed')).toBe('false');
-    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(10);
+    expect(container.querySelectorAll('[data-sidebar-label]').length).toBe(11);
   });
 
   it('opens and closes the mobile navigation drawer via menu selection, backdrop, and Escape with focus restoration', async () => {
@@ -249,7 +256,9 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
       name: /mobile admin workspace navigation/i,
     });
     const mobileLinks = within(mobileNav).getAllByRole('link');
-    expect(mobileLinks.map((l) => l.getAttribute('aria-label'))).toEqual(EXPECTED_MENU_LABELS);
+    expect(mobileLinks.map((l) => l.getAttribute('aria-label'))).toEqual(
+      EXPECTED_STAFF_MENU_LABELS,
+    );
 
     // Selecting an item navigates and closes the drawer
     await user.click(within(mobileNav).getByRole('link', { name: 'Inventory' }));
@@ -277,20 +286,26 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     });
   });
 
-  it('protects all nested admin routes from unauthenticated access and provides identical menu access to Owner and Staff', async () => {
+  it('protects all nested admin routes from unauthenticated access and restricts /admin/reviews to Owner only', async () => {
     // 1. Unauthenticated visitor blocked from /admin/dashboard and /admin/settings
     mockOnAuthStateChanged.mockImplementation((_auth, callback) => {
       queueMicrotask(() => callback(null));
-      return () => { };
+      return () => {};
     });
 
     renderAdminAt('/admin/settings');
     expect(await screen.findByRole('heading', { name: /staff & owner sign in/i })).toBeTruthy();
     cleanup();
 
-    // 2. Staff sees all 8 menu items and can sign out from topbar
+    // 2. Staff sees the 10 standard menu items (Owner-only Reviews hidden) and is blocked from /admin/reviews
     const user = userEvent.setup();
     mockAuthenticatedRole('staff');
+    renderAdminAt('/admin/reviews');
+
+    expect(await screen.findByText(/khusus owner/i)).toBeTruthy();
+    expect(screen.queryByRole('heading', { level: 2, name: /customer reviews/i })).toBeNull();
+    cleanup();
+
     renderAdminAt('/admin/settings');
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeTruthy();
@@ -299,7 +314,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
       within(sidebarNav)
         .getAllByRole('link')
         .map((l) => l.getAttribute('aria-label')),
-    ).toEqual(EXPECTED_MENU_LABELS);
+    ).toEqual(EXPECTED_STAFF_MENU_LABELS);
 
     const signOutBtn = screen.getByRole('button', { name: /sign out of studio session/i });
     await user.click(signOutBtn);

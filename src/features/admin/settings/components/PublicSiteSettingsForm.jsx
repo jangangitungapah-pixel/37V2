@@ -1,19 +1,10 @@
-import { useState } from 'react';
-import { Globe, Plus, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Globe, Trash2 } from 'lucide-react';
+import { Link } from 'react-router';
 
-import { AdminButton, AdminStatusBadge } from '@/features/admin/design-system';
+import { AdminStatusBadge } from '@/features/admin/design-system';
 import { CANONICAL_OPERATING_HOURS_LABEL } from '@/features/public-site-settings/config/public-site-settings-config';
 
 export function PublicSiteSettingsForm({ value, onChange, readOnly = false, isPersisted = false }) {
-  const [newTestimonial, setNewTestimonial] = useState({
-    author: '',
-    role: '',
-    quote: '',
-    badge: 'VERIFIED ARTIST',
-    rating: '5',
-  });
-  const [testimonialError, setTestimonialError] = useState('');
-
   const inputBaseClass = readOnly
     ? 'sa-control w-full min-h-10 bg-[#F8F6EF] px-3 py-2 text-xs sm:text-sm text-[#3E3A33] border-[#151515]/10 cursor-default focus:outline-none'
     : 'sa-control w-full min-h-10 bg-white px-3 py-2 text-xs sm:text-sm text-[#151515] border-[#151515]/15 focus:border-[#151515] focus:outline-none';
@@ -51,45 +42,6 @@ export function PublicSiteSettingsForm({ value, onChange, readOnly = false, isPe
         link.id === socialId ? { ...link, url } : link,
       ),
     });
-  };
-
-  const handleAddTestimonial = () => {
-    if (readOnly) return;
-    const author = newTestimonial.author.trim();
-    const quote = newTestimonial.quote.trim();
-    if (author.length < 2) {
-      setTestimonialError('Nama artis/pelanggan wajib diisi (minimal 2 karakter).');
-      return;
-    }
-    if (quote.length < 5) {
-      setTestimonialError('Kutipan testimoni minimal 5 karakter.');
-      return;
-    }
-
-    const parsedRating = Number(newTestimonial.rating);
-    const nextItem = {
-      id: `tm_${Date.now().toString(36)}`,
-      badge: newTestimonial.badge.trim() || 'VERIFIED ARTIST',
-      quote,
-      author,
-      role: newTestimonial.role.trim() || 'Studio Client',
-      rating:
-        Number.isInteger(parsedRating) && parsedRating >= 1 && parsedRating <= 5
-          ? parsedRating
-          : null,
-    };
-
-    updateField({
-      verifiedTestimonials: [...(value.verifiedTestimonials || []), nextItem],
-    });
-    setNewTestimonial({
-      author: '',
-      role: '',
-      quote: '',
-      badge: 'VERIFIED ARTIST',
-      rating: '5',
-    });
-    setTestimonialError('');
   };
 
   const handleRemoveTestimonial = (id) => {
@@ -299,17 +251,28 @@ export function PublicSiteSettingsForm({ value, onChange, readOnly = false, isPe
         </div>
       </div>
 
-      {/* Verified Testimonials */}
-      <div className="space-y-2.5 border-t border-[#151515]/[0.08] pt-4">
-        <div className="flex items-center justify-between gap-2">
+      {/* Legacy Verified Testimonials (Deprecated — Replaced by Customer Review Management) */}
+      <div
+        data-testid="legacy-testimonials-deprecated"
+        className="space-y-2.5 border-t border-[#151515]/[0.08] pt-4"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h4 className="text-xs font-bold tracking-wide text-[#151515] uppercase">
-              Testimoni Terverifikasi ({(value.verifiedTestimonials || []).length})
+              Testimoni Manual Lama (Dihentikan • Arsip {(value.verifiedTestimonials || []).length})
             </h4>
-            <p className="text-[11px] text-[#666159]">
-              Bagian testimoni disembunyikan di website jika daftar ini kosong.
+            <p className="mt-0.5 text-[11px] leading-relaxed text-[#666159]">
+              Penambahan testimoni manual dinonaktifkan. Ulasan pelanggan publik kini dikelola dari
+              undangan sesi Completed melalui halaman moderasi Customer Reviews.
             </p>
           </div>
+          <Link
+            to="/admin/reviews"
+            className="inline-flex items-center gap-1 rounded-lg border border-[#151515]/15 bg-[#F8F6EF] px-2.5 py-1 text-[11px] font-semibold text-[#151515] hover:border-[#151515]"
+          >
+            <span>Kelola Customer Reviews</span>
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
         </div>
 
         {(value.verifiedTestimonials || []).length > 0 ? (
@@ -328,7 +291,7 @@ export function PublicSiteSettingsForm({ value, onChange, readOnly = false, isPe
                 {!readOnly ? (
                   <button
                     type="button"
-                    aria-label={`Hapus testimoni ${item.author}`}
+                    aria-label={`Hapus testimoni lama ${item.author}`}
                     onClick={() => handleRemoveTestimonial(item.id)}
                     className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-red-700 hover:bg-red-50"
                   >
@@ -338,46 +301,6 @@ export function PublicSiteSettingsForm({ value, onChange, readOnly = false, isPe
               </li>
             ))}
           </ul>
-        ) : null}
-
-        {!readOnly ? (
-          <div className="space-y-2 rounded-xl border border-dashed border-[#151515]/20 p-3">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <input
-                type="text"
-                placeholder="Nama artis / pelanggan (sudah memberi izin)"
-                aria-label="Nama pemberi testimoni"
-                value={newTestimonial.author}
-                onChange={(e) => setNewTestimonial((p) => ({ ...p, author: e.target.value }))}
-                className={inputBaseClass}
-              />
-              <input
-                type="text"
-                placeholder="Peran / sesi (mis. Sesi Rekaman Vokal)"
-                aria-label="Peran pemberi testimoni"
-                value={newTestimonial.role}
-                onChange={(e) => setNewTestimonial((p) => ({ ...p, role: e.target.value }))}
-                className={inputBaseClass}
-              />
-            </div>
-            <textarea
-              rows={2}
-              placeholder="Kutipan ulasan asli dari pelanggan..."
-              aria-label="Kutipan testimoni"
-              value={newTestimonial.quote}
-              onChange={(e) => setNewTestimonial((p) => ({ ...p, quote: e.target.value }))}
-              className={inputBaseClass}
-            />
-            {testimonialError ? (
-              <p role="alert" className="text-xs font-medium text-red-700">
-                {testimonialError}
-              </p>
-            ) : null}
-            <AdminButton type="button" variant="secondary" size="sm" onClick={handleAddTestimonial}>
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Tambah Testimoni Terverifikasi</span>
-            </AdminButton>
-          </div>
         ) : null}
       </div>
 

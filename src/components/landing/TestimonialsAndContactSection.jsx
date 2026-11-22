@@ -7,7 +7,6 @@ import {
   MapPin,
   MessageSquare,
   Phone,
-  Star,
 } from 'lucide-react';
 import { Link } from 'react-router';
 
@@ -16,15 +15,10 @@ import { resolveMapsHref, resolveWhatsAppHref } from '@/lib/external-links';
 import { StudioImage } from './StudioImage';
 
 export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta, onNavigate }) {
-  const { testimonials, contact } = testimonialsAndContact;
+  const { contact } = testimonialsAndContact;
 
   const mapsHref = resolveMapsHref(contact);
   const whatsappHref = resolveWhatsAppHref(finalCta.secondaryCta);
-
-  const hasVerifiedTestimonials =
-    Boolean(testimonials?.isVerified) &&
-    Array.isArray(testimonials?.items) &&
-    testimonials.items.length > 0;
 
   const addressDisplay = contact.addressText || '';
   const hoursDisplay = contact.hoursText || '10:00 – 23:00 WIB';
@@ -32,7 +26,7 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
 
   return (
     <>
-      {/* Section 09 — Verified Testimonials (Hidden when none approved) + Studio Location & Hours */}
+      {/* Section 09 — Studio Location & Hours (Legacy manual testimonials column removed) */}
       <section
         id="contact"
         aria-labelledby="contact-heading"
@@ -40,85 +34,9 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
       >
         <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
-            {/* Verified Artist Testimonials Column — rendered ONLY when verified entries exist */}
-            {hasVerifiedTestimonials ? (
-              <div
-                data-testid="verified-testimonials-section"
-                className="border-studio-ink bg-studio-lime text-studio-ink flex flex-col justify-between border-2 p-5 sm:p-8 lg:col-span-7"
-              >
-                <div>
-                  <div className="border-studio-ink flex flex-wrap items-center justify-between gap-2 border-b-2 pb-4">
-                    <span className="font-mono text-xs font-extrabold tracking-wider uppercase">
-                      {testimonials.eyebrow}
-                    </span>
-                    <span className="border-studio-ink bg-studio-white border px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase">
-                      VERIFIED ARTISTS
-                    </span>
-                  </div>
-
-                  <div className="divide-studio-ink/25 divide-y">
-                    {testimonials.items.map((item) => {
-                      const showVerifiedRating =
-                        typeof item.rating === 'number' &&
-                        item.rating >= 1 &&
-                        item.rating <= 5;
-
-                      return (
-                        <article key={item.id} className="py-5 first:pt-5 last:pb-2">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            {showVerifiedRating ? (
-                              <div
-                                className="text-studio-ink flex items-center gap-0.5"
-                                aria-label={`Rated ${item.rating} out of 5`}
-                              >
-                                {Array.from({ length: item.rating }).map((_, starIndex) => (
-                                  <Star
-                                    key={starIndex}
-                                    className="h-3.5 w-3.5 fill-current"
-                                    aria-hidden="true"
-                                  />
-                                ))}
-                              </div>
-                            ) : null}
-                            <span className="border-studio-ink bg-studio-white border px-2 py-0.5 font-mono text-[9px] font-bold uppercase">
-                              {item.badge}
-                            </span>
-                          </div>
-
-                          <p className="text-studio-ink mt-2.5 text-sm leading-relaxed font-semibold sm:text-base">
-                            “{item.quote}”
-                          </p>
-
-                          <div className="mt-3 flex items-center gap-2.5">
-                            <span
-                              className="border-studio-ink bg-studio-ink text-studio-lime flex h-7 w-7 shrink-0 items-center justify-center border font-mono text-[10px] font-extrabold"
-                              aria-hidden="true"
-                            >
-                              37
-                            </span>
-                            <div>
-                              <p className="text-xs font-extrabold uppercase">{item.author}</p>
-                              <p className="text-studio-ink/80 font-mono text-[10px]">
-                                {item.role}
-                              </p>
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {/* Studio Location & Hours Column (expands cleanly across 12 cols when no testimonials) */}
-            <div
-              className={`brutal-card-lg bg-studio-white text-studio-ink p-5 sm:p-8 ${hasVerifiedTestimonials
-                ? 'flex flex-col justify-between lg:col-span-5'
-                : 'grid grid-cols-1 gap-6 lg:col-span-12 lg:grid-cols-12 lg:items-center lg:gap-10'
-                }`}
-            >
-              <div className={hasVerifiedTestimonials ? '' : 'lg:col-span-6'}>
+            {/* Studio Location & Hours Column */}
+            <div className="brutal-card-lg bg-studio-white text-studio-ink grid grid-cols-1 gap-6 p-5 sm:p-8 lg:col-span-12 lg:grid-cols-12 lg:items-center lg:gap-10">
+              <div className="lg:col-span-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-studio-muted-ink font-mono text-[11px] font-bold tracking-wider uppercase">
                     {contact.eyebrow}
@@ -204,13 +122,7 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
               </div>
 
               {/* Studio Exterior / Location Photograph */}
-              <div
-                className={
-                  hasVerifiedTestimonials
-                    ? 'border-studio-ink relative mt-5 overflow-hidden border-2'
-                    : 'border-studio-ink relative overflow-hidden border-2 lg:col-span-6'
-                }
-              >
+              <div className="border-studio-ink relative overflow-hidden border-2 lg:col-span-6">
                 <StudioImage
                   src={contact.image.src}
                   alt={contact.image.alt}

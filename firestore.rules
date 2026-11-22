@@ -2801,5 +2801,346 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function isValidSha256Hex(value) {
+      return value is string && value.matches('^[0-9a-f]{64}$');
+    }
+
+    function isBookingEligibleForReviewInvitation(bookingId) {
+      let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
+      let booking = get(bookingPath);
+      return exists(bookingPath)
+        && booking.data.sessionStatus == 'completed'
+        && booking.data.actualCompletedAt is timestamp
+        && booking.data.deliveryMode == 'studio'
+        && booking.data.customerId is string
+        && booking.data.customerId.size() >= 1;
+    }
+
+    function isValidReviewInvitationShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'bookingId',
+          'serviceLabelSnapshot',
+          'sessionDate',
+          'studioId',
+          'status',
+          'issuedByUid',
+          'issuedAt',
+          'expiresAt',
+          'submittedAt',
+          'revokedAt',
+          'revokedByUid',
+          'version'
+        ])
+        && data.size() == 13
+        && data.schemaVersion == 1
+        && data.bookingId is string
+        && data.bookingId.size() >= 1
+        && data.bookingId.size() <= 120
+        && data.serviceLabelSnapshot is string
+        && data.serviceLabelSnapshot.trim().size() >= 1
+        && data.serviceLabelSnapshot.size() <= 120
+        && data.sessionDate is string
+        && data.sessionDate.size() <= 20
+        && data.studioId in ['', 'room-a', 'room-b']
+        && data.status in ['active', 'submitted', 'revoked']
+        && data.issuedByUid is string
+        && data.issuedByUid.size() <= 128
+        && data.issuedAt is timestamp
+        && data.expiresAt is timestamp
+        && (data.submittedAt == null || data.submittedAt is timestamp)
+        && (data.revokedAt == null || data.revokedAt is timestamp)
+        && data.revokedByUid is string
+        && data.revokedByUid.size() <= 128
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidReviewInvitationStaffCreate(data, tokenHash) {
+      return isValidSha256Hex(tokenHash)
+        && isValidReviewInvitationShape(data)
+        && data.status == 'active'
+        && data.issuedByUid == request.auth.uid
+        && data.issuedAt == request.time
+        && data.expiresAt > request.time
+        && data.submittedAt == null
+        && data.revokedAt == null
+        && data.revokedByUid == ''
+        && data.version == 1
+        && isBookingEligibleForReviewInvitation(data.bookingId)
+        && !exists(/databases/$(database)/documents/customerReviews/$(data.bookingId))
+        && getAfter(/databases/$(database)/documents/reviewInvitationIndexes/$(data.bookingId)).data.activeInvitationId == tokenHash;
+    }
+
+    function isValidReviewInvitationStaffRevoke(nextData, prevData) {
+      return isValidReviewInvitationShape(nextData)
+        && prevData.status == 'active'
+        && nextData.status == 'revoked'
+        && nextData.schemaVersion == prevData.schemaVersion
+        && nextData.bookingId == prevData.bookingId
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.sessionDate == prevData.sessionDate
+        && nextData.studioId == prevData.studioId
+        && nextData.issuedByUid == prevData.issuedByUid
+        && nextData.issuedAt == prevData.issuedAt
+        && nextData.expiresAt == prevData.expiresAt
+        && nextData.submittedAt == null
+        && prevData.submittedAt == null
+        && nextData.revokedAt == request.time
+        && nextData.revokedByUid == request.auth.uid
+        && nextData.version == prevData.version + 1;
+    }
+
+    function isValidReviewInvitationPublicSubmitUpdate(nextData, prevData, tokenHash) {
+      let reviewPath = /databases/$(database)/documents/customerReviews/$(prevData.bookingId);
+      let reviewAfter = getAfter(reviewPath);
+      return isValidSha256Hex(tokenHash)
+        && isValidReviewInvitationShape(nextData)
+        && prevData.status == 'active'
+        && prevData.expiresAt > request.time
+        && nextData.status == 'submitted'
+        && nextData.schemaVersion == prevData.schemaVersion
+        && nextData.bookingId == prevData.bookingId
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.sessionDate == prevData.sessionDate
+        && nextData.studioId == prevData.studioId
+        && nextData.issuedByUid == prevData.issuedByUid
+        && nextData.issuedAt == prevData.issuedAt
+        && nextData.expiresAt == prevData.expiresAt
+        && nextData.revokedAt == prevData.revokedAt
+        && nextData.revokedByUid == prevData.revokedByUid
+        && nextData.submittedAt == request.time
+        && nextData.version == prevData.version + 1
+        && !exists(reviewPath)
+        && reviewAfter.data.bookingId == prevData.bookingId
+        && reviewAfter.data.invitationId == tokenHash
+        && reviewAfter.data.status == 'pending';
+    }
+
+    match /reviewInvitations/{tokenHash} {
+      allow get: if isActiveStaff()
+        || (
+          resource != null
+          && isValidSha256Hex(tokenHash)
+          && (
+            (resource.data.status == 'active' && resource.data.expiresAt > request.time)
+            || resource.data.status == 'submitted'
+          )
+        );
+
+      allow list: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidReviewInvitationStaffCreate(request.resource.data, tokenHash);
+
+      allow update: if !isFactoryResetLocked()
+        && (
+          (isActiveStaff() && isValidReviewInvitationStaffRevoke(request.resource.data, resource.data))
+          || (
+            request.auth == null
+            && isValidReviewInvitationPublicSubmitUpdate(request.resource.data, resource.data, tokenHash)
+          )
+        );
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    function isValidReviewInvitationIndexShape(data, bookingId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'bookingId',
+          'activeInvitationId',
+          'issuedAt',
+          'expiresAt',
+          'version'
+        ])
+        && data.size() == 6
+        && data.schemaVersion == 1
+        && data.bookingId == bookingId
+        && isValidSha256Hex(data.activeInvitationId)
+        && data.issuedAt == request.time
+        && data.expiresAt is timestamp
+        && data.expiresAt > request.time
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    match /reviewInvitationIndexes/{bookingId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidReviewInvitationIndexShape(request.resource.data, bookingId)
+        && request.resource.data.version == 1
+        && isBookingEligibleForReviewInvitation(bookingId)
+        && !exists(/databases/$(database)/documents/customerReviews/$(bookingId))
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.bookingId == bookingId
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.status == 'active';
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidReviewInvitationIndexShape(request.resource.data, bookingId)
+        && request.resource.data.version == resource.data.version + 1
+        && isBookingEligibleForReviewInvitation(bookingId)
+        && !exists(/databases/$(database)/documents/customerReviews/$(bookingId))
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.bookingId == bookingId
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.status == 'active';
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    function isValidCustomerReviewShape(data, bookingId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'bookingId',
+          'invitationId',
+          'displayName',
+          'rating',
+          'reviewText',
+          'serviceLabelSnapshot',
+          'sessionDate',
+          'consentToPublish',
+          'consentVersion',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'publishedAt',
+          'version'
+        ])
+        && data.size() == 15
+        && data.schemaVersion == 1
+        && data.bookingId == bookingId
+        && bookingId is string
+        && bookingId.size() >= 1
+        && bookingId.size() <= 120
+        && isValidSha256Hex(data.invitationId)
+        && data.displayName is string
+        && data.displayName.trim().size() >= 2
+        && data.displayName.size() <= 80
+        && data.rating is int
+        && data.rating >= 1
+        && data.rating <= 5
+        && data.reviewText is string
+        && data.reviewText.trim().size() >= 10
+        && data.reviewText.size() <= 1500
+        && data.serviceLabelSnapshot is string
+        && data.serviceLabelSnapshot.size() <= 120
+        && data.sessionDate is string
+        && data.sessionDate.size() <= 20
+        && data.consentToPublish == true
+        && data.consentVersion == 'customer-review-publication-v1'
+        && data.status in ['pending', 'published', 'rejected', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (data.publishedAt == null || data.publishedAt is timestamp)
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidCustomerReviewPublicCreate(data, bookingId) {
+      let invPath = /databases/$(database)/documents/reviewInvitations/$(data.invitationId);
+      let inv = get(invPath);
+      let invAfter = getAfter(invPath);
+      return isValidCustomerReviewShape(data, bookingId)
+        && data.status == 'pending'
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.publishedAt == null
+        && data.version == 1
+        && exists(invPath)
+        && inv.data.status == 'active'
+        && inv.data.expiresAt > request.time
+        && inv.data.bookingId == bookingId
+        && data.serviceLabelSnapshot == inv.data.serviceLabelSnapshot
+        && data.sessionDate == inv.data.sessionDate
+        && invAfter.data.status == 'submitted'
+        && invAfter.data.submittedAt == request.time;
+    }
+
+    function isValidCustomerReviewModerationUpdate(nextData, prevData, bookingId) {
+      return isValidCustomerReviewShape(nextData, bookingId)
+        && nextData.schemaVersion == prevData.schemaVersion
+        && nextData.bookingId == prevData.bookingId
+        && nextData.invitationId == prevData.invitationId
+        && nextData.displayName == prevData.displayName
+        && nextData.rating == prevData.rating
+        && nextData.reviewText == prevData.reviewText
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.sessionDate == prevData.sessionDate
+        && nextData.consentToPublish == prevData.consentToPublish
+        && nextData.consentVersion == prevData.consentVersion
+        && nextData.createdAt == prevData.createdAt
+        && nextData.updatedAt == request.time
+        && nextData.version == prevData.version + 1
+        && (
+          (prevData.status == 'pending' && nextData.status == 'published' && nextData.publishedAt == request.time)
+          || (prevData.status == 'pending' && nextData.status == 'rejected' && nextData.publishedAt == null)
+          || (prevData.status == 'rejected' && nextData.status == 'pending' && nextData.publishedAt == null)
+          || (prevData.status == 'rejected' && nextData.status == 'published' && nextData.publishedAt == request.time)
+          || (prevData.status == 'published' && nextData.status == 'archived' && nextData.publishedAt == null)
+          || (prevData.status == 'archived' && nextData.status == 'published' && nextData.publishedAt == request.time)
+          || (prevData.status == 'archived' && nextData.status == 'rejected' && nextData.publishedAt == null)
+        );
+    }
+
+    match /customerReviews/{bookingId} {
+      allow get: if isActiveStaff()
+        || (resource != null && resource.data.status == 'published');
+
+      allow list: if isActiveStaff()
+        || resource.data.status == 'published';
+
+      allow create: if request.auth == null
+        && !isFactoryResetLocked()
+        && isValidCustomerReviewPublicCreate(request.resource.data, bookingId);
+
+      allow update: if isActiveOwner()
+        && isValidCustomerReviewModerationUpdate(request.resource.data, resource.data, bookingId);
+
+      allow delete: if false;
+    }
+
+    function isValidPublicReviewStatsWrite(data) {
+      let dist = data.ratingDistribution;
+      let distCount = dist['1'] + dist['2'] + dist['3'] + dist['4'] + dist['5'];
+      let distWeightedSum = dist['1'] * 1 + dist['2'] * 2 + dist['3'] * 3 + dist['4'] * 4 + dist['5'] * 5;
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'publishedCount',
+          'ratingSum',
+          'ratingDistribution',
+          'updatedAt'
+        ])
+        && data.size() == 5
+        && data.schemaVersion == 1
+        && data.publishedCount is int
+        && data.publishedCount >= 0
+        && data.ratingSum is int
+        && data.ratingSum >= 0
+        && dist is map
+        && dist.keys().hasOnly(['1', '2', '3', '4', '5'])
+        && dist.size() == 5
+        && dist['1'] is int && dist['1'] >= 0
+        && dist['2'] is int && dist['2'] >= 0
+        && dist['3'] is int && dist['3'] >= 0
+        && dist['4'] is int && dist['4'] >= 0
+        && dist['5'] is int && dist['5'] >= 0
+        && distCount == data.publishedCount
+        && distWeightedSum == data.ratingSum
+        && data.updatedAt == request.time;
+    }
+
+    match /publicReviewStats/{docId} {
+      allow get: if docId == 'summary';
+      allow list: if false;
+
+      allow create, update: if isActiveOwner()
+        && docId == 'summary'
+        && isValidPublicReviewStatsWrite(request.resource.data);
+
+      allow delete: if false;
+    }
+
   }
 }

@@ -1,12 +1,22 @@
+import { useContext } from 'react';
 import { ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Link } from 'react-router';
+
+import { AuthContext } from '@/features/auth/AuthContext';
 
 import { ADMIN_NAVIGATION_ITEMS } from '../navigation/admin-navigation';
 import { AdminSidebarNavItem } from './AdminSidebarNavItem';
 
 export function AdminSidebar({ isCollapsed, onToggleCollapse, navBadges = {} }) {
   const prefersReducedMotion = useReducedMotion();
+  const auth = useContext(AuthContext);
+  const actorRole = String(auth?.role || auth?.profile?.role || '')
+    .trim()
+    .toLowerCase();
+  const visibleNavItems = ADMIN_NAVIGATION_ITEMS.filter(
+    (item) => !Array.isArray(item.roles) || item.roles.includes(actorRole),
+  );
 
   return (
     <motion.aside
@@ -91,7 +101,7 @@ export function AdminSidebar({ isCollapsed, onToggleCollapse, navBadges = {} }) 
           className="flex-1 overflow-x-visible overflow-y-auto px-3 py-2"
         >
           <ul className="space-y-1">
-            {ADMIN_NAVIGATION_ITEMS.map((item) => (
+            {visibleNavItems.map((item) => (
               <AdminSidebarNavItem
                 key={item.id}
                 item={item}

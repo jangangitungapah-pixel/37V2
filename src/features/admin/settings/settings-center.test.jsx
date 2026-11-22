@@ -170,16 +170,16 @@ describe('Settings Center Overview (/admin/settings)', () => {
     expect(screen.queryByTestId('settings-danger-area-card')).toBeNull();
   });
 
-  it('navigates between /admin/settings and sub-pages inside AppRoutes while keeping 10 top-level sidebar links', async () => {
+  it('navigates between /admin/settings and sub-pages inside AppRoutes while keeping 11 Owner sidebar links', async () => {
     const adapter = createInMemoryStudioProfileAdapter(null);
     setStudioProfileRepositoryAdapter(adapter);
     const user = userEvent.setup();
 
     renderWithAuth(<AppRoutes />, { route: '/admin/settings' });
 
-    expect(ADMIN_NAVIGATION_ITEMS).toHaveLength(10);
+    expect(ADMIN_NAVIGATION_ITEMS).toHaveLength(11);
     const nav = screen.getByRole('navigation', { name: /admin workspace navigation/i });
-    expect(within(nav).getAllByRole('link')).toHaveLength(10);
+    expect(within(nav).getAllByRole('link')).toHaveLength(11);
 
     await user.click(screen.getByRole('link', { name: /open studio profile/i }));
     await waitFor(() => {
@@ -415,8 +415,19 @@ describe('Studio Profile & Contact UI (/admin/settings/studio-profile)', () => {
     expect(screen.queryByRole('button', { name: /batalkan perubahan/i })).toBeNull();
   });
 
-  it('atomically syncs sanitized publicSiteSettings/site when Owner saves Studio Profile + Public Website config without leaking internal fields', async () => {
-    const publicSiteAdapter = createInMemoryPublicSiteSettingsAdapter(null);
+  it('atomically syncs sanitized publicSiteSettings/site when Owner saves Studio Profile + Public Website config without leaking internal fields and deprecates manual testimonial creation', async () => {
+    const publicSiteAdapter = createInMemoryPublicSiteSettingsAdapter({
+      verifiedTestimonials: [
+        {
+          id: 'tm-legacy-1',
+          author: 'Rama Gitaris',
+          role: 'Rehearsal',
+          quote: 'Monitoringnya sangat detail.',
+          badge: 'VERIFIED ARTIST',
+          rating: 5,
+        },
+      ],
+    });
     setPublicSiteSettingsRepositoryAdapter(publicSiteAdapter);
 
     const adapter = createInMemoryStudioProfileAdapter(null, publicSiteAdapter);
@@ -436,9 +447,12 @@ describe('Studio Profile & Contact UI (/admin/settings/studio-profile)', () => {
     await user.clear(seoTitleInput);
     await user.type(seoTitleInput, '37 Music Studio | Rehearsal & Recording');
 
-    await user.type(screen.getByLabelText(/nama pemberi testimoni/i), 'Rama Gitaris');
-    await user.type(screen.getByLabelText(/kutipan testimoni/i), 'Monitoringnya sangat detail.');
-    await user.click(screen.getByRole('button', { name: /tambah testimoni terverifikasi/i }));
+    // Manual testimonial creation UI is deprecated in favor of /admin/reviews
+    expect(screen.getByTestId('legacy-testimonials-deprecated')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /tambah testimoni terverifikasi/i })).toBeNull();
+    expect(
+      screen.getByRole('link', { name: /kelola customer reviews/i }).getAttribute('href'),
+    ).toBe('/admin/reviews');
 
     await user.click(screen.getByRole('button', { name: /simpan profil studio/i }));
 

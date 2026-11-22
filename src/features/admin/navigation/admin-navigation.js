@@ -6,6 +6,7 @@ import {
   Images,
   Inbox,
   LayoutDashboard,
+  MessageSquareQuote,
   ReceiptText,
   Settings2,
   UsersRound,
@@ -25,6 +26,7 @@ import {
  * 08. Pembukuan
  * 09. Gallery
  * 10. Settings
+ * 11. Reviews (Owner-only)
  */
 export const ADMIN_NAVIGATION_ITEMS = [
   {
@@ -65,7 +67,8 @@ export const ADMIN_NAVIGATION_ITEMS = [
     href: '/admin/booking-requests',
     icon: Inbox,
     eyebrow: 'PUBLIC INQUIRY DESK',
-    summary: 'Tinjau permintaan booking publik dari Landing Page, hubungi lewat WhatsApp, dan konversi ke Calendar.',
+    summary:
+      'Tinjau permintaan booking publik dari Landing Page, hubungi lewat WhatsApp, dan konversi ke Calendar.',
     scopeNotes: [
       'Permintaan rehearsal, recording, dan inquiry post-production Mix & Master',
       'Komunikasi WhatsApp terstruktur dengan template & riwayat tercatat',
@@ -175,6 +178,23 @@ export const ADMIN_NAVIGATION_ITEMS = [
       'Daftar layanan studio dan layanan jarak jauh (mixing/mastering)',
       'Tarif per jam, paket harga khusus, serta diskon otomatis',
       'Pengaturan fee staff, owner, operator, dan uang makan',
+    ],
+  },
+  {
+    id: 'reviews',
+    order: '11',
+    label: 'Reviews',
+    path: 'reviews',
+    href: '/admin/reviews',
+    icon: MessageSquareQuote,
+    roles: ['owner'],
+    eyebrow: 'ULASAN PELANGGAN',
+    summary:
+      'Moderasi ulasan pelanggan dari sesi studio yang selesai serta pantau undangan ulasan.',
+    scopeNotes: [
+      'Moderasi ulasan masuk (Pending, Published, Rejected, Archived)',
+      'Statistik rating publik real-time terhubung ke Landing Page',
+      'Pantau status undangan ulasan berbasis booking Completed',
     ],
   },
 ];
