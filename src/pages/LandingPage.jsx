@@ -1,9 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import { BookingSection } from '@/components/landing/BookingSection';
 import { GallerySection } from '@/components/landing/GallerySection';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { LoginComingSoonDialog } from '@/components/landing/LoginComingSoonDialog';
+import { PublicAvailabilityTeaserSection } from '@/components/landing/PublicAvailabilityTeaserSection';
 import { RoomsSection } from '@/components/landing/RoomsSection';
 import { ServicesSection } from '@/components/landing/ServicesSection';
 import { SiteFooter } from '@/components/landing/SiteFooter';
@@ -12,6 +14,7 @@ import { TestimonialsAndContactSection } from '@/components/landing/Testimonials
 import { landingPageContent } from '@/data/landing-page-content';
 import { usePublishedLandingPagePlacements } from '@/features/admin/gallery/hooks/usePublishedLandingPagePlacements';
 import { mergeLandingPageContentWithPlacements } from '@/features/admin/gallery/utils/landing-page-placement-normalize';
+import { parseAndValidateInquiryPrefillParams } from '@/features/public-availability/utils/public-availability-calculation';
 
 const SERVICE_NAMES = {
   rehearsal: 'Rehearsal',
@@ -44,20 +47,45 @@ function scrollToSection(hash) {
 }
 
 export function LandingPage({ content = landingPageContent }) {
+  const [searchParams] = useSearchParams();
   const { placementsById } = usePublishedLandingPagePlacements();
   const effectiveContent = useMemo(
     () => mergeLandingPageContentWithPlacements(content, placementsById),
     [content, placementsById],
   );
 
+  const urlPrefill = useMemo(
+    () => parseAndValidateInquiryPrefillParams(searchParams),
+    [searchParams],
+  );
+
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [returnFocusToMenuTrigger, setReturnFocusToMenuTrigger] = useState(false);
-  const [selectedService, setSelectedService] = useState('rehearsal');
-  const [selectedRoom, setSelectedRoom] = useState('room-a');
-  const [selectionVersion, setSelectionVersion] = useState(0);
-  const [preselectionNotice, setPreselectionNotice] = useState('');
+  const [selectedService, setSelectedService] = useState(() => urlPrefill.service || 'rehearsal');
+  const [selectedRoom, setSelectedRoom] = useState(() => urlPrefill.room || 'room-a');
+  const [selectedDate, setSelectedDate] = useState(() => urlPrefill.preferredDate || '');
+  const [selectedTime, setSelectedTime] = useState(() => urlPrefill.preferredTime || '');
+  const [selectedDuration, setSelectedDuration] = useState(() => urlPrefill.duration || '');
+  const [selectionVersion, setSelectionVersion] = useState(() =>
+    urlPrefill.hasValidPrefill ? 1 : 0,
+  );
+  const [preselectionNotice, setPreselectionNotice] = useState(() => {
+    if (!urlPrefill.hasValidPrefill) return '';
+    const parts = [];
+    if (urlPrefill.room) parts.push(ROOM_NAMES[urlPrefill.room] || urlPrefill.room);
+    if (urlPrefill.preferredDate) parts.push(urlPrefill.preferredDate);
+    if (urlPrefill.preferredTime) parts.push(`${urlPrefill.preferredTime} WIB`);
+    if (urlPrefill.service) parts.push(SERVICE_NAMES[urlPrefill.service] || urlPrefill.service);
+    return `Prefilled from availability calendar: ${parts.join(' • ')}`;
+  });
 
   const mobileMenuTriggerRef = useRef(null);
+
+  useEffect(() => {
+    if (urlPrefill.hasValidPrefill) {
+      scrollToSection('#booking');
+    }
+  }, [urlPrefill.hasValidPrefill]);
 
   const handleNavigate = (hash) => {
     scrollToSection(hash);
@@ -100,6 +128,13 @@ export function LandingPage({ content = landingPageContent }) {
     scrollToSection('#booking');
   };
 
+  const handleClearPreselection = () => {
+    setPreselectionNotice('');
+    setSelectedDate('');
+    setSelectedTime('');
+    setSelectedDuration('');
+  };
+
   return (
     <div className="bg-studio-ivory text-studio-ink min-h-screen">
       {/* Keyboard Skip Link */}
@@ -110,7 +145,7 @@ export function LandingPage({ content = landingPageContent }) {
         Skip to main content
       </a>
 
-      {/* Sections 01 & 02 — Non-Sticky Utility Strip & Sticky Main Header */}
+      {/* Section 01 — Non-Sticky Utility Strip & Sticky Main Header */}
       <SiteHeader
         utilityStrip={effectiveContent.utilityStrip}
         header={effectiveContent.header}
@@ -121,36 +156,42 @@ export function LandingPage({ content = landingPageContent }) {
 
       {/* Main Content Landmark */}
       <main id="main-content">
-        {/* Sections 03 & 04 — Hero & Acid-Lime Ticker */}
+        {/* Sections 02 & 03 — Hero & Acid-Lime Ticker */}
         <HeroSection
           hero={effectiveContent.hero}
           ticker={effectiveContent.ticker}
           onNavigate={handleNavigate}
         />
 
-        {/* Section 05 — Services ("Pick your session") */}
+        {/* Section 04 — Services ("Pick your session") */}
         <ServicesSection
           services={effectiveContent.services}
           onSelectService={handleSelectService}
         />
 
-        {/* Section 06 — Rooms ("Two rooms, zero guesswork") */}
+        {/* Section 05 — Rooms ("Two rooms, zero guesswork") */}
         <RoomsSection rooms={effectiveContent.rooms} onSelectRoom={handleSelectRoom} />
 
-        {/* Section 07 — Gallery ("Proof, not renders.") */}
+        {/* Section 06 — Gallery ("Proof, not renders.") */}
         <GallerySection gallery={effectiveContent.gallery} />
+
+        {/* Section 07 — Public Availability Teaser ("Find your next open session.") */}
+        <PublicAvailabilityTeaserSection />
 
         {/* Section 08 — Booking Process + Booking Inquiry Form */}
         <BookingSection
           bookingSection={effectiveContent.bookingSection}
           selectedService={selectedService}
           selectedRoom={selectedRoom}
+          selectedDate={selectedDate}
+          selectedTime={selectedTime}
+          selectedDuration={selectedDuration}
           selectionVersion={selectionVersion}
           preselectionNotice={preselectionNotice}
-          onClearPreselectionNotice={() => setPreselectionNotice('')}
+          onClearPreselectionNotice={handleClearPreselection}
         />
 
-        {/* Sections 09 & 10 — Testimonials + Location Card & Final CTA */}
+        {/* Section 09 — Testimonials + Location Card & Final CTA */}
         <TestimonialsAndContactSection
           testimonialsAndContact={effectiveContent.testimonialsAndContact}
           finalCta={effectiveContent.finalCta}
@@ -158,7 +199,7 @@ export function LandingPage({ content = landingPageContent }) {
         />
       </main>
 
-      {/* Section 11 — Black Footer */}
+      {/* Section 10 — Black Footer */}
       <SiteFooter
         footer={effectiveContent.footer}
         contact={effectiveContent.testimonialsAndContact.contact}

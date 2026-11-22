@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
-import { ArrowRight, Clock, KeyRound, Menu, X } from 'lucide-react';
+import { ArrowRight, CalendarClock, Clock, KeyRound, Menu, X } from 'lucide-react';
+import { Link } from 'react-router';
 
 export function SiteHeader({
   utilityStrip,
@@ -42,6 +43,13 @@ export function SiteHeader({
               <Clock className="text-studio-lime h-3.5 w-3.5" aria-hidden="true" />
               <span>{hoursLabel}</span>
             </div>
+            <Link
+              to="/availability"
+              className="text-studio-lime hidden items-center gap-1 font-mono text-[10px] font-bold tracking-wider uppercase hover:underline sm:inline-flex"
+            >
+              <CalendarClock className="h-3 w-3" aria-hidden="true" />
+              <span>LIVE AVAILABILITY</span>
+            </Link>
             <a
               href={utilityStrip.ctaHref}
               onClick={(event) => handleSectionSelect(event, utilityStrip.ctaHref)}
@@ -54,7 +62,7 @@ export function SiteHeader({
       </div>
 
       {/* Section 02 — Sticky Main Header / Navigation */}
-      <header className="border-studio-ink bg-studio-ivory sticky top-0 z-40 border-b-2">
+      <header className="border-studio-ink bg-studio-ivory/95 sticky top-0 z-40 border-b-2 backdrop-blur-xs">
         <div className="mx-auto flex max-w-[1680px] items-center justify-between gap-2 px-2.5 py-2 min-[375px]:px-3 sm:px-6 sm:py-2.5 lg:px-8">
           {/* Brand Lockup */}
           <a
@@ -81,19 +89,30 @@ export function SiteHeader({
             aria-label="Primary section navigation"
             className="hidden items-center gap-1 lg:flex"
           >
-            {header.navLinks.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                onClick={(event) => handleSectionSelect(event, item.href)}
-                className="text-studio-ink hover:bg-studio-lime inline-flex min-h-11 items-center px-3 py-2 text-sm font-semibold transition-colors"
-              >
-                {item.label}
-              </a>
-            ))}
+            {header.navLinks.map((item) =>
+              item.isRoute || item.href.startsWith('/') ? (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className="text-studio-ink hover:bg-studio-lime inline-flex min-h-11 items-center gap-1.5 px-3 py-2 text-sm font-bold transition-colors"
+                >
+                  <CalendarClock className="text-studio-orange h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{item.label}</span>
+                </Link>
+              ) : (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={(event) => handleSectionSelect(event, item.href)}
+                  className="text-studio-ink hover:bg-studio-lime inline-flex min-h-11 items-center px-3 py-2 text-sm font-semibold transition-colors"
+                >
+                  {item.label}
+                </a>
+              ),
+            )}
           </nav>
 
-          {/* Actions: Login Dummy + Primary Book Now + Mobile Menu Trigger */}
+          {/* Actions: Client Login + Primary Book a Session + Mobile Menu Trigger */}
           <div className="flex shrink-0 items-center gap-1.5 min-[375px]:gap-2">
             <button
               type="button"
@@ -108,7 +127,7 @@ export function SiteHeader({
             <a
               href={header.primaryCta.href}
               onClick={(event) => handleSectionSelect(event, header.primaryCta.href)}
-              className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-11 items-center gap-1 px-2.5 py-2 text-[11px] font-bold tracking-wider uppercase min-[375px]:gap-1.5 min-[375px]:px-3 min-[375px]:text-xs sm:px-4"
+              className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-11 items-center gap-1 px-2.5 py-2 text-[11px] font-extrabold tracking-wider uppercase min-[375px]:gap-1.5 min-[375px]:px-3 min-[375px]:text-xs sm:px-4"
             >
               <span>{header.primaryCta.label}</span>
               <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -156,19 +175,34 @@ export function SiteHeader({
                         aria-label="Mobile section navigation"
                         className="mt-4 flex flex-col gap-2"
                       >
-                        {header.navLinks.map((item, index) => (
-                          <a
-                            key={item.href}
-                            href={item.href}
-                            onClick={(event) => handleSectionSelect(event, item.href)}
-                            className="border-studio-ink bg-studio-white hover:bg-studio-lime flex min-h-12 items-center justify-between border-2 px-4 py-2.5 text-base font-bold transition-colors"
-                          >
-                            <span>{item.label}</span>
-                            <span className="text-studio-muted-ink font-mono text-xs">
-                              0{index + 1}
-                            </span>
-                          </a>
-                        ))}
+                        {header.navLinks.map((item, index) =>
+                          item.isRoute || item.href.startsWith('/') ? (
+                            <Link
+                              key={item.href}
+                              to={item.href}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className="border-studio-ink bg-studio-lime text-studio-ink flex min-h-12 items-center justify-between border-2 px-4 py-2.5 text-base font-extrabold transition-colors"
+                            >
+                              <span className="inline-flex items-center gap-2">
+                                <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                                <span>{item.label}</span>
+                              </span>
+                              <span className="font-mono text-xs">0{index + 1}</span>
+                            </Link>
+                          ) : (
+                            <a
+                              key={item.href}
+                              href={item.href}
+                              onClick={(event) => handleSectionSelect(event, item.href)}
+                              className="border-studio-ink bg-studio-white hover:bg-studio-lime flex min-h-12 items-center justify-between border-2 px-4 py-2.5 text-base font-bold transition-colors"
+                            >
+                              <span>{item.label}</span>
+                              <span className="text-studio-muted-ink font-mono text-xs">
+                                0{index + 1}
+                              </span>
+                            </a>
+                          ),
+                        )}
                       </nav>
                     </div>
 
@@ -184,7 +218,7 @@ export function SiteHeader({
                       <a
                         href={header.primaryCta.href}
                         onClick={(event) => handleSectionSelect(event, header.primaryCta.href)}
-                        className="brutal-btn bg-studio-orange text-studio-white flex min-h-12 w-full items-center justify-center gap-2 px-4 py-3 text-sm font-bold tracking-wider uppercase"
+                        className="brutal-btn bg-studio-orange text-studio-white flex min-h-12 w-full items-center justify-center gap-2 px-4 py-3 text-sm font-extrabold tracking-wider uppercase"
                       >
                         <span>{header.primaryCta.label}</span>
                         <ArrowRight className="h-4 w-4" aria-hidden="true" />

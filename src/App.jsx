@@ -15,6 +15,7 @@ import { AdminSettingsPage } from '@/features/admin/settings/pages/AdminSettings
 import { PriceAndFeeSettingsPage } from '@/features/admin/settings/pages/PriceAndFeeSettingsPage';
 import { StudioProfilePage } from '@/features/admin/settings/pages/StudioProfilePage';
 import { RequireStaff } from '@/features/auth/RequireStaff';
+import { PublicAvailabilityPage } from '@/features/public-availability/pages/PublicAvailabilityPage';
 import { LandingPage } from '@/pages/LandingPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { StaffLoginPage } from '@/pages/StaffLoginPage';
@@ -23,6 +24,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/availability" element={<PublicAvailabilityPage />} />
       <Route path="/staff/login" element={<StaffLoginPage />} />
       <Route
         path="/admin"

@@ -33,6 +33,10 @@ import {
   DEFAULT_PRICING_SETTINGS,
   DELIVERY_MODES,
 } from '@/features/admin/settings/pricing/config/default-pricing-settings';
+import {
+  buildPublicAvailabilityProjectionFromBooking,
+  normalizePublicAvailabilityRecord,
+} from '@/features/public-availability/utils/public-availability-calculation';
 
 import {
   BOOKING_EVENT_TYPES,
@@ -490,6 +494,11 @@ export async function createBooking({
 
     tx.setBooking(cleanBookingId, bookingDoc);
 
+    const publicProjection = buildPublicAvailabilityProjectionFromBooking(bookingDoc, timestamp);
+    if (publicProjection) {
+      tx.setPublicAvailability?.(cleanBookingId, publicProjection);
+    }
+
     for (const slot of requiredSlots) {
       tx.setSlot(slot.id, {
         bookingId: cleanBookingId,
@@ -862,6 +871,16 @@ export async function updateOrRescheduleBooking({
 
     tx.updateBooking(cleanBookingId, updatedFields);
 
+    const nextPublicProjection = buildPublicAvailabilityProjectionFromBooking(
+      updatedFields,
+      timestamp,
+    );
+    if (nextPublicProjection) {
+      tx.setPublicAvailability?.(cleanBookingId, nextPublicProjection);
+    } else {
+      tx.deletePublicAvailability?.(cleanBookingId);
+    }
+
     const eventType =
       mode === 'reschedule' || scheduleChanged
         ? BOOKING_EVENT_TYPES.RESCHEDULED
@@ -988,6 +1007,16 @@ export async function cancelBooking({
     delete updatedFields.id;
 
     tx.updateBooking(cleanBookingId, updatedFields);
+
+    const nextPublicProjection = buildPublicAvailabilityProjectionFromBooking(
+      updatedFields,
+      timestamp,
+    );
+    if (nextPublicProjection) {
+      tx.setPublicAvailability?.(cleanBookingId, nextPublicProjection);
+    } else {
+      tx.deletePublicAvailability?.(cleanBookingId);
+    }
 
     const cleanReason = String(reason || '').trim();
     tx.setEvent(cleanEventId, {
@@ -1188,6 +1217,16 @@ export async function transitionBookingSession({
 
     // 2. WRITES AFTER READS
     tx.updateBooking(cleanBookingId, updatedFields);
+
+    const nextPublicProjection = buildPublicAvailabilityProjectionFromBooking(
+      updatedFields,
+      timestamp,
+    );
+    if (nextPublicProjection) {
+      tx.setPublicAvailability?.(cleanBookingId, nextPublicProjection);
+    } else {
+      tx.deletePublicAvailability?.(cleanBookingId);
+    }
     tx.setEvent(cleanEventId, {
       bookingId: cleanBookingId,
       eventType,
@@ -1222,6 +1261,8 @@ export function createInMemoryBookingRepositoryAdapter(
   const bookings = new Map();
   const rawCommissionSnapshots = new Map();
   const slots = new Map();
+  const publicAvailability = new Map();
+  const publicAvailabilityMetadata = new Map();
   const events = new Map();
   const customers = new Map();
   const phoneIndex = new Map();
@@ -1234,6 +1275,8 @@ export function createInMemoryBookingRepositoryAdapter(
   const bookkeepingSettlements = new Map();
   const bookkeepingSettings = new Map();
   const rangeSubscribers = new Set();
+  const publicAvailabilitySubscribers = new Set();
+  const publicAvailabilityMetadataSubscribers = new Set();
   const eventSubscribers = new Map();
   const customerSubscribers = new Set();
   const invoiceSubscribers = new Set();
@@ -1256,6 +1299,32 @@ export function createInMemoryBookingRepositoryAdapter(
       cb?.();
     }
     notifyBookkeepingSubscribers();
+  }
+
+  function notifyPublicAvailabilitySubscribers() {
+    for (const sub of publicAvailabilitySubscribers) {
+      const matching = Array.from(publicAvailability.values())
+        .filter((p) => p.date >= sub.startDate && p.date <= sub.endDate)
+        .sort((a, b) => {
+          if (a.date !== b.date) return a.date.localeCompare(b.date);
+          if (a.startMinute !== b.startMinute) return a.startMinute - b.startMinute;
+          return a.studioId.localeCompare(b.studioId);
+        });
+
+      const limited = matching.slice(0, sub.maxLimit);
+      sub.onData?.({
+        projections: limited.map((p) => ({ ...p })),
+        isTruncated: matching.length > sub.maxLimit,
+        maxLimit: sub.maxLimit,
+      });
+    }
+  }
+
+  function notifyPublicAvailabilityMetadataSubscribers() {
+    const statusDoc = publicAvailabilityMetadata.get('status') || null;
+    for (const cb of publicAvailabilityMetadataSubscribers) {
+      cb?.(statusDoc ? { ...statusDoc } : null);
+    }
   }
 
   function notifyRangeSubscribers() {
@@ -1434,6 +1503,15 @@ export function createInMemoryBookingRepositoryAdapter(
           createdAt: { seconds: Math.floor(Date.now() / 1000) },
         });
       }
+      const seedProjection = buildPublicAvailabilityProjectionFromBooking(normalized, {
+        seconds: Math.floor(Date.now() / 1000),
+      });
+      if (seedProjection) {
+        publicAvailability.set(
+          normalized.id,
+          normalizePublicAvailabilityRecord(normalized.id, seedProjection),
+        );
+      }
     }
   }
 
@@ -1448,6 +1526,8 @@ export function createInMemoryBookingRepositoryAdapter(
       bookings,
       rawCommissionSnapshots,
       slots,
+      publicAvailability,
+      publicAvailabilityMetadata,
       events,
       customers,
       phoneIndex,
@@ -1459,6 +1539,8 @@ export function createInMemoryBookingRepositoryAdapter(
       bookkeepingEntries,
       bookkeepingSettlements,
       bookkeepingSettings,
+      publicAvailabilitySubscribers,
+      publicAvailabilityMetadataSubscribers,
       customerSubscribers,
       invoiceSubscribers,
       invoiceDocSubscribers,
@@ -1469,6 +1551,8 @@ export function createInMemoryBookingRepositoryAdapter(
       bookkeepingSubscribers,
       enqueueTransaction,
       notifyBookings: notifyRangeSubscribers,
+      notifyPublicAvailability: notifyPublicAvailabilitySubscribers,
+      notifyPublicAvailabilityMetadata: notifyPublicAvailabilityMetadataSubscribers,
       notifyCustomers: notifyCustomerSubscribers,
       notifyInvoices: notifyInvoiceSubscribers,
       notifyTransactions: notifyTransactionSubscribers,
@@ -1480,6 +1564,8 @@ export function createInMemoryBookingRepositoryAdapter(
       return {
         bookings: new Map(bookings),
         slots: new Map(slots),
+        publicAvailability: new Map(publicAvailability),
+        publicAvailabilityMetadata: new Map(publicAvailabilityMetadata),
         events: new Map(events),
         customers: new Map(customers),
         phoneIndex: new Map(phoneIndex),
@@ -1494,6 +1580,7 @@ export function createInMemoryBookingRepositoryAdapter(
         const stagedBookings = new Map(bookings);
         const stagedRawCommissionSnapshots = new Map(rawCommissionSnapshots);
         const stagedSlots = new Map(slots);
+        const stagedPublicAvailability = new Map(publicAvailability);
         const stagedEvents = new Map(events);
         const stagedCustomers = new Map(customers);
         const stagedPhoneIndex = new Map(phoneIndex);
@@ -1610,6 +1697,25 @@ export function createInMemoryBookingRepositoryAdapter(
             writeStarted = true;
             stagedPaymentTransactions.set(id, normalizePaymentTransactionRecord(id, data));
           },
+          setPublicAvailability(id, data) {
+            writeStarted = true;
+            const norm = normalizePublicAvailabilityRecord(id, data);
+            if (norm) {
+              const cleanPayload = {
+                schemaVersion: norm.schemaVersion,
+                date: norm.date,
+                studioId: norm.studioId,
+                startMinute: norm.startMinute,
+                endMinute: norm.endMinute,
+                updatedAt: norm.updatedAt,
+              };
+              stagedPublicAvailability.set(id, { id, ...cleanPayload });
+            }
+          },
+          deletePublicAvailability(id) {
+            writeStarted = true;
+            stagedPublicAvailability.delete(id);
+          },
         };
 
         const result = await transactionWork(txContext);
@@ -1621,6 +1727,8 @@ export function createInMemoryBookingRepositoryAdapter(
         for (const [k, v] of stagedRawCommissionSnapshots) rawCommissionSnapshots.set(k, v);
         slots.clear();
         for (const [k, v] of stagedSlots) slots.set(k, v);
+        publicAvailability.clear();
+        for (const [k, v] of stagedPublicAvailability) publicAvailability.set(k, v);
         events.clear();
         for (const [k, v] of stagedEvents) events.set(k, v);
         customers.clear();
@@ -1633,6 +1741,7 @@ export function createInMemoryBookingRepositoryAdapter(
         for (const [k, v] of stagedPaymentTransactions) paymentTransactions.set(k, v);
 
         notifyRangeSubscribers();
+        notifyPublicAvailabilitySubscribers();
         notifyCustomerSubscribers();
         notifyInvoiceSubscribers();
         notifyTransactionSubscribers();

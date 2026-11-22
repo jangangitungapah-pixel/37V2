@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, ArrowUpRight, KeyRound } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, CalendarClock, KeyRound } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { resolveSocialHref } from '@/lib/external-links';
@@ -24,9 +24,9 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
   };
 
   return (
-    <footer className="bg-studio-ink text-studio-ivory pt-8 pb-6 sm:pt-16 sm:pb-8">
+    <footer className="bg-studio-ink text-studio-ivory pt-10 pb-6 sm:pt-14 sm:pb-8">
       <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-6 pb-6 sm:grid-cols-2 sm:gap-10 sm:pb-10 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-8 pb-8 sm:grid-cols-2 lg:grid-cols-12">
           {/* Column 1: Brand Lockup & Social Icons */}
           <div className="lg:col-span-4">
             <div className="flex items-center gap-2.5">
@@ -38,11 +38,11 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
               </span>
             </div>
 
-            <p className="mt-3 hidden max-w-xs text-xs leading-relaxed text-neutral-300 sm:block sm:text-sm">
+            <p className="mt-3 max-w-xs text-xs leading-relaxed text-neutral-300 sm:text-sm">
               {footer.description}
             </p>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-5">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               {footer.socialLinks.map((social) => {
                 const confirmedHref = resolveSocialHref(social);
 
@@ -98,16 +98,25 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
             </h2>
             <p className="mt-3 text-xs leading-relaxed text-neutral-300">{visitAddress}</p>
 
-            <ul className="mt-3 hidden space-y-0 text-xs font-semibold sm:block">
+            <ul className="mt-3 space-y-0 text-xs font-semibold">
               {navLinks.map((link) => (
                 <li key={link.href}>
-                  <a
-                    href={link.href}
-                    onClick={(event) => handleAnchorClick(event, link.href)}
-                    className="hover:text-studio-lime inline-flex min-h-11 min-w-11 items-center py-2 text-neutral-200 transition-colors"
-                  >
-                    {link.label}
-                  </a>
+                  {link.isRoute || link.href.startsWith('/') ? (
+                    <Link
+                      to={link.href}
+                      className="hover:text-studio-lime inline-flex min-h-10 items-center py-1.5 text-neutral-200 transition-colors"
+                    >
+                      {link.label}
+                    </Link>
+                  ) : (
+                    <a
+                      href={link.href}
+                      onClick={(event) => handleAnchorClick(event, link.href)}
+                      className="hover:text-studio-lime inline-flex min-h-10 items-center py-1.5 text-neutral-200 transition-colors"
+                    >
+                      {link.label}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
@@ -122,7 +131,7 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
             <p className="mt-2 text-xs leading-relaxed text-neutral-400">{contactNote}</p>
           </div>
 
-          {/* Column 4: Quick Booking CTA + Staff Login */}
+          {/* Column 4: Quick Booking CTA + Availability + Staff Login */}
           <div className="lg:col-span-3">
             <h2 className="font-mono text-xs font-extrabold tracking-wider text-neutral-400 uppercase">
               {footer.ctaHeading}
@@ -138,8 +147,16 @@ export function SiteFooter({ footer, contact, navLinks, onNavigate }) {
             </a>
 
             <Link
+              to="/availability"
+              className="hover:border-studio-lime hover:text-studio-lime mt-2 flex min-h-11 w-full items-center justify-center gap-2 border border-neutral-700 bg-neutral-900 px-4 py-2 font-mono text-[11px] font-bold text-neutral-200 uppercase transition-colors"
+            >
+              <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Check Room Availability</span>
+            </Link>
+
+            <Link
               to={footer.staffLoginHref || '/staff/login'}
-              className="mt-2.5 flex min-h-11 w-full items-center justify-center gap-2 border border-neutral-700 bg-neutral-900 px-4 py-2 font-mono text-[11px] font-bold text-neutral-200 uppercase transition-colors hover:border-neutral-400"
+              className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 border border-neutral-700 bg-neutral-900 px-4 py-2 font-mono text-[11px] font-bold text-neutral-200 uppercase transition-colors hover:border-neutral-400"
             >
               <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{footer.staffLoginLabel || 'Staff / Owner Login'}</span>

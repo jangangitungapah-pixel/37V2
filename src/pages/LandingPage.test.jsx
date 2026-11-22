@@ -17,20 +17,32 @@ import {
   resetLandingPagePlacementAdapter,
   setLandingPagePlacementAdapter,
 } from '@/features/admin/gallery/repositories/landing-page-placement-repository';
+import {
+  createInMemoryPublicAvailabilityRepositoryAdapter,
+  resetPublicAvailabilityRepositoryAdapter,
+  setPublicAvailabilityRepositoryAdapter,
+} from '@/features/public-availability/repositories/public-availability-repository';
 import { getTodayLocalDateString } from '@/lib/booking-date';
 import { LandingPage } from '@/pages/LandingPage';
 
-describe('37 Music Studio Public Landing Page (Phase 2B)', () => {
+describe('37 Music Studio Public Landing Page (Phase 2B & Editorial Overhaul)', () => {
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
     setGalleryRepositoryAdapter(createInMemoryGalleryRepositoryAdapter([]));
     setLandingPagePlacementAdapter(createInMemoryLandingPagePlacementAdapter([]));
+    setPublicAvailabilityRepositoryAdapter(
+      createInMemoryPublicAvailabilityRepositoryAdapter({
+        initialProjections: [],
+        initialMetadata: { isReady: true, backfilledFromDate: '2026-01-01' },
+      }),
+    );
   });
 
   afterEach(() => {
     vi.useRealTimers();
     resetGalleryRepositoryAdapter();
     resetLandingPagePlacementAdapter();
+    resetPublicAvailabilityRepositoryAdapter();
     cleanup();
   });
 
@@ -456,5 +468,76 @@ describe('37 Music Studio Public Landing Page (Phase 2B)', () => {
         name: /youtube \(official url pending owner confirmation\)/i,
       }),
     ).toBeTruthy();
+  });
+
+  it('exposes Header, Hero, Room A, Room B, Teaser, and Final CTA links to /availability', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <LandingPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: /find your next open session\./i }),
+    ).toBeTruthy();
+
+    const roomAAvailabilityLink = screen.getByRole('link', {
+      name: /check room availability \(room a\)/i,
+    });
+    expect(roomAAvailabilityLink.getAttribute('href')).toBe('/availability?room=room-a');
+
+    const roomBAvailabilityLink = screen.getByRole('link', {
+      name: /check room availability \(room b\)/i,
+    });
+    expect(roomBAvailabilityLink.getAttribute('href')).toBe('/availability?room=room-b');
+
+    const viewFullLink = screen.getByRole('link', { name: /view full availability/i });
+    expect(viewFullLink.getAttribute('href')).toBe('/availability');
+  });
+
+  it('prefills booking inquiry form from valid URL search parameters and safely ignores invalid or past URL parameters', () => {
+    const tomorrowStr = format(addDays(new Date(), 1), 'yyyy-MM-dd');
+
+    // 1. Valid URL prefill parameters
+    render(
+      <MemoryRouter
+        initialEntries={[
+          `/?date=${tomorrowStr}&room=room-b&time=19:30&service=recording&duration=3+hours#booking`,
+        ]}
+      >
+        <LandingPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('booking-availability-disclaimer').textContent).toMatch(
+      /availability may change\. final confirmation is subject to studio verification\./i,
+    );
+    expect(screen.getByTestId('booking-preselection-notice').textContent).toMatch(
+      /prefilled from availability calendar/i,
+    );
+    expect(screen.getByLabelText(/preferred date/i).value).toBe(tomorrowStr);
+    expect(screen.getByLabelText(/preferred start time/i).value).toBe('19:30');
+    expect(screen.getByLabelText(/room preference/i).value).toBe('room-b');
+    expect(screen.getByLabelText(/estimated duration/i).value).toBe('3 hours');
+    expect(screen.getByRole('button', { name: /^recording$/i }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    cleanup();
+
+    // 2. Invalid / past URL search parameters fall back safely to defaults
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/?date=2020-01-01&room=invalid-room&time=23:45&service=unknown&duration=99h',
+        ]}
+      >
+        <LandingPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByTestId('booking-preselection-notice')).toBeNull();
+    expect(screen.getByLabelText(/preferred date/i).value).toBe(getTodayLocalDateString());
+    expect(screen.getByLabelText(/room preference/i).value).toBe('room-a');
+    expect(screen.getByLabelText(/preferred start time/i).value).toBe('19:00');
   });
 });

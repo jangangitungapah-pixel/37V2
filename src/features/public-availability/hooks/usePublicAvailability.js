@@ -1,0 +1,169 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import {
+  PUBLIC_AVAILABILITY_QUERY_LIMIT,
+  PUBLIC_SLOT_INTERVAL_MINUTES,
+  PUBLIC_VIEW_MODES,
+} from '../config/public-availability-config';
+import { getPublicAvailabilityRepositoryAdapter } from '../repositories/public-availability-repository';
+import {
+  buildPublicAvailabilityScheduleMatrix,
+  getPublicCalendarDateRange,
+} from '../utils/public-availability-calculation';
+
+/**
+ * Subscribes to sanitized `publicAvailability` projections and `publicAvailabilityMetadata/status`
+ * for the selected `Asia/Jakarta` date range (`day` or `week` view).
+ *
+ * Fail-Closed Guarantee:
+ * - Never shows all rooms as available while `isLoading`, when `error` occurs, when
+ *   `metadata.isReady !== true`, or when `isTruncated === true`.
+ * - Cleans up all Firestore subscriptions when navigating dates or unmounting.
+ */
+export function usePublicAvailability({
+  viewMode = PUBLIC_VIEW_MODES.DAY,
+  activeDateIso = '',
+  roomFilter = 'all',
+  requestedDurationMinutes = PUBLIC_SLOT_INTERVAL_MINUTES,
+  maxLimit = PUBLIC_AVAILABILITY_QUERY_LIMIT,
+  enabled = true,
+  now,
+} = {}) {
+  const [refreshNonce, setRefreshNonce] = useState(0);
+
+  const dateRange = useMemo(
+    () => getPublicCalendarDateRange(viewMode, activeDateIso, now),
+    [viewMode, activeDateIso, now],
+  );
+
+  const rangeKey = `${enabled ? '1' : '0'}:${dateRange.startDate}:${dateRange.endDate}:${maxLimit}:${refreshNonce}`;
+
+  const [projectionState, setProjectionState] = useState({
+    key: '',
+    projections: [],
+    isTruncated: false,
+    maxLimit,
+    error: null,
+  });
+
+  const [metadataState, setMetadataState] = useState({
+    loaded: false,
+    metadata: null,
+    error: null,
+  });
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+
+    const adapter = getPublicAvailabilityRepositoryAdapter();
+    const currentKey = rangeKey;
+
+    const unsubProjections = adapter.subscribePublicAvailabilityInRange({
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+      maxLimit,
+      onData: ({ projections, isTruncated, maxLimit: resolvedLimit }) => {
+        setProjectionState({
+          key: currentKey,
+          projections: projections || [],
+          isTruncated: Boolean(isTruncated),
+          maxLimit: resolvedLimit || maxLimit,
+          error: null,
+        });
+      },
+      onError: (err) => {
+        setProjectionState((prev) => ({
+          ...prev,
+          key: currentKey,
+          error:
+            err?.message ||
+            'Unable to load studio availability right now. Please try again or contact the studio.',
+        }));
+      },
+    });
+
+    return () => {
+      unsubProjections?.();
+    };
+  }, [enabled, rangeKey, dateRange.startDate, dateRange.endDate, maxLimit]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+
+    const adapter = getPublicAvailabilityRepositoryAdapter();
+    const unsubMetadata = adapter.subscribePublicAvailabilityMetadata({
+      onData: (meta) => {
+        setMetadataState({
+          loaded: true,
+          metadata: meta,
+          error: null,
+        });
+      },
+      onError: (err) => {
+        setMetadataState({
+          loaded: true,
+          metadata: null,
+          error:
+            err?.message ||
+            'Unable to verify availability data readiness. Please contact the studio.',
+        });
+      },
+    });
+
+    return () => {
+      unsubMetadata?.();
+    };
+  }, [enabled, refreshNonce]);
+
+  const isLoading = Boolean(enabled && (projectionState.key !== rangeKey || !metadataState.loaded));
+  const error =
+    (projectionState.key === rangeKey ? projectionState.error : null) ||
+    metadataState.error ||
+    null;
+  const isReady = Boolean(metadataState.loaded && metadataState.metadata?.isReady === true);
+  const isTruncated = Boolean(projectionState.key === rangeKey && projectionState.isTruncated);
+  const projections = useMemo(
+    () => (!isLoading && !error && isReady && !isTruncated ? projectionState.projections : []),
+    [isLoading, error, isReady, isTruncated, projectionState.projections],
+  );
+
+  const roomSchedules = useMemo(() => {
+    if (isLoading || error || !isReady || isTruncated) {
+      return [];
+    }
+    return buildPublicAvailabilityScheduleMatrix({
+      days: dateRange.days,
+      roomFilter,
+      projections,
+      requestedDurationMinutes,
+      now,
+    });
+  }, [
+    isLoading,
+    error,
+    isReady,
+    isTruncated,
+    dateRange.days,
+    roomFilter,
+    projections,
+    requestedDurationMinutes,
+    now,
+  ]);
+
+  const retry = useCallback(() => {
+    setRefreshNonce((prev) => prev + 1);
+  }, []);
+
+  return {
+    dateRange,
+    projections,
+    roomSchedules,
+    metadata: metadataState.metadata,
+    isReady,
+    isTruncated,
+    maxLimit: projectionState.maxLimit,
+    isLoading,
+    error,
+    retry,
+  };
+}

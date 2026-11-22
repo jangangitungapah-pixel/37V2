@@ -1,0 +1,228 @@
+================================================================================
+HANDOFF — 37 MUSIC STUDIO
+DASHBOARD COMMAND CENTER OVERHAUL (STUDIO OPERATIONS COMMAND CENTER)
+================================================================================
+
+1. REPOSITORY & BRANCH METADATA
+--------------------------------------------------------------------------------
+- Repository: https://github.com/jangangitungapah-pixel/37V2
+- Local Workspace: c:\Users\hazel\source\repos\37V2
+- Active Branch: main
+- Audited Baseline Commit (HEAD): 22b1c6b757808248c1b60ffa19eb7734796a8442
+- Primary Route: /admin/dashboard
+- Primary Page Component: src/features/admin/pages/AdminDashboardPage.jsx
+- Feature Module Directory: src/features/admin/dashboard/
+- Time Zone Authority: Asia/Jakarta (WIB, UTC+7)
+- Architecture Policy: Firebase Spark-only, single-field Firestore queries,
+  zero custom composite indexes, strict Owner vs Staff query and UI isolation.
+- Git / Deployment Status: Working tree intentionally left uncommitted,
+  unmerged, unpushed, and undeployed per explicit Owner policy.
+
+2. EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+The Admin Dashboard (`/admin/dashboard`) has been transformed from a developer
+module-shortcut placeholder into the production-grade 37 Music Studio Operations
+Command Center.
+
+The redesigned Command Center answers four operational questions in strict
+priority order:
+1. What is happening in the studio today? (Section A Header & Quick Actions +
+   Section B Today's Overview 4-metric KPI row)
+2. What sessions are coming next? (Section C Today's Studio Schedule grouped by
+   Room A and Room B in chronological order)
+3. What requires attention or action? (Section D Needs Attention queue ordered
+   by business urgency)
+4. How is the studio performing? (Section E Owner Financial Overview [Owner-only]
+   + Section F Booking Trend Apache ECharts 6 visualizations)
+
+3. WHAT REPLACED THE OLD DASHBOARD
+--------------------------------------------------------------------------------
+Removed from `/admin/dashboard`:
+- Developer-style module directory cards ("Daftar Modul", "Menu 01..08",
+  "Buka Modul", "Segera Hadir" badges).
+- Static phase/rollout explanations and redundant sidebar navigation cards.
+
+Added to `/admin/dashboard`:
+- SECTION A — Header & Quick Actions (`DashboardHeader.jsx`):
+  - Time-sensitive Indonesian greeting in `Asia/Jakarta` (`Selamat pagi`,
+    `Selamat siang`, `Selamat sore`, `Selamat malam`) with role access badge
+    (`AKSES: OWNER` / `AKSES: STAFF`) and full Indonesian date (`WIB`).
+  - Primary Action: `Booking Baru` (`/admin/calendar?action=new-booking`, which
+    opens the Calendar New Booking dialog directly).
+  - Secondary Action: `Buka Kalender` (`/admin/calendar`).
+- SECTION B — Today's Overview (`DashboardTodayOverview.jsx`):
+  - 4 primary operational KPI tiles (2x2 on mobile, 4 columns on desktop):
+    1. `Booking Hari Ini` (active bookings for today's WIB date excluding
+       `cancelled` and `no_show`).
+    2. `Sesi Berlangsung` (today's bookings with `sessionStatus === 'in_progress'`).
+    3. `Booking Belum Lunas` (today's active bookings with an authoritative
+       linked invoice whose effective payment status is not `paid`, while
+       separately flagging bookings with unloaded/unverified invoices).
+    4. Role-Adaptive 4th Tile:
+       - Owner: `Kas Masuk Hari Ini` (`SUM(payment) - SUM(reversal)` today in WIB).
+       - Staff: `Sesi Akan Datang` (today's `upcoming` sessions awaiting check-in).
+- SECTION C — Today's Studio Schedule (`DashboardTodaySchedule.jsx`):
+  - Chronological agenda grouped into `Room A` (`room-a`) and `Room B` (`room-b`)
+    sorted by `startMinute ASC`.
+  - Displays time slot (`HH:mm – HH:mm`), customer name, band name, service &
+    package label, authoritative session status badge, authoritative payment
+    status badge (`Lunas`, `DP / Sebagian`, `Belum Bayar`, `Lewat Tempo`, or
+    `Belum Terverifikasi`), and direct deep-link (`Detail`) to open that booking
+    in `/admin/calendar?date=...&bookingId=...`.
+  - Room-level empty states, full-day empty state with `Buat Booking Hari Ini`
+    CTA, and explicit truncation warning banner when `isTruncated` (`maxLimit: 300`).
+- SECTION D — Needs Attention (`DashboardNeedsAttention.jsx`):
+  - Urgency-ordered operational queue with direct action links and calm positive
+    empty state (`"Semua operasional dalam kondisi terkendali."`).
+- SECTION E — Owner Financial Overview (`DashboardOwnerFinancials.jsx` &
+  `DashboardCashFlowChart.jsx` — Strictly Owner-Only):
+  - 4 Financial KPIs (`Kas Masuk`, `Kas Keluar`, `Perubahan Kas Bersih` /
+    `Net Cash Movement`, `Outstanding Payables`), period selector (`7 hari`,
+    `30 hari`, `90 hari`), partial-dataset coverage disclosure banner, and
+    Apache ECharts 6 Cash In vs Cash Out visualization.
+- SECTION F — Booking Trend (`DashboardBookingTrendChart.jsx`):
+  - Apache ECharts 6 stacked bar visualization (`Room A` & `Room B`) across
+    `7 hari`, `30 hari`, and `90 hari` in `Asia/Jakarta`, with Room A / Room B /
+    Total Hours summary cards and truncation disclosure banner.
+
+4. OWNER VS STAFF VISIBILITY MATRIX
+--------------------------------------------------------------------------------
+| Feature / Data Stream                   | Active Owner | Active Staff |
+|-----------------------------------------|--------------|--------------|
+| Section A: Header & Quick Actions       | Visible      | Visible      |
+| Section B.1: Booking Hari Ini           | Visible      | Visible      |
+| Section B.2: Sesi Berlangsung           | Visible      | Visible      |
+| Section B.3: Booking Belum Lunas        | Visible      | Visible      |
+| Section B.4: Kas Masuk Hari Ini         | Visible      | HIDDEN       |
+| Section B.4: Sesi Akan Datang           | Replaced     | Visible      |
+| Section C: Today's Studio Schedule      | Visible      | Visible      |
+| Section D: Overdue & Unpaid Invoices    | Visible      | Visible      |
+| Section D: Check-In Due Sessions        | Visible      | Visible      |
+| Section D: Equipment Maintenance        | Visible      | Visible      |
+| Section D: Commission Review Awaiting   | Visible      | HIDDEN       |
+| Section D: Outstanding Payables         | Visible      | HIDDEN       |
+| Section E: Owner Financial KPIs         | Visible      | NEVER MOUNTED|
+| Section E: Cash Flow Trend (ECharts)    | Visible      | NEVER MOUNTED|
+| Section F: Booking Trend (ECharts)      | Visible      | Visible      |
+| Firestore: bookkeepingEntries           | Subscribed   | NEVER QUERIED|
+| Firestore: bookkeepingSettlements       | Subscribed   | NEVER QUERIED|
+| Firestore: bookkeepingSettings          | Not Queried  | NEVER QUERIED|
+| Firestore: commissionBatches            | Not Queried  | NEVER QUERIED|
+| Firestore: commissionPostingItems       | Subscribed   | NEVER QUERIED|
+| Firestore: commissionReviewResolutions  | Subscribed   | NEVER QUERIED|
+| Firestore: paymentTransactions          | Subscribed   | NEVER QUERIED|
+
+5. QUERY & SUBSCRIPTION ARCHITECTURE (SPARK-ONLY, ZERO COMPOSITE INDEXES)
+--------------------------------------------------------------------------------
+`useDashboardData.js` reuses existing repository adapters with bounded,
+single-field Firestore queries:
+1. Today's Bookings (Owner & Staff):
+   `bookingAdapter.subscribeBookingsInRange({ startDate: todayIso, endDate: todayIso, maxLimit: 300 })`
+   Dedicated today query ensures Today's Overview and Today's Schedule are never
+   starved by historical bookings in 30d/90d ranges.
+2. Period Bookings for Booking Trend Chart (Owner & Staff):
+   `bookingAdapter.subscribeBookingsInRange({ startDate: periodStart, endDate: periodEnd, maxLimit: 300 })`
+3. Today's Invoices & Recent Invoices (Owner & Staff):
+   `paymentAdapter.subscribeInvoicesInBookingDateRange({ startDate: todayIso, endDate: todayIso, maxLimit: 300 })`
+   and `paymentAdapter.subscribeInvoices({ maxLimit: 100 })`, deduplicated by ID.
+4. Inventory Items (Owner & Staff):
+   `inventoryAdapter.subscribeInventoryItems({ maxLimit: 100 })`
+5. Owner-Only Streams (gated by `if (!isOwner) return undefined;`):
+   - `paymentAdapter.subscribePaymentTransactions({ maxLimit: 300 })`
+   - `bookkeepingAdapter.subscribeBookkeepingEntries({ maxLimit: 300 })`
+   - `bookkeepingAdapter.subscribeActivePayables({ maxLimit: 200 })`
+   - `bookkeepingAdapter.subscribeBookkeepingSettlements({ maxLimit: 300 })`
+   - `useCommissionReview({ enabled: isOwner, periodBounds: currentMonthBounds, maxLimit: 100 })`
+All listeners return unsubscribe functions and are deterministically cleaned up
+on unmount or period change.
+
+6. FINANCIAL CALCULATION INTEGRITY RULES
+--------------------------------------------------------------------------------
+1. Anti-Double-Counting of Customer Cash In:
+   `Kas Masuk Hari Ini` and Period `Kas Masuk` are derived strictly from valid
+   `paymentTransactions` (`SUM(payment) - SUM(reversal)`) plus paid non-reversed
+   manual income entries (`isActiveManualIncomeEntry`). `invoice.amountPaid` is
+   NEVER summed with `paymentTransactions`.
+2. Actual Operating Cash Out vs Expense Accruals:
+   `Kas Keluar` is derived strictly from `bookkeepingSettlements`
+   (`settlementType === 'expense_payment'`). Unpaid `bookkeepingEntries`
+   (`entryType === 'expense_accrual'`) are NEVER included in `Kas Keluar`; their
+   open balance is reported under `Outstanding Payables`.
+3. Accurate Net Cash Movement Terminology:
+   `Perubahan Kas Bersih` (`Net Cash Movement`) is calculated as
+   `Kas Masuk - Kas Keluar` and is explicitly subtitled
+   `Net Cash Movement (Kas Masuk - Kas Keluar)`. It is never labeled as Profit
+   or Laba Bersih.
+
+7. SCHEDULE & NEEDS ATTENTION RULES
+--------------------------------------------------------------------------------
+- Today's Studio Schedule groups today's (`Asia/Jakarta`) bookings into `Room A`
+  (`room-a`) and `Room B` (`room-b`), excludes `cancelled` bookings from active
+  session lists, and sorts chronologically by `startMinute ASC`.
+- Needs Attention items are prioritized strictly by business urgency:
+  1. Overdue Invoices (`isInvoiceOverdue(inv, todayIso)` on issued invoices)
+  2. Today's Upcoming Sessions Past Start Time Awaiting Check-In
+  3. Commission Review Awaiting Owner (Owner-only)
+  4. Outstanding Payables Awaiting Settlement (Owner-only)
+  5. Equipment Requiring Inspection or Maintenance (`hasMaintenanceAttention` or
+     `damagedQuantity > 0`)
+  6. Active Unpaid / Partial Invoices Not Yet Overdue
+
+8. CHART ARCHITECTURE & DATA COVERAGE DISCLOSURES
+--------------------------------------------------------------------------------
+- Uses installed Apache ECharts 6 (`echarts@6.1.0`) with `SVGRenderer`
+  (`renderer: 'svg'`), `ResizeObserver`, `prefers-reduced-motion` support, and
+  deterministic `chart.dispose()` cleanup on unmount.
+- Zero fabricated, interpolated, or dummy data points.
+- Explicit coverage banners render whenever any bounded real-time query reports
+  truncation (`isTruncated` on `bookingTrend` or `hasPartialCoverage` across
+  `paymentTransactions`, `bookkeepingSettlements`, `bookkeepingEntries`, and
+  `activePayables`).
+
+9. FILES CREATED & MODIFIED
+--------------------------------------------------------------------------------
+Created:
+- `src/features/admin/dashboard/config/dashboard-config.js`
+- `src/features/admin/dashboard/utils/dashboard-date.js`
+- `src/features/admin/dashboard/utils/dashboard-calculations.js`
+- `src/features/admin/dashboard/hooks/useDashboardData.js`
+- `src/features/admin/dashboard/components/DashboardHeader.jsx`
+- `src/features/admin/dashboard/components/DashboardTodayOverview.jsx`
+- `src/features/admin/dashboard/components/DashboardTodaySchedule.jsx`
+- `src/features/admin/dashboard/components/DashboardNeedsAttention.jsx`
+- `src/features/admin/dashboard/components/DashboardOwnerFinancials.jsx`
+- `src/features/admin/dashboard/components/DashboardCashFlowChart.jsx`
+- `src/features/admin/dashboard/components/DashboardBookingTrendChart.jsx`
+- `src/features/admin/dashboard/dashboard.test.jsx`
+- `docs/architecture/ADMIN-DASHBOARD-COMMAND-CENTER.md`
+- `HANDOFF-DASHBOARD-COMMAND-CENTER-OVERHAUL.txt`
+- `docs/handoffs/HANDOFF-DASHBOARD-COMMAND-CENTER-OVERHAUL.txt`
+
+Modified:
+- `src/features/admin/pages/AdminDashboardPage.jsx`
+- `src/features/admin/calendar/pages/AdminCalendarPage.jsx` (added URL search
+  parameter support for `?action=new-booking`, `?studioId=...`, `?date=...`,
+  and `?bookingId=...` so Dashboard quick actions and session detail links open
+  directly into the Calendar flow)
+- `src/features/admin/gallery/gallery.test.jsx` (anchored `/^judul foto hero/i`
+  label matcher at line 468 so full Vitest suite passes cleanly)
+
+10. TEST RESULTS & VERIFICATION OUTPUTS
+--------------------------------------------------------------------------------
+- Scoped Prettier Check (`npx prettier --check ...`): PASSED (100% compliant)
+- ESLint (`npm run lint`): PASSED (0 errors, 0 warnings)
+- Dashboard Test Suite (`src/features/admin/dashboard/dashboard.test.jsx`):
+  PASSED (13/13 tests)
+- Full Vitest Suite (`npm run test:run`):
+  PASSED (15/15 test suites, 126/126 tests)
+- Production Build (`npm run build`):
+  PASSED (`vite build` succeeded in 17.31s, 4,099 modules transformed)
+- Firestore Security Rules (`firestore.rules`): UNCHANGED
+
+11. REMAINING ROADMAP ITEMS & BOUNDARIES
+--------------------------------------------------------------------------------
+- No changes were made to `firestore.rules` or `.env.local`.
+- No new npm dependencies were installed.
+- Future phases (Operating Hours, Booking Rules, Notifications, Staff Management)
+  remain in their respective Settings Center roadmap scope.
+================================================================================

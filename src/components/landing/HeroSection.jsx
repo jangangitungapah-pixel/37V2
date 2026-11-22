@@ -1,4 +1,5 @@
-import { ArrowRight, AudioWaveform, CheckCircle2, Play } from 'lucide-react';
+import { ArrowRight, AudioWaveform, CalendarClock, CheckCircle2 } from 'lucide-react';
+import { Link } from 'react-router';
 
 import { StudioImage } from './StudioImage';
 
@@ -10,25 +11,25 @@ export function HeroSection({ hero, ticker, onNavigate }) {
 
   return (
     <>
-      {/* Section 03 — Asymmetric Editorial Hero */}
+      {/* Section 02 — Asymmetric 12-Column Editorial Hero */}
       <section
         id="top"
         aria-labelledby="hero-heading"
-        className="border-studio-ink bg-studio-ivory relative scroll-mt-20 border-b-2 py-6 sm:py-12 lg:py-16"
+        className="border-studio-ink bg-studio-ivory relative scroll-mt-20 border-b-2 py-7 sm:py-14 lg:py-20"
       >
         <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-10">
-            {/* Left Top: Badges, Poster Headline, Copy, Primary & Secondary CTAs */}
-            <div className="lg:col-span-7 lg:row-start-1">
-              {/* Pill Information Badges */}
-              <div className="mb-3.5 flex flex-wrap items-center gap-2 sm:mb-5">
+          <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-12">
+            {/* Left Column Group (7 cols): Oversized Editorial Typography + Primary Conversion Paths */}
+            <div className="lg:col-span-7">
+              {/* Editorial Index & Issue Markers */}
+              <div className="mb-4 flex flex-wrap items-center gap-2 sm:mb-6">
                 {hero.badges.map((badge, badgeIndex) => (
                   <span
                     key={badge.id}
                     className={`${badgeIndex > 0 ? 'hidden sm:inline-flex' : 'inline-flex'} ${
                       badge.variant === 'lime'
-                        ? 'border-studio-ink bg-studio-lime text-studio-ink items-center gap-1.5 rounded-full border-[1.5px] px-3 py-1 font-mono text-[10px] font-bold tracking-wider uppercase shadow-[2px_2px_0px_#151515] sm:text-[11px]'
-                        : 'border-studio-ink bg-studio-white text-studio-ink items-center gap-1.5 rounded-full border-[1.5px] px-3 py-1 font-mono text-[10px] font-bold tracking-wider uppercase shadow-[2px_2px_0px_#151515] sm:text-[11px]'
+                        ? 'border-studio-ink bg-studio-lime text-studio-ink items-center gap-1.5 border-[1.5px] px-3 py-1 font-mono text-[10px] font-extrabold tracking-wider uppercase sm:text-[11px]'
+                        : 'border-studio-ink bg-studio-white text-studio-ink items-center gap-1.5 border-[1.5px] px-3 py-1 font-mono text-[10px] font-bold tracking-wider uppercase sm:text-[11px]'
                     }`}
                   >
                     {badge.hasDot ? (
@@ -45,132 +46,131 @@ export function HeroSection({ hero, ticker, onNavigate }) {
               {/* Poster-Scale Condensed Display Headline */}
               <h1
                 id="hero-heading"
-                className="font-display text-studio-ink flex flex-col items-start text-[2.45rem] leading-[0.92] font-black tracking-tight uppercase min-[375px]:text-[2.85rem] sm:text-6xl md:text-7xl lg:text-[5.25rem]"
+                className="font-display text-studio-ink flex flex-col items-start text-[2.75rem] leading-[0.89] font-black tracking-tight uppercase min-[375px]:text-[3.2rem] sm:text-7xl md:text-[5.25rem] lg:text-[6.25rem]"
               >
                 <span>{hero.headline.lineOne}</span>
-                <span className="bg-studio-ink text-studio-ivory mt-1 inline-block px-3 py-0.5 sm:px-4 sm:py-1">
+                <span className="bg-studio-ink text-studio-ivory mt-1.5 inline-block px-3.5 py-0.5 sm:px-5 sm:py-1">
                   {hero.headline.lineTwo}
                 </span>
                 <span className="text-studio-orange mt-1">{hero.headline.lineThree}</span>
               </h1>
 
-              {/* Supporting Paragraph */}
-              <p className="text-studio-muted-ink mt-3.5 max-w-xl text-sm leading-relaxed font-medium sm:mt-5 sm:text-lg">
+              {/* Editorial Lead Copy with Left Structural Rule */}
+              <p className="border-studio-ink text-studio-muted-ink mt-5 max-w-xl border-l-4 pl-4 text-sm leading-relaxed font-medium sm:mt-6 sm:text-lg">
                 {hero.description}
               </p>
 
-              {/* Hero CTAs */}
-              <div className="mt-5 flex flex-col gap-2.5 sm:mt-6 sm:flex-row sm:items-center sm:gap-3">
+              {/* Primary & Secondary CTAs */}
+              <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:items-center sm:gap-4">
                 <a
                   href={hero.primaryCta.href}
                   onClick={(event) => handleAnchorClick(event, hero.primaryCta.href)}
-                  className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-11 items-center justify-center gap-2 px-6 py-2.5 text-sm font-extrabold tracking-wider uppercase sm:min-h-12 sm:py-3"
+                  className="brutal-btn bg-studio-orange text-studio-white inline-flex min-h-12 items-center justify-center gap-2.5 px-7 py-3 text-sm font-extrabold tracking-wider uppercase"
                 >
                   <span>{hero.primaryCta.label}</span>
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </a>
 
-                <a
-                  href={hero.secondaryCta.href}
-                  onClick={(event) => handleAnchorClick(event, hero.secondaryCta.href)}
-                  className="brutal-btn bg-studio-white text-studio-ink inline-flex min-h-11 items-center justify-center gap-2 px-6 py-2.5 text-sm font-extrabold tracking-wider uppercase sm:min-h-12 sm:py-3"
-                >
-                  <Play className="h-4 w-4 fill-current" aria-hidden="true" />
-                  <span>{hero.secondaryCta.label}</span>
-                </a>
-              </div>
-            </div>
-
-            {/* Right Column on Desktop / Middle on Mobile: Framed Studio Asset Card */}
-            <div className="relative lg:col-span-5 lg:row-span-2 lg:row-start-1">
-              {/* Overlapping Top-Left Sticker */}
-              {hero.featuredPhoto.topSticker ? (
-                <div className="border-studio-ink bg-studio-orange text-studio-white absolute -top-3 left-3 z-10 hidden -rotate-3 border-2 px-3 py-1 font-mono text-[11px] font-bold tracking-wider uppercase shadow-[3px_3px_0px_#151515] sm:-left-3 sm:block">
-                  {hero.featuredPhoto.topSticker}
-                </div>
-              ) : null}
-
-              <div className="brutal-card-lg bg-studio-white overflow-hidden">
-                <div className="relative">
-                  {hero.featuredPhoto.isDemoAsset && hero.featuredPhoto.demoTagLabel ? (
-                    <span className="border-studio-ink bg-studio-white/95 text-studio-ink absolute top-3 right-3 z-10 hidden border px-2 py-0.5 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0px_#151515] sm:inline-block">
-                      {hero.featuredPhoto.demoTagLabel}
-                    </span>
-                  ) : null}
-                  <StudioImage
-                    src={hero.featuredPhoto.src}
-                    alt={hero.featuredPhoto.alt}
-                    width={hero.featuredPhoto.width}
-                    height={hero.featuredPhoto.height}
-                    priority
-                    className="aspect-[16/11] w-full"
-                  />
-                </div>
-
-                <div className="border-studio-ink bg-studio-white border-t-2 px-3.5 py-3 sm:px-5 sm:py-3.5 sm:pr-60">
-                  <p className="font-display text-base leading-none font-black tracking-wide uppercase sm:text-xl">
-                    {hero.featuredPhoto.captionTitle}
-                  </p>
-                  <p className="text-studio-muted-ink mt-1 text-xs font-medium">
-                    {hero.featuredPhoto.captionSubtitle}
-                  </p>
-                </div>
+                {hero.secondaryCta.isRoute || hero.secondaryCta.href.startsWith('/') ? (
+                  <Link
+                    to={hero.secondaryCta.href}
+                    className="brutal-btn bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex min-h-12 items-center justify-center gap-2.5 px-7 py-3 text-sm font-extrabold tracking-wider uppercase"
+                  >
+                    <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                    <span>{hero.secondaryCta.label}</span>
+                  </Link>
+                ) : (
+                  <a
+                    href={hero.secondaryCta.href}
+                    onClick={(event) => handleAnchorClick(event, hero.secondaryCta.href)}
+                    className="brutal-btn bg-studio-white text-studio-ink hover:bg-studio-lime inline-flex min-h-12 items-center justify-center gap-2.5 px-7 py-3 text-sm font-extrabold tracking-wider uppercase"
+                  >
+                    <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                    <span>{hero.secondaryCta.label}</span>
+                  </a>
+                )}
               </div>
 
-              {/* Overlapping Bottom-Right Demo Note Badge */}
-              <div className="border-studio-ink bg-studio-white mt-3 hidden items-center gap-2.5 border-2 px-3 py-2 shadow-[3px_3px_0px_#151515] sm:absolute sm:right-2 sm:-bottom-6 sm:mt-0 sm:inline-flex sm:rotate-1">
-                <span className="border-studio-ink bg-studio-lime flex h-8 w-8 shrink-0 items-center justify-center border">
-                  <AudioWaveform className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <div className="text-left">
-                  <p className="text-xs leading-tight font-extrabold uppercase">
-                    {hero.featuredPhoto.floatingBadgeTitle}
-                  </p>
-                  <p className="text-studio-muted-ink font-mono text-[10px]">
-                    {hero.featuredPhoto.floatingBadgeSubtitle}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Left Bottom on Desktop / Bottom on Mobile: 3-Part Preview Strip */}
-            <div className="lg:col-span-7 lg:row-start-2">
+              {/* Clean Architectural Facts Row (Typography-Led, No Heavy Box Shadow) */}
               <dl
                 aria-label="Studio preview highlights"
-                className="brutal-card bg-studio-white grid grid-cols-3 divide-x-2 divide-[#151515]"
+                className="border-studio-ink mt-8 grid grid-cols-3 border-t-2 pt-5 sm:mt-10"
               >
-                {hero.facts.map((fact) => (
+                {hero.facts.map((fact, idx) => (
                   <div
                     key={fact.id}
-                    className={
-                      fact.highlight
-                        ? 'bg-studio-lime flex flex-col items-center justify-center px-2 py-2.5 text-center sm:px-4 sm:py-3.5'
-                        : 'bg-studio-white flex flex-col items-center justify-center px-2 py-2.5 text-center sm:px-4 sm:py-3.5'
-                    }
+                    className={`${idx > 0 ? 'border-studio-ink/25 border-l pl-3 sm:pl-6' : 'pr-2'}`}
                   >
-                    <dt className="order-2 mt-1 font-mono text-[9px] leading-tight font-bold tracking-wider uppercase sm:text-[10px]">
+                    <dt className="text-studio-muted-ink font-mono text-[10px] leading-tight font-bold tracking-wider uppercase sm:text-xs">
                       {fact.label}
                     </dt>
-                    <dd className="font-display order-1 text-xl leading-none font-black tracking-tight uppercase min-[375px]:text-2xl sm:text-4xl">
+                    <dd className="font-display text-studio-ink mt-1 text-2xl leading-none font-black tracking-tight uppercase sm:text-4xl">
                       {fact.value}
                     </dd>
                   </div>
                 ))}
               </dl>
             </div>
+
+            {/* Right Column Group (5 cols): Editorial Photographic Frame */}
+            <div className="relative lg:col-span-5">
+              {hero.featuredPhoto.topSticker ? (
+                <div className="border-studio-ink bg-studio-orange text-studio-white absolute -top-3 left-3 z-10 hidden border-2 px-3 py-1 font-mono text-[11px] font-bold tracking-wider uppercase shadow-[3px_3px_0px_#151515] sm:block">
+                  {hero.featuredPhoto.topSticker}
+                </div>
+              ) : null}
+
+              <div className="brutal-card-lg bg-studio-white overflow-hidden">
+                <StudioImage
+                  src={hero.featuredPhoto.src}
+                  alt={hero.featuredPhoto.alt}
+                  width={hero.featuredPhoto.width}
+                  height={hero.featuredPhoto.height}
+                  priority
+                  fallbackLabel={hero.featuredPhoto.captionTitle || '37 Music Studio Live Floor'}
+                  className="aspect-[16/11] w-full"
+                />
+
+                <div className="border-studio-ink bg-studio-ink text-studio-ivory flex flex-col justify-between gap-3 border-t-2 p-4 sm:flex-row sm:items-center sm:p-5">
+                  <div>
+                    <p className="font-display text-lg leading-none font-black tracking-wide uppercase sm:text-2xl">
+                      {hero.featuredPhoto.captionTitle}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-neutral-300">
+                      {hero.featuredPhoto.captionSubtitle}
+                    </p>
+                  </div>
+
+                  <div className="border-studio-ivory/20 flex shrink-0 items-center gap-2 border bg-neutral-900 px-3 py-1.5">
+                    <AudioWaveform className="text-studio-lime h-4 w-4" aria-hidden="true" />
+                    <div className="text-left">
+                      <p className="font-mono text-[10px] leading-tight font-extrabold text-white uppercase">
+                        {hero.featuredPhoto.floatingBadgeTitle}
+                      </p>
+                      <p className="font-mono text-[9px] text-neutral-400">
+                        {hero.featuredPhoto.floatingBadgeSubtitle}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Section 04 — Acid-Lime Service Ticker / Divider */}
+      {/* Section 03 — Acid-Lime Studio Statement Ticker */}
       <div
         aria-label="Studio session categories summary"
-        className="border-studio-ink bg-studio-lime text-studio-ink hidden border-b-2 py-2.5 sm:block"
+        className="border-studio-ink bg-studio-lime text-studio-ink border-b-2 py-2.5"
       >
         <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
-          <ul className="flex flex-wrap items-center justify-between gap-x-5 gap-y-1.5 font-mono text-[11px] font-extrabold tracking-wider uppercase">
-            {ticker.items.map((item) => (
-              <li key={item} className="inline-flex items-center gap-1.5">
+          <ul className="flex flex-wrap items-center justify-between gap-x-5 gap-y-1.5 font-mono text-[10px] font-extrabold tracking-wider uppercase sm:text-[11px]">
+            {ticker.items.map((item, idx) => (
+              <li
+                key={item}
+                className={`${idx >= 3 ? 'hidden sm:inline-flex' : 'inline-flex'} items-center gap-1.5`}
+              >
                 <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>{item}</span>
               </li>

@@ -1,0 +1,193 @@
+import {
+  AlertCircle,
+  ArrowDownRight,
+  ArrowUpRight,
+  FileSpreadsheet,
+  HandCoins,
+  RefreshCw,
+  Scale,
+  ShieldCheck,
+} from 'lucide-react';
+import { Link } from 'react-router';
+
+import {
+  AdminButton,
+  AdminMetricCard,
+  AdminStatusBadge,
+  AdminSurface,
+} from '@/features/admin/design-system';
+
+import { DASHBOARD_PERIOD_OPTIONS } from '../config/dashboard-config';
+import { formatDashboardRupiah } from '../utils/dashboard-calculations';
+import { DashboardCashFlowChart } from './DashboardCashFlowChart';
+
+/**
+ * SECTION E — Owner Financial Overview (Strictly Owner-Only)
+ * Never rendered or mounted for Staff users.
+ *
+ * Enforces Financial Integrity Rules:
+ * - `Kas Masuk` = net customer payment transactions (minus reversals) + paid manual income
+ * - `Kas Keluar` = actual `bookkeepingSettlements` paid out (never unpaid accruals)
+ * - `Perubahan Kas Bersih` (`Net Cash Movement`) = `Kas Masuk - Kas Keluar` (NEVER labeled as Profit / Laba Bersih)
+ * - `Outstanding Payables` = current open payable obligations from `bookkeepingEntries`
+ */
+export function DashboardOwnerFinancials({
+  periodId,
+  onPeriodChange,
+  periodBounds,
+  financialSummary,
+  cashFlowTrend,
+  isLoading = false,
+  error = null,
+  onRetry,
+}) {
+  const cashIn = financialSummary?.cashIn ?? 0;
+  const cashOut = financialSummary?.cashOut ?? 0;
+  const netCashMovement = financialSummary?.netCashMovement ?? 0;
+  const outstandingPayables = financialSummary?.outstandingPayables ?? 0;
+  const openPayablesCount = financialSummary?.openPayablesCount ?? 0;
+  const customerReversals = financialSummary?.customerPaymentReversals ?? 0;
+
+  return (
+    <AdminSurface
+      as="section"
+      variant="card"
+      aria-labelledby="dashboard-owner-financial-heading"
+      data-testid="dashboard-owner-financial-section"
+      className="space-y-4 p-4 sm:p-5"
+    >
+      <div className="flex flex-col gap-3 border-b border-[#151515]/[0.07] pb-3.5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3
+              id="dashboard-owner-financial-heading"
+              className="text-base font-bold tracking-tight text-[#151515]"
+            >
+              Ringkasan Arus Kas &amp; Kewajiban (Owner)
+            </h3>
+            <AdminStatusBadge tone="ink" size="sm" icon={ShieldCheck}>
+              Khusus Owner
+            </AdminStatusBadge>
+          </div>
+          <p className="mt-0.5 text-xs text-[#666159]">
+            Pergerakan kas aktual periode {periodBounds?.periodRangeLabel || '-'} (WIB) serta posisi
+            utang operasional terbuka saat ini.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            role="group"
+            aria-label="Pilih rentang periode keuangan"
+            className="inline-flex rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-1"
+          >
+            {DASHBOARD_PERIOD_OPTIONS.map((opt) => {
+              const isActive = opt.id === periodId;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onPeriodChange?.(opt.id)}
+                  aria-pressed={isActive}
+                  className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-[#151515] text-[#F8F6EF] shadow-2xs'
+                      : 'text-[#46433D] hover:text-[#151515]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <Link
+            to="/admin/pembukuan"
+            className="inline-flex items-center gap-1 rounded-xl border border-[#151515]/12 bg-white px-3 py-1.5 text-xs font-semibold text-[#151515] transition-colors hover:bg-[#F8F6EF]"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 text-[#658800]" aria-hidden="true" />
+            <span>Buka Pembukuan</span>
+          </Link>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="flex flex-col items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50/70 p-4 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-bold text-red-900">
+                Gagal memuat ringkasan keuangan Owner
+              </p>
+              <p className="text-xs text-red-700">{error}</p>
+            </div>
+          </div>
+          {onRetry ? (
+            <AdminButton variant="secondary" size="sm" onClick={onRetry}>
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Coba Lagi</span>
+            </AdminButton>
+          ) : null}
+        </div>
+      ) : isLoading ? (
+        <div className="space-y-4" aria-label="Memuat ringkasan keuangan Owner">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((idx) => (
+              <div
+                key={idx}
+                className="h-24 animate-pulse rounded-2xl border border-[#151515]/[0.07] bg-[#F8F6EF]/70 p-3.5"
+              />
+            ))}
+          </div>
+          <div className="h-64 animate-pulse rounded-2xl border border-[#151515]/[0.07] bg-[#F8F6EF]/70" />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4">
+            <AdminMetricCard
+              label="Kas Masuk"
+              value={formatDashboardRupiah(cashIn)}
+              hint={
+                customerReversals > 0
+                  ? `Setelah dikurangi reversal ${formatDashboardRupiah(customerReversals)}`
+                  : `Penerimaan pembayaran bersih (${periodBounds?.label || 'periode'})`
+              }
+              icon={ArrowUpRight}
+              tone="lime"
+              compactMobile
+            />
+
+            <AdminMetricCard
+              label="Kas Keluar"
+              value={formatDashboardRupiah(cashOut)}
+              hint="Pelunasan kas aktual (settlements, bukan akrual)"
+              icon={ArrowDownRight}
+              tone="orange"
+              compactMobile
+            />
+
+            <AdminMetricCard
+              label="Perubahan Kas Bersih"
+              value={formatDashboardRupiah(netCashMovement)}
+              hint="Net Cash Movement (Kas Masuk − Kas Keluar)"
+              icon={Scale}
+              tone={netCashMovement >= 0 ? 'emerald' : 'orange'}
+              compactMobile
+            />
+
+            <AdminMetricCard
+              label="Outstanding Payables"
+              value={formatDashboardRupiah(outstandingPayables)}
+              hint={`${openPayablesCount} kewajiban akrual terbuka saat ini`}
+              icon={HandCoins}
+              tone={outstandingPayables > 0 ? 'amber' : 'neutral'}
+              compactMobile
+            />
+          </div>
+
+          <DashboardCashFlowChart cashFlowTrend={cashFlowTrend} />
+        </>
+      )}
+    </AdminSurface>
+  );
+}

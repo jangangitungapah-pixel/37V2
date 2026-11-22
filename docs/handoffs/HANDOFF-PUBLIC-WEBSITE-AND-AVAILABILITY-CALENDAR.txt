@@ -1,0 +1,271 @@
+================================================================================
+HANDOFF — 37 MUSIC STUDIO
+PUBLIC WEBSITE EXPERIENCE OVERHAUL + PUBLIC AVAILABILITY CALENDAR
+================================================================================
+
+1. REPOSITORY, BRANCH & BASELINE METADATA
+--------------------------------------------------------------------------------
+- Repository URL: https://github.com/jangangitungapah-pixel/37V2
+- Local Workspace: c:\Users\hazel\source\repos\37V2
+- Active Branch: main
+- Base Commit SHA (HEAD): 22b1c6b757808248c1b60ffa19eb7734796a8442
+- Implementation Status: Uncommitted, unmerged, unpushed, and undeployed in
+  accordance with explicit Owner policy. Prior uncommitted Dashboard Command
+  Center files in the working tree have been preserved intact.
+- Public Routes:
+  - `/` — Redesigned Public Landing Page (Editorial Composition Overhaul)
+  - `/availability` — Dedicated Read-Only Public Studio Availability Calendar
+- Time Zone Authority: `Asia/Jakarta` (`WIB`, UTC+7)
+- Studio Operating Window: `10:00` – `23:00` WIB (`600` – `1380` minutes from
+  midnight, `30`-minute slot intervals, 26 half-hour blocks per room per day)
+- Infrastructure Policy: Firebase Spark-only (Firebase Auth + Cloud Firestore +
+  Firebase Hosting, with existing Cloudinary direct unsigned upload for Gallery
+  photos). Zero Cloud Functions, zero Blaze/Billing requirements, zero external
+  scheduling libraries.
+
+2. EXECUTIVE SUMMARY OF DELIVERABLE A — LANDING PAGE EDITORIAL OVERHAUL
+--------------------------------------------------------------------------------
+The public Landing Page (`src/pages/LandingPage.jsx`) preserves the Neo-Brutalist
+Editorial × Music Culture × Authentic Studio Photography brand identity
+(`#F1EEE4` Studio Ivory, `#151515` Studio Ink, `#C8F13A` Studio Lime, `#FF4B22`
+Studio Orange, `Barlow Condensed`, `Inter`, `JetBrains Mono`) while eliminating
+monotonous repeated card treatments across sections:
+
+- SECTION 01 — Site Header (`src/components/landing/SiteHeader.jsx`):
+  - Non-sticky top utility strip with live `/availability` link.
+  - Sticky header with brand mark `37`, horizontal navigation (`Services`,
+    `Rooms`, `Gallery`, `Availability` -> `/availability`, `Contact`), `Client
+    Login` preview trigger, primary CTA `Book a session`, and accessible mobile
+    drawer menu.
+- SECTION 02 — Asymmetric 12-Column Editorial Hero (`src/components/landing/HeroSection.jsx`):
+  - Preserves poster headline `LOUD ROOMS FOR LOUD IDEAS.` with oversized
+    typographic scale and structural left-rule supporting copy.
+  - Primary CTA: `Book a session` (`#booking`).
+  - Secondary CTA: `Check availability` (`/availability`).
+  - Architectural facts row + framed studio photography (`hero-featured`
+    placement) with branded editorial placeholder fallback (`StudioImage.jsx`).
+- SECTION 03 — Acid-Lime Brand Ticker (`src/components/landing/HeroSection.jsx`):
+  - Restrained horizontal studio statement strip with reduced-motion support.
+- SECTION 04 — Editorial Numbered Service Index (`src/components/landing/ServicesSection.jsx`):
+  - Replaces three identical boxed cards with an editorial numbered index
+    (`01 Rehearsal`, `02 Recording`, `03 Mix & Master`) using horizontal dividers,
+    selective color accents, and direct preselection CTAs to `#booking`.
+- SECTION 05 — Photography-Led Room Showcases (`src/components/landing/RoomsSection.jsx`):
+  - Alternating 12-column editorial showcases giving `Room A — Live Room`
+    (Ivory/Lime live floor frame) and `Room B — Control + Booth` (Ink/Orange
+    control suite frame) distinct visual identities.
+  - Primary Room CTA: `CHECK ROOM AVAILABILITY` -> `/availability?room=room-a`
+    and `/availability?room=room-b`.
+  - Secondary Room CTA: `Book this room` -> preselects the room in `#booking`.
+- SECTION 06 — Gallery: Proof, Not Renders (`src/components/landing/GallerySection.jsx`):
+  - Displays only published photographs from `usePublishedGallery()`,
+    deduplicated by ID and canonical image URL so a single photo is never
+    repeated to fill a grid.
+  - Editorial magazine spread layout + accessible lazy-loaded lightbox +
+    intentional empty state when no photos are published.
+- SECTION 07 — Public Availability Teaser (`src/components/landing/PublicAvailabilityTeaserSection.jsx`):
+  - Full-width ink-black (`#151515`) editorial contrast section with headline
+    `FIND YOUR NEXT OPEN SESSION.`.
+  - Connects to `usePublicAvailability` to display live today open start-time
+    counts and quick-select chips for Room A and Room B when `isReady === true`
+    (and an honest readiness message when uninitialized — never mock schedules).
+  - Primary CTA: `VIEW FULL AVAILABILITY` -> `/availability`.
+- SECTION 08 — Step-Grouped Booking Inquiry Experience (`src/components/landing/BookingSection.jsx`):
+  - Structured into 3 progressive groups (`01 Choose Session & Room`,
+    `02 Choose Preferred Date & Time`, `03 Enter Contact Information`) with
+    minimum 44px (`min-h-11` / `min-h-12`) touch targets.
+  - Supports all 26 half-hour start times (`10:00` – `22:30`) in
+    `src/data/landing-page-content.js`.
+  - Reads and validates URL search parameters (`/?date=YYYY-MM-DD&room=room-a&time=HH:mm&service=...&duration=...#booking`)
+    via `parseAndValidateInquiryPrefillParams`, rejecting past or malformed
+    parameters safely.
+  - Displays required disclaimer:
+    `Availability may change. Final confirmation is subject to studio verification.`
+  - Preserves honest frontend-only demo preview status (`Demo Inquiry Received
+    (Local Preview)`).
+- SECTIONS 09 & 10 — Artist Notes, Location, Final CTA & Footer
+  (`src/components/landing/TestimonialsAndContactSection.jsx`,
+  `src/components/landing/SiteFooter.jsx`):
+  - Preserves verified/pending safeguards for address, hours, maps, WhatsApp,
+    and social links.
+  - Final CTA provides `Book a session`, `CHECK AVAILABILITY` (`/availability`),
+    and `Ask on WhatsApp`.
+
+3. EXECUTIVE SUMMARY OF DELIVERABLE B — PUBLIC AVAILABILITY CALENDAR
+--------------------------------------------------------------------------------
+- Public Route: `/availability` (registered in `src/App.jsx` outside `/admin`
+  and outside `RequireStaff`).
+- Header (`PublicAvailabilityHeader.jsx`):
+  - Brand navigation back to `/`, quick links to `Rooms`, `Services`, and
+    `Book a Session`, title `STUDIO AVAILABILITY`, subtitle `Explore open
+    sessions across both studio rooms.`, `10:00 – 23:00 WIB (ASIA/JAKARTA)`
+    operating badge, and live readiness indicator.
+- Toolbar (`PublicAvailabilityToolbar.jsx`):
+  - Date navigation (`Previous`, `Today`, `Next`, and native date picker with
+    `min={todayIso}` in `Asia/Jakarta`).
+  - Room selector (`All Rooms`, `Room A`, `Room B`) initialized from `?room=`.
+  - Duration-fit selector (`30m`, `1 hour`, `2 hours`, `3 hours`, `4 hours`)
+    that evaluates full contiguous interval availability before the next
+    occupied session or `23:00` closing.
+  - `Day View` (default on mobile) and `Week View` (default on desktop >= 1024px)
+    switcher.
+- Legend (`PublicAvailabilityLegend.jsx`):
+  - Color + text status badges (`Available`, `Occupied`, `Limited Window`,
+    `Past / Closed`) and required notice:
+    `Availability is updated from the studio schedule and may change before your session is confirmed.`
+- Schedule Grid (`PublicAvailabilityGrid.jsx`, `PublicAvailabilityRoom.jsx`):
+  - Renders all 26 half-hour blocks from `10:00` to `23:00` WIB (`600`..`1380`),
+    including late sessions `22:00–22:30` and `22:30–23:00`.
+  - Selecting an available slot highlights the selection and opens the sticky
+    conversion bar (`Continue to Booking Inquiry`), which navigates to
+    `/?date=YYYY-MM-DD&room=room-a&time=HH:mm&service=...&duration=...#booking`.
+- Fail-Closed States (`PublicAvailabilityEmptyState.jsx`):
+  - Loading skeleton while projections and readiness metadata load.
+  - Not-Ready state (`!isReady`): displays
+    `Availability data is not ready yet. Please contact the studio.`
+  - Truncated state (`isTruncated`): fails closed and prompts visitor to switch
+    to Day View.
+  - Error state (`error`): displays error message with `Try Again` action.
+
+4. PUBLIC FIRESTORE COLLECTION SCHEMA & SECURITY RULES
+--------------------------------------------------------------------------------
+Canonical collections (`bookings`, `bookingSlots`, `bookingEvents`, `customers`,
+`customerPhoneIndex`, `invoices`, `paymentTransactions`, etc.) remain 100%
+restricted to authenticated active Staff/Owner.
+
+New collections added to `firestore.rules` and `FIRESTORE_COLLECTIONS`:
+
+A. `publicAvailability/{bookingId}`
+   - Document ID: Opaque booking document ID (e.g. `bkg_...`).
+   - Exact 6-field schema enforced by `isValidPublicAvailabilityProjectionShape`:
+     - `schemaVersion`: `1` (int)
+     - `date`: `'YYYY-MM-DD'` (string)
+     - `studioId`: `'room-a'` | `'room-b'` (string)
+     - `startMinute`: `600..1350`, multiple of 30 (int)
+     - `endMinute`: `630..1380`, multiple of 30, `> startMinute` (int)
+     - `updatedAt`: `timestamp`
+   - Zero PII: No `customerName`, `bandName`, `phone`, `customerId`, `bookingId`
+     field, `notes`, `serviceId`, pricing, invoice, payment, or staff UIDs.
+   - Rules:
+     - `allow read: if true;`
+     - `allow create, update: if isActiveStaff() && isValidPublicAvailabilityProjectionShape(request.resource.data) && isPublicAvailabilityMatchedToCanonicalBookingAfter(request.resource.data, bookingId);`
+     - `allow delete: if isActiveStaff() && isPublicAvailabilityDeleteAllowedAfter(bookingId);`
+
+B. `publicAvailabilityMetadata/status`
+   - Exact 5-field schema enforced by `isValidPublicAvailabilityMetadataShape`:
+     - `schemaVersion`: `1` (int)
+     - `isReady`: `bool`
+     - `backfilledFromDate`: `''` or `'YYYY-MM-DD'` (string)
+     - `backfillCompletedAt`: `null` or `timestamp`
+     - `updatedAt`: `timestamp`
+   - Rules:
+     - `allow get: if docId == 'status'; allow list: if false;`
+     - `allow create, update: if isActiveOwner() && docId == 'status' && isValidPublicAvailabilityMetadataShape(request.resource.data);`
+     - `allow delete: if false;`
+
+5. BOOKING TRANSACTION INTEGRATION & LIFECYCLE SYNCHRONIZATION
+--------------------------------------------------------------------------------
+Updated in `src/features/admin/calendar/services/calendar-booking-service.js`
+and `src/features/admin/calendar/repositories/calendar-booking-repository.js`:
+- `createBooking`: Atomically writes `publicAvailability/{bookingId}` in the
+  same transaction as `bookings/{bookingId}` and `bookingSlots/{slotId}`.
+- `updateOrRescheduleBooking`: Atomically updates `publicAvailability/{bookingId}`
+  with the new date, room, startMinute, and endMinute.
+- `cancelBooking`: Atomically deletes `publicAvailability/{bookingId}` when
+  releasing `bookingSlots`.
+- `transitionBookingSession`:
+  - `mark_no_show`: Atomically deletes `publicAvailability/{bookingId}` when
+    releasing `bookingSlots`.
+  - `check_in`, `start_session`, `complete_session`: Preserves
+    `publicAvailability/{bookingId}` consistently with `bookingSlots`.
+
+6. LEGACY BACKFILL PROCEDURE & DATA READINESS BEHAVIOR
+--------------------------------------------------------------------------------
+Implemented in `src/features/public-availability/services/public-availability-service.js`
+(`backfillPublicAvailabilityProjections`) and exposed to the Studio Owner in the
+Admin Calendar header strip (`src/features/admin/calendar/pages/AdminCalendarPage.jsx`
+-> button `Sinkronkan Data Lama (Backfill)`):
+1. Requires authenticated active Owner (`actorRole === 'owner'`).
+2. Sets `publicAvailabilityMetadata/status.isReady = false` prior to scanning.
+3. Paginates through canonical `bookings` (`date >= fromDateIso`, `pageSize <= 50`).
+4. Projects active bookings (`upcoming`, `in_progress`, `completed`) and removes
+   any stale projections for `cancelled` / `no_show` bookings in small write
+   batches (`writeBatchSize <= 8`) to respect Firestore Security Rules
+   `getAfter` limits.
+5. Verifies integrity of all written projections against the scanned active
+   bookings before setting `publicAvailabilityMetadata/status.isReady = true`.
+
+7. NEW & MODIFIED FILES
+--------------------------------------------------------------------------------
+New Files Created (Public Website & Availability Overhaul):
+- `src/features/public-availability/config/public-availability-config.js`
+- `src/features/public-availability/utils/public-availability-calculation.js`
+- `src/features/public-availability/repositories/public-availability-repository.js`
+- `src/features/public-availability/services/public-availability-service.js`
+- `src/features/public-availability/hooks/usePublicAvailability.js`
+- `src/features/public-availability/components/PublicAvailabilityHeader.jsx`
+- `src/features/public-availability/components/PublicAvailabilityToolbar.jsx`
+- `src/features/public-availability/components/PublicAvailabilityLegend.jsx`
+- `src/features/public-availability/components/PublicAvailabilityEmptyState.jsx`
+- `src/features/public-availability/components/PublicAvailabilityRoom.jsx`
+- `src/features/public-availability/components/PublicAvailabilityGrid.jsx`
+- `src/features/public-availability/pages/PublicAvailabilityPage.jsx`
+- `src/features/public-availability/public-availability.test.jsx`
+- `src/components/landing/PublicAvailabilityTeaserSection.jsx`
+- `docs/architecture/PUBLIC-AVAILABILITY-CALENDAR.md`
+- `HANDOFF-PUBLIC-WEBSITE-AND-AVAILABILITY-CALENDAR.txt`
+- `docs/handoffs/HANDOFF-PUBLIC-WEBSITE-AND-AVAILABILITY-CALENDAR.txt`
+
+Modified Files:
+- `firestore.rules`
+- `src/App.jsx`
+- `src/data/landing-page-content.js`
+- `src/pages/LandingPage.jsx`
+- `src/pages/LandingPage.test.jsx`
+- `src/components/landing/SiteHeader.jsx`
+- `src/components/landing/HeroSection.jsx`
+- `src/components/landing/ServicesSection.jsx`
+- `src/components/landing/RoomsSection.jsx`
+- `src/components/landing/GallerySection.jsx`
+- `src/components/landing/BookingSection.jsx`
+- `src/components/landing/TestimonialsAndContactSection.jsx`
+- `src/components/landing/SiteFooter.jsx`
+- `src/components/landing/StudioImage.jsx`
+- `src/features/admin/calendar/repositories/calendar-booking-repository.js`
+- `src/features/admin/calendar/services/calendar-booking-service.js`
+- `src/features/admin/calendar/pages/AdminCalendarPage.jsx`
+
+(Note: Uncommitted files from the preceding Dashboard Command Center task in
+`src/features/admin/dashboard/`, `src/features/admin/pages/AdminDashboardPage.jsx`,
+`src/features/admin/gallery/gallery.test.jsx`, and `HANDOFF-DASHBOARD-COMMAND-CENTER-OVERHAUL.txt`
+remain intact in the working tree.)
+
+8. TESTING, LINT & BUILD RESULTS
+--------------------------------------------------------------------------------
+- ESLint (`npm run lint`): PASSED (0 errors, 0 warnings)
+- Scoped Prettier Check: PASSED (100% formatted)
+- Public Availability Test Suite (`src/features/public-availability/public-availability.test.jsx`):
+  PASSED (8 / 8 tests)
+- Landing Page Test Suite (`src/pages/LandingPage.test.jsx`):
+  PASSED (12 / 12 tests)
+- Full Vitest Suite (`npm run test:run`):
+  PASSED (16 / 16 test suites, 136 / 136 tests)
+- Production Build (`npm run build`):
+  PASSED (`vite build` succeeded in 13.10s, 4,112 modules transformed)
+
+9. KNOWN LIMITATIONS & INSTRUCTIONS FOR NEXT SESSION
+--------------------------------------------------------------------------------
+- Public Booking Inquiry Form remains a transparent frontend-only demo preview
+  (`Demo Inquiry Received (Local Preview)`) with zero anonymous writes to
+  canonical Firestore collections.
+- Because the repository does not configure a local Firebase Rules Emulator in
+  `package.json`, `firestore.rules` is verified via automated static rule
+  contract assertions in `public-availability.test.jsx` plus unit/integration
+  tests across the sanitization and transaction layer.
+- When deploying to production (only after explicit Owner authorization):
+  1. Deploy updated `firestore.rules`.
+  2. Log in to `/admin/calendar` as the active Studio Owner and click
+     `Sinkronkan Data Lama (Backfill)` once to populate `publicAvailability`
+     for existing future bookings and flip `publicAvailabilityMetadata/status.isReady`
+     to `true`.
+================================================================================

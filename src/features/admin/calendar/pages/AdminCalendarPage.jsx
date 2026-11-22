@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, RefreshCw, X } from 'lucide-react';
+import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 
 import { usePricingSettings } from '@/features/admin/settings/hooks/usePricingSettings';
 import { useCalendarInvoiceSummaries } from '@/features/admin/payment/hooks/useInvoicePaymentSummaries';
 import { useAuth } from '@/features/auth/AuthContext';
+import { backfillPublicAvailabilityProjections } from '@/features/public-availability/services/public-availability-service';
 
 import { BookingDetailDrawer } from '../components/BookingDetailDrawer';
 import { BookingFormDialog } from '../components/BookingFormDialog';
@@ -22,6 +24,7 @@ import {
 import {
   getCalendarViewDateRange,
   getJakartaTodayIso,
+  isValidIsoDateString,
   shiftCalendarDate,
 } from '../utils/calendar-date';
 
@@ -33,27 +36,52 @@ function getInitialCalendarViewMode() {
 }
 
 export function AdminCalendarPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, role } = useAuth();
   const { settings: pricingSettings, activeStudioServiceTypes } = usePricingSettings();
   const actorUid = user?.uid || profile?.uid || '';
+  const actorRole = String(role || profile?.role || '')
+    .trim()
+    .toLowerCase();
+  const isOwner = actorRole === 'owner';
+  const [isSyncingPublicCalendar, setIsSyncingPublicCalendar] = useState(false);
+  const [searchParams] = useSearchParams();
 
   const [viewMode, setViewMode] = useState(getInitialCalendarViewMode);
-  const [activeDate, setActiveDate] = useState(() => getJakartaTodayIso());
+  const [activeDate, setActiveDate] = useState(() => {
+    const paramDate = searchParams.get('date');
+    return isValidIsoDateString(paramDate) ? paramDate : getJakartaTodayIso();
+  });
   const [focusRequestKey, setFocusRequestKey] = useState(0);
   const [roomFilter, setRoomFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCancelled, setShowCancelled] = useState(false);
 
-  const [bookingDialogState, setBookingDialogState] = useState({
-    sessionKey: 0,
-    open: false,
-    mode: 'create',
-    initialSlot: null,
-    editingBooking: null,
+  const [bookingDialogState, setBookingDialogState] = useState(() => {
+    const shouldOpenNew = searchParams.get('action') === 'new-booking';
+    const paramStudioId = searchParams.get('studioId');
+    const paramDate = searchParams.get('date');
+    const initialDate = isValidIsoDateString(paramDate) ? paramDate : getJakartaTodayIso();
+    return {
+      sessionKey: shouldOpenNew ? 1 : 0,
+      open: shouldOpenNew,
+      mode: 'create',
+      initialSlot: shouldOpenNew
+        ? {
+            date: initialDate,
+            studioId: paramStudioId === 'room-b' ? 'room-b' : 'room-a',
+            startMinute: 600,
+            defaultServiceId: 'rehearsal',
+            defaultOptionId: 'rehearsal-regular',
+          }
+        : null,
+      editingBooking: null,
+    };
   });
 
-  const [selectedBookingId, setSelectedBookingId] = useState('');
+  const [selectedBookingId, setSelectedBookingId] = useState(
+    () => searchParams.get('bookingId') || '',
+  );
   const [statusFeedback, setStatusFeedback] = useState('');
 
   const newBookingButtonRef = useRef(null);
@@ -229,8 +257,52 @@ export function AdminCalendarPage() {
     }
   };
 
+  const handleSyncPublicAvailability = async () => {
+    if (!isOwner || isSyncingPublicCalendar) return;
+    setIsSyncingPublicCalendar(true);
+    try {
+      const result = await backfillPublicAvailabilityProjections({
+        actorUid,
+        actorRole,
+        fromDateIso: getJakartaTodayIso(),
+      });
+      const msg = `Kalender publik berhasil disinkronkan (${result.activeProjectedCount} sesi aktif diverifikasi).`;
+      setStatusFeedback(msg);
+      toast.success(msg);
+    } catch (err) {
+      const msg = err?.message || 'Gagal menyinkronkan jadwal kalender publik.';
+      toast.error(msg);
+    } finally {
+      setIsSyncingPublicCalendar(false);
+    }
+  };
+
   return (
     <div data-calendar-scoped="true" className="relative isolate z-0 space-y-3 sm:space-y-4">
+      {/* Owner-Only Public Availability Projection Backfill / Sync Strip */}
+      {isOwner ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#151515]/10 bg-white/85 px-4 py-2 text-xs text-[#46433D]">
+          <span>
+            <strong className="text-[#151515]">Kalender Publik (/availability):</strong> Sinkron
+            otomatis untuk setiap booking baru &amp; perubahan jadwal.
+          </span>
+          <button
+            type="button"
+            onClick={handleSyncPublicAvailability}
+            disabled={isSyncingPublicCalendar}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#151515]/15 bg-[#F8F6EF] px-2.5 py-1 text-[11px] font-semibold text-[#151515] transition-colors hover:bg-[#151515] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-3 w-3 ${isSyncingPublicCalendar ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
+            <span>
+              {isSyncingPublicCalendar ? 'Menyinkronkan...' : 'Sinkronkan Data Lama (Backfill)'}
+            </span>
+          </button>
+        </div>
+      ) : null}
+
       {/* Operational Feedback Banner */}
       {statusFeedback ? (
         <div

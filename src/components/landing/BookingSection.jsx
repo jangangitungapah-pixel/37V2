@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, CheckCircle2, Info, RotateCcw, Sparkles } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarClock,
+  CheckCircle2,
+  Info,
+  RotateCcw,
+  ShieldAlert,
+  Sparkles,
+} from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
+import { Link } from 'react-router';
 
 import { getTodayLocalDateString } from '@/lib/booking-date';
 
@@ -25,6 +34,9 @@ export function BookingSection({
   bookingSection,
   selectedService,
   selectedRoom,
+  selectedDate,
+  selectedTime,
+  selectedDuration,
   selectionVersion = 0,
   preselectionNotice,
   onClearPreselectionNotice,
@@ -50,9 +62,9 @@ export function BookingSection({
       contactNumber: '',
       service: selectedService || 'rehearsal',
       room: selectedRoom || 'room-a',
-      preferredDate: todayDate,
-      preferredTime: '19:00',
-      duration: '2 hours',
+      preferredDate: selectedDate || todayDate,
+      preferredTime: selectedTime || '19:00',
+      duration: selectedDuration || '2 hours',
       notes: '',
     },
   });
@@ -60,6 +72,16 @@ export function BookingSection({
   const activeService = useWatch({
     control,
     name: 'service',
+  });
+
+  const activeRoom = useWatch({
+    control,
+    name: 'room',
+  });
+
+  const activeDate = useWatch({
+    control,
+    name: 'preferredDate',
   });
 
   const notesValue = useWatch({
@@ -76,8 +98,25 @@ export function BookingSection({
       if (selectedRoom) {
         setValue('room', selectedRoom, { shouldValidate: true });
       }
+      if (selectedDate) {
+        setValue('preferredDate', selectedDate, { shouldValidate: true });
+      }
+      if (selectedTime) {
+        setValue('preferredTime', selectedTime, { shouldValidate: true });
+      }
+      if (selectedDuration) {
+        setValue('duration', selectedDuration, { shouldValidate: true });
+      }
     }
-  }, [selectedService, selectedRoom, selectionVersion, setValue]);
+  }, [
+    selectedService,
+    selectedRoom,
+    selectedDate,
+    selectedTime,
+    selectedDuration,
+    selectionVersion,
+    setValue,
+  ]);
 
   const refreshTodayDate = () => {
     const currentToday = getTodayLocalDateString();
@@ -117,43 +156,49 @@ export function BookingSection({
   const selectedRoomLabel =
     ROOM_OPTIONS.find((item) => item.id === submittedData?.room)?.label || submittedData?.room;
 
+  const availabilityCalendarHref = `/availability?${new URLSearchParams({
+    ...(activeRoom && activeRoom !== 'any' ? { room: activeRoom } : {}),
+    ...(activeDate ? { date: activeDate } : {}),
+    ...(activeService ? { service: activeService } : {}),
+  }).toString()}`;
+
   return (
     <section
       id="how-to-book"
       aria-labelledby="booking-process-heading"
-      className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-8 sm:py-16 lg:py-20"
+      className="border-studio-ink bg-studio-ivory scroll-mt-20 border-b-2 py-10 sm:py-16 lg:py-24"
     >
       <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8">
         <div className="brutal-card-lg bg-studio-white grid grid-cols-1 overflow-hidden lg:grid-cols-12">
-          {/* Left Panel: Black 3-Step Process */}
-          <div className="border-studio-ink bg-studio-ink text-studio-white flex flex-col justify-between border-b-2 p-4 sm:p-8 lg:col-span-5 lg:border-r-2 lg:border-b-0 lg:p-10">
+          {/* Left Panel: Black 3-Step Process + Public Availability Link */}
+          <div className="border-studio-ink bg-studio-ink text-studio-white flex flex-col justify-between border-b-2 p-5 sm:p-8 lg:col-span-5 lg:border-r-2 lg:border-b-0 lg:p-10">
             <div>
-              <span className="bg-studio-lime text-studio-ink hidden px-2.5 py-1 font-mono text-[11px] font-extrabold tracking-wider uppercase sm:inline-block">
+              <span className="bg-studio-lime text-studio-ink inline-block px-2.5 py-1 font-mono text-[10px] font-extrabold tracking-wider uppercase sm:text-[11px]">
                 {bookingSection.process.eyebrow}
               </span>
 
               <h2
                 id="booking-process-heading"
-                className="font-display text-studio-white mt-0 text-3xl leading-none font-black tracking-tight uppercase sm:mt-4 sm:text-5xl"
+                className="font-display text-studio-white mt-3 text-3xl leading-none font-black tracking-tight uppercase sm:mt-4 sm:text-5xl"
               >
                 {bookingSection.process.heading}
               </h2>
 
-              <ol className="mt-3.5 space-y-2 sm:mt-6 sm:space-y-4">
+              <ol className="mt-5 space-y-3 sm:mt-6 sm:space-y-4">
                 {bookingSection.process.steps.map((step) => (
                   <li
                     key={step.number}
-                    className="border border-neutral-700 bg-neutral-900/90 p-2.5 sm:p-4"
+                    className="border border-neutral-700 bg-neutral-900/90 p-3.5 sm:p-4"
                   >
-                    <div className="flex items-center gap-3 sm:items-start sm:gap-3.5">
-                      <span className="bg-studio-orange text-studio-white flex h-6 w-6 shrink-0 items-center justify-center font-mono text-[11px] font-extrabold sm:h-7 sm:w-7 sm:text-xs">
+                    <div className="flex items-start gap-3.5">
+                      <span className="bg-studio-orange text-studio-white flex h-7 w-7 shrink-0 items-center justify-center font-mono text-xs font-extrabold">
                         {step.number}
                       </span>
                       <div>
-                        <h3 className="text-xs font-extrabold tracking-wide uppercase sm:text-base">
+                        <h3 className="text-sm font-extrabold tracking-wide uppercase sm:text-base">
                           {step.title}
                         </h3>
-                        <p className="mt-1 hidden text-xs leading-relaxed text-neutral-300 sm:block">
+                        <p className="mt-1 text-xs leading-relaxed text-neutral-300">
                           {step.description}
                         </p>
                       </div>
@@ -161,9 +206,27 @@ export function BookingSection({
                   </li>
                 ))}
               </ol>
+
+              {/* Public Calendar Quick Check Box */}
+              <div className="border-studio-lime/40 mt-6 border bg-neutral-900 p-4">
+                <p className="font-mono text-xs font-extrabold text-[#C8F13A] uppercase">
+                  Want to check open slots first?
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-300">
+                  Inspect Room A and Room B 30-minute availability blocks before sending your
+                  preferred inquiry time.
+                </p>
+                <Link
+                  to={availabilityCalendarHref}
+                  className="text-studio-lime mt-2.5 inline-flex items-center gap-1.5 font-mono text-xs font-extrabold uppercase hover:underline"
+                >
+                  <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Open Public Availability Calendar →</span>
+                </Link>
+              </div>
             </div>
 
-            <div className="mt-8 hidden items-center gap-3 border-t border-neutral-800 pt-5 sm:flex">
+            <div className="mt-8 flex items-center gap-3 border-t border-neutral-800 pt-5">
               <div className="flex -space-x-2" aria-hidden="true">
                 <span className="border-studio-ink bg-studio-lime text-studio-ink flex h-7 w-7 items-center justify-center rounded-full border font-mono text-[10px] font-bold">
                   37
@@ -181,22 +244,36 @@ export function BookingSection({
             </div>
           </div>
 
-          {/* Right Panel: Frontend-Only Booking Inquiry Form */}
+          {/* Right Panel: Step-Grouped Frontend-Only Booking Inquiry Form */}
           <div
             id="booking"
-            className="bg-studio-white text-studio-ink scroll-mt-20 p-4 sm:p-8 lg:col-span-7 lg:p-10"
+            className="bg-studio-white text-studio-ink scroll-mt-20 p-5 sm:p-8 lg:col-span-7 lg:p-10"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <h2 className="font-display text-2xl leading-none font-black tracking-tight uppercase sm:text-4xl">
+                <h2 className="font-display text-3xl leading-none font-black tracking-tight uppercase sm:text-4xl">
                   {bookingSection.form.heading}
                 </h2>
-                <p className="text-studio-muted-ink mt-1.5 hidden text-xs font-medium sm:block sm:text-sm">
+                <p className="text-studio-muted-ink mt-1.5 text-xs font-medium sm:text-sm">
                   {bookingSection.form.subtitle}
                 </p>
               </div>
-              <span className="border-studio-ink bg-studio-ivory hidden border px-2.5 py-1 font-mono text-[10px] font-bold uppercase sm:inline-block">
+              <span className="border-studio-ink bg-studio-ivory border px-2.5 py-1 font-mono text-[10px] font-bold uppercase">
                 FRONTEND DEMO
+              </span>
+            </div>
+
+            {/* Required Public Availability Disclaimer Notice */}
+            <div
+              data-testid="booking-availability-disclaimer"
+              className="border-studio-ink/20 bg-studio-ivory mt-4 flex items-start gap-2.5 border p-3 text-xs"
+            >
+              <ShieldAlert
+                className="text-studio-orange mt-0.5 h-4 w-4 shrink-0"
+                aria-hidden="true"
+              />
+              <span className="text-studio-ink font-medium">
+                Availability may change. Final confirmation is subject to studio verification.
               </span>
             </div>
 
@@ -204,7 +281,8 @@ export function BookingSection({
               <div
                 role="status"
                 aria-live="polite"
-                className="border-studio-ink bg-studio-lime text-studio-ink mt-4 flex items-center justify-between gap-2 border-2 px-3.5 py-1.5 text-xs font-bold"
+                data-testid="booking-preselection-notice"
+                className="border-studio-ink bg-studio-lime text-studio-ink mt-4 flex items-center justify-between gap-2 border-2 px-3.5 py-2 text-xs font-bold"
               >
                 <span className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -305,231 +383,251 @@ export function BookingSection({
                 </div>
               </div>
             ) : (
-              <form
-                onSubmit={handleSubmit(onSubmit)}
-                noValidate
-                className="mt-4 space-y-3 sm:mt-5 sm:space-y-4"
-              >
-                {/* Row 1: Name / Band + WhatsApp / Contact Number */}
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-                  <div>
-                    <label
-                      htmlFor="inquiry-client-name"
-                      className="block font-mono text-[11px] font-bold tracking-wider uppercase"
-                    >
-                      Name / Band Name <span className="text-studio-error-ink">*</span>
-                    </label>
-                    <input
-                      id="inquiry-client-name"
-                      type="text"
-                      autoComplete="name"
-                      placeholder="e.g. Midnight Static / Raka"
-                      aria-invalid={Boolean(errors.clientName)}
-                      {...register('clientName')}
-                      className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500"
-                    />
-                    {errors.clientName ? (
-                      <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
-                        {errors.clientName.message}
-                      </p>
-                    ) : null}
-                  </div>
+              <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-5 space-y-5">
+                {/* STEP 01: Session Type & Room Preference */}
+                <div className="border-studio-ink/15 space-y-4 border-t pt-4">
+                  <p className="text-studio-muted-ink font-mono text-[11px] font-extrabold tracking-wider uppercase">
+                    01 • Choose Session &amp; Room
+                  </p>
 
-                  <div>
-                    <label
-                      htmlFor="inquiry-contact-number"
-                      className="block font-mono text-[11px] font-bold tracking-wider uppercase"
-                    >
-                      WhatsApp / Contact Number <span className="text-studio-error-ink">*</span>
-                    </label>
-                    <input
-                      id="inquiry-contact-number"
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      placeholder="e.g. +62 812 0000 0000"
-                      aria-invalid={Boolean(errors.contactNumber)}
-                      {...register('contactNumber')}
-                      className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500"
-                    />
-                    {errors.contactNumber ? (
+                  <fieldset>
+                    <legend className="font-mono text-[11px] font-bold tracking-wider uppercase">
+                      Requested Service <span className="text-studio-error-ink">*</span>
+                    </legend>
+                    <input type="hidden" {...register('service')} />
+                    <div className="mt-1.5 grid grid-cols-3 gap-2">
+                      {SERVICE_OPTIONS.map((option) => {
+                        const isSelected = activeService === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() =>
+                              setValue('service', option.id, {
+                                shouldValidate: true,
+                                shouldDirty: true,
+                              })
+                            }
+                            className={
+                              isSelected
+                                ? 'border-studio-ink bg-studio-ink text-studio-white min-h-11 cursor-pointer border-2 px-2 py-2 text-xs font-extrabold tracking-wider uppercase shadow-[2px_2px_0px_#C8F13A]'
+                                : 'border-studio-ink bg-studio-white text-studio-ink hover:bg-studio-ivory min-h-11 cursor-pointer border-2 px-2 py-2 text-xs font-bold tracking-wider uppercase'
+                            }
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {errors.service ? (
                       <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
-                        {errors.contactNumber.message}
+                        {errors.service.message}
                       </p>
                     ) : null}
+                  </fieldset>
+
+                  <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    <div>
+                      <label
+                        htmlFor="inquiry-room"
+                        className="block font-mono text-[11px] font-bold tracking-wider uppercase"
+                      >
+                        Room Preference <span className="text-studio-error-ink">*</span>
+                      </label>
+                      <select
+                        id="inquiry-room"
+                        aria-invalid={Boolean(errors.room)}
+                        {...register('room')}
+                        className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
+                      >
+                        {ROOM_OPTIONS.map((roomOption) => (
+                          <option key={roomOption.id} value={roomOption.id}>
+                            {roomOption.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="inquiry-duration"
+                        className="block font-mono text-[11px] font-bold tracking-wider uppercase"
+                      >
+                        Estimated Duration <span className="text-studio-error-ink">*</span>
+                      </label>
+                      <select
+                        id="inquiry-duration"
+                        aria-invalid={Boolean(errors.duration)}
+                        {...register('duration')}
+                        className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
+                      >
+                        {bookingSection.form.durations.map((durationItem) => (
+                          <option key={durationItem.value} value={durationItem.value}>
+                            {durationItem.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                {/* Row 2: Requested Service (3 tactile buttons matching reference screenshot) */}
-                <fieldset>
-                  <legend className="font-mono text-[11px] font-bold tracking-wider uppercase">
-                    Requested Service <span className="text-studio-error-ink">*</span>
-                  </legend>
-                  <input type="hidden" {...register('service')} />
-                  <div className="mt-1.5 grid grid-cols-3 gap-1.5 sm:gap-2.5">
-                    {SERVICE_OPTIONS.map((option) => {
-                      const isSelected = activeService === option.id;
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          aria-pressed={isSelected}
-                          onClick={() =>
-                            setValue('service', option.id, {
-                              shouldValidate: true,
-                              shouldDirty: true,
-                            })
-                          }
-                          className={
-                            isSelected
-                              ? 'border-studio-ink bg-studio-ink text-studio-white min-h-11 cursor-pointer border-2 px-2 py-2 text-[11px] font-extrabold tracking-wider uppercase shadow-[2px_2px_0px_#C8F13A] sm:px-3 sm:text-xs'
-                              : 'border-studio-ink bg-studio-white text-studio-ink hover:bg-studio-ivory min-h-11 cursor-pointer border-2 px-2 py-2 text-[11px] font-bold tracking-wider uppercase sm:px-3 sm:text-xs'
-                          }
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {errors.service ? (
-                    <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
-                      {errors.service.message}
+                {/* STEP 02: Preferred Date & Time */}
+                <div className="border-studio-ink/15 space-y-3 border-t pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-studio-muted-ink font-mono text-[11px] font-extrabold tracking-wider uppercase">
+                      02 • Choose Preferred Date &amp; Time
                     </p>
-                  ) : null}
-                </fieldset>
-
-                {/* Row 3: Room Preference + Duration */}
-                <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:gap-4">
-                  <div>
-                    <label
-                      htmlFor="inquiry-room"
-                      className="block font-mono text-[11px] font-bold tracking-wider uppercase"
+                    <Link
+                      to={availabilityCalendarHref}
+                      className="text-studio-orange font-mono text-[11px] font-extrabold uppercase hover:underline"
                     >
-                      Room Preference <span className="text-studio-error-ink">*</span>
-                    </label>
-                    <select
-                      id="inquiry-room"
-                      aria-invalid={Boolean(errors.room)}
-                      {...register('room')}
-                      className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
-                    >
-                      {ROOM_OPTIONS.map((roomOption) => (
-                        <option key={roomOption.id} value={roomOption.id}>
-                          {roomOption.label}
-                        </option>
-                      ))}
-                    </select>
+                      Check Room Calendar →
+                    </Link>
                   </div>
 
-                  <div>
-                    <label
-                      htmlFor="inquiry-duration"
-                      className="block font-mono text-[11px] font-bold tracking-wider uppercase"
-                    >
-                      Estimated Duration <span className="text-studio-error-ink">*</span>
-                    </label>
-                    <select
-                      id="inquiry-duration"
-                      aria-invalid={Boolean(errors.duration)}
-                      {...register('duration')}
-                      className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
-                    >
-                      {bookingSection.form.durations.map((durationItem) => (
-                        <option key={durationItem.value} value={durationItem.value}>
-                          {durationItem.label}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    <div>
+                      <label
+                        htmlFor="inquiry-date"
+                        className="block font-mono text-[11px] font-bold tracking-wider uppercase"
+                      >
+                        Preferred Date <span className="text-studio-error-ink">*</span>
+                      </label>
+                      <input
+                        id="inquiry-date"
+                        type="date"
+                        min={todayDate}
+                        onFocus={refreshTodayDate}
+                        aria-invalid={Boolean(errors.preferredDate)}
+                        {...register('preferredDate')}
+                        className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
+                      />
+                      {errors.preferredDate ? (
+                        <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                          {errors.preferredDate.message}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="inquiry-time"
+                        className="block font-mono text-[11px] font-bold tracking-wider uppercase"
+                      >
+                        Preferred Start Time <span className="text-studio-error-ink">*</span>
+                      </label>
+                      <select
+                        id="inquiry-time"
+                        aria-invalid={Boolean(errors.preferredTime)}
+                        {...register('preferredTime')}
+                        className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
+                      >
+                        {bookingSection.form.timeSlots.map((slot) => (
+                          <option key={slot} value={slot}>
+                            {slot}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.preferredTime ? (
+                        <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                          {errors.preferredTime.message}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
 
-                {/* Row 4: Preferred Date + Preferred Start Time */}
-                <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:gap-4">
+                {/* STEP 03: Client Information & Notes */}
+                <div className="border-studio-ink/15 space-y-3.5 border-t pt-4">
+                  <p className="text-studio-muted-ink font-mono text-[11px] font-extrabold tracking-wider uppercase">
+                    03 • Enter Contact Information
+                  </p>
+
+                  <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    <div>
+                      <label
+                        htmlFor="inquiry-client-name"
+                        className="block font-mono text-[11px] font-bold tracking-wider uppercase"
+                      >
+                        Name / Band Name <span className="text-studio-error-ink">*</span>
+                      </label>
+                      <input
+                        id="inquiry-client-name"
+                        type="text"
+                        autoComplete="name"
+                        placeholder="e.g. Midnight Static / Raka"
+                        aria-invalid={Boolean(errors.clientName)}
+                        {...register('clientName')}
+                        className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500"
+                      />
+                      {errors.clientName ? (
+                        <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                          {errors.clientName.message}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="inquiry-contact-number"
+                        className="block font-mono text-[11px] font-bold tracking-wider uppercase"
+                      >
+                        WhatsApp / Contact Number <span className="text-studio-error-ink">*</span>
+                      </label>
+                      <input
+                        id="inquiry-contact-number"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="e.g. +62 812 0000 0000"
+                        aria-invalid={Boolean(errors.contactNumber)}
+                        {...register('contactNumber')}
+                        className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500"
+                      />
+                      {errors.contactNumber ? (
+                        <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
+                          {errors.contactNumber.message}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+
                   <div>
-                    <label
-                      htmlFor="inquiry-date"
-                      className="block font-mono text-[11px] font-bold tracking-wider uppercase"
-                    >
-                      Preferred Date <span className="text-studio-error-ink">*</span>
-                    </label>
-                    <input
-                      id="inquiry-date"
-                      type="date"
-                      min={todayDate}
-                      onFocus={refreshTodayDate}
-                      aria-invalid={Boolean(errors.preferredDate)}
-                      {...register('preferredDate')}
-                      className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <label
+                        htmlFor="inquiry-notes"
+                        className="block font-mono text-[11px] font-bold tracking-wider uppercase"
+                      >
+                        Notes / Setup Requirements{' '}
+                        <span className="text-studio-muted-ink font-normal">(Optional)</span>
+                      </label>
+                      <span
+                        id="inquiry-notes-counter"
+                        className={
+                          notesLength > 400
+                            ? 'text-studio-error-ink font-mono text-[11px] font-bold'
+                            : 'text-studio-muted-ink font-mono text-[11px] font-medium'
+                        }
+                      >
+                        {notesLength} / 400
+                      </span>
+                    </div>
+                    <textarea
+                      id="inquiry-notes"
+                      rows={2}
+                      placeholder="Optional: describe your group size, session goals, or questions..."
+                      aria-invalid={Boolean(errors.notes)}
+                      aria-describedby="inquiry-notes-counter"
+                      {...register('notes')}
+                      className="border-studio-ink bg-studio-ivory mt-1.5 min-h-20 w-full resize-y border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500 sm:min-h-24"
                     />
-                    {errors.preferredDate ? (
+                    {errors.notes ? (
                       <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
-                        {errors.preferredDate.message}
+                        {errors.notes.message}
                       </p>
                     ) : null}
                   </div>
-
-                  <div>
-                    <label
-                      htmlFor="inquiry-time"
-                      className="block font-mono text-[11px] font-bold tracking-wider uppercase"
-                    >
-                      Preferred Start Time <span className="text-studio-error-ink">*</span>
-                    </label>
-                    <select
-                      id="inquiry-time"
-                      aria-invalid={Boolean(errors.preferredTime)}
-                      {...register('preferredTime')}
-                      className="border-studio-ink bg-studio-ivory mt-1.5 min-h-11 w-full border-2 px-3 py-2 text-sm font-semibold"
-                    >
-                      {bookingSection.form.timeSlots.map((slot) => (
-                        <option key={slot} value={slot}>
-                          {slot}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.preferredTime ? (
-                      <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
-                        {errors.preferredTime.message}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* Row 5: Multiline Notes / Additional Requirements */}
-                <div>
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <label
-                      htmlFor="inquiry-notes"
-                      className="block font-mono text-[11px] font-bold tracking-wider uppercase"
-                    >
-                      Notes / Setup Requirements{' '}
-                      <span className="text-studio-muted-ink font-normal">(Optional)</span>
-                    </label>
-                    <span
-                      id="inquiry-notes-counter"
-                      className={
-                        notesLength > 400
-                          ? 'text-studio-error-ink font-mono text-[11px] font-bold'
-                          : 'text-studio-muted-ink font-mono text-[11px] font-medium'
-                      }
-                    >
-                      {notesLength} / 400
-                    </span>
-                  </div>
-                  <textarea
-                    id="inquiry-notes"
-                    rows={2}
-                    placeholder="Optional: describe your group size, session goals, or questions..."
-                    aria-invalid={Boolean(errors.notes)}
-                    aria-describedby="inquiry-notes-counter"
-                    {...register('notes')}
-                    className="border-studio-ink bg-studio-ivory mt-1.5 min-h-20 w-full resize-y border-2 px-3 py-2 text-sm font-medium placeholder:text-neutral-500 sm:min-h-24"
-                  />
-                  {errors.notes ? (
-                    <p role="alert" className="text-studio-error-ink mt-1 text-xs font-bold">
-                      {errors.notes.message}
-                    </p>
-                  ) : null}
                 </div>
 
                 {/* Submit Button */}
@@ -541,7 +639,7 @@ export function BookingSection({
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </button>
 
-                <p className="text-studio-muted-ink hidden items-center justify-center gap-1.5 text-center font-mono text-[11px] sm:flex">
+                <p className="text-studio-muted-ink flex items-center justify-center gap-1.5 text-center font-mono text-[11px]">
                   <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>{bookingSection.form.footnote}</span>
                 </p>

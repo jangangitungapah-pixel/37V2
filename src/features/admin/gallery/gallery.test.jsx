@@ -465,7 +465,7 @@ describe('3. Landing Page Media Manager (/admin/gallery Landing Page Tab)', () =
     );
 
     const heroEditor = await screen.findByRole('dialog');
-    const heroTitleInput = within(heroEditor).getByLabelText(/judul foto hero/i);
+    const heroTitleInput = within(heroEditor).getByLabelText(/^judul foto hero/i);
     await user.clear(heroTitleInput);
     await user.type(heroTitleInput, '37 STUDIO — MAIN LIVE FLOOR');
 

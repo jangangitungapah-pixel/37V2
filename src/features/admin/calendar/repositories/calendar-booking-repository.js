@@ -18,6 +18,8 @@ export const FIRESTORE_COLLECTIONS = {
   BOOKINGS: 'bookings',
   BOOKING_SLOTS: 'bookingSlots',
   BOOKING_EVENTS: 'bookingEvents',
+  PUBLIC_AVAILABILITY: 'publicAvailability',
+  PUBLIC_AVAILABILITY_METADATA: 'publicAvailabilityMetadata',
   CUSTOMERS: 'customers',
   CUSTOMER_PHONE_INDEX: 'customerPhoneIndex',
   INVOICES: 'invoices',
@@ -324,6 +326,14 @@ export function createFirestoreBookingRepositoryAdapter() {
           setPaymentTransaction(transactionId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS, transactionId);
             tx.set(ref, data);
+          },
+          setPublicAvailability(bookingId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_AVAILABILITY, bookingId);
+            tx.set(ref, data);
+          },
+          deletePublicAvailability(bookingId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_AVAILABILITY, bookingId);
+            tx.delete(ref);
           },
         };
 

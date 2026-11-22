@@ -2100,5 +2100,85 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function isValidPublicAvailabilityProjectionShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'date',
+          'studioId',
+          'startMinute',
+          'endMinute',
+          'updatedAt'
+        ])
+        && data.size() == 6
+        && data.schemaVersion == 1
+        && data.date is string
+        && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.studioId in ['room-a', 'room-b']
+        && data.startMinute is int
+        && data.startMinute >= 600
+        && data.startMinute < 1380
+        && data.startMinute % 30 == 0
+        && data.endMinute is int
+        && data.endMinute > data.startMinute
+        && data.endMinute <= 1380
+        && data.endMinute % 30 == 0
+        && data.updatedAt is timestamp;
+    }
+
+    function isPublicAvailabilityMatchedToCanonicalBookingAfter(data, bookingId) {
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(bookingId));
+      return existsAfter(/databases/$(database)/documents/bookings/$(bookingId))
+        && bookingAfter != null
+        && bookingAfter.data.date == data.date
+        && bookingAfter.data.studioId == data.studioId
+        && bookingAfter.data.startMinute == data.startMinute
+        && bookingAfter.data.endMinute == data.endMinute
+        && !(bookingAfter.data.sessionStatus in ['cancelled', 'no_show']);
+    }
+
+    function isPublicAvailabilityDeleteAllowedAfter(bookingId) {
+      return !existsAfter(/databases/$(database)/documents/bookings/$(bookingId))
+        || getAfter(/databases/$(database)/documents/bookings/$(bookingId)).data.sessionStatus in ['cancelled', 'no_show'];
+    }
+
+    function isValidPublicAvailabilityMetadataShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'isReady',
+          'backfilledFromDate',
+          'backfillCompletedAt',
+          'updatedAt'
+        ])
+        && data.size() == 5
+        && data.schemaVersion == 1
+        && data.isReady is bool
+        && data.backfilledFromDate is string
+        && (data.backfilledFromDate == '' || data.backfilledFromDate.matches('^\\d{4}-\\d{2}-\\d{2}$'))
+        && (data.backfillCompletedAt == null || data.backfillCompletedAt is timestamp)
+        && data.updatedAt is timestamp;
+    }
+
+    match /publicAvailability/{bookingId} {
+      allow read: if true;
+
+      allow create, update: if isActiveStaff()
+        && isValidPublicAvailabilityProjectionShape(request.resource.data)
+        && isPublicAvailabilityMatchedToCanonicalBookingAfter(request.resource.data, bookingId);
+
+      allow delete: if isActiveStaff()
+        && isPublicAvailabilityDeleteAllowedAfter(bookingId);
+    }
+
+    match /publicAvailabilityMetadata/{docId} {
+      allow get: if docId == 'status';
+      allow list: if false;
+
+      allow create, update: if isActiveOwner()
+        && docId == 'status'
+        && isValidPublicAvailabilityMetadataShape(request.resource.data);
+
+      allow delete: if false;
+    }
+
   }
 }
