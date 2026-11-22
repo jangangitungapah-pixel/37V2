@@ -59,7 +59,9 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
                   <div className="divide-studio-ink/25 divide-y">
                     {testimonials.items.map((item) => {
                       const showVerifiedRating =
-                        typeof item.rating === 'number' && item.rating >= 1 && item.rating <= 5;
+                        typeof item.rating === 'number' &&
+                        item.rating >= 1 &&
+                        item.rating <= 5;
 
                       return (
                         <article key={item.id} className="py-5 first:pt-5 last:pb-2">
@@ -111,11 +113,10 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
 
             {/* Studio Location & Hours Column (expands cleanly across 12 cols when no testimonials) */}
             <div
-              className={`brutal-card-lg bg-studio-white text-studio-ink p-5 sm:p-8 ${
-                hasVerifiedTestimonials
-                  ? 'flex flex-col justify-between lg:col-span-5'
-                  : 'grid grid-cols-1 gap-6 lg:col-span-12 lg:grid-cols-12 lg:items-center lg:gap-10'
-              }`}
+              className={`brutal-card-lg bg-studio-white text-studio-ink p-5 sm:p-8 ${hasVerifiedTestimonials
+                ? 'flex flex-col justify-between lg:col-span-5'
+                : 'grid grid-cols-1 gap-6 lg:col-span-12 lg:grid-cols-12 lg:items-center lg:gap-10'
+                }`}
             >
               <div className={hasVerifiedTestimonials ? '' : 'lg:col-span-6'}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
