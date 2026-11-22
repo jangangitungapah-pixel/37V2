@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDown, ArrowUp, Eye, Globe, Images, Loader2 } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ImagePlus, Images, LayoutTemplate, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { StudioImage } from '@/components/landing/StudioImage';
 import {
   AdminButton,
   AdminPageHeader,
@@ -17,17 +16,26 @@ import { GalleryItemGrid } from '../components/GalleryItemGrid';
 import { GalleryItemPreviewDialog } from '../components/GalleryItemPreviewDialog';
 import { GalleryOwnerAccessNotice } from '../components/GalleryOwnerAccessNotice';
 import { GalleryToolbar } from '../components/GalleryToolbar';
-import { GalleryUploadDropzone } from '../components/GalleryUploadDropzone';
 import { GalleryUploadQueue } from '../components/GalleryUploadQueue';
+import { LandingPageMediaManager } from '../components/LandingPageMediaManager';
+import { LandingPagePhotoPickerDialog } from '../components/LandingPagePhotoPickerDialog';
+import { LandingPagePlacementEditorDialog } from '../components/LandingPagePlacementEditorDialog';
 import {
   GALLERY_BOUNDED_QUERY_LIMIT,
+  GALLERY_CATEGORY_SUGGESTIONS,
   GALLERY_STATUSES,
   getCloudinaryConfig,
 } from '../config/gallery-config';
 import { useGalleryItems } from '../hooks/useGalleryItems';
 import { useGalleryUpload } from '../hooks/useGalleryUpload';
+import { useLandingPagePlacements } from '../hooks/useLandingPagePlacements';
+import {
+  mapCloudinaryErrorToMessage,
+  uploadImageToCloudinary,
+} from '../services/cloudinary-upload-service';
 import {
   archiveGalleryItem,
+  createGalleryMetadataFromUpload,
   mapGalleryServiceErrorToMessage,
   publishGalleryItem,
   reorderPublishedGalleryItem,
@@ -35,6 +43,16 @@ import {
   unpublishGalleryItem,
   updateGalleryItemMetadata,
 } from '../services/gallery-service';
+import {
+  mapLandingPagePlacementErrorToMessage,
+  saveLandingPagePlacement,
+} from '../services/landing-page-placement-service';
+import { deriveTitleFromFilename } from '../utils/gallery-format';
+
+const GALLERY_TABS = Object.freeze({
+  PHOTOS: 'photos',
+  LANDING_PAGE: 'landing-page',
+});
 
 export function AdminGalleryPage() {
   const { user, profile, role } = useAuth();
@@ -46,6 +64,7 @@ export function AdminGalleryPage() {
   const isOwner = actorRole === 'owner' && Boolean(actorUid) && isActiveProfile;
 
   const cloudinaryConfig = getCloudinaryConfig();
+  const fileInputRef = useRef(null);
 
   const {
     items,
@@ -60,12 +79,19 @@ export function AdminGalleryPage() {
   });
 
   const {
+    placementsById,
+    usageByGalleryItemId,
+    error: placementsError,
+  } = useLandingPagePlacements({
+    enabled: isOwner,
+  });
+
+  const {
     queue,
     enqueueFiles,
     cancelQueuedItem,
     retryFailedUpload,
     retryMetadataSave,
-    removeCompletedItems,
     dismissQueueItem,
   } = useGalleryUpload({
     enabled: isOwner,
@@ -74,22 +100,40 @@ export function AdminGalleryPage() {
     existingItems: items,
     cloudinaryConfig,
     onUploadSuccess: (saved) => {
-      toast.success(`"${saved.title}" berhasil diunggah dan disimpan sebagai Draft.`);
+      toast.success(`"${saved.title}" ditambahkan ke galeri.`);
     },
     onUploadError: (msg) => {
       toast.error(msg);
     },
   });
 
+  const [activeTab, setActiveTab] = useState(GALLERY_TABS.PHOTOS);
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showPublicPreview, setShowPublicPreview] = useState(false);
   const [busyItemId, setBusyItemId] = useState('');
   const [actionError, setActionError] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // Photo Detail & Edit dialogs
+  const [previewItemId, setPreviewItemId] = useState('');
   const [editingItem, setEditingItem] = useState(null);
-  const [previewItem, setPreviewItem] = useState(null);
+
+  // Landing Page Placement Photo Picker & Editor dialogs
+  const [pickerPlacementId, setPickerPlacementId] = useState('');
+  const [editorState, setEditorState] = useState({
+    open: false,
+    placementId: '',
+    selectedPhoto: null,
+    sessionKey: 0,
+  });
 
   const publishedOrderIds = useMemo(() => publishedItems.map((item) => item.id), [publishedItems]);
+
+  // Keep previewItem live as its status or metadata updates
+  const previewItem = useMemo(
+    () => (previewItemId ? items.find((item) => item.id === previewItemId) || null : null),
+    [items, previewItemId],
+  );
 
   const filteredItems = useMemo(() => {
     const queryLower = searchQuery.trim().toLowerCase();
@@ -98,27 +142,99 @@ export function AdminGalleryPage() {
         return false;
       }
       if (queryLower) {
-        const titleMatch = item.title.toLowerCase().includes(queryLower);
-        const categoryMatch = item.category.toLowerCase().includes(queryLower);
-        return titleMatch || categoryMatch;
+        return (
+          item.title.toLowerCase().includes(queryLower) ||
+          item.category.toLowerCase().includes(queryLower)
+        );
       }
       return true;
     });
   }, [activeFilter, items, searchQuery]);
 
-  const handleSaveEditedMetadata = async (values) => {
+  const handleTriggerAddPhotos = () => {
+    if (!isOwner) return;
+    if (!cloudinaryConfig.isConfigured) {
+      const msg =
+        'Konfigurasi unggah foto belum lengkap. Pastikan VITE_CLOUDINARY_CLOUD_NAME dan VITE_CLOUDINARY_UPLOAD_PRESET tersedia.';
+      setActionError(msg);
+      toast.error(msg);
+      return;
+    }
+    setActionError('');
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = (event) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      enqueueFiles(files);
+    }
+    event.target.value = '';
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    if (isOwner && activeTab === GALLERY_TABS.PHOTOS) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    if (!isOwner || activeTab !== GALLERY_TABS.PHOTOS) return;
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      if (!cloudinaryConfig.isConfigured) {
+        setActionError(cloudinaryConfig.statusMessage);
+        return;
+      }
+      enqueueFiles(files);
+    }
+  };
+
+  const handleSaveEditedPhoto = async ({
+    title,
+    category,
+    altText,
+    caption,
+    showInPublicGallery,
+  }) => {
     if (!editingItem || !isOwner) return;
     setActionError('');
     setBusyItemId(editingItem.id);
     try {
-      const updated = await updateGalleryItemMetadata({
+      let updated = await updateGalleryItemMetadata({
         item: editingItem,
         actorUid,
         actorRole,
-        input: values,
+        input: { title, category, altText, caption },
       });
+
+      const wasPublished = updated.status === GALLERY_STATUSES.PUBLISHED;
+      if (showInPublicGallery && !wasPublished) {
+        updated = await publishGalleryItem({
+          item: updated,
+          actorUid,
+          actorRole,
+          existingItems: items,
+          expectedCloudName: cloudinaryConfig.cloudName,
+        });
+      } else if (!showInPublicGallery && wasPublished) {
+        updated = await unpublishGalleryItem({
+          item: updated,
+          actorUid,
+          actorRole,
+        });
+      }
+
       setEditingItem(null);
-      toast.success(`Metadata "${updated.title}" berhasil diperbarui (v${updated.version}).`);
+      toast.success(`Perubahan pada "${updated.title}" berhasil disimpan.`);
     } catch (err) {
       const msg = mapGalleryServiceErrorToMessage(err);
       setActionError(msg);
@@ -134,14 +250,32 @@ export function AdminGalleryPage() {
     setActionError('');
     setBusyItemId(item.id);
     try {
+      // Ensure altText is populated from caption or title if empty
+      let targetItem = item;
+      if (!targetItem.altText || targetItem.altText.trim().length < 3) {
+        const autoAlt =
+          targetItem.caption?.trim().length >= 3 ? targetItem.caption.trim() : targetItem.title;
+        targetItem = await updateGalleryItemMetadata({
+          item: targetItem,
+          actorUid,
+          actorRole,
+          input: {
+            title: targetItem.title,
+            category: targetItem.category || 'Recording',
+            altText: autoAlt,
+            caption: targetItem.caption || '',
+          },
+        });
+      }
+
       const updated = await publishGalleryItem({
-        item,
+        item: targetItem,
         actorUid,
         actorRole,
         existingItems: items,
         expectedCloudName: cloudinaryConfig.cloudName,
       });
-      toast.success(`"${updated.title}" telah dipublikasikan ke Landing Page.`);
+      toast.success(`"${updated.title}" kini ditampilkan di Galeri Website.`);
     } catch (err) {
       const msg = mapGalleryServiceErrorToMessage(err);
       setActionError(msg);
@@ -161,7 +295,7 @@ export function AdminGalleryPage() {
         actorUid,
         actorRole,
       });
-      toast.info(`"${updated.title}" dikembalikan ke status Draft.`);
+      toast.info(`"${updated.title}" disembunyikan dari Galeri Website.`);
     } catch (err) {
       const msg = mapGalleryServiceErrorToMessage(err);
       setActionError(msg);
@@ -181,7 +315,8 @@ export function AdminGalleryPage() {
         actorUid,
         actorRole,
       });
-      toast.info(`"${updated.title}" telah dipindahkan ke Archived.`);
+      setPreviewItemId('');
+      toast.info(`"${updated.title}" telah diarsipkan.`);
     } catch (err) {
       const msg = mapGalleryServiceErrorToMessage(err);
       setActionError(msg);
@@ -201,7 +336,7 @@ export function AdminGalleryPage() {
         actorUid,
         actorRole,
       });
-      toast.success(`"${updated.title}" dipulihkan ke status Draft.`);
+      toast.success(`"${updated.title}" berhasil dipulihkan.`);
     } catch (err) {
       const msg = mapGalleryServiceErrorToMessage(err);
       setActionError(msg);
@@ -223,7 +358,7 @@ export function AdminGalleryPage() {
         actorUid,
         actorRole,
       });
-      toast.success(`Urutan tampil "${item.title}" berhasil diperbarui.`);
+      toast.success(`Urutan "${item.title}" diperbarui.`);
     } catch (err) {
       const msg = mapGalleryServiceErrorToMessage(err);
       setActionError(msg);
@@ -233,92 +368,185 @@ export function AdminGalleryPage() {
     }
   };
 
-  const activePreviewPublishedPosition = useMemo(() => {
-    if (!previewItem || previewItem.status !== GALLERY_STATUSES.PUBLISHED) return null;
-    const idx = publishedOrderIds.indexOf(previewItem.id);
-    return idx !== -1 ? idx + 1 : null;
-  }, [previewItem, publishedOrderIds]);
+  // Landing Page Media Manager handlers
+  const handleOpenChangePhoto = (placementId) => {
+    setPickerPlacementId(placementId);
+  };
+
+  const handleOpenEditCopy = (placementId) => {
+    setEditorState((prev) => ({
+      open: true,
+      placementId,
+      selectedPhoto: null,
+      sessionKey: prev.sessionKey + 1,
+    }));
+  };
+
+  const handleSelectPhotoForPlacement = (photo) => {
+    const targetPlacementId = pickerPlacementId || editorState.placementId;
+    setPickerPlacementId('');
+    setEditorState((prev) => ({
+      open: true,
+      placementId: targetPlacementId,
+      selectedPhoto: photo,
+      sessionKey: prev.sessionKey + 1,
+    }));
+  };
+
+  const handleUploadNewPhotoFromPicker = async (file) => {
+    if (!cloudinaryConfig.isConfigured) {
+      throw new Error(cloudinaryConfig.statusMessage);
+    }
+    try {
+      const uploadedAsset = await uploadImageToCloudinary({
+        file,
+        config: cloudinaryConfig,
+      });
+      const defaultTitle = deriveTitleFromFilename(file.name || 'Studio Photo');
+      const savedDoc = await createGalleryMetadataFromUpload({
+        actorUid,
+        actorRole,
+        cloudinaryResponse: uploadedAsset,
+        initialMetadata: {
+          title: defaultTitle,
+          category: GALLERY_CATEGORY_SUGGESTIONS[0],
+          altText: defaultTitle,
+          caption: '',
+        },
+        existingItems: items,
+        expectedCloudName: cloudinaryConfig.cloudName,
+      });
+      toast.success(`Foto "${savedDoc.title}" berhasil diunggah dan dipilih.`);
+      return savedDoc;
+    } catch (err) {
+      const msg = mapCloudinaryErrorToMessage(err, {
+        uploadPreset: cloudinaryConfig.uploadPreset,
+      });
+      throw new Error(msg, { cause: err });
+    }
+  };
+
+  const handleSavePlacement = async ({
+    placementId,
+    photoItem,
+    altText,
+    copy,
+    expectedVersion,
+  }) => {
+    try {
+      await saveLandingPagePlacement({
+        placementId,
+        actorUid,
+        actorRole,
+        photoItem,
+        altText,
+        copy,
+        status: 'published',
+        expectedVersion,
+        expectedCloudName: cloudinaryConfig.cloudName,
+      });
+      setEditorState((prev) => ({ ...prev, open: false }));
+      toast.success('Perubahan foto & teks Landing Page berhasil disimpan.');
+    } catch (err) {
+      const msg = mapLandingPagePlacementErrorToMessage(err);
+      toast.error(msg);
+      throw new Error(msg, { cause: err });
+    }
+  };
+
+  const previewPubIndex = previewItem ? publishedOrderIds.indexOf(previewItem.id) : -1;
+  const previewPublishedPosition = previewPubIndex !== -1 ? previewPubIndex + 1 : null;
+  const previewCanMoveUp = previewPubIndex > 0;
+  const previewCanMoveDown =
+    previewPubIndex !== -1 && previewPubIndex < publishedOrderIds.length - 1;
+  const previewUsedPlacements = previewItem ? usageByGalleryItemId[previewItem.id] || [] : [];
 
   return (
-    <div data-gallery-scoped="true" className="space-y-4 sm:space-y-6">
+    <div
+      data-gallery-scoped="true"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="space-y-3.5 sm:space-y-5"
+    >
+      {/* Hidden multi-file picker triggered by "+ Add Photos" */}
+      {isOwner ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif"
+          onChange={handleFileInputChange}
+          aria-label="Select studio photograph files to upload"
+          className="sr-only"
+        />
+      ) : null}
+
       <AdminPageHeader
         compactMobile
-        keepDescriptionOnMobile
-        eyebrow="PUBLIC WEBSITE MEDIA"
+        eyebrow="STUDIO PHOTO GALLERY"
         icon={Images}
         title="Gallery"
         titleId="gallery-page-heading"
         description="Manage studio photographs and curate the images displayed on the public website."
         meta={
-          <div className="flex flex-wrap items-center gap-1.5">
-            <AdminStatusBadge tone="ivory" size="sm">
-              Owner Only
-            </AdminStatusBadge>
-            {isOwner ? (
-              <>
-                <AdminStatusBadge tone="neutral" size="sm">
-                  Total: {counts.total}
-                </AdminStatusBadge>
-                <AdminStatusBadge tone="lime" dot size="sm">
-                  Published: {counts.published}
-                </AdminStatusBadge>
-                <AdminStatusBadge tone="ivory" size="sm">
-                  Draft: {counts.draft}
-                </AdminStatusBadge>
-                <AdminStatusBadge tone="neutral" size="sm">
-                  Archived: {counts.archived}
-                </AdminStatusBadge>
-              </>
-            ) : null}
-          </div>
+          <AdminStatusBadge tone="ivory" size="sm">
+            Owner Only
+          </AdminStatusBadge>
+        }
+        actions={
+          isOwner ? (
+            <AdminButton type="button" variant="primary" size="sm" onClick={handleTriggerAddPhotos}>
+              <Plus className="h-4 w-4 text-[#C8F13A]" aria-hidden="true" />
+              <span>Add Photos</span>
+            </AdminButton>
+          ) : null
         }
       >
         {isOwner ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-xl border border-[#151515]/[0.08] bg-white/80 p-2.5 sm:p-3">
-              <p className="font-mono text-[10px] font-semibold tracking-wide text-[#756F65] uppercase">
-                Total Images
-              </p>
-              <p
-                data-testid="gallery-count-total"
-                className="mt-0.5 text-lg font-bold text-[#151515] sm:text-xl"
+          <div
+            role="tablist"
+            aria-label="Mode pengelolaan galeri"
+            className="inline-flex rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-1"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === GALLERY_TABS.PHOTOS}
+              onClick={() => setActiveTab(GALLERY_TABS.PHOTOS)}
+              className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors ${
+                activeTab === GALLERY_TABS.PHOTOS
+                  ? 'bg-[#151515] text-[#F1EEE4] shadow-xs'
+                  : 'text-[#46433D] hover:text-[#151515]'
+              }`}
+            >
+              <Images className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Photos</span>
+              <span
+                className={`py-0.2 rounded-full px-1.5 font-mono text-[10px] ${
+                  activeTab === GALLERY_TABS.PHOTOS
+                    ? 'bg-[#C8F13A] text-[#151515]'
+                    : 'bg-[#151515]/10 text-[#46433D]'
+                }`}
               >
                 {counts.total}
-              </p>
-            </div>
-            <div className="rounded-xl border border-[#8BAD12]/35 bg-[#EDF8C2]/55 p-2.5 sm:p-3">
-              <p className="font-mono text-[10px] font-semibold tracking-wide text-[#243300] uppercase">
-                Published
-              </p>
-              <p
-                data-testid="gallery-count-published"
-                className="mt-0.5 text-lg font-bold text-[#151515] sm:text-xl"
-              >
-                {counts.published}
-              </p>
-            </div>
-            <div className="rounded-xl border border-[#151515]/[0.08] bg-white/80 p-2.5 sm:p-3">
-              <p className="font-mono text-[10px] font-semibold tracking-wide text-[#756F65] uppercase">
-                Draft
-              </p>
-              <p
-                data-testid="gallery-count-draft"
-                className="mt-0.5 text-lg font-bold text-[#151515] sm:text-xl"
-              >
-                {counts.draft}
-              </p>
-            </div>
-            <div className="rounded-xl border border-[#151515]/[0.08] bg-white/80 p-2.5 sm:p-3">
-              <p className="font-mono text-[10px] font-semibold tracking-wide text-[#756F65] uppercase">
-                Archived
-              </p>
-              <p
-                data-testid="gallery-count-archived"
-                className="mt-0.5 text-lg font-bold text-[#151515] sm:text-xl"
-              >
-                {counts.archived}
-              </p>
-            </div>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === GALLERY_TABS.LANDING_PAGE}
+              onClick={() => setActiveTab(GALLERY_TABS.LANDING_PAGE)}
+              className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors ${
+                activeTab === GALLERY_TABS.LANDING_PAGE
+                  ? 'bg-[#151515] text-[#F1EEE4] shadow-xs'
+                  : 'text-[#46433D] hover:text-[#151515]'
+              }`}
+            >
+              <LayoutTemplate className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Landing Page</span>
+            </button>
           </div>
         ) : null}
       </AdminPageHeader>
@@ -327,219 +555,178 @@ export function AdminGalleryPage() {
         <GalleryOwnerAccessNotice />
       ) : (
         <>
+          {loadError || placementsError || actionError ? (
+            <AdminSurface
+              as="div"
+              role="alert"
+              variant="subcard"
+              className="border-red-300 bg-red-50 p-3 text-xs font-medium text-red-800 sm:p-3.5"
+            >
+              {actionError || loadError || placementsError}
+            </AdminSurface>
+          ) : null}
+
           {reachedQueryLimit ? (
             <AdminSurface
               as="div"
               role="status"
               variant="subcard"
-              className="border-amber-500/40 bg-[#FEF4DD] p-3.5 text-xs text-[#6B3B08] sm:p-4"
+              className="border-amber-500/40 bg-[#FEF4DD] p-3 text-xs text-[#6B3B08]"
             >
-              <div className="flex items-start gap-2.5">
-                <AlertTriangle
-                  className="mt-0.5 h-4 w-4 shrink-0 text-[#8A4B08]"
-                  aria-hidden="true"
-                />
-                <div>
-                  <p className="font-semibold">Batas Kuota Tampilan Pustaka Tercapai</p>
-                  <p className="mt-0.5 leading-relaxed">
-                    Query pustaka menampilkan maksimal {GALLERY_BOUNDED_QUERY_LIMIT} dokumen
-                    teratas. Arsipkan foto lama yang tidak digunakan agar pustaka tetap ringkas.
-                  </p>
-                </div>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-[#8A4B08]" aria-hidden="true" />
+                <span>
+                  Menampilkan {GALLERY_BOUNDED_QUERY_LIMIT} foto terbaru. Arsipkan foto lama yang
+                  tidak digunakan agar galeri tetap ringkas.
+                </span>
               </div>
             </AdminSurface>
           ) : null}
 
-          {loadError || actionError ? (
-            <AdminSurface
-              as="div"
-              role="alert"
-              variant="subcard"
-              className="border-red-300 bg-red-50 p-3.5 text-xs font-medium text-red-800 sm:p-4"
-            >
-              {actionError || loadError}
-            </AdminSurface>
-          ) : null}
-
-          {/* Area A: Upload Dropzone & Queue */}
-          <GalleryUploadDropzone cloudinaryConfig={cloudinaryConfig} onSelectFiles={enqueueFiles} />
-
+          {/* Compact Upload Progress & Partial-Failure Recovery Bar */}
           <GalleryUploadQueue
             queue={queue}
             onCancelQueued={cancelQueuedItem}
             onRetryUpload={retryFailedUpload}
             onRetryMetadataSave={retryMetadataSave}
-            onRemoveCompleted={removeCompletedItems}
             onDismissItem={dismissQueueItem}
           />
 
-          {/* Area C (Optional Collapsible / Live Strip): Public Landing Page Arrangement Preview */}
-          {showPublicPreview ? (
-            <AdminSurface
-              as="section"
-              variant="ivory"
-              aria-labelledby="public-arrangement-preview-heading"
-              className="p-4 sm:p-6"
+          {/* TAB 1: PHOTOS (Native Phone Gallery Experience) */}
+          {activeTab === GALLERY_TABS.PHOTOS ? (
+            <div
+              className={`space-y-3.5 rounded-2xl transition-colors ${
+                isDragOver ? 'bg-[#EDF8C2]/25 p-2 ring-2 ring-[#151515]' : ''
+              }`}
             >
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.08] pb-3">
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-[#151515]" aria-hidden="true" />
-                  <div>
-                    <h3
-                      id="public-arrangement-preview-heading"
-                      className="text-sm font-bold text-[#151515] sm:text-base"
-                    >
-                      Public Landing Page Gallery Arrangement ({publishedItems.length})
-                    </h3>
-                    <p className="text-xs text-[#666159]">
-                      Urutan foto yang saat ini tampil secara publik di Landing Page.
-                    </p>
-                  </div>
-                </div>
-                <AdminStatusBadge tone="lime" dot size="sm">
-                  {publishedItems.length} Live Photos
-                </AdminStatusBadge>
-              </div>
+              <GalleryToolbar
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+                counts={counts}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+              />
 
-              {publishedItems.length === 0 ? (
-                <p className="mt-4 text-xs text-[#666159]">
-                  Belum ada foto berstatus Published. Landing Page publik saat ini menampilkan pesan
-                  &ldquo;Studio photos coming soon.&rdquo;
-                </p>
-              ) : (
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {publishedItems.map((pubItem, index) => (
-                    <div
-                      key={pubItem.id}
-                      className="flex flex-col justify-between overflow-hidden rounded-xl border border-[#151515]/15 bg-white p-2.5"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-1 pb-1.5">
-                          <span className="rounded-md bg-[#151515] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#C8F13A]">
-                            #{index + 1}
-                          </span>
-                          <span className="truncate font-mono text-[10px] text-[#756F65]">
-                            {pubItem.category}
-                          </span>
-                        </div>
-                        <div className="overflow-hidden rounded-lg bg-[#151515]">
-                          <StudioImage
-                            src={pubItem.thumbnailUrl || pubItem.secureUrl}
-                            alt={pubItem.altText || pubItem.title}
-                            width={pubItem.width}
-                            height={pubItem.height}
-                            className="aspect-[4/4.3] w-full"
-                          />
-                        </div>
-                        <p className="mt-2 truncate text-xs font-bold text-[#151515]">
-                          {pubItem.title}
-                        </p>
-                      </div>
-
-                      <div className="mt-2 flex items-center justify-between gap-1 border-t border-[#151515]/[0.07] pt-2">
-                        <div className="flex items-center gap-1">
-                          <AdminButton
-                            type="button"
-                            variant="secondary"
-                            size="xs"
-                            disabled={busyItemId === pubItem.id || index === 0}
-                            onClick={() => handleReorder(pubItem, 'up')}
-                            aria-label={`Move ${pubItem.title} up in preview`}
-                          >
-                            <ArrowUp className="h-3 w-3" aria-hidden="true" />
-                          </AdminButton>
-                          <AdminButton
-                            type="button"
-                            variant="secondary"
-                            size="xs"
-                            disabled={
-                              busyItemId === pubItem.id || index === publishedItems.length - 1
-                            }
-                            onClick={() => handleReorder(pubItem, 'down')}
-                            aria-label={`Move ${pubItem.title} down in preview`}
-                          >
-                            <ArrowDown className="h-3 w-3" aria-hidden="true" />
-                          </AdminButton>
-                        </div>
-
-                        <AdminButton
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => setPreviewItem(pubItem)}
-                          aria-label={`Preview published photo ${pubItem.title}`}
-                        >
-                          <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                        </AdminButton>
-                      </div>
+              {isLoading ? (
+                <AdminSurface
+                  variant="card"
+                  className="flex items-center gap-3 p-6 text-sm text-[#46433D]"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
+                  <span>Memuat koleksi foto...</span>
+                </AdminSurface>
+              ) : filteredItems.length === 0 ? (
+                <div className="space-y-3">
+                  <GalleryEmptyState
+                    activeFilter={activeFilter}
+                    searchQuery={searchQuery}
+                    onResetFilters={() => {
+                      setActiveFilter('all');
+                      setSearchQuery('');
+                    }}
+                  />
+                  {items.length === 0 ? (
+                    <div className="flex justify-center">
+                      <AdminButton
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={handleTriggerAddPhotos}
+                      >
+                        <ImagePlus className="h-4 w-4 text-[#C8F13A]" aria-hidden="true" />
+                        <span>Add Photos</span>
+                      </AdminButton>
                     </div>
-                  ))}
+                  ) : null}
                 </div>
+              ) : (
+                <GalleryItemGrid
+                  items={filteredItems}
+                  publishedOrderIds={publishedOrderIds}
+                  usageByGalleryItemId={usageByGalleryItemId}
+                  onSelectItem={(item) => setPreviewItemId(item.id)}
+                />
               )}
-            </AdminSurface>
+            </div>
           ) : null}
 
-          {/* Area B: Gallery Library Filter & Grid */}
-          <GalleryToolbar
-            activeFilter={activeFilter}
-            onFilterChange={setActiveFilter}
-            counts={counts}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            showPublicPreview={showPublicPreview}
-            onTogglePublicPreview={() => setShowPublicPreview((prev) => !prev)}
+          {/* TAB 2: LANDING PAGE MEDIA MANAGER */}
+          {activeTab === GALLERY_TABS.LANDING_PAGE ? (
+            <LandingPageMediaManager
+              placementsById={placementsById}
+              galleryItems={items}
+              onChangePhoto={handleOpenChangePhoto}
+              onEditCopy={handleOpenEditCopy}
+            />
+          ) : null}
+
+          {/* Photo Detail Sheet / Dialog */}
+          <GalleryItemPreviewDialog
+            open={Boolean(previewItem)}
+            item={previewItem}
+            publishedPosition={previewPublishedPosition}
+            canMoveUp={previewCanMoveUp}
+            canMoveDown={previewCanMoveDown}
+            usedPlacements={previewUsedPlacements}
+            isBusy={Boolean(previewItem && busyItemId === previewItem.id)}
+            onOpenChange={(open) => {
+              if (!open) setPreviewItemId('');
+            }}
+            onEdit={(item) => {
+              setPreviewItemId('');
+              setEditingItem(item);
+            }}
+            onPublish={handlePublish}
+            onUnpublish={handleUnpublish}
+            onArchive={handleArchive}
+            onRestore={handleRestore}
+            onMoveUp={(item) => handleReorder(item, 'up')}
+            onMoveDown={(item) => handleReorder(item, 'down')}
           />
 
-          {isLoading ? (
-            <AdminSurface
-              variant="card"
-              className="flex items-center gap-3 p-6 text-sm text-[#46433D]"
-            >
-              <Loader2 className="h-4 w-4 animate-spin text-[#151515]" aria-hidden="true" />
-              <span>Memuat pustaka foto studio dari Firestore...</span>
-            </AdminSurface>
-          ) : filteredItems.length === 0 ? (
-            <GalleryEmptyState
-              activeFilter={activeFilter}
-              searchQuery={searchQuery}
-              onResetFilters={() => {
-                setActiveFilter('all');
-                setSearchQuery('');
-              }}
-            />
-          ) : (
-            <GalleryItemGrid
-              items={filteredItems}
-              publishedOrderIds={publishedOrderIds}
-              busyItemId={busyItemId}
-              onEdit={setEditingItem}
-              onPreview={setPreviewItem}
-              onPublish={handlePublish}
-              onUnpublish={handleUnpublish}
-              onArchive={handleArchive}
-              onRestore={handleRestore}
-              onMoveUp={(item) => handleReorder(item, 'up')}
-              onMoveDown={(item) => handleReorder(item, 'down')}
-            />
-          )}
-
+          {/* Simplified Photo Title & Description Editor */}
           <GalleryItemEditorDialog
             open={Boolean(editingItem)}
             item={editingItem}
             onOpenChange={(open) => {
               if (!open) setEditingItem(null);
             }}
-            onSave={handleSaveEditedMetadata}
+            onSave={handleSaveEditedPhoto}
           />
 
-          <GalleryItemPreviewDialog
-            open={Boolean(previewItem)}
-            item={previewItem}
-            publishedPosition={activePreviewPublishedPosition}
+          {/* Landing Page Placement Editor Dialog */}
+          <LandingPagePlacementEditorDialog
+            key={`placement-editor-${editorState.placementId}-${editorState.sessionKey}`}
+            open={editorState.open}
+            placementId={editorState.placementId}
+            existingPlacement={placementsById[editorState.placementId] || null}
+            selectedPhoto={editorState.selectedPhoto}
             onOpenChange={(open) => {
-              if (!open) setPreviewItem(null);
+              if (!open) {
+                setEditorState((prev) => ({ ...prev, open: false }));
+              }
             }}
-            onEdit={setEditingItem}
+            onOpenPhotoPicker={() => {
+              setPickerPlacementId(editorState.placementId);
+            }}
+            onSavePlacement={handleSavePlacement}
+          />
+
+          {/* Landing Page Photo Picker Dialog */}
+          <LandingPagePhotoPickerDialog
+            open={Boolean(pickerPlacementId)}
+            placementId={pickerPlacementId}
+            galleryItems={items}
+            selectedPhotoId={
+              editorState.selectedPhoto?.id ||
+              placementsById[pickerPlacementId]?.sourceGalleryItemId ||
+              ''
+            }
+            onOpenChange={(open) => {
+              if (!open) setPickerPlacementId('');
+            }}
+            onSelectPhoto={handleSelectPhotoForPlacement}
+            onUploadNewPhoto={handleUploadNewPhotoFromPicker}
           />
         </>
       )}

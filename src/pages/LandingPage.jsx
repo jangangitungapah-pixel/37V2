@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { BookingSection } from '@/components/landing/BookingSection';
 import { GallerySection } from '@/components/landing/GallerySection';
@@ -10,6 +10,8 @@ import { SiteFooter } from '@/components/landing/SiteFooter';
 import { SiteHeader } from '@/components/landing/SiteHeader';
 import { TestimonialsAndContactSection } from '@/components/landing/TestimonialsAndContactSection';
 import { landingPageContent } from '@/data/landing-page-content';
+import { usePublishedLandingPagePlacements } from '@/features/admin/gallery/hooks/usePublishedLandingPagePlacements';
+import { mergeLandingPageContentWithPlacements } from '@/features/admin/gallery/utils/landing-page-placement-normalize';
 
 const SERVICE_NAMES = {
   rehearsal: 'Rehearsal',
@@ -42,6 +44,12 @@ function scrollToSection(hash) {
 }
 
 export function LandingPage({ content = landingPageContent }) {
+  const { placementsById } = usePublishedLandingPagePlacements();
+  const effectiveContent = useMemo(
+    () => mergeLandingPageContentWithPlacements(content, placementsById),
+    [content, placementsById],
+  );
+
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [returnFocusToMenuTrigger, setReturnFocusToMenuTrigger] = useState(false);
   const [selectedService, setSelectedService] = useState('rehearsal');
@@ -104,8 +112,8 @@ export function LandingPage({ content = landingPageContent }) {
 
       {/* Sections 01 & 02 — Non-Sticky Utility Strip & Sticky Main Header */}
       <SiteHeader
-        utilityStrip={content.utilityStrip}
-        header={content.header}
+        utilityStrip={effectiveContent.utilityStrip}
+        header={effectiveContent.header}
         onNavigate={handleNavigate}
         onOpenLogin={handleOpenLogin}
         mobileMenuTriggerRef={mobileMenuTriggerRef}
@@ -114,20 +122,27 @@ export function LandingPage({ content = landingPageContent }) {
       {/* Main Content Landmark */}
       <main id="main-content">
         {/* Sections 03 & 04 — Hero & Acid-Lime Ticker */}
-        <HeroSection hero={content.hero} ticker={content.ticker} onNavigate={handleNavigate} />
+        <HeroSection
+          hero={effectiveContent.hero}
+          ticker={effectiveContent.ticker}
+          onNavigate={handleNavigate}
+        />
 
         {/* Section 05 — Services ("Pick your session") */}
-        <ServicesSection services={content.services} onSelectService={handleSelectService} />
+        <ServicesSection
+          services={effectiveContent.services}
+          onSelectService={handleSelectService}
+        />
 
         {/* Section 06 — Rooms ("Two rooms, zero guesswork") */}
-        <RoomsSection rooms={content.rooms} onSelectRoom={handleSelectRoom} />
+        <RoomsSection rooms={effectiveContent.rooms} onSelectRoom={handleSelectRoom} />
 
         {/* Section 07 — Gallery ("Proof, not renders.") */}
-        <GallerySection gallery={content.gallery} />
+        <GallerySection gallery={effectiveContent.gallery} />
 
         {/* Section 08 — Booking Process + Booking Inquiry Form */}
         <BookingSection
-          bookingSection={content.bookingSection}
+          bookingSection={effectiveContent.bookingSection}
           selectedService={selectedService}
           selectedRoom={selectedRoom}
           selectionVersion={selectionVersion}
@@ -137,17 +152,17 @@ export function LandingPage({ content = landingPageContent }) {
 
         {/* Sections 09 & 10 — Testimonials + Location Card & Final CTA */}
         <TestimonialsAndContactSection
-          testimonialsAndContact={content.testimonialsAndContact}
-          finalCta={content.finalCta}
+          testimonialsAndContact={effectiveContent.testimonialsAndContact}
+          finalCta={effectiveContent.finalCta}
           onNavigate={handleNavigate}
         />
       </main>
 
       {/* Section 11 — Black Footer */}
       <SiteFooter
-        footer={content.footer}
-        contact={content.testimonialsAndContact.contact}
-        navLinks={content.header.navLinks}
+        footer={effectiveContent.footer}
+        contact={effectiveContent.testimonialsAndContact.contact}
+        navLinks={effectiveContent.header.navLinks}
         onNavigate={handleNavigate}
       />
 
@@ -155,7 +170,7 @@ export function LandingPage({ content = landingPageContent }) {
       <LoginComingSoonDialog
         open={loginDialogOpen}
         onOpenChange={setLoginDialogOpen}
-        content={content.loginDialog}
+        content={effectiveContent.loginDialog}
         onGoToBooking={() => handleNavigate('#booking')}
         returnFocusToMenuTrigger={returnFocusToMenuTrigger}
         mobileMenuTriggerRef={mobileMenuTriggerRef}

@@ -84,15 +84,19 @@ export function HeroSection({ hero, ticker, onNavigate }) {
             {/* Right Column on Desktop / Middle on Mobile: Framed Studio Asset Card */}
             <div className="relative lg:col-span-5 lg:row-span-2 lg:row-start-1">
               {/* Overlapping Top-Left Sticker */}
-              <div className="border-studio-ink bg-studio-orange text-studio-white absolute -top-3 left-3 z-10 hidden -rotate-3 border-2 px-3 py-1 font-mono text-[11px] font-bold tracking-wider uppercase shadow-[3px_3px_0px_#151515] sm:-left-3 sm:block">
-                {hero.featuredPhoto.topSticker}
-              </div>
+              {hero.featuredPhoto.topSticker ? (
+                <div className="border-studio-ink bg-studio-orange text-studio-white absolute -top-3 left-3 z-10 hidden -rotate-3 border-2 px-3 py-1 font-mono text-[11px] font-bold tracking-wider uppercase shadow-[3px_3px_0px_#151515] sm:-left-3 sm:block">
+                  {hero.featuredPhoto.topSticker}
+                </div>
+              ) : null}
 
               <div className="brutal-card-lg bg-studio-white overflow-hidden">
                 <div className="relative">
-                  <span className="border-studio-ink bg-studio-white/95 text-studio-ink absolute top-3 right-3 z-10 hidden border px-2 py-0.5 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0px_#151515] sm:inline-block">
-                    {hero.featuredPhoto.demoTagLabel}
-                  </span>
+                  {hero.featuredPhoto.isDemoAsset && hero.featuredPhoto.demoTagLabel ? (
+                    <span className="border-studio-ink bg-studio-white/95 text-studio-ink absolute top-3 right-3 z-10 hidden border px-2 py-0.5 font-mono text-[10px] font-bold uppercase shadow-[2px_2px_0px_#151515] sm:inline-block">
+                      {hero.featuredPhoto.demoTagLabel}
+                    </span>
+                  ) : null}
                   <StudioImage
                     src={hero.featuredPhoto.src}
                     alt={hero.featuredPhoto.alt}

@@ -12,6 +12,11 @@ import {
   resetGalleryRepositoryAdapter,
   setGalleryRepositoryAdapter,
 } from '@/features/admin/gallery/repositories/gallery-repository';
+import {
+  createInMemoryLandingPagePlacementAdapter,
+  resetLandingPagePlacementAdapter,
+  setLandingPagePlacementAdapter,
+} from '@/features/admin/gallery/repositories/landing-page-placement-repository';
 import { getTodayLocalDateString } from '@/lib/booking-date';
 import { LandingPage } from '@/pages/LandingPage';
 
@@ -19,11 +24,13 @@ describe('37 Music Studio Public Landing Page (Phase 2B)', () => {
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
     setGalleryRepositoryAdapter(createInMemoryGalleryRepositoryAdapter([]));
+    setLandingPagePlacementAdapter(createInMemoryLandingPagePlacementAdapter([]));
   });
 
   afterEach(() => {
     vi.useRealTimers();
     resetGalleryRepositoryAdapter();
+    resetLandingPagePlacementAdapter();
     cleanup();
   });
 

@@ -197,6 +197,11 @@ export function TestimonialsAndContactSection({ testimonialsAndContact, finalCta
                     height={contact.image.height}
                     className="aspect-[16/9] w-full"
                   />
+                  {contact.image.caption ? (
+                    <p className="border-studio-ink bg-studio-ivory text-studio-muted-ink border-t-2 px-3 py-1.5 font-mono text-[11px] font-semibold">
+                      {contact.image.caption}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 

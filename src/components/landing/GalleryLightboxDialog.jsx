@@ -49,9 +49,16 @@ export function GalleryLightboxDialog({ isOpen, activeIndex, items, onClose, onP
                 </div>
 
                 <div className="border-studio-ink bg-studio-ivory flex flex-col justify-between gap-3 border-t-2 p-4 sm:flex-row sm:items-center sm:px-5">
-                  <Dialog.Description className="text-studio-muted-ink text-xs leading-relaxed">
-                    {activeItem.alt}
-                  </Dialog.Description>
+                  <div className="min-w-0 space-y-1">
+                    {activeItem.caption ? (
+                      <p className="text-studio-ink text-xs leading-snug font-bold sm:text-sm">
+                        {activeItem.caption}
+                      </p>
+                    ) : null}
+                    <Dialog.Description className="text-studio-muted-ink text-xs leading-relaxed">
+                      {activeItem.alt}
+                    </Dialog.Description>
+                  </div>
 
                   <div className="flex shrink-0 items-center gap-2">
                     <button

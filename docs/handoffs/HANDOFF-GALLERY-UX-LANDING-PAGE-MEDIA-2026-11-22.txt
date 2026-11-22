@@ -1,0 +1,164 @@
+========================================================================
+37 MUSIC STUDIO — GALLERY UX SIMPLIFICATION & LANDING PAGE MEDIA HANDOFF
+Date: 2026-11-22
+Repository: https://github.com/jangangitungapah-pixel/37V2
+Branch: main
+Base HEAD: 5c2678d3b28a0de7b02324cc8419fc2b72ecfdbc
+========================================================================
+
+1. SUMMARY OF UX CHANGES (/admin/gallery)
+-----------------------------------------
+Redesigned /admin/gallery into a natural, mobile-first photo-library
+experience similar to a smartphone Gallery app:
+
+- Two Workspace Tabs:
+  1) Photos (default active tab):
+     - Responsive square photo grid (3 columns on mobile phones, 4 on tablet,
+       5 on desktop) occupying the main screen.
+     - Header "+ Add Photos" button opens the device multi-file picker directly.
+     - Simple filter pills: Semua, Galeri Website, Tersembunyi, Arsip + title search.
+     - Photo tiles show only the photograph, a subtle title overlay, and tiny
+       publication/usage badges ("Galeri #N", "Used on Landing Page", "Arsip").
+     - Technical metadata (Cloudinary publicId/assetId, Firestore IDs, dimensions,
+       bytes, format, schemaVersion, record version, UIDs, raw timestamps) is
+       preserved in Firestore but removed from the everyday photo grid.
+     - Tapping a photo opens a mobile bottom-sheet / desktop modal detail view
+       (GalleryItemPreviewDialog) with natural labels ("Judul Foto", "Deskripsi",
+       "Tampilkan di Galeri Website", "Sembunyikan dari Galeri", "Edit Foto",
+       "Arsipkan Foto", "Pulihkan Foto", "Geser Naik", "Geser Turun").
+     - Completed upload queue rows automatically collapse out of view, while
+       in-progress uploads and failed uploads (including "Simpan Ulang Foto" /
+       Retry Save Metadata without re-uploading the binary) remain recoverable.
+  2) Landing Page:
+     - Dedicated Landing Page Media Manager for the 4 fixed website image
+       placements and their copywriting.
+
+2. SUMMARY OF LANDING PAGE MEDIA MANAGEMENT
+-------------------------------------------
+- Four Fixed Placements in collection landingPagePlacements/{placementId}:
+  1) hero-featured -> landingPageContent.hero.featuredPhoto
+     Editable copy: topSticker, captionTitle, captionSubtitle,
+     floatingBadgeTitle, floatingBadgeSubtitle + altText.
+     Automatically removes/hides DEMO PREVIEW and DEMO ASSET when a real
+     photo is configured.
+  2) room-a -> landingPageContent.rooms.items (id === "room-a")
+     Editable copy: sticker, name, capacityLabel, tags (1..6), ctaLabel + altText.
+     Preserves immutable room.id ("room-a") and defaultService ("rehearsal").
+  3) room-b -> landingPageContent.rooms.items (id === "room-b")
+     Editable copy: sticker, name, capacityLabel, tags (1..6), ctaLabel + altText.
+     Preserves immutable room.id ("room-b") and defaultService ("recording").
+  4) studio-exterior -> landingPageContent.testimonialsAndContact.contact.image
+     Editable copy: optional caption rendered unobtrusively below the location
+     image + altText.
+
+- Photo Selection & Upload Workflow:
+  * Tapping "Ganti Foto" opens a thumbnail-only photo picker reusing the
+    Gallery library, highlighting the currently selected photo.
+  * Supports assigning the same Gallery photo to multiple placements and
+    uploading a brand-new photo directly inside the picker ("Upload New Photo").
+  * Gallery library publication status (galleryItems.status) and Landing Page
+    placement publication status (landingPagePlacements.status) are independent.
+  * All 4 old dummy SVG sources (/images/demo/room-a-live.svg,
+    /images/demo/room-b-control.svg, /images/demo/location-exterior.svg) have
+    been removed from active rendering and fall back to a neutral StudioImage
+    placeholder when unconfigured.
+  * Public GalleryLightboxDialog now displays the photo's caption alongside
+    its accessibility description.
+
+3. FIRESTORE DATA MODEL & SECURITY RULES CHANGES
+------------------------------------------------
+- Preserved galleryItems/{galleryItemId} strict 22-field schema and rules.
+- Added landingPagePlacements/{placementId} strict 19-field schema and rules
+  in firestore.rules:
+  * Fixed placementId allow-list: hero-featured, room-a, room-b, studio-exterior.
+  * Placement-specific copy map validators: isValidHeroFeaturedCopy,
+    isValidRoomPlacementCopy, isValidStudioExteriorCopy.
+  * Active Owner can read all placements and create (version == 1) or update
+    (version == resource.data.version + 1) valid placements.
+  * Anonymous visitors and Active Staff can read only when status == "published".
+  * Inactive accounts are denied all reads and writes.
+  * Delete is prohibited (allow delete: if false).
+- Public query uses where("status", "==", "published"), limit(10).
+
+4. ADDED & MODIFIED FILES
+-------------------------
+Added:
+- src/features/admin/gallery/config/landing-page-placements-config.js
+- src/features/admin/gallery/schemas/landing-page-placement-schema.js
+- src/features/admin/gallery/utils/landing-page-placement-normalize.js
+- src/features/admin/gallery/repositories/landing-page-placement-repository.js
+- src/features/admin/gallery/services/landing-page-placement-service.js
+- src/features/admin/gallery/hooks/useLandingPagePlacements.js
+- src/features/admin/gallery/hooks/usePublishedLandingPagePlacements.js
+- src/features/admin/gallery/components/LandingPageMediaManager.jsx
+- src/features/admin/gallery/components/LandingPagePhotoPickerDialog.jsx
+- src/features/admin/gallery/components/LandingPagePlacementEditorDialog.jsx
+- docs/handoffs/HANDOFF-GALLERY-UX-LANDING-PAGE-MEDIA-2026-11-22.txt
+
+Modified:
+- firestore.rules
+- scripts/verify-gallery-module.ps1
+- docs/architecture/ADMIN-GALLERY-MANAGEMENT.md
+- src/data/landing-page-content.js
+- src/pages/LandingPage.jsx
+- src/pages/LandingPage.test.jsx
+- src/components/landing/HeroSection.jsx
+- src/components/landing/RoomsSection.jsx
+- src/components/landing/TestimonialsAndContactSection.jsx
+- src/components/landing/GalleryLightboxDialog.jsx
+- src/features/admin/gallery/components/GalleryToolbar.jsx
+- src/features/admin/gallery/components/GalleryItemCard.jsx
+- src/features/admin/gallery/components/GalleryItemGrid.jsx
+- src/features/admin/gallery/components/GalleryItemPreviewDialog.jsx
+- src/features/admin/gallery/components/GalleryItemEditorDialog.jsx
+- src/features/admin/gallery/components/GalleryUploadQueue.jsx
+- src/features/admin/gallery/pages/AdminGalleryPage.jsx
+- src/features/admin/gallery/gallery.test.jsx
+
+5. ACTUAL TEST, EMULATOR, RESPONSIVE QA & BUILD RESULTS
+-------------------------------------------------------
+- Verification script: scripts/verify-gallery-module.ps1 (exit code 0)
+  * Scoped Prettier Format Check: PASS
+  * ESLint (npm run lint): PASS (0 errors, 0 warnings)
+  * Full Vitest Suite (npm run test:run): PASS (14 test files passed, 113 tests passed)
+    - src/features/admin/gallery/gallery.test.jsx: 7 passed (7)
+    - src/pages/LandingPage.test.jsx: 10 passed (10)
+    - src/features/admin/admin-shell.test.jsx: 5 passed (5)
+    - src/features/admin/settings/settings-center.test.jsx: 9 passed (9)
+    - src/features/admin/settings/settings.test.jsx: 7 passed (7)
+    - src/features/auth/auth.test.jsx: 12 passed (12)
+    - src/features/admin/calendar/calendar.test.jsx: 11 passed (11)
+    - src/features/admin/calendar/duration-discount.test.jsx: 16 passed (16)
+    - src/features/admin/customer/customer.test.jsx: 6 passed (6)
+    - src/features/admin/payment/payment.test.jsx: 6 passed (6)
+    - src/features/admin/commission/commission.test.jsx: 8 passed (8)
+    - src/features/admin/inventory/inventory.test.jsx: 6 passed (6)
+    - src/features/admin/bookkeeping/bookkeeping.test.jsx: 8 passed (8)
+    - src/lib/utils.test.js: 2 passed (2)
+  * Production Build (npm run build): PASS (4088 modules transformed, built in 13.58s)
+  * Saved verification log: .logs/gallery-ux-landing-page-media-20261122-072944.txt
+
+- Firebase Firestore Emulator Rules Verification (project: studio37classic):
+  * 21/21 assertions PASSED via firebase emulators:exec --only firestore:
+    - Owner create/update on hero-featured, room-a, studio-exterior allowed.
+    - Anonymous read on published placement allowed; read on draft placement denied.
+    - Active Staff write denied; inactive account read denied.
+    - Unknown placementId, invalid placement copy shape, non-Cloudinary URL,
+      stale version, and delete all denied (HTTP 403).
+    - Existing galleryItems and collection regressions all passed.
+
+- Headless Chromium Responsive & Visual QA:
+  * Audited /admin/gallery (Photos tab & Landing Page tab) and public / across
+    10 viewports: 286, 320, 360, 375, 390, 430, 768, 1024, 1280, 1440px.
+  * Result: TOTAL_CHECKS=30, FAILURES=0, RUNTIME_ERRORS=0 (verified zero dummy
+    SVGs rendered on public Landing Page).
+
+6. REMAINING KNOWN LIMITATIONS & DEPLOYMENT STATUS
+--------------------------------------------------
+- No git commit, git push, PR merge, or Firebase deployment was performed.
+- Updated firestore.rules must be deployed to Firebase production by the Owner
+  when authorized.
+- Archiving a Gallery photo hides it from the active photo library without
+  physically deleting the binary asset in Cloudinary; physical deletion must
+  be performed manually in Cloudinary Console under the Spark-only architecture.
+========================================================================

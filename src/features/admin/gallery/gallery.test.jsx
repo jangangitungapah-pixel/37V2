@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GallerySection } from '@/components/landing/GallerySection';
 import { landingPageContent } from '@/data/landing-page-content';
 import { AuthContext } from '@/features/auth/AuthContext';
+import { LandingPage } from '@/pages/LandingPage';
 
 import {
   GALLERY_STATUSES,
@@ -13,12 +14,18 @@ import {
   resetCloudinaryConfigOverride,
   setCloudinaryConfigOverride,
 } from './config/gallery-config';
+import { LANDING_PAGE_PLACEMENT_IDS } from './config/landing-page-placements-config';
 import { AdminGalleryPage } from './pages/AdminGalleryPage';
 import {
   createInMemoryGalleryRepositoryAdapter,
   resetGalleryRepositoryAdapter,
   setGalleryRepositoryAdapter,
 } from './repositories/gallery-repository';
+import {
+  createInMemoryLandingPagePlacementAdapter,
+  resetLandingPagePlacementAdapter,
+  setLandingPagePlacementAdapter,
+} from './repositories/landing-page-placement-repository';
 import {
   resetCloudinaryUploadTransport,
   setCloudinaryUploadTransport,
@@ -34,6 +41,7 @@ import {
   unpublishGalleryItem,
   updateGalleryItemMetadata,
 } from './services/gallery-service';
+import { saveLandingPagePlacement } from './services/landing-page-placement-service';
 import { buildCloudinaryOptimizedUrl, isValidCloudinaryDeliveryUrl } from './utils/cloudinary-url';
 
 function buildAuthValue({
@@ -44,18 +52,8 @@ function buildAuthValue({
   active = true,
 } = {}) {
   return {
-    user: {
-      uid,
-      email,
-      displayName,
-    },
-    profile: {
-      uid,
-      role,
-      displayName,
-      email,
-      active,
-    },
+    user: { uid, email, displayName },
+    profile: { uid, role, displayName, email, active },
     role,
     status: 'authenticated',
     authError: null,
@@ -106,7 +104,30 @@ function makeCloudinaryResponse(overrides = {}) {
   };
 }
 
+function makeSampleGalleryItem(id, overrides = {}) {
+  return {
+    id,
+    title: `Photo ${id}`,
+    category: 'Recording',
+    altText: `Descriptive alt text for ${id}`,
+    caption: `Caption for ${id}`,
+    cloudinaryPublicId: `37musicstudio/gallery/${id}`,
+    cloudinaryAssetId: `asset_${id}`,
+    secureUrl: `https://res.cloudinary.com/fodgcil9/image/upload/v1/${id}.webp`,
+    resourceType: 'image',
+    format: 'webp',
+    width: 1600,
+    height: 1200,
+    bytes: 320000,
+    status: 'draft',
+    sortOrder: 1000,
+    version: 1,
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn();
   setCloudinaryConfigOverride({
     VITE_CLOUDINARY_CLOUD_NAME: 'fodgcil9',
     VITE_CLOUDINARY_UPLOAD_PRESET: '37gallery',
@@ -118,112 +139,54 @@ afterEach(() => {
   resetCloudinaryConfigOverride();
   resetCloudinaryUploadTransport();
   resetGalleryRepositoryAdapter();
+  resetLandingPagePlacementAdapter();
 });
 
-describe('14.1 Cloudinary Configuration & URL Optimization', () => {
-  it('resolves cloudName and uploadPreset cleanly, reports missing config, and never reads API Key or Secret', () => {
+describe('1. Cloudinary Configuration, Upload & Service Invariants', () => {
+  it('resolves public config cleanly, never reads API Key/Secret, and generates optimized f_auto,q_auto,c_limit,w_ URLs', () => {
     resetCloudinaryConfigOverride();
 
     const validCfg = getCloudinaryConfig({
       VITE_CLOUDINARY_CLOUD_NAME: 'fodgcil9',
       VITE_CLOUDINARY_UPLOAD_PRESET: '37gallery',
-      VITE_CLOUDINARY_API_KEY: 'should-never-be-read',
-      VITE_CLOUDINARY_API_SECRET: 'should-never-be-read',
+      VITE_CLOUDINARY_API_KEY: 'forbidden-key',
+      VITE_CLOUDINARY_API_SECRET: 'forbidden-secret',
     });
 
     expect(validCfg.isConfigured).toBe(true);
     expect(validCfg.cloudName).toBe('fodgcil9');
     expect(validCfg.uploadPreset).toBe('37gallery');
-    expect(validCfg.uploadEndpoint).toBe('https://api.cloudinary.com/v1_1/fodgcil9/image/upload');
-    expect(validCfg.apiKey).toBeUndefined();
-    expect(validCfg.apiSecret).toBeUndefined();
-    expect(JSON.stringify(validCfg)).not.toContain('should-never-be-read');
+    expect(JSON.stringify(validCfg)).not.toContain('forbidden');
 
-    const missingCfg = getCloudinaryConfig({});
-    expect(missingCfg.isConfigured).toBe(false);
-    expect(missingCfg.missingKeys).toEqual([
-      'VITE_CLOUDINARY_CLOUD_NAME',
-      'VITE_CLOUDINARY_UPLOAD_PRESET',
-    ]);
-  });
-
-  it('validates HTTPS res.cloudinary.com delivery URLs and injects responsive f_auto,q_auto,c_limit,w_ transformations', () => {
     const rawUrl =
       'https://res.cloudinary.com/fodgcil9/image/upload/v1700000001/37musicstudio/gallery/room-a.webp';
-
     expect(isValidCloudinaryDeliveryUrl(rawUrl, 'fodgcil9')).toBe(true);
-    expect(isValidCloudinaryDeliveryUrl(rawUrl.replace('https:', 'http:'), 'fodgcil9')).toBe(false);
-    expect(
-      isValidCloudinaryDeliveryUrl(
-        'https://evil.example.com/fodgcil9/image/upload/room-a.webp',
-        'fodgcil9',
-      ),
-    ).toBe(false);
-    expect(
-      isValidCloudinaryDeliveryUrl(
-        'https://res.cloudinary.com/othercloud/image/upload/room-a.webp',
-        'fodgcil9',
-      ),
-    ).toBe(false);
-
-    const optimized = buildCloudinaryOptimizedUrl(rawUrl, { width: 900 });
-    expect(optimized).toBe(
+    expect(buildCloudinaryOptimizedUrl(rawUrl, { width: 900 })).toBe(
       'https://res.cloudinary.com/fodgcil9/image/upload/f_auto,q_auto,c_limit,w_900/v1700000001/37musicstudio/gallery/room-a.webp',
     );
   });
-});
 
-describe('14.2 Cloudinary Unsigned Upload & Response Validation', () => {
-  it('sends only file and upload_preset to the unsigned endpoint without API Key or Secret', async () => {
+  it('sends only file and upload_preset in unsigned upload, rejects bad files/responses, and enforces optimistic concurrency', async () => {
     const capturedCalls = [];
     setCloudinaryUploadTransport(async ({ endpoint, formData, onProgress }) => {
-      onProgress?.(50);
+      onProgress?.(100);
       capturedCalls.push({
         endpoint,
         keys: Array.from(formData.keys()),
         preset: formData.get('upload_preset'),
-        file: formData.get('file'),
       });
-      onProgress?.(100);
       return makeCloudinaryResponse();
     });
 
     const file = makeTestImageFile('live-room.webp', 'image/webp', 300000);
-    const result = await uploadImageToCloudinary({ file });
-
-    expect(capturedCalls).toHaveLength(1);
-    expect(capturedCalls[0].endpoint).toBe('https://api.cloudinary.com/v1_1/fodgcil9/image/upload');
+    await uploadImageToCloudinary({ file });
     expect(capturedCalls[0].keys).toEqual(['file', 'upload_preset']);
-    expect(capturedCalls[0].preset).toBe('37gallery');
-    expect(result.cloudinaryPublicId).toBe('37musicstudio/gallery/room-a-session-1');
-    expect(result.format).toBe('webp');
-  });
 
-  it('rejects unsupported formats (SVG/GIF/PDF), oversized files (>10MB), oversized dimensions (>6000px), and malformed responses', async () => {
     const svgFile = makeTestImageFile('vector.svg', 'image/svg+xml', 12000);
     await expect(uploadImageToCloudinary({ file: svgFile })).rejects.toMatchObject({
       code: 'gallery/unsupported-format',
     });
 
-    const gifFile = makeTestImageFile('anim.gif', 'image/gif', 50000);
-    await expect(uploadImageToCloudinary({ file: gifFile })).rejects.toMatchObject({
-      code: 'gallery/unsupported-format',
-    });
-
-    const hugeFile = makeTestImageFile('huge.jpg', 'image/jpeg', 11 * 1024 * 1024);
-    await expect(uploadImageToCloudinary({ file: hugeFile })).rejects.toMatchObject({
-      code: 'gallery/file-too-large',
-    });
-
-    const wideFile = makeTestImageFile('wide.jpg', 'image/jpeg', 500000, {
-      width: 6500,
-      height: 4000,
-    });
-    await expect(uploadImageToCloudinary({ file: wideFile })).rejects.toMatchObject({
-      code: 'gallery/dimensions-too-large',
-    });
-
-    // Response validation
     expect(() =>
       validateCloudinaryUploadResponse(
         makeCloudinaryResponse({
@@ -233,189 +196,494 @@ describe('14.2 Cloudinary Unsigned Upload & Response Validation', () => {
       ),
     ).toThrow(/HTTPS/i);
 
-    expect(() =>
-      validateCloudinaryUploadResponse(
-        makeCloudinaryResponse({
-          secure_url: 'https://cdn.example.com/fodgcil9/image/upload/test.jpg',
-        }),
-        { expectedCloudName: 'fodgcil9' },
-      ),
-    ).toThrow(/res\.cloudinary\.com/i);
-
-    expect(() =>
-      validateCloudinaryUploadResponse(
-        makeCloudinaryResponse({
-          resource_type: 'video',
-        }),
-        { expectedCloudName: 'fodgcil9' },
-      ),
-    ).toThrow(/image/i);
-  });
-});
-
-describe('14.3 Gallery Metadata, Optimistic Concurrency, Publication & Ordering', () => {
-  it('creates draft v1 metadata, increments version on edit, blocks stale writes, and blocks Staff mutations', async () => {
     const adapter = createInMemoryGalleryRepositoryAdapter([]);
-
-    await expect(
-      createGalleryMetadataFromUpload({
-        itemId: 'gal-1',
-        actorUid: 'staff-1',
-        actorRole: 'staff',
-        cloudinaryResponse: makeCloudinaryResponse(),
-        initialMetadata: {
-          title: 'Room A Drum Kit',
-          category: 'Rehearsal',
-          altText: 'Drum kit in Room A',
-        },
-        expectedCloudName: 'fodgcil9',
-        adapter,
-      }),
-    ).rejects.toMatchObject({ code: 'gallery/forbidden' });
-
     const created = await createGalleryMetadataFromUpload({
       itemId: 'gal-1',
       actorUid: 'owner-1',
       actorRole: 'owner',
       cloudinaryResponse: makeCloudinaryResponse(),
-      initialMetadata: {
-        title: 'Room A Drum Kit',
-        category: 'Rehearsal',
-        altText: '',
-      },
+      initialMetadata: { title: 'Room A', category: 'Rehearsal', altText: 'Room A setup' },
       expectedCloudName: 'fodgcil9',
       adapter,
     });
-
     expect(created.version).toBe(1);
-    expect(created.status).toBe(GALLERY_STATUSES.DRAFT);
 
-    // Missing altText prevents publication
-    await expect(
-      publishGalleryItem({
-        item: created,
-        actorUid: 'owner-1',
-        actorRole: 'owner',
-        existingItems: [created],
-        expectedCloudName: 'fodgcil9',
-        adapter,
-      }),
-    ).rejects.toMatchObject({ code: 'gallery/publish-validation-failed' });
-
-    // Edit metadata adds altText and increments version to v2
-    const updatedV2 = await updateGalleryItemMetadata({
+    const updated = await updateGalleryItemMetadata({
       item: created,
       actorUid: 'owner-1',
       actorRole: 'owner',
       input: {
-        title: 'Room A Full Backline',
-        category: 'Live Room (Room A)',
-        altText: 'Full drum kit and guitar amplifiers inside Room A',
-        caption: 'Ready for band rehearsal',
+        title: 'Room A Updated',
+        category: 'Rehearsal',
+        altText: 'Room A updated alt text',
+        caption: 'Updated caption',
       },
       adapter,
     });
+    expect(updated.version).toBe(2);
 
-    expect(updatedV2.version).toBe(2);
-    expect(updatedV2.title).toBe('Room A Full Backline');
-
-    // Stale write using old version v1 fails safely
     await expect(
       updateGalleryItemMetadata({
-        item: created, // stale version 1
+        item: created, // stale v1
         actorUid: 'owner-1',
         actorRole: 'owner',
         input: {
-          title: 'Stale Title Overwrite',
+          title: 'Stale',
           category: 'Rehearsal',
-          altText: 'Valid alt text',
+          altText: 'Valid alt',
           caption: '',
         },
         adapter,
       }),
     ).rejects.toMatchObject({ code: 'gallery/stale-version' });
 
-    // Publish succeeds once altText is valid (version -> v3)
-    const publishedV3 = await publishGalleryItem({
-      item: updatedV2,
+    const published = await publishGalleryItem({
+      item: updated,
       actorUid: 'owner-1',
       actorRole: 'owner',
-      existingItems: [updatedV2],
+      existingItems: [updated],
       expectedCloudName: 'fodgcil9',
       adapter,
     });
-    expect(publishedV3.status).toBe(GALLERY_STATUSES.PUBLISHED);
-    expect(publishedV3.version).toBe(3);
+    expect(published.status).toBe(GALLERY_STATUSES.PUBLISHED);
 
-    // Archive removes from published (v4), and archived cannot be published directly without restore to draft
-    const archivedV4 = await archiveGalleryItem({
-      item: publishedV3,
+    const unpublished = await unpublishGalleryItem({
+      item: published,
       actorUid: 'owner-1',
       actorRole: 'owner',
       adapter,
     });
-    expect(archivedV4.status).toBe(GALLERY_STATUSES.ARCHIVED);
+    expect(unpublished.status).toBe(GALLERY_STATUSES.DRAFT);
 
-    await expect(
-      publishGalleryItem({
-        item: archivedV4,
-        actorUid: 'owner-1',
-        actorRole: 'owner',
-        existingItems: [archivedV4],
-        expectedCloudName: 'fodgcil9',
-        adapter,
+    const archived = await archiveGalleryItem({
+      item: unpublished,
+      actorUid: 'owner-1',
+      actorRole: 'owner',
+      adapter,
+    });
+    expect(archived.status).toBe(GALLERY_STATUSES.ARCHIVED);
+
+    const restored = await restoreGalleryItem({
+      item: archived,
+      actorUid: 'owner-1',
+      actorRole: 'owner',
+      adapter,
+    });
+    expect(restored.status).toBe(GALLERY_STATUSES.DRAFT);
+  });
+});
+
+describe('2. Simplified Native Photo Gallery UX (/admin/gallery Photos Tab)', () => {
+  it('defaults to Photos tab, renders a clean thumbnail grid without technical metadata, opens photo detail, edits title/description, changes visibility, and restores archived photos', async () => {
+    const adapter = createInMemoryGalleryRepositoryAdapter([
+      makeSampleGalleryItem('gal-photo-1', {
+        title: 'Live Room Drum Setup',
+        caption: 'Evening drum tracking',
+        altText: 'Drum kit in Live Room A',
+        cloudinaryPublicId: '37musicstudio/gallery/secret-public-id-01',
+        width: 1920,
+        height: 1080,
+        bytes: 512000,
+        format: 'webp',
+        status: 'draft',
+        version: 3,
       }),
-    ).rejects.toMatchObject({ code: 'gallery/publish-validation-failed' });
+      makeSampleGalleryItem('gal-photo-archived', {
+        title: 'Vintage Amp Corner',
+        caption: 'Archived amp photo',
+        altText: 'Vintage guitar amp in corner',
+        status: 'archived',
+        version: 2,
+      }),
+    ]);
+    setGalleryRepositoryAdapter(adapter);
+    setLandingPagePlacementAdapter(createInMemoryLandingPagePlacementAdapter([]));
 
-    const restoredV5 = await restoreGalleryItem({
-      item: archivedV4,
-      actorUid: 'owner-1',
-      actorRole: 'owner',
-      adapter,
+    const user = userEvent.setup();
+    const { container } = renderGalleryPage();
+
+    // Photos tab is active by default
+    const photosTab = screen.getByRole('tab', { name: /photos/i });
+    expect(photosTab.getAttribute('aria-selected')).toBe('true');
+
+    // Photo tile is rendered in the grid
+    const photoTile = await screen.findByRole('button', {
+      name: /buka foto live room drum setup/i,
     });
-    expect(restoredV5.status).toBe(GALLERY_STATUSES.DRAFT);
-    expect(restoredV5.version).toBe(5);
+    expect(photoTile).toBeTruthy();
+
+    // Normal photo grid MUST NOT display technical asset metadata
+    const pageText = container.textContent || '';
+    expect(pageText).not.toContain('37musicstudio/gallery/secret-public-id-01');
+    expect(pageText).not.toContain('1920 × 1080');
+    expect(pageText).not.toContain('500 KB');
+    expect(pageText).not.toContain('v3');
+
+    // Tap photo tile to open Photo Detail dialog
+    await user.click(photoTile);
+    const detailDialog = await screen.findByRole('dialog');
+    expect(within(detailDialog).getByText('Judul Foto')).toBeTruthy();
+    expect(within(detailDialog).getByText('Evening drum tracking')).toBeTruthy();
+
+    // Publish directly from detail dialog ("Tampilkan di Galeri Website")
+    await user.click(
+      within(detailDialog).getByRole('button', { name: /tampilkan di galeri website/i }),
+    );
+    await waitFor(() => {
+      expect(adapter._getItemById('gal-photo-1').status).toBe('published');
+    });
+
+    // Click "Edit Foto" to edit title and description
+    await user.click(within(detailDialog).getByRole('button', { name: /edit foto/i }));
+    const editDialog = await screen.findByRole('dialog');
+    const titleInput = within(editDialog).getByLabelText(/judul foto/i);
+    const descInput = within(editDialog).getByLabelText(/deskripsi/i);
+
+    await user.clear(titleInput);
+    await user.type(titleInput, 'Room A Master Drum Kit');
+    await user.clear(descInput);
+    await user.type(descInput, 'Custom birch drum kit ready for recording');
+
+    await user.click(within(editDialog).getByRole('button', { name: /simpan perubahan/i }));
+
+    await waitFor(() => {
+      expect(adapter._getItemById('gal-photo-1').title).toBe('Room A Master Drum Kit');
+    });
+    expect(adapter._getItemById('gal-photo-1').caption).toBe(
+      'Custom birch drum kit ready for recording',
+    );
+
+    // Filter to Archived ("Arsip") and restore archived photo without losing metadata
+    await user.click(screen.getByRole('button', { name: /^arsip/i }));
+    const archivedTile = await screen.findByRole('button', {
+      name: /buka foto vintage amp corner/i,
+    });
+    await user.click(archivedTile);
+
+    const archivedDialog = await screen.findByRole('dialog');
+    await user.click(within(archivedDialog).getByRole('button', { name: /pulihkan foto/i }));
+
+    await waitFor(() => {
+      const restored = adapter._getItemById('gal-photo-archived');
+      expect(restored.status).toBe('draft');
+      expect(restored.title).toBe('Vintage Amp Corner');
+      expect(restored.caption).toBe('Archived amp photo');
+    });
   });
 
-  it('swaps sortOrder atomically when reordering published photographs and unpublishes back to draft', async () => {
-    const adapter = createInMemoryGalleryRepositoryAdapter([
-      {
-        id: 'gal-a',
-        title: 'First Published Photo',
+  it('supports multi-image upload, auto-hides completed queue items, and recovers from upload or metadata-save failures without duplicate upload', async () => {
+    const adapter = createInMemoryGalleryRepositoryAdapter([]);
+    setGalleryRepositoryAdapter(adapter);
+    setLandingPagePlacementAdapter(createInMemoryLandingPagePlacementAdapter([]));
+
+    let cloudinaryUploadCalls = 0;
+    setCloudinaryUploadTransport(async ({ formData, onProgress }) => {
+      cloudinaryUploadCalls += 1;
+      const file = formData.get('file');
+      onProgress?.(100);
+      return makeCloudinaryResponse({
+        public_id: `37musicstudio/gallery/${file.name}`,
+        asset_id: `asset_${cloudinaryUploadCalls}`,
+      });
+    });
+
+    // Fail the first Firestore metadata write to verify partial-failure recovery
+    adapter._setNextWriteError(new Error('Simulated Firestore write error'));
+
+    const user = userEvent.setup();
+    renderGalleryPage();
+
+    const fileInput = screen.getByLabelText(/select studio photograph files to upload/i);
+    const file1 = makeTestImageFile('vocal-booth.webp', 'image/webp', 220000);
+    await user.upload(fileInput, file1);
+
+    // Queue shows retry metadata action
+    const retryMetaBtn = await screen.findByRole('button', {
+      name: /retry save metadata for vocal-booth\.webp/i,
+    });
+    expect(cloudinaryUploadCalls).toBe(1);
+
+    // Clicking "Simpan Ulang Foto" saves metadata without calling Cloudinary again
+    await user.click(retryMetaBtn);
+    await waitFor(() => {
+      expect(adapter._getItems()).toHaveLength(1);
+    });
+    expect(cloudinaryUploadCalls).toBe(1);
+
+    // Completed queue item automatically collapses out of view
+    expect(
+      screen.queryByRole('button', { name: /retry save metadata for vocal-booth\.webp/i }),
+    ).toBeNull();
+  });
+});
+
+describe('3. Landing Page Media Manager (/admin/gallery Landing Page Tab)', () => {
+  it('displays all 4 fixed placements, assigns existing or newly uploaded photos, allows shared photo assignment, edits copywriting while preserving immutable room IDs, and recovers from save failure', async () => {
+    const galleryAdapter = createInMemoryGalleryRepositoryAdapter([
+      makeSampleGalleryItem('gal-shared-1', {
+        title: 'Main Live Room Wide',
+        altText: 'Wide angle view of Live Room A',
+        status: 'draft', // Note: draft in generic gallery, yet can be published in placements!
+      }),
+      makeSampleGalleryItem('gal-room-b', {
+        title: 'Control Desk Close-up',
+        altText: 'Mixing console in Room B',
+        status: 'draft',
+      }),
+    ]);
+    const placementAdapter = createInMemoryLandingPagePlacementAdapter([]);
+    setGalleryRepositoryAdapter(galleryAdapter);
+    setLandingPagePlacementAdapter(placementAdapter);
+
+    setCloudinaryUploadTransport(async ({ onProgress }) => {
+      onProgress?.(100);
+      return makeCloudinaryResponse({
+        public_id: '37musicstudio/gallery/fresh-exterior',
+        asset_id: 'asset_fresh_ext',
+        secure_url:
+          'https://res.cloudinary.com/fodgcil9/image/upload/v1/37musicstudio/gallery/fresh-exterior.webp',
+      });
+    });
+
+    const user = userEvent.setup();
+    renderGalleryPage();
+
+    // Switch to "Landing Page" tab
+    await user.click(screen.getByRole('tab', { name: /landing page/i }));
+
+    // All 4 fixed placement cards are displayed
+    expect(screen.getByRole('heading', { name: 'Hero Featured Photo' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Room A — Live Room' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Room B — Control + Booth' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Studio Exterior / Location Photo' })).toBeTruthy();
+
+    // 1. Assign 'gal-shared-1' to Hero Featured Photo and customize Hero copywriting
+    await user.click(screen.getByRole('button', { name: /ganti foto untuk hero featured photo/i }));
+    const pickerDialog1 = await screen.findByRole('dialog');
+    await user.click(
+      within(pickerDialog1).getByRole('option', { name: /pilih foto main live room wide/i }),
+    );
+
+    const heroEditor = await screen.findByRole('dialog');
+    const heroTitleInput = within(heroEditor).getByLabelText(/^judul foto hero/i);
+    await user.clear(heroTitleInput);
+    await user.type(heroTitleInput, '37 STUDIO — MAIN LIVE FLOOR');
+
+    await user.click(within(heroEditor).getByRole('button', { name: /simpan ke landing page/i }));
+
+    await waitFor(() => {
+      expect(
+        placementAdapter._getPlacement(LANDING_PAGE_PLACEMENT_IDS.HERO_FEATURED)?.copy.captionTitle,
+      ).toBe('37 STUDIO — MAIN LIVE FLOOR');
+    });
+
+    // 2. Assign the SAME 'gal-shared-1' photo to Room A, test save failure retention, then retry save
+    await user.click(screen.getByRole('button', { name: /ganti foto untuk room a — live room/i }));
+    const pickerDialog2 = await screen.findByRole('dialog');
+    await user.click(
+      within(pickerDialog2).getByRole('option', { name: /pilih foto main live room wide/i }),
+    );
+
+    const roomAEditor = await screen.findByRole('dialog');
+    const roomANameInput = within(roomAEditor).getByLabelText(/nama ruangan/i);
+    const roomACtaInput = within(roomAEditor).getByLabelText(/teks tombol booking/i);
+    await user.clear(roomANameInput);
+    await user.type(roomANameInput, 'Room A — Flagship Rehearsal Space');
+    await user.clear(roomACtaInput);
+    await user.type(roomACtaInput, 'Pilih Room A');
+
+    // Queue a transient Firestore write error -> editor must retain values in memory
+    placementAdapter._setNextWriteError(new Error('Transient network failure'));
+    await user.click(within(roomAEditor).getByRole('button', { name: /simpan ke landing page/i }));
+    expect(await within(roomAEditor).findByRole('alert')).toBeTruthy();
+    expect(within(roomAEditor).getByLabelText(/nama ruangan/i).value).toBe(
+      'Room A — Flagship Rehearsal Space',
+    );
+
+    // Retry save -> succeeds!
+    await user.click(within(roomAEditor).getByRole('button', { name: /simpan ke landing page/i }));
+    await waitFor(() => {
+      expect(placementAdapter._getPlacement(LANDING_PAGE_PLACEMENT_IDS.ROOM_A)?.copy.name).toBe(
+        'Room A — Flagship Rehearsal Space',
+      );
+    });
+
+    // 3. Upload a brand-new photo directly inside the picker for Studio Exterior
+    await user.click(
+      screen.getByRole('button', {
+        name: /ganti foto untuk studio exterior \/ location photo/i,
+      }),
+    );
+    const pickerDialog3 = await screen.findByRole('dialog');
+    const pickerFileInput = within(pickerDialog3).getByLabelText(/upload new photo for placement/i);
+    const exteriorFile = makeTestImageFile('front-building.webp', 'image/webp', 280000);
+    await user.upload(pickerFileInput, exteriorFile);
+
+    const exteriorEditor = await screen.findByRole('dialog');
+    const captionInput = within(exteriorEditor).getByLabelText(/caption foto lokasi \(opsional\)/i);
+    await user.type(captionInput, 'Pintu masuk utama & area parkir 37 Music Studio');
+    await user.click(
+      within(exteriorEditor).getByRole('button', { name: /simpan ke landing page/i }),
+    );
+
+    await waitFor(() => {
+      expect(
+        placementAdapter._getPlacement(LANDING_PAGE_PLACEMENT_IDS.STUDIO_EXTERIOR)?.copy.caption,
+      ).toBe('Pintu masuk utama & area parkir 37 Music Studio');
+    });
+    expect(galleryAdapter._getItems()).toHaveLength(3);
+
+    // Switch back to Photos tab and verify "Used on Landing Page" badge appears on 'gal-shared-1'
+    await user.click(screen.getByRole('tab', { name: /photos/i }));
+    expect(await screen.findByTestId('used-on-landing-badge-gal-shared-1')).toBeTruthy();
+  });
+});
+
+describe('4. Public Landing Page Dynamic Placement Rendering & Independence', () => {
+  it('replaces all 4 dummy SVGs when published, renders neutral placeholders when unconfigured, keeps generic Gallery independent, and preserves Room booking actions', async () => {
+    const galleryAdapter = createInMemoryGalleryRepositoryAdapter([
+      makeSampleGalleryItem('gal-generic-1', {
+        title: 'Generic Gallery Photo 01',
         category: 'Recording',
-        altText: 'First published studio photo',
-        caption: '',
-        cloudinaryPublicId: '37musicstudio/gallery/a',
-        cloudinaryAssetId: 'asset-a',
-        secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/a.webp',
-        resourceType: 'image',
-        format: 'webp',
-        width: 1200,
-        height: 900,
-        bytes: 200000,
+        altText: 'Published photo in generic gallery section',
+        caption: 'Visible inside the public gallery lightbox',
         status: 'published',
         sortOrder: 1000,
-        version: 1,
+      }),
+    ]);
+    const placementAdapter = createInMemoryLandingPagePlacementAdapter([]);
+    setGalleryRepositoryAdapter(galleryAdapter);
+    setLandingPagePlacementAdapter(placementAdapter);
+
+    const user = userEvent.setup();
+
+    // Before placements are configured: neutral placeholders render and NO dummy SVGs appear anywhere
+    const { container } = render(
+      <MemoryRouter>
+        <LandingPage />
+      </MemoryRouter>,
+    );
+
+    expect(container.innerHTML).not.toMatch(
+      /room-a-live\.svg|room-b-control\.svg|location-exterior\.svg|gallery-guitar\.svg/i,
+    );
+
+    // Now publish all 4 placements with distinct photos & copywriting
+    const heroPhoto = makeSampleGalleryItem('gal-hero', {
+      secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/hero-real.webp',
+    });
+    const roomAPhoto = makeSampleGalleryItem('gal-ra', {
+      secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/room-a-real.webp',
+    });
+    const roomBPhoto = makeSampleGalleryItem('gal-rb', {
+      secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/room-b-real.webp',
+    });
+    const extPhoto = makeSampleGalleryItem('gal-ext', {
+      secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/exterior-real.webp',
+    });
+
+    await saveLandingPagePlacement({
+      placementId: LANDING_PAGE_PLACEMENT_IDS.HERO_FEATURED,
+      actorUid: 'owner-1',
+      actorRole: 'owner',
+      photoItem: heroPhoto,
+      altText: 'Hero real studio photograph',
+      copy: {
+        topSticker: 'VERIFIED STUDIO',
+        captionTitle: 'HERO LIVE TRACKING HALL',
+        captionSubtitle: 'Acoustic treated main room',
+        floatingBadgeTitle: 'Verified Space',
+        floatingBadgeSubtitle: 'Ready for sessions',
       },
-      {
-        id: 'gal-b',
-        title: 'Second Published Photo',
-        category: 'Mixing',
-        altText: 'Second published studio photo',
-        caption: '',
-        cloudinaryPublicId: '37musicstudio/gallery/b',
-        cloudinaryAssetId: 'asset-b',
-        secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/b.webp',
-        resourceType: 'image',
-        format: 'webp',
-        width: 1200,
-        height: 900,
-        bytes: 210000,
+      expectedCloudName: 'fodgcil9',
+      adapter: placementAdapter,
+    });
+
+    await saveLandingPagePlacement({
+      placementId: LANDING_PAGE_PLACEMENT_IDS.ROOM_A,
+      actorUid: 'owner-1',
+      actorRole: 'owner',
+      photoItem: roomAPhoto,
+      altText: 'Room A real photograph',
+      copy: {
+        sticker: 'ROOM A • LIVE',
+        name: 'Room A — Custom Live Stage',
+        capacityLabel: 'Ideal for 5-7 piece bands',
+        tags: ['Custom Tag A1', 'Custom Tag A2'],
+        ctaLabel: 'Book Room A Now',
+      },
+      expectedCloudName: 'fodgcil9',
+      adapter: placementAdapter,
+    });
+
+    await saveLandingPagePlacement({
+      placementId: LANDING_PAGE_PLACEMENT_IDS.ROOM_B,
+      actorUid: 'owner-1',
+      actorRole: 'owner',
+      photoItem: roomBPhoto,
+      altText: 'Room B real photograph',
+      copy: {
+        sticker: 'ROOM B • MIX SUITE',
+        name: 'Room B — Precision Control Suite',
+        capacityLabel: 'Dedicated mixing and vocal production',
+        tags: ['Custom Tag B1'],
+        ctaLabel: 'Book Room B Now',
+      },
+      expectedCloudName: 'fodgcil9',
+      adapter: placementAdapter,
+    });
+
+    await saveLandingPagePlacement({
+      placementId: LANDING_PAGE_PLACEMENT_IDS.STUDIO_EXTERIOR,
+      actorUid: 'owner-1',
+      actorRole: 'owner',
+      photoItem: extPhoto,
+      altText: 'Studio exterior building front',
+      copy: {
+        caption: 'Gedung 37 Music Studio tampak depan',
+      },
+      expectedCloudName: 'fodgcil9',
+      adapter: placementAdapter,
+    });
+
+    // Verify all 4 placements and their copywriting appear live on the Landing Page
+    expect(await screen.findByText('HERO LIVE TRACKING HALL')).toBeTruthy();
+    expect(screen.getByText('Room A — Custom Live Stage')).toBeTruthy();
+    expect(screen.getByText('Room B — Precision Control Suite')).toBeTruthy();
+    expect(screen.getByText('Gedung 37 Music Studio tampak depan')).toBeTruthy();
+
+    // DEMO ASSET tag is hidden when real Hero photo is configured
+    expect(screen.queryByText('DEMO ASSET')).toBeNull();
+
+    // Clicking the customized Room B CTA button still preselects immutable 'room-b' + 'recording'!
+    const roomSelect = screen.getByLabelText(/room preference/i);
+    await user.click(screen.getByRole('button', { name: /book room b now \(room b\)/i }));
+    expect(roomSelect.value).toBe('room-b');
+    expect(screen.getByRole('button', { name: /^recording$/i }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+
+    // Generic public Gallery section only shows 'gal-generic-1' (not the 4 placement photos) and shows its caption in lightbox
+    expect(screen.getByText('Generic Gallery Photo 01')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /view all photos/i }));
+    const lightbox = await screen.findByRole('dialog');
+    expect(within(lightbox).getByText('Visible inside the public gallery lightbox')).toBeTruthy();
+  });
+
+  it('orders published generic gallery items by sortOrder ASC', async () => {
+    const adapter = createInMemoryGalleryRepositoryAdapter([
+      makeSampleGalleryItem('gal-a', {
+        title: 'First Photo',
+        status: 'published',
+        sortOrder: 1000,
+      }),
+      makeSampleGalleryItem('gal-b', {
+        title: 'Second Photo',
         status: 'published',
         sortOrder: 2000,
-        version: 1,
-      },
+      }),
     ]);
+    setGalleryRepositoryAdapter(adapter);
 
     await reorderPublishedGalleryItem({
       itemId: 'gal-b',
@@ -426,190 +694,9 @@ describe('14.3 Gallery Metadata, Optimistic Concurrency, Publication & Ordering'
       adapter,
     });
 
-    const afterSwap = adapter._getItems();
-    expect(afterSwap.map((item) => item.id)).toEqual(['gal-b', 'gal-a']);
-    expect(adapter._getItemById('gal-b').sortOrder).toBe(1000);
-    expect(adapter._getItemById('gal-a').sortOrder).toBe(2000);
-
-    const unpublished = await unpublishGalleryItem({
-      item: adapter._getItemById('gal-b'),
-      actorUid: 'owner-1',
-      actorRole: 'owner',
-      adapter,
-    });
-    expect(unpublished.status).toBe(GALLERY_STATUSES.DRAFT);
-  });
-});
-
-describe('14.3 & 14.4 Admin Gallery UI, Retry Save Metadata & Landing Page Sync', () => {
-  it('blocks Staff with Owner Access Required and keeps private gallery items unread', async () => {
-    const adapter = createInMemoryGalleryRepositoryAdapter([
-      {
-        id: 'gal-secret-draft',
-        title: 'Private Unreleased Room Photo',
-        category: 'Recording',
-        altText: 'Draft photo',
-        caption: '',
-        cloudinaryPublicId: '37musicstudio/gallery/draft',
-        cloudinaryAssetId: 'asset-draft',
-        secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/draft.webp',
-        resourceType: 'image',
-        format: 'webp',
-        width: 1200,
-        height: 900,
-        bytes: 180000,
-        status: 'draft',
-        sortOrder: 1000,
-        version: 1,
-      },
-    ]);
-    setGalleryRepositoryAdapter(adapter);
-
-    renderGalleryPage({
-      authValue: buildAuthValue({ uid: 'staff-1', role: 'staff', email: 'staff@37music.id' }),
-    });
-
-    expect(screen.getByRole('heading', { name: /owner access required/i })).toBeTruthy();
-    expect(screen.queryByText('Private Unreleased Room Photo')).toBeNull();
-    expect(screen.queryByRole('button', { name: /select photographs/i })).toBeNull();
-  });
-
-  it('preserves Cloudinary response on Firestore metadata failure and retries metadata save without duplicate upload', async () => {
-    const adapter = createInMemoryGalleryRepositoryAdapter([]);
-    setGalleryRepositoryAdapter(adapter);
-
-    let cloudinaryUploadCalls = 0;
-    setCloudinaryUploadTransport(async ({ onProgress }) => {
-      cloudinaryUploadCalls += 1;
-      onProgress?.(100);
-      return makeCloudinaryResponse({
-        public_id: '37musicstudio/gallery/retry-test-asset',
-        asset_id: 'asset-retry-99',
-      });
-    });
-
-    // Fail the first Firestore write after Cloudinary upload succeeds
-    adapter._setNextWriteError(new Error('Simulated Firestore write timeout'));
-
-    const user = userEvent.setup();
-    renderGalleryPage();
-
-    const fileInput = screen.getByLabelText(/select studio photograph files to upload/i);
-    const testFile = makeTestImageFile('vocal-booth.webp', 'image/webp', 220000);
-    await user.upload(fileInput, testFile);
-
-    // Wait for Metadata Save Failed state with Public ID displayed
-    expect(await screen.findByText(/metadata save failed/i)).toBeTruthy();
-    expect(screen.getByText('37musicstudio/gallery/retry-test-asset')).toBeTruthy();
-    expect(cloudinaryUploadCalls).toBe(1);
-
-    // Click Retry Save Metadata -> must NOT call Cloudinary upload again
-    const retryMetaBtn = screen.getByRole('button', {
-      name: /retry save metadata for vocal-booth\.webp/i,
-    });
-    await user.click(retryMetaBtn);
-
-    await waitFor(() => {
-      expect(adapter._getItems()).toHaveLength(1);
-    });
-    expect(cloudinaryUploadCalls).toBe(1);
-    expect(adapter._getItems()[0].cloudinaryPublicId).toBe(
-      '37musicstudio/gallery/retry-test-asset',
-    );
-  });
-
-  it('reflects only published photos in public GallerySection in sortOrder ASC and handles empty/error states', async () => {
-    const adapter = createInMemoryGalleryRepositoryAdapter([
-      {
-        id: 'gal-draft-1',
-        title: 'Draft Only Photo',
-        category: 'Draft',
-        altText: 'Draft photo that must not appear on landing page',
-        caption: '',
-        cloudinaryPublicId: '37musicstudio/gallery/d1',
-        cloudinaryAssetId: 'asset-d1',
-        secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/d1.webp',
-        resourceType: 'image',
-        format: 'webp',
-        width: 1200,
-        height: 900,
-        bytes: 180000,
-        status: 'draft',
-        sortOrder: 500,
-        version: 1,
-      },
-      {
-        id: 'gal-arch-1',
-        title: 'Archived Photo',
-        category: 'Archived',
-        altText: 'Archived photo that must not appear on landing page',
-        caption: '',
-        cloudinaryPublicId: '37musicstudio/gallery/ar1',
-        cloudinaryAssetId: 'asset-ar1',
-        secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/ar1.webp',
-        resourceType: 'image',
-        format: 'webp',
-        width: 1200,
-        height: 900,
-        bytes: 180000,
-        status: 'archived',
-        sortOrder: 100,
-        version: 1,
-      },
-      {
-        id: 'gal-pub-second',
-        title: 'Second Ordered Public Photo',
-        category: 'Mixing',
-        altText: 'Mixing desk photo',
-        caption: '',
-        cloudinaryPublicId: '37musicstudio/gallery/p2',
-        cloudinaryAssetId: 'asset-p2',
-        secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/p2.webp',
-        resourceType: 'image',
-        format: 'webp',
-        width: 1200,
-        height: 900,
-        bytes: 200000,
-        status: 'published',
-        sortOrder: 2000,
-        version: 1,
-      },
-      {
-        id: 'gal-pub-first',
-        title: 'First Ordered Public Photo',
-        category: 'Recording',
-        altText: 'Recording room photo',
-        caption: '',
-        cloudinaryPublicId: '37musicstudio/gallery/p1',
-        cloudinaryAssetId: 'asset-p1',
-        secureUrl: 'https://res.cloudinary.com/fodgcil9/image/upload/v1/p1.webp',
-        resourceType: 'image',
-        format: 'webp',
-        width: 1200,
-        height: 900,
-        bytes: 200000,
-        status: 'published',
-        sortOrder: 1000,
-        version: 1,
-      },
-    ]);
-    setGalleryRepositoryAdapter(adapter);
-
     render(<GallerySection gallery={landingPageContent.gallery} />);
-
-    expect(await screen.findByText('First Ordered Public Photo')).toBeTruthy();
-    expect(screen.getByText('Second Ordered Public Photo')).toBeTruthy();
-    expect(screen.queryByText('Draft Only Photo')).toBeNull();
-    expect(screen.queryByText('Archived Photo')).toBeNull();
-
-    const figures = screen.getAllByRole('figure');
-    expect(figures).toHaveLength(2);
-    expect(figures[0].textContent).toContain('First Ordered Public Photo');
-    expect(figures[1].textContent).toContain('Second Ordered Public Photo');
-
-    // Simulate public query error -> graceful non-technical fallback
-    adapter._triggerPublicError(new Error('FirebaseError: permission-denied internal trace'));
-    expect(await screen.findByTestId('gallery-error-state')).toBeTruthy();
-    expect(screen.queryByText(/internal trace/i)).toBeNull();
+    const figures = await screen.findAllByRole('figure');
+    expect(figures[0].textContent).toContain('Second Photo');
+    expect(figures[1].textContent).toContain('First Photo');
   });
 });

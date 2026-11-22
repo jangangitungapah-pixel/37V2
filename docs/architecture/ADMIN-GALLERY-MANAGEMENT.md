@@ -1,139 +1,135 @@
-# Admin Gallery Management & Landing Page Integration Architecture
+# Admin Gallery Management & Landing Page Media Management Architecture
 
-**Module:** Gallery Management  
+**Module:** Gallery Management & Landing Page Media Manager  
 **Admin Route:** `/admin/gallery` (Order `08` in top-level navigation; `Settings` is `09`)  
-**Public Integration Target:** Landing Page Gallery Section (`/#gallery`)  
-**Binary Delivery & Upload:** Cloudinary Direct Unsigned Upload (`VITE_CLOUDINARY_CLOUD_NAME=fodgcil9`, `VITE_CLOUDINARY_UPLOAD_PRESET=37gallery`)  
-**Metadata Store:** Firebase Cloud Firestore (`galleryItems/{galleryItemId}`)  
-**Architecture Policy:** Firebase Spark Plan Compliant (Zero Cloud Functions, Zero Backend Servers, Zero Firebase Storage)
+**Workspace Tabs inside `/admin/gallery`:** `Photos` (default) and `Landing Page`  
+**Public Integration Targets:**
+
+1. Four Fixed Landing Page Placements (`hero-featured`, `room-a`, `room-b`, `studio-exterior`)
+2. Generic Public Gallery Section (`/#gallery` — `"Proof, not renders."`)  
+   **Binary Delivery & Upload:** Cloudinary Direct Unsigned Upload (`VITE_CLOUDINARY_CLOUD_NAME=fodgcil9`, `VITE_CLOUDINARY_UPLOAD_PRESET=37gallery`)  
+   **Metadata Stores:** Firebase Cloud Firestore (`galleryItems/{galleryItemId}` and `landingPagePlacements/{placementId}`)  
+   **Architecture Policy:** Firebase Spark Plan Compliant (Zero Cloud Functions, Zero Backend Servers, Zero Firebase Storage)
 
 ---
 
-## 1. Admin Navigation & Role Access Model
+## 1. Simplified Native Photo Gallery UX (`/admin/gallery`)
 
-- **Top-Level Navigation Order (`src/features/admin/navigation/admin-navigation.js`):**
-  1. `01` Dashboard (`/admin/dashboard`)
-  2. `02` Calendar (`/admin/calendar`)
-  3. `03` Customer (`/admin/customer`)
-  4. `04` Payment and Bill (`/admin/payment-and-bill`)
-  5. `05` Commission and Fee (`/admin/commission-and-fee`)
-  6. `06` Inventory (`/admin/inventory`)
-  7. `07` Pembukuan (`/admin/pembukuan`)
-  8. `08` Gallery (`/admin/gallery`)
-  9. `09` Settings (`/admin/settings`)
-- **Owner-Only Gallery Management:**
-  - `AdminGalleryPage` verifies `role === 'owner'` and an active profile (`profile.active === true`).
-  - Active Staff accounts can see the top-level `Gallery` menu item in the Admin Shell, but visiting `/admin/gallery` renders `GalleryOwnerAccessNotice` (`Owner Access Required`), never subscribes to private `draft`/`archived` Firestore records, and never initializes Cloudinary upload actions.
-  - All mutating service calls in `gallery-service.js` and security rules in `firestore.rules` enforce `isActiveOwner()`.
+`/admin/gallery` is designed as a photo-first, mobile-friendly smartphone gallery experience rather than a technical asset-management console.
 
----
+### 1.1 Main Workspace Navigation
 
-## 2. Cloudinary Unsigned Upload & Security Boundaries
-
-### 2.1 Credential & Security Rules
-
-- **Cloudinary API Secret is NEVER used, read, logged, or stored** in browser code, `.env.example`, `.env.local`, documentation, or handoff artifacts.
-- **Cloudinary API Key is NOT required** for unsigned uploads and is completely omitted from the client application.
-- The upload preset name (`37gallery`) and cloud name (`fodgcil9`) are public to browser clients (`VITE_CLOUDINARY_CLOUD_NAME`, `VITE_CLOUDINARY_UPLOAD_PRESET`).
-- **Client-Side Validation Boundary:** Client-side checks (`<= 10 MB`, `<= 6000 × 6000 px`, non-empty file, allowed formats `jpg/jpeg/png/webp/avif`, rejecting `svg/gif/video/pdf/exe`) improve usability and prevent accidental bad uploads, but **are not a hard server security boundary** because Cloudinary unsigned presets are callable directly by browser clients.
-- **Public Asset Policy:** All uploaded photographs use public HTTPS Cloudinary delivery (`res.cloudinary.com`) and are intended exclusively for approved public promotional studio photography — never private or confidential files.
-
-### 2.2 Required Cloudinary Upload Preset Configuration (`37gallery`)
-
-In **Cloudinary Console → Settings → Upload → Upload Presets → `37gallery`**:
-
-| Setting         | Required Value               |
-| :-------------- | :--------------------------- |
-| Signing Mode    | **Unsigned**                 |
-| Resource Type   | `Image`                      |
-| Asset Folder    | `37musicstudio/gallery`      |
-| Allowed Formats | `jpg, jpeg, png, webp, avif` |
-| Overwrite       | Disabled (`false`)           |
-| Delivery Type   | Public HTTPS (`upload`)      |
-
-### 2.3 Upload & Firestore Persistence Sequence + Partial Failure Recovery
-
-1. A stable Firestore document ID (`gal_<timestamp>_<random>`) is generated **before** the Cloudinary upload starts.
-2. The file is uploaded directly via `POST https://api.cloudinary.com/v1_1/fodgcil9/image/upload` with `FormData` containing only `file` and `upload_preset`. Concurrent uploads are capped at **2 files**.
-3. The JSON response is validated for `public_id`, `asset_id`, `secure_url` (`https://res.cloudinary.com/fodgcil9/image/upload/...`), `resource_type === 'image'`, allowed `format`, and positive integers `width`, `height`, and `bytes`.
-4. **Partial Failure Recovery (Cloudinary succeeded, Firestore metadata write failed):**
-   - The validated Cloudinary response and pre-generated document ID are preserved in the upload queue state (`METADATA_FAILED`).
-   - The UI displays the `cloudinaryPublicId` (for manual audit/cleanup if ever needed) and exposes a **Retry Save Metadata** button that commits the Firestore document **without re-uploading** the file or creating duplicate Cloudinary assets.
-
-### 2.4 Responsive Image Delivery Optimization (`cloudinary-url.js`)
-
-Original `secureUrl` and `cloudinaryPublicId` are stored unmodified in Firestore. Delivery URLs insert on-the-fly transformations (`f_auto,q_auto,c_limit,w_<width>`):
-
-- Admin Library Thumbnail: `w_600`
-- Public Landing Page Card: `w_900`
-- Lightbox Full Inspection: `w_1600`
+- **Two Top-Level Workspace Tabs:**
+  1. **`Photos` (default):** Responsive square photo thumbnail grid (`3` columns on mobile phones, `4` on tablets, `5` on desktop), simple filter pills (`Semua`, `Galeri Website`, `Tersembunyi`, `Arsip`), title search, and `+ Add Photos` upload trigger.
+  2. **`Landing Page`:** Landing Page Media Manager for the 4 fixed website image placements and their associated copywriting.
+- **Hidden Technical Metadata in Normal Usage:**
+  - Photo cards in the grid show only the photograph, a short title overlay, and tiny status/usage indicators (`Galeri #N`, `Used on Landing Page`, `Arsip`).
+  - Internal fields (`cloudinaryPublicId`, `cloudinaryAssetId`, Firestore document ID, image dimensions, file byte size, format, `schemaVersion`, `version`, uploader UID, and raw timestamps) are preserved in Firestore but never clutter the photo grid.
+- **Photo Detail Sheet & Natural Editor:**
+  - Tapping a photo opens a mobile bottom-sheet / desktop modal preview (`GalleryItemPreviewDialog`) with natural labels:
+    - `Judul Foto`
+    - `Deskripsi`
+    - `Tampilkan di Galeri Website` / `Sembunyikan dari Galeri`
+    - `Geser Naik` / `Geser Turun` (for ordering published gallery items)
+    - `Edit Foto` (opens `GalleryItemEditorDialog` with `Judul Foto`, `Deskripsi`, and `Simpan Perubahan`, automatically populating internal `altText` and preserving `category` compatibility)
+    - `Arsipkan Foto` / `Pulihkan Foto`
+- **Compact Upload & Recovery:**
+  - `+ Add Photos` opens the device multi-file picker (with desktop drag-and-drop also supported on the Photos view).
+  - Completed queue items automatically collapse out of view so new uploads simply appear as photo tiles in the grid.
+  - Failed uploads (`Coba Lagi`) and partial Firestore metadata failures (`Simpan Ulang Foto` / `Retry Save Metadata`, which reuses the preserved Cloudinary response without re-uploading the binary) remain recoverable.
 
 ---
 
-## 3. Firestore Data Model (`galleryItems/{galleryItemId}`)
+## 2. Photo Library vs. Landing Page Placement Distinction
 
-Every document in `galleryItems` contains **exactly 22 keys**:
+The system maintains two independent publication concepts:
 
-| Field                | Type      | Constraints                                                                            |
-| :------------------- | :-------- | :------------------------------------------------------------------------------------- |
-| `schemaVersion`      | int       | Must be `1`                                                                            |
-| `title`              | string    | Trimmed `2..120` chars                                                                 |
-| `category`           | string    | Trimmed `2..60` chars                                                                  |
-| `altText`            | string    | `0..220` chars (`>= 3` trimmed chars required when `status == 'published'`)            |
-| `caption`            | string    | `0..400` chars                                                                         |
-| `cloudinaryPublicId` | string    | Immutable, `1..240` chars                                                              |
-| `cloudinaryAssetId`  | string    | Immutable, `1..120` chars                                                              |
-| `secureUrl`          | string    | Immutable HTTPS `https://res.cloudinary.com/<cloud>/image/upload/...` (`<= 600` chars) |
-| `resourceType`       | string    | Immutable `'image'`                                                                    |
-| `format`             | string    | Immutable `'jpg' \| 'jpeg' \| 'png' \| 'webp' \| 'avif'`                               |
-| `width`              | int       | Immutable `1..6000`                                                                    |
-| `height`             | int       | Immutable `1..6000`                                                                    |
-| `bytes`              | int       | Immutable `1..10485760`                                                                |
-| `status`             | string    | `'draft' \| 'published' \| 'archived'`                                                 |
-| `sortOrder`          | int       | Non-negative integer (`>= 0`, step `1000`)                                             |
-| `uploadedAt`         | timestamp | Immutable upload timestamp                                                             |
-| `uploadedByUid`      | string    | Immutable uploader UID (`== request.auth.uid` on create)                               |
-| `createdAt`          | timestamp | Immutable creation timestamp                                                           |
-| `createdByUid`       | string    | Immutable creator UID (`== request.auth.uid` on create)                                |
-| `updatedAt`          | timestamp | Updated on every write                                                                 |
-| `updatedByUid`       | string    | Must equal `request.auth.uid`                                                          |
-| `version`            | int       | Starts at `1` on create; increments by `+1` on every update                            |
-
-### Publication, Archival & Ordering Semantics
-
-- **Draft (`draft`):** Newly uploaded or unpublished item; visible only to Active Owner in `/admin/gallery`.
-- **Published (`published`):** Visible on the public Landing Page sorted by `sortOrder ASC`. Requires non-empty `altText` (`>= 3` characters) and cannot transition directly from `archived`.
-- **Archived (`archived`):** Removed from public display and active curation without physically deleting the Cloudinary asset. Restoring an archived item returns it to `draft`. Physical deletion of binary files in Cloudinary must be performed manually in the Cloudinary Console until a trusted backend exists.
-- **Permanent Firestore Deletion:** Prohibited (`allow delete: if false`).
-- **Atomic Reordering:** Moving a published photograph Up or Down executes a Firestore transaction reading both adjacent published items, verifying their `expectedVersion`s, swapping their `sortOrder` values, incrementing both `version`s by `+1`, and committing atomically.
+1. **Generic Public Gallery (`galleryItems` where `status == 'published'`):**
+   - Controls which photos appear in the public `"Proof, not renders."` photo grid (`GallerySection.jsx`) ordered by `sortOrder ASC`.
+   - When a visitor opens a photo in `GalleryLightboxDialog`, its `caption` and `altText` are displayed.
+2. **Named Landing Page Placements (`landingPagePlacements/{placementId}` where `status == 'published'`):**
+   - Controls the 4 specific structural image frames and their copywriting across the Landing Page (`HeroSection`, `RoomsSection`, `TestimonialsAndContactSection`).
+   - A photo from `galleryItems` can be assigned to one or multiple Landing Page placements even if its `galleryItems.status` is `draft` (so it does not have to appear in the generic `"Proof, not renders."` grid).
+   - Photos assigned to one or more placements display an unobtrusive `Used on Landing Page` indicator in the Gallery library and detail view.
+   - Archiving a source `galleryItems` record hides it from active Gallery curation without breaking any already published `landingPagePlacements` record (since the placement stores its own validated Cloudinary `secureUrl` and Cloudinary binaries are never physically deleted by the client).
 
 ---
 
-## 4. Firestore Security Rules & Composite Index
+## 3. Firestore Data Contracts
 
-### Security Rules (`firestore.rules`)
+### 3.1 `galleryItems/{galleryItemId}` (Strict 22-Field Schema Preserved)
 
-- `allow read`: Allowed for `isActiveOwner()` on all documents, and allowed for Anonymous visitors (`request.auth == null`) or `isActiveStaff()` **strictly when `resource.data.status == 'published'`**. Inactive accounts (`active == false`) are denied all reads.
-- `allow create`: `isActiveOwner()` + `isValidGalleryItemCreate(request.resource.data)` (`version == 1`).
-- `allow update`: `isActiveOwner()` + `isValidGalleryItemUpdate(request.resource.data, resource.data)` (`version == resource.data.version + 1`, immutable asset/creation fields unchanged, `altText` required when `published`, no direct `archived -> published` jump).
-- `allow delete`: `false`.
+Preserves the exact 22-field schema (`schemaVersion: 1`, `title`, `category`, `altText`, `caption`, `cloudinaryPublicId`, `cloudinaryAssetId`, `secureUrl`, `resourceType: 'image'`, `format`, `width`, `height`, `bytes`, `status: 'draft' | 'published' | 'archived'`, `sortOrder`, `uploadedAt`, `uploadedByUid`, `createdAt`, `createdByUid`, `updatedAt`, `updatedByUid`, `version`).
 
-### Composite Index (`firestore.indexes.json`)
+### 3.2 `landingPagePlacements/{placementId}` (Strict 19-Field Schema)
 
-Required by the public query `where('status', '==', 'published'), orderBy('sortOrder', 'asc'), limit(100)`:
+Uses **four fixed document IDs**:
 
-- Collection: `galleryItems`
-- Fields: `status` (`ASCENDING`), `sortOrder` (`ASCENDING`)
-- Referenced in `firebase.json` under `firestore.indexes`. Must be deployed manually by the Owner via `firebase deploy --only firestore:indexes` when authorized.
+- `hero-featured` → maps to `landingPageContent.hero.featuredPhoto`
+- `room-a` → maps to `landingPageContent.rooms.items` (`id === 'room-a'`)
+- `room-b` → maps to `landingPageContent.rooms.items` (`id === 'room-b'`)
+- `studio-exterior` → maps to `landingPageContent.testimonialsAndContact.contact.image`
+
+| Field                 | Type      | Constraints                                                                             |
+| :-------------------- | :-------- | :-------------------------------------------------------------------------------------- |
+| `schemaVersion`       | int       | Must be `1`                                                                             |
+| `placementId`         | string    | Must equal document ID (`'hero-featured' \| 'room-a' \| 'room-b' \| 'studio-exterior'`) |
+| `sourceGalleryItemId` | string    | Non-empty source `galleryItems` ID (`1..120` chars)                                     |
+| `cloudinaryPublicId`  | string    | Non-empty Cloudinary Public ID (`1..240` chars)                                         |
+| `cloudinaryAssetId`   | string    | Non-empty Cloudinary Asset ID (`1..120` chars)                                          |
+| `secureUrl`           | string    | HTTPS `https://res.cloudinary.com/<cloud>/image/upload/...` (`<= 600` chars)            |
+| `resourceType`        | string    | `'image'`                                                                               |
+| `format`              | string    | `'jpg' \| 'jpeg' \| 'png' \| 'webp' \| 'avif'`                                          |
+| `width`               | int       | `1..6000`                                                                               |
+| `height`              | int       | `1..6000`                                                                               |
+| `bytes`               | int       | `1..10485760`                                                                           |
+| `altText`             | string    | Required trimmed string `3..220` chars                                                  |
+| `copy`                | map       | Placement-specific validated copywriting map (see below)                                |
+| `status`              | string    | `'draft' \| 'published'`                                                                |
+| `version`             | int       | Starts at `1` on create; increments by `+1` on every update                             |
+| `createdAt`           | timestamp | Immutable creation timestamp                                                            |
+| `createdByUid`        | string    | Immutable creator UID (`== request.auth.uid` on create)                                 |
+| `updatedAt`           | timestamp | Updated on every write                                                                  |
+| `updatedByUid`        | string    | Must equal `request.auth.uid`                                                           |
+
+#### Placement-Specific `copy` Schemas
+
+1. **`hero-featured` (`5` keys):**
+   - `topSticker` (`0..60` chars)
+   - `captionTitle` (`2..100` chars, required)
+   - `captionSubtitle` (`0..160` chars)
+   - `floatingBadgeTitle` (`0..80` chars)
+   - `floatingBadgeSubtitle` (`0..120` chars)
+2. **`room-a` and `room-b` (`5` keys):**
+   - `sticker` (`0..60` chars)
+   - `name` (`2..100` chars, required)
+   - `capacityLabel` (`2..180` chars, required)
+   - `tags` (list of `1..6` non-empty strings, each `<= 60` chars)
+   - `ctaLabel` (`2..60` chars, required)
+   - _Immutable internal values:_ `room.id` (`'room-a'`, `'room-b'`) and `room.defaultService` (`'rehearsal'`, `'recording'`) are never stored in `copy` and remain locked in `mergeLandingPageContentWithPlacements`.
+3. **`studio-exterior` (`1` key):**
+   - `caption` (`0..180` chars, optional caption rendered unobtrusively below the studio location image).
 
 ---
 
-## 5. Public Landing Page Integration
+## 4. Public Landing Page Query & Dummy SVG Removal
 
-- `usePublishedGallery()` subscribes to `query(collection(db, 'galleryItems'), where('status', '==', 'published'), orderBy('sortOrder', 'asc'), limit(100))` without requiring authentication.
-- The four static demo SVG placeholders (`gallery-guitar.svg`, `gallery-drums.svg`, `gallery-mic.svg`, `gallery-console.svg`) have been removed from `landingPageContent.gallery.items`.
-- `GallerySection.jsx` preserves the Landing Page's **Neo-Brutalist Editorial** aesthetic and `GalleryLightboxDialog`, while handling:
-  - **Loading state:** 4-card editorial skeleton grid without layout shift or demo images.
-  - **Empty state:** Restrained `"Studio photos coming soon."` card with `View all photos` hidden.
-  - **Error state:** Non-technical fallback card without stack traces or demo images.
-  - **Published state:** 2-column mobile / 4-column desktop grid + interactive lightbox viewer.
+- **Public Query (`usePublishedLandingPagePlacements`):**
+  ```js
+  query(collection(db, 'landingPagePlacements'), where('status', '==', 'published'), limit(10));
+  ```
+  Requires no additional composite index beyond single-field indexing on `status`.
+- **Dummy SVG Removal & Neutral Placeholders:**
+  - The 4 old dummy SVG references (`/images/demo/room-a-live.svg`, `/images/demo/room-b-control.svg`, `/images/demo/location-exterior.svg`) have been removed from active rendering in `landing-page-content.js` and `mergeLandingPageContentWithPlacements`.
+  - When a placement is published, it renders its responsive Cloudinary delivery URL and hides `DEMO PREVIEW` / `DEMO ASSET` badges.
+  - When a placement is unconfigured or unavailable, `StudioImage` renders a design-consistent neutral placeholder preserving the exact aspect ratio (`aspect-[16/11]`, `aspect-[16/10]`, `aspect-[16/9]`) without layout shift and without ever falling back to a dummy SVG.
+
+---
+
+## 5. Firestore Security Rules (`firestore.rules`)
+
+- `match /landingPagePlacements/{placementId}`:
+  - `allow read`: Active Owner can read all; Anonymous visitors (`request.auth == null`) and Active Staff (`isActiveStaff()`) can read **only when `resource.data.status == 'published'`**. Inactive accounts are denied.
+  - `allow create`: Active Owner only (`isActiveOwner()`), fixed `placementId in ['hero-featured', 'room-a', 'room-b', 'studio-exterior']`, strict 19-key shape, placement-specific `copy` validation, `version == 1`, `createdByUid == request.auth.uid`, `updatedByUid == request.auth.uid`.
+  - `allow update`: Active Owner only, `version == resource.data.version + 1`, `createdAt` and `createdByUid` unchanged, `updatedByUid == request.auth.uid`.
+  - `allow delete`: `if false`.

@@ -1,47 +1,33 @@
 import { GalleryItemCard } from './GalleryItemCard';
 
+/**
+ * Responsive photo-first grid:
+ * 3 columns on mobile phones, 4 on tablet, 5 on wide desktop screens.
+ */
 export function GalleryItemGrid({
   items = [],
   publishedOrderIds = [],
-  busyItemId = '',
-  onEdit,
-  onPreview,
-  onPublish,
-  onUnpublish,
-  onArchive,
-  onRestore,
-  onMoveUp,
-  onMoveDown,
+  usageByGalleryItemId = {},
+  onSelectItem,
 }) {
   return (
     <div
       role="list"
       aria-label="Studio gallery photograph library"
-      className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      className="grid grid-cols-3 gap-1.5 sm:gap-3 md:grid-cols-4 lg:grid-cols-5"
     >
       {items.map((item) => {
         const pubIndex = publishedOrderIds.indexOf(item.id);
-        const isPublished = pubIndex !== -1;
-        const publishedPosition = isPublished ? pubIndex + 1 : null;
-        const canMoveUp = isPublished && pubIndex > 0;
-        const canMoveDown = isPublished && pubIndex < publishedOrderIds.length - 1;
+        const publishedPosition = pubIndex !== -1 ? pubIndex + 1 : null;
+        const usedPlacements = usageByGalleryItemId[item.id] || [];
 
         return (
           <div key={item.id} role="listitem">
             <GalleryItemCard
               item={item}
               publishedPosition={publishedPosition}
-              canMoveUp={canMoveUp}
-              canMoveDown={canMoveDown}
-              isBusy={busyItemId === item.id}
-              onEdit={onEdit}
-              onPreview={onPreview}
-              onPublish={onPublish}
-              onUnpublish={onUnpublish}
-              onArchive={onArchive}
-              onRestore={onRestore}
-              onMoveUp={onMoveUp}
-              onMoveDown={onMoveDown}
+              usedPlacements={usedPlacements}
+              onSelect={onSelectItem}
             />
           </div>
         );

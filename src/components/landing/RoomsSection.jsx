@@ -39,9 +39,11 @@ export function RoomsSection({ rooms, onSelectRoom }) {
               <div>
                 {/* Room Photograph with Lime Sticker */}
                 <div className="border-studio-ink relative border-b-2">
-                  <span className="border-studio-ink bg-studio-lime text-studio-ink absolute top-3 left-3 z-10 hidden border-[1.5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider uppercase shadow-[2px_2px_0px_#151515] sm:inline-block">
-                    {room.sticker}
-                  </span>
+                  {room.sticker ? (
+                    <span className="border-studio-ink bg-studio-lime text-studio-ink absolute top-3 left-3 z-10 hidden border-[1.5px] px-2.5 py-1 font-mono text-[10px] font-bold tracking-wider uppercase shadow-[2px_2px_0px_#151515] sm:inline-block">
+                      {room.sticker}
+                    </span>
+                  ) : null}
                   <StudioImage
                     src={room.image.src}
                     alt={room.image.alt}
@@ -93,7 +95,7 @@ export function RoomsSection({ rooms, onSelectRoom }) {
               <div className="px-4 pb-4 sm:px-6 sm:pb-6">
                 <button
                   type="button"
-                  aria-label={`${room.ctaLabel} (${room.name.split('—')[0].trim()})`}
+                  aria-label={`${room.ctaLabel} (${room.id === 'room-a' ? 'Room A' : room.id === 'room-b' ? 'Room B' : room.name.split('—')[0].trim()})`}
                   onClick={() => onSelectRoom(room.id, room.defaultService)}
                   className="brutal-btn bg-studio-ink text-studio-white hover:bg-studio-orange flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 px-5 py-2.5 text-xs font-extrabold tracking-wider uppercase sm:min-h-12 sm:py-3 sm:text-sm"
                 >

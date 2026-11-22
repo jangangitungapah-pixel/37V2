@@ -1940,5 +1940,165 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    function isValidHeroFeaturedCopy(copy) {
+      return copy is map
+        && copy.keys().hasOnly([
+          'topSticker',
+          'captionTitle',
+          'captionSubtitle',
+          'floatingBadgeTitle',
+          'floatingBadgeSubtitle'
+        ])
+        && copy.size() == 5
+        && copy.topSticker is string
+        && copy.topSticker.size() <= 60
+        && copy.captionTitle is string
+        && copy.captionTitle.trim().size() >= 2
+        && copy.captionTitle.trim().size() <= 100
+        && copy.captionSubtitle is string
+        && copy.captionSubtitle.size() <= 160
+        && copy.floatingBadgeTitle is string
+        && copy.floatingBadgeTitle.size() <= 80
+        && copy.floatingBadgeSubtitle is string
+        && copy.floatingBadgeSubtitle.size() <= 120;
+    }
+
+    function isValidRoomPlacementCopy(copy) {
+      return copy is map
+        && copy.keys().hasOnly([
+          'sticker',
+          'name',
+          'capacityLabel',
+          'tags',
+          'ctaLabel'
+        ])
+        && copy.size() == 5
+        && copy.sticker is string
+        && copy.sticker.size() <= 60
+        && copy.name is string
+        && copy.name.trim().size() >= 2
+        && copy.name.trim().size() <= 100
+        && copy.capacityLabel is string
+        && copy.capacityLabel.trim().size() >= 2
+        && copy.capacityLabel.trim().size() <= 180
+        && copy.tags is list
+        && copy.tags.size() >= 1
+        && copy.tags.size() <= 6
+        && copy.tags[0] is string
+        && copy.tags[0].trim().size() >= 1
+        && copy.tags[0].size() <= 60
+        && copy.ctaLabel is string
+        && copy.ctaLabel.trim().size() >= 2
+        && copy.ctaLabel.trim().size() <= 60;
+    }
+
+    function isValidStudioExteriorCopy(copy) {
+      return copy is map
+        && copy.keys().hasOnly(['caption'])
+        && copy.size() == 1
+        && copy.caption is string
+        && copy.caption.size() <= 180;
+    }
+
+    function isValidLandingPagePlacementCopy(placementId, copy) {
+      return (placementId == 'hero-featured' && isValidHeroFeaturedCopy(copy))
+        || ((placementId == 'room-a' || placementId == 'room-b') && isValidRoomPlacementCopy(copy))
+        || (placementId == 'studio-exterior' && isValidStudioExteriorCopy(copy));
+    }
+
+    function isValidLandingPagePlacementShape(data, placementId) {
+      return placementId in ['hero-featured', 'room-a', 'room-b', 'studio-exterior']
+        && data.keys().hasOnly([
+          'schemaVersion',
+          'placementId',
+          'sourceGalleryItemId',
+          'cloudinaryPublicId',
+          'cloudinaryAssetId',
+          'secureUrl',
+          'resourceType',
+          'format',
+          'width',
+          'height',
+          'bytes',
+          'altText',
+          'copy',
+          'status',
+          'version',
+          'createdAt',
+          'createdByUid',
+          'updatedAt',
+          'updatedByUid'
+        ])
+        && data.size() == 19
+        && data.schemaVersion == 1
+        && data.placementId == placementId
+        && data.sourceGalleryItemId is string
+        && data.sourceGalleryItemId.trim().size() >= 1
+        && data.sourceGalleryItemId.size() <= 120
+        && data.cloudinaryPublicId is string
+        && data.cloudinaryPublicId.trim().size() >= 1
+        && data.cloudinaryPublicId.size() <= 240
+        && data.cloudinaryAssetId is string
+        && data.cloudinaryAssetId.trim().size() >= 1
+        && data.cloudinaryAssetId.size() <= 120
+        && data.secureUrl is string
+        && data.secureUrl.size() <= 600
+        && data.secureUrl.matches('^https://res\\.cloudinary\\.com/[a-zA-Z0-9_-]+/image/upload/[^\\s]+$')
+        && data.resourceType == 'image'
+        && data.format is string
+        && data.format in ['jpg', 'jpeg', 'png', 'webp', 'avif']
+        && data.width is int
+        && data.width >= 1
+        && data.width <= 6000
+        && data.height is int
+        && data.height >= 1
+        && data.height <= 6000
+        && data.bytes is int
+        && data.bytes >= 1
+        && data.bytes <= 10485760
+        && data.altText is string
+        && data.altText.trim().size() >= 3
+        && data.altText.size() <= 220
+        && isValidLandingPagePlacementCopy(placementId, data.copy)
+        && data.status is string
+        && data.status in ['draft', 'published']
+        && data.version is int
+        && data.version >= 1
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.createdByUid.size() >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
+    function isValidLandingPagePlacementCreate(data, placementId) {
+      return isValidLandingPagePlacementShape(data, placementId)
+        && data.version == 1
+        && data.createdByUid == request.auth.uid;
+    }
+
+    function isValidLandingPagePlacementUpdate(nextData, prevData, placementId) {
+      return isValidLandingPagePlacementShape(nextData, placementId)
+        && nextData.version == prevData.version + 1
+        && nextData.createdAt == prevData.createdAt
+        && nextData.createdByUid == prevData.createdByUid;
+    }
+
+    match /landingPagePlacements/{placementId} {
+      allow read: if isActiveOwner()
+        || (
+          resource.data.status == 'published'
+          && (request.auth == null || isActiveStaff())
+        );
+
+      allow create: if isActiveOwner()
+        && isValidLandingPagePlacementCreate(request.resource.data, placementId);
+
+      allow update: if isActiveOwner()
+        && isValidLandingPagePlacementUpdate(request.resource.data, resource.data, placementId);
+
+      allow delete: if false;
+    }
+
   }
 }
