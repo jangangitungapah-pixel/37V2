@@ -13,7 +13,9 @@ export function GallerySection({ gallery }) {
 
   const hasPhotos = !isLoading && !error && publishedItems.length > 0;
   const safeActiveIndex =
-    hasPhotos && activeIndex !== null && activeIndex < publishedItems.length ? activeIndex : null;
+    hasPhotos && activeIndex !== null && activeIndex < publishedItems.length
+      ? activeIndex
+      : null;
   const isDialogOpen = safeActiveIndex !== null;
 
   const handleOpenIndex = (index) => {
