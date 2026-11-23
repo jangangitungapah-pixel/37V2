@@ -35,6 +35,66 @@ function cleanString(value, maxLen = 240) {
   return value.trim().slice(0, maxLen);
 }
 
+const SERVICE_OPTION_INDEX_KEYS = [
+  'deliveryMode',
+  'serviceLabelSnapshot',
+  'serviceOptionId',
+  'serviceOptionName',
+  'serviceTypeId',
+];
+
+function buildServiceOptionIndex(serviceTypes) {
+  return serviceTypes.flatMap((service) =>
+    service.options.map((option) => ({
+      serviceTypeId: service.id,
+      serviceLabelSnapshot: service.name,
+      serviceOptionId: option.id,
+      serviceOptionName: option.name,
+      deliveryMode: service.deliveryMode,
+    })),
+  );
+}
+
+function serviceOptionIndexEntryKey(entry) {
+  return JSON.stringify([
+    entry.serviceTypeId,
+    entry.serviceLabelSnapshot,
+    entry.serviceOptionId,
+    entry.serviceOptionName,
+    entry.deliveryMode,
+  ]);
+}
+
+function isMatchingServiceOptionIndex(rawIndex, serviceTypes) {
+  if (!Array.isArray(rawIndex) || rawIndex.length > 500) return false;
+
+  const expectedEntries = buildServiceOptionIndex(serviceTypes);
+  if (rawIndex.length !== expectedEntries.length) return false;
+
+  const expectedKeys = new Set(expectedEntries.map(serviceOptionIndexEntryKey));
+  const actualKeys = [];
+
+  for (const entry of rawIndex) {
+    if (!isPlainObject(entry)) return false;
+    const keys = Object.keys(entry).sort();
+    if (keys.join('|') !== SERVICE_OPTION_INDEX_KEYS.join('|')) return false;
+    if (
+      !SERVICE_OPTION_INDEX_KEYS.every((key) => typeof entry[key] === 'string') ||
+      !entry.serviceTypeId.trim() ||
+      !entry.serviceLabelSnapshot.trim() ||
+      !entry.serviceOptionId.trim() ||
+      !entry.serviceOptionName.trim() ||
+      !ALLOWED_DELIVERY_SET.has(entry.deliveryMode)
+    ) {
+      return false;
+    }
+    actualKeys.push(serviceOptionIndexEntryKey(entry));
+  }
+
+  const actualSet = new Set(actualKeys);
+  return actualSet.size === actualKeys.length && actualKeys.every((key) => expectedKeys.has(key));
+}
+
 function normalizeTimestampToIso(value) {
   if (!value) return null;
   if (typeof value?.toDate === 'function') {
@@ -242,6 +302,7 @@ export function buildPublicPricingProjection(
     schemaVersion: PUBLIC_PRICING_CATALOG_SCHEMA_VERSION,
     version: resolvedVersion,
     serviceTypes,
+    serviceOptionIndex: buildServiceOptionIndex(serviceTypes),
     updatedAt: updatedAt !== undefined ? updatedAt : normalized.updatedAt || null,
   };
 }
@@ -348,6 +409,10 @@ export function normalizePublicPricingCatalog(rawData) {
 
   normalizedServices.sort((a, b) => a.sortOrder - b.sortOrder);
 
+  if (!isMatchingServiceOptionIndex(rawData.serviceOptionIndex, normalizedServices)) {
+    return { isValid: false, reason: 'invalid_service_option_index', catalog: null };
+  }
+
   return {
     isValid: true,
     reason: '',
@@ -355,6 +420,7 @@ export function normalizePublicPricingCatalog(rawData) {
       schemaVersion: PUBLIC_PRICING_CATALOG_SCHEMA_VERSION,
       version,
       serviceTypes: normalizedServices,
+      serviceOptionIndex: buildServiceOptionIndex(normalizedServices),
       updatedAt: normalizeTimestampToIso(rawData.updatedAt),
     },
   };

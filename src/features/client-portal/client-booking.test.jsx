@@ -349,8 +349,19 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       version: 5,
     });
 
-    expect(projected.schemaVersion).toBe(2);
+    expect(projected.schemaVersion).toBe(3);
     expect(projected.version).toBe(5);
+    expect(projected.serviceOptionIndex).toEqual(
+      projected.serviceTypes.flatMap((service) =>
+        service.options.map((option) => ({
+          serviceTypeId: service.id,
+          serviceLabelSnapshot: service.name,
+          serviceOptionId: option.id,
+          serviceOptionName: option.name,
+          deliveryMode: service.deliveryMode,
+        })),
+      ),
+    );
 
     // Zero internal fee or operational fields anywhere in the projected object
     const serialized = JSON.stringify(projected);
@@ -380,6 +391,20 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       normalizePublicPricingCatalog({
         ...projected,
         operationalSettings: { dailyMealAllowancePerStaff: 25000 },
+      }).isValid,
+    ).toBe(false);
+    expect(
+      normalizePublicPricingCatalog({
+        ...projected,
+        serviceOptionIndex: projected.serviceOptionIndex.map((entry, index) =>
+          index === 0 ? { ...entry, serviceOptionName: 'Forged option name' } : entry,
+        ),
+      }).isValid,
+    ).toBe(false);
+    expect(
+      normalizePublicPricingCatalog({
+        ...projected,
+        serviceOptionIndex: projected.serviceOptionIndex.slice(1),
       }).isValid,
     ).toBe(false);
     expect(
@@ -702,7 +727,11 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
     expect(screen.queryByRole('group', { name: /choose room preference/i })).toBeNull();
     expect(screen.queryByRole('group', { name: /choose session duration/i })).toBeNull();
 
+    const projectDetailsContinue = screen.getByRole('button', { name: /continue to review/i });
+    expect(projectDetailsContinue).toBeDisabled();
+
     await user.type(screen.getByLabelText(/project \/ artist name/i), 'Senja EP');
+    expect(projectDetailsContinue).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'EP' }));
     await user.type(screen.getByLabelText(/track count/i), '5');
     fireEvent.change(screen.getByLabelText(/target deadline/i), {
@@ -712,7 +741,8 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       screen.getByLabelText(/project brief \/ references/i),
       'Warm indie rock mix reference',
     );
-    await user.click(screen.getByRole('button', { name: /continue to review/i }));
+    expect(projectDetailsContinue).toBeEnabled();
+    await user.click(projectDetailsContinue);
 
     // Step 3: Review & Send
     expect(await screen.findByTestId('client-booking-step-review')).toBeTruthy();
@@ -737,7 +767,7 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       bandName: 'Senja EP',
     });
     expect(storedRequests[0].notes).toContain('[Project Type: EP • Tracks: 5]');
-    expect(storedRequests[0].notes).toContain('Warm indie rock mix reference');
+    expect(storedRequests[0].notes).toContain('Project Brief: Warm indie rock mix reference');
   });
 
   it('F. Integrates Client Portal booking requests into Admin Inbox, Detail Drawer & Calendar BookingFormDialog with exact serviceOptionId + duration mapping and stale-option safeguard', async () => {

@@ -244,10 +244,21 @@ export async function submitClientBookingRequest({
 
   const selectedService = publicCatalog.serviceTypes.find((svc) => svc.id === requestedServiceId);
   const selectedOption = selectedService?.options?.find((opt) => opt.id === requestedOptionId);
+  const indexedOption = Array.isArray(publicCatalog.serviceOptionIndex)
+    ? publicCatalog.serviceOptionIndex.find(
+        (entry) =>
+          entry.serviceTypeId === selectedService?.id &&
+          entry.serviceLabelSnapshot === selectedService?.name &&
+          entry.serviceOptionId === selectedOption?.id &&
+          entry.serviceOptionName === selectedOption?.name &&
+          entry.deliveryMode === selectedService?.deliveryMode,
+      )
+    : null;
 
   if (
     !selectedService ||
     !selectedOption ||
+    !indexedOption ||
     !selectedOption.pricing?.mode ||
     selectedOption.pricing.mode === PRICING_MODES.UNCONFIGURED
   ) {
@@ -284,6 +295,7 @@ export async function submitClientBookingRequest({
       allowedPublicServiceIds: allowedServiceIds,
       resolvedRequestType,
       serviceLabelOverride: selectedService.name,
+      requireClientProjectDetails: true,
     },
   );
 

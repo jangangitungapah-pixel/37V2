@@ -109,20 +109,27 @@ export function ClientBookSessionPage({ now } = {}) {
   // Resolve effective active service & option cleanly against live publicPricingCatalog
   const effectiveService = useMemo(() => {
     if (!isCatalogReady) return null;
-    return (
-      serviceTypes.find((svc) => svc.id === selectedServiceId) ||
-      studioServiceTypes[0] ||
-      wfaServiceTypes[0] ||
-      null
-    );
+    if (selectedServiceId) {
+      return serviceTypes.find((svc) => svc.id === selectedServiceId) || null;
+    }
+    return studioServiceTypes[0] || wfaServiceTypes[0] || null;
   }, [isCatalogReady, serviceTypes, selectedServiceId, studioServiceTypes, wfaServiceTypes]);
 
   const effectiveOption = useMemo(() => {
     if (!effectiveService) return null;
     const options = effectiveService.options || [];
-    return options.find((opt) => opt.id === selectedOptionId) || options[0] || null;
+    if (selectedOptionId) {
+      return options.find((opt) => opt.id === selectedOptionId) || null;
+    }
+    return options[0] || null;
   }, [effectiveService, selectedOptionId]);
 
+  const hasStaleServiceSelection = Boolean(selectedServiceId && !effectiveService);
+  const hasStaleOptionSelection = Boolean(
+    selectedOptionId && effectiveService && !effectiveOption,
+  );
+  const selectionInvalidated = hasStaleServiceSelection || hasStaleOptionSelection;
+  const activeStep = selectionInvalidated ? 1 : step;
   const flowType = effectiveService?.deliveryMode === DELIVERY_MODES.WFA ? 'wfa' : 'studio';
 
   const pricingEstimate = useMemo(() => {
@@ -165,6 +172,7 @@ export function ClientBookSessionPage({ now } = {}) {
     setSelectedOptionId(nextOption?.id || '');
     setDurationMinutes((prev) => applyOptionDurationConstraint(nextService, nextOption, prev));
     setSelectedStartMinute(null);
+    setStep(1);
     setSubmitError('');
   };
 
@@ -172,6 +180,7 @@ export function ClientBookSessionPage({ now } = {}) {
     const nextOption = effectiveService?.options?.find((opt) => opt.id === nextOptionId) || null;
     setSelectedOptionId(nextOption?.id || '');
     setDurationMinutes((prev) => applyOptionDurationConstraint(effectiveService, nextOption, prev));
+    setStep(1);
     setSubmitError('');
   };
 
@@ -193,6 +202,7 @@ export function ClientBookSessionPage({ now } = {}) {
               customerName: resolvedContactForm.customerName,
               contactPhone: resolvedContactForm.contactPhone,
               bandName: projectDetails.bandName,
+              projectBrief: projectDetails.projectBrief,
               serviceTypeId: effectiveService.id,
               serviceOptionId: effectiveOption.id,
               targetDeadline: projectDetails.targetDeadline || null,
@@ -351,18 +361,29 @@ export function ClientBookSessionPage({ now } = {}) {
         </AdminSurface>
       ) : (
         <div className="space-y-4">
+          {selectionInvalidated ? (
+            <div
+              role="alert"
+              data-testid="client-booking-selection-invalidated"
+              className="rounded-xl border border-amber-500/35 bg-[#FEF4DD] px-4 py-3 text-xs leading-relaxed text-[#6B3904]"
+            >
+              The studio updated its service catalog. Your previous package is no longer
+              available, so please select a service and package again before continuing.
+            </div>
+          ) : null}
+
           <ClientBookingStepper
             flowType={flowType}
-            currentStep={step}
+            currentStep={activeStep}
             onSelectStep={(nextStep) => {
-              if (nextStep < step && !isSubmitting) {
+              if (nextStep < activeStep && !isSubmitting) {
                 setStep(nextStep);
                 setSubmitError('');
               }
             }}
           />
 
-          {step === 1 ? (
+          {activeStep === 1 ? (
             <ClientBookingStepSelectSession
               studioServiceTypes={studioServiceTypes}
               wfaServiceTypes={wfaServiceTypes}
@@ -374,7 +395,7 @@ export function ClientBookSessionPage({ now } = {}) {
             />
           ) : null}
 
-          {step === 2 && flowType === 'studio' ? (
+          {activeStep === 2 && flowType === 'studio' ? (
             <ClientBookingStepSchedule
               selectedService={effectiveService}
               selectedOption={effectiveOption}
@@ -401,7 +422,7 @@ export function ClientBookSessionPage({ now } = {}) {
             />
           ) : null}
 
-          {step === 2 && flowType === 'wfa' ? (
+          {activeStep === 2 && flowType === 'wfa' ? (
             <ClientBookingStepProjectDetails
               selectedService={effectiveService}
               selectedOption={effectiveOption}
@@ -416,7 +437,7 @@ export function ClientBookSessionPage({ now } = {}) {
             />
           ) : null}
 
-          {step === 3 ? (
+          {activeStep === 3 ? (
             <ClientBookingStepReview
               selectedService={effectiveService}
               selectedOption={effectiveOption}

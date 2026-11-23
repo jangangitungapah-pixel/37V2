@@ -2115,6 +2115,15 @@ async function runTests() {
       ],
     },
   ];
+  const samplePublicPricingOptionIndex = samplePublicCatalogServiceTypes.flatMap((service) =>
+    service.options.map((option) => ({
+      serviceTypeId: service.id,
+      serviceLabelSnapshot: service.name,
+      serviceOptionId: option.id,
+      serviceOptionName: option.name,
+      deliveryMode: service.deliveryMode,
+    })),
+  );
 
   // Unauthenticated, Staff, Active Client denied writing publicPricingCatalog/current
   for (const [label, tok] of [
@@ -2128,9 +2137,10 @@ async function runTests() {
           update: {
             name: `${DB_ROOT}/publicPricingCatalog/current`,
             fields: toFsFields({
-              schemaVersion: 2,
+              schemaVersion: 3,
               version: 1,
               serviceTypes: samplePublicCatalogServiceTypes,
+              serviceOptionIndex: samplePublicPricingOptionIndex,
             }),
           },
           updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
@@ -2209,9 +2219,10 @@ async function runTests() {
         update: {
           name: `${DB_ROOT}/publicPricingCatalog/current`,
           fields: toFsFields({
-            schemaVersion: 2,
+            schemaVersion: 3,
             version: 1,
             serviceTypes: samplePublicCatalogServiceTypes,
+            serviceOptionIndex: samplePublicPricingOptionIndex,
             operationalSettings: { dailyMealAllowancePerStaff: 25000 },
           }),
         },
@@ -2232,9 +2243,10 @@ async function runTests() {
         update: {
           name: `${DB_ROOT}/publicPricingCatalog/draft`,
           fields: toFsFields({
-            schemaVersion: 2,
+            schemaVersion: 3,
             version: 1,
             serviceTypes: samplePublicCatalogServiceTypes,
+            serviceOptionIndex: samplePublicPricingOptionIndex,
           }),
         },
         updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
@@ -2275,9 +2287,10 @@ async function runTests() {
         update: {
           name: `${DB_ROOT}/publicPricingCatalog/current`,
           fields: toFsFields({
-            schemaVersion: 2,
+            schemaVersion: 3,
             version: 2,
             serviceTypes: samplePublicCatalogServiceTypes,
+            serviceOptionIndex: samplePublicPricingOptionIndex,
           }),
         },
         updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
@@ -2327,6 +2340,8 @@ async function runTests() {
   // Client denied submitting stale pricingVersion, spoofed clientUid, spoofed customerId, or confirmed status
   for (const [desc, overrides] of [
     ['stale pricingVersion', { pricingVersion: 1 }],
+    ['unknown service option', { serviceOptionId: 'not-in-catalog' }],
+    ['mismatched service option name', { serviceOptionName: 'Forged Package Name' }],
     ['spoofed clientUid', { clientUid: 'other-client-uid' }],
     ['spoofed customerId', { customerId: 'cust_other' }],
     ['self-confirmed status', { status: 'confirmed' }],
@@ -2373,6 +2388,59 @@ async function runTests() {
   });
   assert.equal(suspendedCreateAttempt.status, 403, 'Suspended client denied creating request');
 
+  // Client Portal WFA inquiries require project name and brief even for direct Firestore writes.
+  for (const [label, overrides] of [
+    [
+      'missing project name',
+      {
+        requestType: 'post_production_inquiry',
+        publicServiceId: 'mixing',
+        serviceLabelSnapshot: 'Mixing',
+        serviceOptionId: 'mixing-regular',
+        serviceOptionName: 'Mixing Lagu',
+        requestedRoomId: null,
+        preferredDate: null,
+        preferredStartMinute: null,
+        preferredDurationMinutes: null,
+        bandName: '',
+        notes: 'Project Brief: Warm indie pop mix reference',
+      },
+    ],
+    [
+      'missing project brief',
+      {
+        requestType: 'post_production_inquiry',
+        publicServiceId: 'mixing',
+        serviceLabelSnapshot: 'Mixing',
+        serviceOptionId: 'mixing-regular',
+        serviceOptionName: 'Mixing Lagu',
+        requestedRoomId: null,
+        preferredDate: null,
+        preferredStartMinute: null,
+        preferredDurationMinutes: null,
+        bandName: 'Senja EP',
+        notes: '[Project Type: EP]',
+      },
+    ],
+  ]) {
+    const invalidWfaRequest = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+      writes: [
+        {
+          update: {
+            name: `${DB_ROOT}/publicBookingRequests/req_client_wfa_invalid_${label.replace(/\s+/g, '_')}`,
+            fields: toFsFields(buildClientRequestFields(overrides)),
+          },
+          updateTransforms: [
+            { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+            { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+          ],
+          currentDocument: { exists: false },
+        },
+      ],
+    });
+    assert.equal(invalidWfaRequest.status, 403, `Client WFA denied ${label}`);
+  }
+
   // Active Client SUCCEEDS submitting valid client_portal studio_booking & post_production_inquiry
   const validClientStudioReq = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
     writes: [
@@ -2413,7 +2481,8 @@ async function runTests() {
               preferredStartMinute: null,
               preferredDurationMinutes: null,
               targetDeadline: '2026-12-05',
-              notes: 'Single Indie Pop • 32 tracks',
+              bandName: 'Senja EP',
+              notes: 'Project Brief: Warm indie pop mix reference',
             }),
           ),
         },

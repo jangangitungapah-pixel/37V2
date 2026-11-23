@@ -31,6 +31,9 @@ export function ClientBookingStepProjectDetails({
   );
   const currentBrief = String(draft.projectBrief || '');
   const trimmedBriefLen = currentBrief.trim().length;
+  const trimmedProjectName = String(draft.bandName || '').trim();
+  const hasRequiredProjectDetails =
+    trimmedProjectName.length >= 2 && trimmedBriefLen >= 10;
   const deadlineError =
     draft.targetDeadline && draft.targetDeadline < todayIso
       ? 'Target deadline cannot be in the past.'
@@ -86,17 +89,20 @@ export function ClientBookingStepProjectDetails({
               htmlFor="client-project-band-name"
               className="block text-xs font-semibold text-[#151515]"
             >
-              Project / Artist Name <span className="font-normal text-[#666159]">(Optional)</span>
+              Project / Artist Name <span className="text-[#FF4B22]">*</span>
             </label>
             <input
               id="client-project-band-name"
               type="text"
+              required
+              minLength={2}
               maxLength={100}
               placeholder="e.g. Midnight Echo — Single Mix"
               value={draft.bandName}
               onChange={(e) => onChangeDraft('bandName', e.target.value)}
               className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm"
             />
+            <p className="mt-1 text-[11px] text-[#666159]">Required · at least 2 characters.</p>
           </div>
 
           <div>
@@ -180,7 +186,7 @@ export function ClientBookingStepProjectDetails({
             >
               <FileText className="h-3.5 w-3.5 text-[#666159]" aria-hidden="true" />
               <span>Project Brief / References</span>
-              <span className="font-normal text-[#666159]">(Optional)</span>
+              <span className="text-[#FF4B22]">*</span>
             </label>
             <span className="font-mono text-[11px] text-[#666159]">
               {trimmedBriefLen}/{maxBriefLength}
@@ -189,12 +195,17 @@ export function ClientBookingStepProjectDetails({
           <textarea
             id="client-project-brief"
             rows={4}
+            required
+            minLength={10}
             maxLength={maxBriefLength}
             placeholder="Share track style, reference links, stem details, or revision expectations..."
             value={currentBrief}
             onChange={(e) => onChangeDraft('projectBrief', e.target.value.slice(0, maxBriefLength))}
             className="sa-input mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm leading-relaxed"
           />
+          <p className="mt-1 text-[11px] text-[#666159]">
+            Required · at least 10 characters describing the sound, scope, or references.
+          </p>
         </div>
 
         <div className="flex flex-col-reverse gap-2.5 border-t border-[#151515]/[0.08] pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -209,7 +220,7 @@ export function ClientBookingStepProjectDetails({
 
           <button
             type="button"
-            disabled={Boolean(deadlineError)}
+            disabled={Boolean(deadlineError) || !hasRequiredProjectDetails}
             onClick={onContinue}
             className="sa-btn-primary inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-2 px-5 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
           >

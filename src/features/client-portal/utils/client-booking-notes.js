@@ -22,7 +22,9 @@ export function buildProjectMetadataPrefix({ projectType = '', trackCount = '' }
 
 export function composePostProductionNotes({ projectType = '', trackCount = '', brief = '' } = {}) {
   const prefix = buildProjectMetadataPrefix({ projectType, trackCount });
-  const cleanBrief = String(brief || '').trim();
-  const combined = prefix && cleanBrief ? `${prefix}\n${cleanBrief}` : prefix || cleanBrief;
+  const cleanBrief = String(brief || '').replace(/\s+/g, ' ').trim();
+  if (!cleanBrief) return prefix.slice(0, MAX_COMPOSITE_NOTES_LENGTH);
+
+  const combined = [prefix, `Project Brief: ${cleanBrief}`].filter(Boolean).join(' ');
   return combined.slice(0, MAX_COMPOSITE_NOTES_LENGTH);
 }

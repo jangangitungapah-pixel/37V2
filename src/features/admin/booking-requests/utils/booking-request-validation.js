@@ -44,6 +44,7 @@ export function validatePublicBookingRequestInput(
     allowedPublicServiceIds = ALLOWED_PUBLIC_SERVICE_IDS,
     resolvedRequestType = null,
     serviceLabelOverride = '',
+    requireClientProjectDetails = false,
   } = {},
 ) {
   const errors = {};
@@ -100,6 +101,24 @@ export function validatePublicBookingRequestInput(
     resolvedRequestType === BOOKING_REQUEST_TYPES.STUDIO_BOOKING
       ? resolvedRequestType
       : resolveRequestTypeFromPublicService(publicServiceIdLower);
+
+  if (
+    requireClientProjectDetails &&
+    requestType === BOOKING_REQUEST_TYPES.POST_PRODUCTION_INQUIRY
+  ) {
+    const projectBrief = String(rawInput?.projectBrief || '').replace(/\s+/g, ' ').trim();
+    const storedBrief = notes.match(/(?:^|\s)Project Brief:\s*(.*)$/i)?.[1]?.trim() || '';
+
+    if (bandName.length < 2) {
+      errors.bandName = 'Please enter your project or artist name (at least 2 characters).';
+    }
+    if (projectBrief.length < 10) {
+      errors.projectBrief = 'Please add a short project brief (at least 10 characters).';
+    }
+    if (storedBrief !== projectBrief || storedBrief.length < 10) {
+      errors.notes = 'Project brief details are incomplete. Please review your project brief.';
+    }
+  }
 
   const publicServiceId =
     allowedPublicServiceIds === ALLOWED_PUBLIC_SERVICE_IDS ? publicServiceIdLower : rawServiceId;

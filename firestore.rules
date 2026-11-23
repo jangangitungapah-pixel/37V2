@@ -2445,9 +2445,10 @@ service cloud.firestore {
           'schemaVersion',
           'version',
           'serviceTypes',
+          'serviceOptionIndex',
           'updatedAt'
         ])
-        && data.size() == 4
+        && data.size() == 5
         && !data.keys().hasAny([
           'fees',
           'operationalSettings',
@@ -2459,11 +2460,14 @@ service cloud.firestore {
           'rehearsalStaffCommissionPerHour',
           'dailyMealAllowancePerStaff'
         ])
-        && data.schemaVersion == 2
+        && data.schemaVersion == 3
         && data.version is int
         && data.version >= 1
         && data.serviceTypes is list
         && data.serviceTypes.size() <= 20
+        && data.serviceOptionIndex is list
+        && data.serviceOptionIndex.size() > 0
+        && data.serviceOptionIndex.size() <= 500
         && data.updatedAt is timestamp;
     }
 
@@ -2659,6 +2663,1009 @@ service cloud.firestore {
       );
     }
 
+    function isValidClientPortalProjectDetails(data) {
+      return data.requestType != 'post_production_inquiry'
+        || (
+          data.bandName is string
+          && data.bandName.trim().size() >= 2
+          && data.notes is string
+          && data.notes.matches('^.*Project Brief: .{10,}
+
+    function isValidAnonymousPublicBookingRequestCreate(data) {
+      return isValidPublicBookingRequestKeys(data)
+        && data.source in ['public_landing_page', 'public_availability_calendar']
+        && (
+          (data.requestType == 'studio_booking' && data.publicServiceId in ['rehearsal', 'recording'])
+          || (data.requestType == 'post_production_inquiry' && data.publicServiceId == 'mix-master')
+        );
+    }
+
+    function isValidPublicBookingRequestCreate(data, requestId) {
+      return requestId is string
+        && requestId.size() >= 8
+        && requestId.size() <= 80
+        && data.schemaVersion == 1
+        && data.requestReference is string
+        && data.requestReference.matches('^REQ-[A-Z0-9]{8}$')
+        && data.status == 'new'
+        && data.statusReason == ''
+        && data.version == 1
+        && data.privacyConsent == true
+        && data.consentVersion == 'v1'
+        && data.customerName is string
+        && data.customerName.trim().size() >= 2
+        && data.customerName.trim().size() <= 100
+        && data.bandName is string
+        && data.bandName.size() <= 100
+        && data.contactPhone is string
+        && data.contactPhone.matches('^\\+[1-9][0-9]{7,14}$')
+        && data.serviceLabelSnapshot is string
+        && data.serviceLabelSnapshot.trim().size() >= 2
+        && data.serviceLabelSnapshot.size() <= 80
+        && data.notes is string
+        && data.notes.size() <= 600
+        && data.appCheckState in ['verified', 'unconfigured']
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.updatedByUid == ''
+        && data.assignedStaffUid == ''
+        && data.assignedStaffName == ''
+        && data.lastCommunicationAt == null
+        && data.lastCommunicationType == ''
+        && data.lastCommunicationStatus == ''
+        && data.linkedBookingId == null
+        && data.confirmedBookingSnapshot == null
+        && data.confirmedAt == null
+        && data.confirmedByUid == ''
+        && isValidPublicBookingRequestScheduleShape(data)
+        && (
+          isValidAnonymousPublicBookingRequestCreate(data)
+          || isValidClientPortalBookingRequestCreate(data)
+        );
+    }
+
+    function isBookingRequestCustomerFieldsUnchanged(nextData, prevData) {
+      return nextData.schemaVersion == prevData.schemaVersion
+        && nextData.requestReference == prevData.requestReference
+        && nextData.requestType == prevData.requestType
+        && nextData.customerName == prevData.customerName
+        && nextData.bandName == prevData.bandName
+        && nextData.contactPhone == prevData.contactPhone
+        && nextData.publicServiceId == prevData.publicServiceId
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.requestedRoomId == prevData.requestedRoomId
+        && nextData.preferredDate == prevData.preferredDate
+        && nextData.preferredStartMinute == prevData.preferredStartMinute
+        && nextData.preferredDurationMinutes == prevData.preferredDurationMinutes
+        && nextData.targetDeadline == prevData.targetDeadline
+        && nextData.notes == prevData.notes
+        && nextData.privacyConsent == prevData.privacyConsent
+        && nextData.consentVersion == prevData.consentVersion
+        && nextData.source == prevData.source
+        && nextData.get('clientUid', '') == prevData.get('clientUid', '')
+        && nextData.get('customerId', '') == prevData.get('customerId', '')
+        && nextData.get('serviceOptionId', '') == prevData.get('serviceOptionId', '')
+        && nextData.get('serviceOptionName', '') == prevData.get('serviceOptionName', '')
+        && nextData.get('pricingVersion', null) == prevData.get('pricingVersion', null)
+        && nextData.appCheckState == prevData.appCheckState
+        && nextData.createdAt == prevData.createdAt;
+    }
+
+    function isValidConfirmedBookingSnapshot(snap, bookingId, bookingData) {
+      return snap is map
+        && snap.size() == 10
+        && snap.bookingId == bookingId
+        && snap.bookingReference is string
+        && snap.bookingReference.size() >= 3
+        && snap.studioId == bookingData.studioId
+        && snap.studioName is string
+        && snap.serviceTypeName is string
+        && snap.serviceOptionName is string
+        && snap.date == bookingData.date
+        && snap.startMinute == bookingData.startMinute
+        && snap.endMinute == bookingData.endMinute
+        && snap.durationMinutes == bookingData.durationMinutes;
+    }
+
+    function isBookingRequestLinkedBookingValidAfter(nextData) {
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(nextData.linkedBookingId));
+      return nextData.linkedBookingId is string
+        && nextData.linkedBookingId.size() > 0
+        && existsAfter(/databases/$(database)/documents/bookings/$(nextData.linkedBookingId))
+        && bookingAfter != null
+        && bookingAfter.data.sessionStatus != 'cancelled'
+        && isValidConfirmedBookingSnapshot(
+          nextData.confirmedBookingSnapshot,
+          nextData.linkedBookingId,
+          bookingAfter.data
+        );
+    }
+
+    function isValidBookingRequestStatusTransition(nextData, prevData) {
+      return (
+        nextData.status == prevData.status
+        && nextData.statusReason == prevData.statusReason
+        && nextData.linkedBookingId == prevData.linkedBookingId
+        && nextData.confirmedBookingSnapshot == prevData.confirmedBookingSnapshot
+        && nextData.confirmedAt == prevData.confirmedAt
+        && nextData.confirmedByUid == prevData.confirmedByUid
+      ) || (
+        nextData.status == 'confirmed'
+        && prevData.requestType == 'studio_booking'
+        && prevData.status in ['new', 'in_review', 'awaiting_customer', 'accepted']
+        && prevData.linkedBookingId == null
+        && nextData.linkedBookingId is string
+        && nextData.linkedBookingId.size() > 0
+        && nextData.confirmedAt is timestamp
+        && nextData.confirmedByUid == request.auth.uid
+        && isBookingRequestLinkedBookingValidAfter(nextData)
+      ) || (
+        nextData.status != 'confirmed'
+        && nextData.linkedBookingId == prevData.linkedBookingId
+        && nextData.confirmedBookingSnapshot == prevData.confirmedBookingSnapshot
+        && nextData.confirmedAt == prevData.confirmedAt
+        && nextData.confirmedByUid == prevData.confirmedByUid
+        && (
+          (prevData.status == 'new' && nextData.status in ['in_review', 'awaiting_customer', 'accepted', 'declined', 'closed'])
+          || (prevData.status == 'in_review' && nextData.status in ['awaiting_customer', 'accepted', 'declined', 'closed'])
+          || (prevData.status == 'awaiting_customer' && nextData.status in ['in_review', 'accepted', 'declined', 'closed'])
+          || (prevData.status == 'accepted' && nextData.status in ['in_review', 'awaiting_customer', 'declined', 'closed'])
+          || (prevData.status == 'declined' && nextData.status == 'closed')
+        )
+        && (
+          !(nextData.status in ['declined', 'closed'])
+          || (nextData.statusReason is string && nextData.statusReason.trim().size() >= 3 && nextData.statusReason.size() <= 400)
+        )
+      );
+    }
+
+    function isValidBookingRequestStaffUpdate(nextData, prevData) {
+      return (
+          prevData.source == 'client_portal'
+            ? isValidClientBookingRequestKeys(nextData)
+            : isValidPublicBookingRequestKeys(nextData)
+        )
+        && isBookingRequestCustomerFieldsUnchanged(nextData, prevData)
+        && nextData.version == prevData.version + 1
+        && nextData.updatedByUid == request.auth.uid
+        && nextData.updatedAt is timestamp
+        && nextData.assignedStaffUid is string
+        && nextData.assignedStaffUid.size() <= 128
+        && nextData.assignedStaffName is string
+        && nextData.assignedStaffName.size() <= 120
+        && (nextData.lastCommunicationAt == null || nextData.lastCommunicationAt is timestamp)
+        && nextData.lastCommunicationType is string
+        && nextData.lastCommunicationType.size() <= 60
+        && nextData.lastCommunicationStatus is string
+        && nextData.lastCommunicationStatus.size() <= 60
+        && isValidBookingRequestStatusTransition(nextData, prevData);
+    }
+
+    function isValidBookingRequestCommunicationCreate(data) {
+      return data.keys().hasOnly([
+          'templateId',
+          'templateLabel',
+          'messageBodySnapshot',
+          'eventType',
+          'preparedAt',
+          'preparedByUid',
+          'manuallyMarkedSentAt',
+          'manuallyMarkedSentByUid',
+          'createdAt'
+        ])
+        && data.size() == 9
+        && data.templateId is string
+        && data.templateId.size() <= 80
+        && data.templateLabel is string
+        && data.templateLabel.size() <= 120
+        && data.messageBodySnapshot is string
+        && data.messageBodySnapshot.trim().size() >= 1
+        && data.messageBodySnapshot.size() <= 1800
+        && data.eventType in ['whatsapp_message_prepared', 'whatsapp_message_marked_sent', 'staff_note_added']
+        && (data.preparedAt == null || data.preparedAt is timestamp)
+        && data.preparedByUid is string
+        && (data.manuallyMarkedSentAt == null || data.manuallyMarkedSentAt is timestamp)
+        && data.manuallyMarkedSentByUid is string
+        && (data.preparedByUid == request.auth.uid || data.manuallyMarkedSentByUid == request.auth.uid)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidBookingRequestActivityCreate(data) {
+      return data.keys().hasOnly([
+          'eventType',
+          'fromStatus',
+          'toStatus',
+          'linkedBookingId',
+          'note',
+          'actorUid',
+          'actorName',
+          'createdAt'
+        ])
+        && data.size() == 8
+        && data.eventType in ['request_created', 'status_changed', 'booking_confirmed', 'staff_assigned']
+        && (data.fromStatus == null || data.fromStatus is string)
+        && (data.toStatus == null || data.toStatus is string)
+        && (data.linkedBookingId == null || data.linkedBookingId is string)
+        && data.note is string
+        && data.note.size() <= 500
+        && data.actorUid == request.auth.uid
+        && data.actorName is string
+        && data.actorName.size() <= 120
+        && data.createdAt is timestamp;
+    }
+
+    match /publicBookingRequests/{requestId} {
+      allow get: if isActiveStaff()
+        || (
+          isActiveClient()
+          && resource != null
+          && resource.data.source == 'client_portal'
+          && resource.data.clientUid == request.auth.uid
+        );
+
+      allow list: if isActiveStaff()
+        || (
+          isActiveClient()
+          && resource.data.source == 'client_portal'
+          && resource.data.clientUid == request.auth.uid
+        );
+
+      allow create: if !isFactoryResetLocked()
+        && isValidPublicBookingRequestCreate(request.resource.data, requestId);
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidBookingRequestStaffUpdate(request.resource.data, resource.data);
+
+      allow delete: if canFactoryResetDelete();
+
+      match /communications/{eventId} {
+        allow read: if isActiveStaff();
+        allow create: if isActiveStaff()
+          && !isFactoryResetLocked()
+          && isValidBookingRequestCommunicationCreate(request.resource.data);
+        allow update: if false;
+        allow delete: if canFactoryResetDelete();
+      }
+
+      match /activities/{eventId} {
+        allow read: if isActiveStaff();
+        allow create: if isActiveStaff()
+          && !isFactoryResetLocked()
+          && isValidBookingRequestActivityCreate(request.resource.data);
+        allow update: if false;
+        allow delete: if canFactoryResetDelete();
+      }
+    }
+
+    function isValidBookingRequestMessageTemplateWrite(data, templateId) {
+      return templateId is string
+        && templateId.size() >= 2
+        && templateId.size() <= 80
+        && data.keys().hasOnly([
+          'schemaVersion',
+          'label',
+          'category',
+          'description',
+          'body',
+          'allowedVariables',
+          'requiredVariables',
+          'requiresConfirmedBooking',
+          'isActive',
+          'isBuiltIn',
+          'sortOrder',
+          'version',
+          'updatedAt',
+          'updatedByUid'
+        ])
+        && data.size() == 14
+        && data.schemaVersion == 1
+        && data.label is string
+        && data.label.trim().size() >= 2
+        && data.label.trim().size() <= 80
+        && data.category in [
+          'initial_response',
+          'follow_up',
+          'scheduling',
+          'approval',
+          'confirmation',
+          'closing',
+          'post_production'
+        ]
+        && data.description is string
+        && data.description.size() <= 300
+        && data.body is string
+        && data.body.trim().size() >= 5
+        && data.body.size() <= 1500
+        && data.allowedVariables is list
+        && data.allowedVariables.size() <= 15
+        && data.requiredVariables is list
+        && data.requiredVariables.size() <= 15
+        && data.requiresConfirmedBooking is bool
+        && data.isActive is bool
+        && data.isBuiltIn is bool
+        && data.sortOrder is int
+        && data.version is int
+        && data.version >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
+    match /bookingRequestMessageTemplates/{templateId} {
+      allow read: if isActiveStaff();
+
+      allow create, update: if isActiveOwner()
+        && isValidBookingRequestMessageTemplateWrite(request.resource.data, templateId);
+
+      allow delete: if false;
+    }
+
+    function isValidSha256Hex(value) {
+      return value is string && value.matches('^[0-9a-f]{64}$');
+    }
+
+    function isBookingEligibleForReviewInvitation(bookingId) {
+      let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
+      let booking = get(bookingPath);
+      return exists(bookingPath)
+        && booking.data.sessionStatus == 'completed'
+        && booking.data.actualCompletedAt is timestamp
+        && booking.data.deliveryMode == 'studio'
+        && booking.data.customerId is string
+        && booking.data.customerId.size() >= 1;
+    }
+
+    function isValidReviewInvitationShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'bookingId',
+          'serviceLabelSnapshot',
+          'sessionDate',
+          'studioId',
+          'status',
+          'issuedByUid',
+          'issuedAt',
+          'expiresAt',
+          'submittedAt',
+          'revokedAt',
+          'revokedByUid',
+          'version'
+        ])
+        && data.size() == 13
+        && data.schemaVersion == 1
+        && data.bookingId is string
+        && data.bookingId.size() >= 1
+        && data.bookingId.size() <= 120
+        && data.serviceLabelSnapshot is string
+        && data.serviceLabelSnapshot.trim().size() >= 1
+        && data.serviceLabelSnapshot.size() <= 120
+        && data.sessionDate is string
+        && data.sessionDate.size() <= 20
+        && data.studioId in ['', 'room-a', 'room-b']
+        && data.status in ['active', 'submitted', 'revoked']
+        && data.issuedByUid is string
+        && data.issuedByUid.size() <= 128
+        && data.issuedAt is timestamp
+        && data.expiresAt is timestamp
+        && (data.submittedAt == null || data.submittedAt is timestamp)
+        && (data.revokedAt == null || data.revokedAt is timestamp)
+        && data.revokedByUid is string
+        && data.revokedByUid.size() <= 128
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidReviewInvitationStaffCreate(data, tokenHash) {
+      return isValidSha256Hex(tokenHash)
+        && isValidReviewInvitationShape(data)
+        && data.status == 'active'
+        && data.issuedByUid == request.auth.uid
+        && data.issuedAt == request.time
+        && data.expiresAt > request.time
+        && data.submittedAt == null
+        && data.revokedAt == null
+        && data.revokedByUid == ''
+        && data.version == 1
+        && isBookingEligibleForReviewInvitation(data.bookingId)
+        && !exists(/databases/$(database)/documents/customerReviews/$(data.bookingId))
+        && getAfter(/databases/$(database)/documents/reviewInvitationIndexes/$(data.bookingId)).data.activeInvitationId == tokenHash;
+    }
+
+    function isValidReviewInvitationStaffRevoke(nextData, prevData) {
+      return isValidReviewInvitationShape(nextData)
+        && prevData.status == 'active'
+        && nextData.status == 'revoked'
+        && nextData.schemaVersion == prevData.schemaVersion
+        && nextData.bookingId == prevData.bookingId
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.sessionDate == prevData.sessionDate
+        && nextData.studioId == prevData.studioId
+        && nextData.issuedByUid == prevData.issuedByUid
+        && nextData.issuedAt == prevData.issuedAt
+        && nextData.expiresAt == prevData.expiresAt
+        && nextData.submittedAt == null
+        && prevData.submittedAt == null
+        && nextData.revokedAt == request.time
+        && nextData.revokedByUid == request.auth.uid
+        && nextData.version == prevData.version + 1;
+    }
+
+    function isValidReviewInvitationPublicSubmitUpdate(nextData, prevData, tokenHash) {
+      let reviewPath = /databases/$(database)/documents/customerReviews/$(prevData.bookingId);
+      let reviewAfter = getAfter(reviewPath);
+      return isValidSha256Hex(tokenHash)
+        && isValidReviewInvitationShape(nextData)
+        && prevData.status == 'active'
+        && prevData.expiresAt > request.time
+        && nextData.status == 'submitted'
+        && nextData.schemaVersion == prevData.schemaVersion
+        && nextData.bookingId == prevData.bookingId
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.sessionDate == prevData.sessionDate
+        && nextData.studioId == prevData.studioId
+        && nextData.issuedByUid == prevData.issuedByUid
+        && nextData.issuedAt == prevData.issuedAt
+        && nextData.expiresAt == prevData.expiresAt
+        && nextData.revokedAt == prevData.revokedAt
+        && nextData.revokedByUid == prevData.revokedByUid
+        && nextData.submittedAt == request.time
+        && nextData.version == prevData.version + 1
+        && !exists(reviewPath)
+        && reviewAfter.data.bookingId == prevData.bookingId
+        && reviewAfter.data.invitationId == tokenHash
+        && reviewAfter.data.status == 'pending';
+    }
+
+    match /reviewInvitations/{tokenHash} {
+      allow get: if isActiveStaff()
+        || (
+          resource != null
+          && isValidSha256Hex(tokenHash)
+          && (
+            (resource.data.status == 'active' && resource.data.expiresAt > request.time)
+            || resource.data.status == 'submitted'
+          )
+        );
+
+      allow list: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidReviewInvitationStaffCreate(request.resource.data, tokenHash);
+
+      allow update: if !isFactoryResetLocked()
+        && (
+          (isActiveStaff() && isValidReviewInvitationStaffRevoke(request.resource.data, resource.data))
+          || (
+            request.auth == null
+            && isValidReviewInvitationPublicSubmitUpdate(request.resource.data, resource.data, tokenHash)
+          )
+        );
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    function isValidReviewInvitationIndexShape(data, bookingId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'bookingId',
+          'activeInvitationId',
+          'issuedAt',
+          'expiresAt',
+          'version'
+        ])
+        && data.size() == 6
+        && data.schemaVersion == 1
+        && data.bookingId == bookingId
+        && isValidSha256Hex(data.activeInvitationId)
+        && data.issuedAt == request.time
+        && data.expiresAt is timestamp
+        && data.expiresAt > request.time
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    match /reviewInvitationIndexes/{bookingId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidReviewInvitationIndexShape(request.resource.data, bookingId)
+        && request.resource.data.version == 1
+        && isBookingEligibleForReviewInvitation(bookingId)
+        && !exists(/databases/$(database)/documents/customerReviews/$(bookingId))
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.bookingId == bookingId
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.status == 'active';
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidReviewInvitationIndexShape(request.resource.data, bookingId)
+        && request.resource.data.version == resource.data.version + 1
+        && isBookingEligibleForReviewInvitation(bookingId)
+        && !exists(/databases/$(database)/documents/customerReviews/$(bookingId))
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.bookingId == bookingId
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.status == 'active';
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    function isValidCustomerReviewShape(data, bookingId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'bookingId',
+          'invitationId',
+          'displayName',
+          'rating',
+          'reviewText',
+          'serviceLabelSnapshot',
+          'sessionDate',
+          'consentToPublish',
+          'consentVersion',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'publishedAt',
+          'version'
+        ])
+        && data.size() == 15
+        && data.schemaVersion == 1
+        && data.bookingId == bookingId
+        && bookingId is string
+        && bookingId.size() >= 1
+        && bookingId.size() <= 120
+        && isValidSha256Hex(data.invitationId)
+        && data.displayName is string
+        && data.displayName.trim().size() >= 2
+        && data.displayName.size() <= 80
+        && data.rating is int
+        && data.rating >= 1
+        && data.rating <= 5
+        && data.reviewText is string
+        && data.reviewText.trim().size() >= 10
+        && data.reviewText.size() <= 1500
+        && data.serviceLabelSnapshot is string
+        && data.serviceLabelSnapshot.size() <= 120
+        && data.sessionDate is string
+        && data.sessionDate.size() <= 20
+        && data.consentToPublish == true
+        && data.consentVersion == 'customer-review-publication-v1'
+        && data.status in ['pending', 'published', 'rejected', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (data.publishedAt == null || data.publishedAt is timestamp)
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidCustomerReviewPublicCreate(data, bookingId) {
+      let invPath = /databases/$(database)/documents/reviewInvitations/$(data.invitationId);
+      let inv = get(invPath);
+      let invAfter = getAfter(invPath);
+      return isValidCustomerReviewShape(data, bookingId)
+        && data.status == 'pending'
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.publishedAt == null
+        && data.version == 1
+        && exists(invPath)
+        && inv.data.status == 'active'
+        && inv.data.expiresAt > request.time
+        && inv.data.bookingId == bookingId
+        && data.serviceLabelSnapshot == inv.data.serviceLabelSnapshot
+        && data.sessionDate == inv.data.sessionDate
+        && invAfter.data.status == 'submitted'
+        && invAfter.data.submittedAt == request.time;
+    }
+
+    function isValidCustomerReviewModerationUpdate(nextData, prevData, bookingId) {
+      return isValidCustomerReviewShape(nextData, bookingId)
+        && nextData.schemaVersion == prevData.schemaVersion
+        && nextData.bookingId == prevData.bookingId
+        && nextData.invitationId == prevData.invitationId
+        && nextData.displayName == prevData.displayName
+        && nextData.rating == prevData.rating
+        && nextData.reviewText == prevData.reviewText
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.sessionDate == prevData.sessionDate
+        && nextData.consentToPublish == prevData.consentToPublish
+        && nextData.consentVersion == prevData.consentVersion
+        && nextData.createdAt == prevData.createdAt
+        && nextData.updatedAt == request.time
+        && nextData.version == prevData.version + 1
+        && (
+          (prevData.status == 'pending' && nextData.status == 'published' && nextData.publishedAt == request.time)
+          || (prevData.status == 'pending' && nextData.status == 'rejected' && nextData.publishedAt == null)
+          || (prevData.status == 'rejected' && nextData.status == 'pending' && nextData.publishedAt == null)
+          || (prevData.status == 'rejected' && nextData.status == 'published' && nextData.publishedAt == request.time)
+          || (prevData.status == 'published' && nextData.status == 'archived' && nextData.publishedAt == null)
+          || (prevData.status == 'archived' && nextData.status == 'published' && nextData.publishedAt == request.time)
+          || (prevData.status == 'archived' && nextData.status == 'rejected' && nextData.publishedAt == null)
+        );
+    }
+
+    match /customerReviews/{bookingId} {
+      allow get: if isActiveStaff()
+        || (resource != null && resource.data.status == 'published');
+
+      allow list: if isActiveStaff()
+        || resource.data.status == 'published';
+
+      allow create: if request.auth == null
+        && !isFactoryResetLocked()
+        && isValidCustomerReviewPublicCreate(request.resource.data, bookingId);
+
+      allow update: if isActiveOwner()
+        && isValidCustomerReviewModerationUpdate(request.resource.data, resource.data, bookingId);
+
+      allow delete: if false;
+    }
+
+    function isValidPublicReviewStatsWrite(data) {
+      let dist = data.ratingDistribution;
+      let distCount = dist['1'] + dist['2'] + dist['3'] + dist['4'] + dist['5'];
+      let distWeightedSum = dist['1'] * 1 + dist['2'] * 2 + dist['3'] * 3 + dist['4'] * 4 + dist['5'] * 5;
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'publishedCount',
+          'ratingSum',
+          'ratingDistribution',
+          'updatedAt'
+        ])
+        && data.size() == 5
+        && data.schemaVersion == 1
+        && data.publishedCount is int
+        && data.publishedCount >= 0
+        && data.ratingSum is int
+        && data.ratingSum >= 0
+        && dist is map
+        && dist.keys().hasOnly(['1', '2', '3', '4', '5'])
+        && dist.size() == 5
+        && dist['1'] is int && dist['1'] >= 0
+        && dist['2'] is int && dist['2'] >= 0
+        && dist['3'] is int && dist['3'] >= 0
+        && dist['4'] is int && dist['4'] >= 0
+        && dist['5'] is int && dist['5'] >= 0
+        && distCount == data.publishedCount
+        && distWeightedSum == data.ratingSum
+        && data.updatedAt == request.time;
+    }
+
+    match /publicReviewStats/{docId} {
+      allow get: if docId == 'summary';
+      allow list: if false;
+
+      allow create, update: if isActiveOwner()
+        && docId == 'summary'
+        && isValidPublicReviewStatsWrite(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // CLIENT PORTAL PHASE 1 — ACCOUNTS, VERIFIED EMAIL INDEX & CLIENT PROFILES
+    // =========================================================================
+
+    function isValidCustomerEmailIndex(data, normalizedEmail) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'emailNormalized',
+          'customerId',
+          'status',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && data.size() == 7
+        && data.schemaVersion == 1
+        && isValidNormalizedEmail(normalizedEmail)
+        && data.emailNormalized == normalizedEmail
+        && data.status in ['active', 'ambiguous']
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1
+        && (
+          (
+            data.status == 'active'
+            && data.customerId is string
+            && data.customerId.size() >= 1
+            && data.customerId.size() <= 120
+            && existsAfter(/databases/$(database)/documents/customers/$(data.customerId))
+            && existsAfter(/databases/$(database)/documents/clientProfiles/$(data.customerId))
+          ) || (
+            data.status == 'ambiguous'
+            && data.customerId == ''
+          )
+        );
+    }
+
+    match /customerEmailIndex/{normalizedEmail} {
+      allow get: if isActiveStaff()
+        || (
+          hasVerifiedGoogleEmail()
+          && !isAnyStaffProfile()
+          && normalizedAuthEmail() == normalizedEmail
+        );
+
+      allow list: if isActiveOwner();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidCustomerEmailIndex(request.resource.data, normalizedEmail)
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidCustomerEmailIndex(request.resource.data, normalizedEmail)
+        && request.resource.data.version == resource.data.version + 1;
+
+      allow delete: if (isActiveStaff() && !isFactoryResetLocked())
+        || canFactoryResetDelete();
+    }
+
+    function isValidClientProfileShape(data, customerId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'customerId',
+          'ownerUid',
+          'profileSource',
+          'displayName',
+          'emailNormalized',
+          'phoneDisplay',
+          'photoURL',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'version'
+        ])
+        && data.size() == 12
+        && data.schemaVersion == 1
+        && customerId is string
+        && customerId.size() >= 1
+        && customerId.size() <= 140
+        && data.customerId == customerId
+        && (data.ownerUid == null || (data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128))
+        && data.profileSource in ['linked_customer', 'isolated_client_profile']
+        && data.displayName is string
+        && data.displayName.trim().size() >= 1
+        && data.displayName.size() <= 120
+        && data.emailNormalized is string
+        && (data.emailNormalized == '' || isValidNormalizedEmail(data.emailNormalized))
+        && data.phoneDisplay is string
+        && data.phoneDisplay.size() <= 40
+        && data.photoURL is string
+        && data.photoURL.size() <= 500
+        && data.status in ['active', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidClientAccountShape(data, uid) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'uid',
+          'role',
+          'status',
+          'customerId',
+          'profileSource',
+          'emailNormalized',
+          'displayName',
+          'photoURL',
+          'authProvider',
+          'emailVerified',
+          'createdAt',
+          'updatedAt',
+          'version'
+        ])
+        && data.size() == 14
+        && data.schemaVersion == 1
+        && data.uid == uid
+        && data.role == 'client'
+        && data.status in ['active', 'suspended']
+        && data.customerId is string
+        && data.customerId.size() >= 1
+        && data.customerId.size() <= 140
+        && data.profileSource in ['linked_customer', 'isolated_client_profile']
+        && isValidNormalizedEmail(data.emailNormalized)
+        && data.displayName is string
+        && data.displayName.trim().size() >= 1
+        && data.displayName.size() <= 120
+        && data.photoURL is string
+        && data.photoURL.size() <= 500
+        && data.authProvider == 'google.com'
+        && data.emailVerified == true
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidClientCustomerLinkShape(data, customerId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'customerId',
+          'ownerUid',
+          'emailNormalized',
+          'profileSource',
+          'createdAt',
+          'version'
+        ])
+        && data.size() == 7
+        && data.schemaVersion == 1
+        && customerId is string
+        && customerId.size() >= 1
+        && customerId.size() <= 140
+        && data.customerId == customerId
+        && data.ownerUid is string
+        && data.ownerUid.size() >= 1
+        && data.ownerUid.size() <= 128
+        && isValidNormalizedEmail(data.emailNormalized)
+        && data.profileSource in ['linked_customer', 'isolated_client_profile']
+        && data.createdAt is timestamp
+        && data.version is int
+        && data.version == 1;
+    }
+
+    match /clientAccounts/{uid} {
+      allow get: if isActiveOwner()
+        || (request.auth != null && request.auth.uid == uid);
+
+      allow list: if isActiveOwner();
+
+      allow create: if hasVerifiedGoogleEmail()
+        && !isAnyStaffProfile()
+        && !isFactoryResetLocked()
+        && request.auth.uid == uid
+        && isValidClientAccountShape(request.resource.data, uid)
+        && request.resource.data.role == 'client'
+        && request.resource.data.status == 'active'
+        && request.resource.data.emailNormalized == normalizedAuthEmail()
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.version == 1
+        && !exists(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId))
+        && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId)).data.ownerUid == uid
+        && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId)).data.customerId == request.resource.data.customerId
+        && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId)).data.profileSource == request.resource.data.profileSource
+        && (
+          (
+            request.resource.data.profileSource == 'isolated_client_profile'
+            && request.resource.data.customerId == ('client_' + uid)
+            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.ownerUid == uid
+            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.customerId == request.resource.data.customerId
+            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.profileSource == 'isolated_client_profile'
+            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.status == 'active'
+          ) || (
+            request.resource.data.profileSource == 'linked_customer'
+            && exists(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail()))
+            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.status == 'active'
+            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.customerId == request.resource.data.customerId
+            && exists(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId))
+            && get(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.status == 'active'
+            && get(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.emailNormalized == normalizedAuthEmail()
+          )
+        );
+
+      allow update: if (
+          isActiveOwner()
+          && isValidClientAccountShape(request.resource.data, uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'version'])
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.version == resource.data.version + 1
+        ) || (
+          isActiveClient()
+          && request.auth.uid == uid
+          && resource.data.status == 'active'
+          && isValidClientAccountShape(request.resource.data, uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt', 'version'])
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.version == resource.data.version + 1
+        );
+
+      allow delete: if false;
+    }
+
+    match /clientCustomerLinks/{customerId} {
+      allow get: if isActiveOwner()
+        || (request.auth != null && resource != null && resource.data.ownerUid == request.auth.uid);
+
+      allow list: if isActiveOwner();
+
+      allow create: if hasVerifiedGoogleEmail()
+        && !isAnyStaffProfile()
+        && !isFactoryResetLocked()
+        && isValidClientCustomerLinkShape(request.resource.data, customerId)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.emailNormalized == normalizedAuthEmail()
+        && request.resource.data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/clientAccounts/$(request.auth.uid)).data.customerId == customerId
+        && getAfter(/databases/$(database)/documents/clientAccounts/$(request.auth.uid)).data.profileSource == request.resource.data.profileSource
+        && (
+          (
+            request.resource.data.profileSource == 'isolated_client_profile'
+            && customerId == ('client_' + request.auth.uid)
+          ) || (
+            request.resource.data.profileSource == 'linked_customer'
+            && exists(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail()))
+            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.status == 'active'
+            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.customerId == customerId
+          )
+        );
+
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /clientProfiles/{customerId} {
+      allow get: if isActiveStaff()
+        || (
+          isActiveClient()
+          && getClientAccountDoc(request.auth.uid).data.customerId == customerId
+          && exists(/databases/$(database)/documents/clientCustomerLinks/$(customerId))
+          && get(/databases/$(database)/documents/clientCustomerLinks/$(customerId)).data.ownerUid == request.auth.uid
+        );
+
+      allow list: if isActiveStaff();
+
+      allow create: if !isFactoryResetLocked()
+        && (
+          (
+            isActiveStaff()
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.ownerUid == null
+            && request.resource.data.profileSource == 'linked_customer'
+            && existsAfter(/databases/$(database)/documents/customers/$(customerId))
+          ) || (
+            hasVerifiedGoogleEmail()
+            && !isAnyStaffProfile()
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && customerId == ('client_' + request.auth.uid)
+            && request.resource.data.ownerUid == request.auth.uid
+            && request.resource.data.profileSource == 'isolated_client_profile'
+            && request.resource.data.emailNormalized == normalizedAuthEmail()
+            && request.resource.data.phoneDisplay == ''
+            && request.resource.data.status == 'active'
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.version == 1
+            && getAfter(/databases/$(database)/documents/clientAccounts/$(request.auth.uid)).data.customerId == customerId
+            && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(customerId)).data.ownerUid == request.auth.uid
+          )
+        );
+
+      allow update: if !isFactoryResetLocked()
+        && (
+          (
+            isActiveStaff()
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.customerId == resource.data.customerId
+            && request.resource.data.ownerUid == resource.data.ownerUid
+            && request.resource.data.profileSource == resource.data.profileSource
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.version == resource.data.version + 1
+          ) || (
+            isActiveClient()
+            && resource.data.profileSource == 'isolated_client_profile'
+            && resource.data.ownerUid == request.auth.uid
+            && getClientAccountDoc(request.auth.uid).data.customerId == customerId
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt', 'version'])
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.version == resource.data.version + 1
+          )
+        );
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+  }
+}
+)
+        );
+    }
+
     function isValidClientPortalBookingRequestCreate(data) {
       return isActiveClient()
         && isValidClientBookingRequestKeys(data)
@@ -2677,8 +3684,17 @@ service cloud.firestore {
         && data.pricingVersion is int
         && data.pricingVersion >= 1
         && exists(/databases/$(database)/documents/publicPricingCatalog/current)
-        && get(/databases/$(database)/documents/publicPricingCatalog/current).data.schemaVersion == 2
-        && data.pricingVersion == get(/databases/$(database)/documents/publicPricingCatalog/current).data.version;
+        && get(/databases/$(database)/documents/publicPricingCatalog/current).data.schemaVersion == 3
+        && data.pricingVersion == get(/databases/$(database)/documents/publicPricingCatalog/current).data.version
+        && get(/databases/$(database)/documents/publicPricingCatalog/current).data.serviceOptionIndex is list
+        && get(/databases/$(database)/documents/publicPricingCatalog/current).data.serviceOptionIndex.hasAny([{
+          'serviceTypeId': data.publicServiceId,
+          'serviceLabelSnapshot': data.serviceLabelSnapshot,
+          'serviceOptionId': data.serviceOptionId,
+          'serviceOptionName': data.serviceOptionName,
+          'deliveryMode': data.requestType == 'studio_booking' ? 'studio' : 'wfa'
+        }])
+        && isValidClientPortalProjectDetails(data);
     }
 
     function isValidAnonymousPublicBookingRequestCreate(data) {

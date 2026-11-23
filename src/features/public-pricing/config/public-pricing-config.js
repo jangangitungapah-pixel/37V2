@@ -1,12 +1,12 @@
 import {
   DELIVERY_MODES,
   PRICING_MODES,
-  PRICING_SETTINGS_SCHEMA_VERSION,
 } from '@/features/admin/settings/pricing/config/default-pricing-settings';
 
 export const PUBLIC_PRICING_CATALOG_COLLECTION = 'publicPricingCatalog';
 export const PUBLIC_PRICING_CATALOG_DOC_ID = 'current';
-export const PUBLIC_PRICING_CATALOG_SCHEMA_VERSION = PRICING_SETTINGS_SCHEMA_VERSION;
+// Public catalog schema v3 adds a Firestore-rules-readable active service-option index.
+export const PUBLIC_PRICING_CATALOG_SCHEMA_VERSION = 3;
 
 export const PUBLIC_PRICING_ALLOWED_DELIVERY_MODES = Object.freeze([
   DELIVERY_MODES.STUDIO,
