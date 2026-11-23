@@ -46,7 +46,7 @@ export function ClientInvoicesPage() {
           <AdminMetricCard
             label="Total Outstanding"
             value="—"
-            hint="Balance due will sync from studio invoices"
+            hint="Available once online billing launches"
             icon={Wallet}
             tone="orange"
           />
@@ -60,7 +60,7 @@ export function ClientInvoicesPage() {
           <AdminMetricCard
             label="Unpaid Invoices"
             value="—"
-            hint="Open invoice count awaits billing sync"
+            hint="Online invoice records coming soon"
             icon={FileText}
             tone="neutral"
           />

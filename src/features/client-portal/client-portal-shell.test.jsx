@@ -95,6 +95,11 @@ vi.mock('firebase/firestore', () => ({
 
 import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
+import {
+  createInMemoryBookingRequestRepositoryAdapter,
+  resetBookingRequestRepositoryAdapter,
+  setBookingRequestRepositoryAdapter,
+} from '@/features/admin/booking-requests/repositories/booking-request-repository';
 import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
 import {
   createInMemoryPublicAvailabilityRepositoryAdapter,
@@ -227,6 +232,7 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
         buildPublicPricingProjection(DEFAULT_PRICING_SETTINGS),
       ),
     );
+    setBookingRequestRepositoryAdapter(createInMemoryBookingRequestRepositoryAdapter());
     setPublicAvailabilityRepositoryAdapter(
       createInMemoryPublicAvailabilityRepositoryAdapter({
         initialMetadata: { isReady: true, backfilledFromDate: '2026-01-01' },
@@ -249,6 +255,7 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
   afterEach(() => {
     cleanup();
     resetClientPortalRepositoryAdapter();
+    resetBookingRequestRepositoryAdapter();
     resetPublicPricingCatalogRepositoryAdapter();
     resetPublicAvailabilityRepositoryAdapter();
     shellMocks.listeners.clear();
@@ -352,11 +359,14 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
     renderClientAppAt('/portal');
     expect(await screen.findByTestId('client-portal-home')).toBeTruthy();
 
-    // Check Account Snapshot shows honest '—' values (never fake currency/counts)
+    // Check Account Snapshot shows live 0 counts for empty requests/sessions and honest '—' for billing
     expect(screen.getByText('Upcoming Sessions')).toBeTruthy();
     expect(screen.getByText('Active Booking Requests')).toBeTruthy();
     expect(screen.getByText('Outstanding Balance')).toBeTruthy();
-    expect(screen.getAllByText('—').length).toBe(3);
+    await waitFor(() => {
+      expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText('—').length).toBe(1);
+    });
 
     const sidebarNav = screen.getByRole('navigation', { name: /client workspace navigation/i });
 
@@ -375,11 +385,11 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
     expect(screen.getByText('Booking Requests')).toBeTruthy();
     expect(screen.getByText('Recent Session History')).toBeTruthy();
 
-    // Filter pill switcher operates purely in memory without touching Firestore
-    await user.click(screen.getByRole('tab', { name: 'Upcoming' }));
+    // Filter pill switcher operates cleanly in memory
+    await user.click(screen.getByRole('tab', { name: /Upcoming/i }));
     expect(screen.getByText('Upcoming Sessions')).toBeTruthy();
     expect(screen.queryByText('Recent Session History')).toBeNull();
-    await user.click(screen.getByRole('tab', { name: 'All Groups' }));
+    await user.click(screen.getByRole('tab', { name: /All Groups/i }));
     expect(screen.getByText('Recent Session History')).toBeTruthy();
 
     await user.click(within(sidebarNav).getByRole('link', { name: 'Invoices & Payments' }));

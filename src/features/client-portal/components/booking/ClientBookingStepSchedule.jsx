@@ -19,8 +19,8 @@ import {
   formatMinuteRange,
 } from '@/features/admin/calendar/utils/booking-time';
 import {
+  addDaysToIsoDate,
   formatIndonesianDateFull,
-  shiftCalendarDate,
 } from '@/features/admin/calendar/utils/calendar-date';
 import { PRICING_MODES } from '@/features/admin/settings/pricing/config/default-pricing-settings';
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
@@ -57,7 +57,7 @@ function buildAllowedDurationOptions(selectedOption, pricingEstimate) {
     const baseMinutes = Math.max(
       60,
       Number(pricingEstimate?.baseDurationMinutes || selectedOption?.pricing?.durationMinutes) ||
-        180,
+      180,
     );
     if (!pricingEstimate?.canExtendDuration) {
       return [baseMinutes];
@@ -173,11 +173,11 @@ export function ClientBookingStepSchedule({
     () =>
       availability.isReady
         ? mergeRoomDaySlots(
-            availability.roomSchedules,
-            preferredDate,
-            requestedRoomId,
-            durationMinutes,
-          )
+          availability.roomSchedules,
+          preferredDate,
+          requestedRoomId,
+          durationMinutes,
+        )
         : [],
     [
       availability.isReady,
@@ -228,7 +228,7 @@ export function ClientBookingStepSchedule({
     !availability.error &&
     selectedSlotObject?.state === PUBLIC_SLOT_STATES.AVAILABLE;
 
-  const prevDate = shiftCalendarDate(preferredDate, -1);
+  const prevDate = addDaysToIsoDate(preferredDate, -1);
   const canGoPrev = prevDate >= todayIso;
 
   return (
@@ -310,11 +310,10 @@ export function ClientBookingStepSchedule({
                     disabled={isLockedFixedShift && allowedDurations.length === 1}
                     data-testid={`client-duration-btn-${mins}`}
                     onClick={() => onChangeDuration(mins)}
-                    className={`min-h-10 cursor-pointer rounded-xl border px-3.5 py-1.5 font-mono text-xs font-bold transition-all disabled:cursor-default ${
-                      isSelected
-                        ? 'border-[#151515] bg-[#151515] text-[#C8F13A]'
-                        : 'border-[#151515]/12 bg-[#FAF8F1] text-[#151515] hover:bg-white'
-                    }`}
+                    className={`min-h-10 cursor-pointer rounded-xl border px-3.5 py-1.5 font-mono text-xs font-bold transition-all disabled:cursor-default ${isSelected
+                      ? 'border-[#151515] bg-[#151515] text-[#C8F13A]'
+                      : 'border-[#151515]/12 bg-[#FAF8F1] text-[#151515] hover:bg-white'
+                      }`}
                   >
                     {Number.isInteger(hours)
                       ? `${hours} hour${hours > 1 ? 's' : ''}`
@@ -341,17 +340,15 @@ export function ClientBookingStepSchedule({
                     aria-pressed={isSelected}
                     data-testid={`client-room-btn-${roomOpt.id}`}
                     onClick={() => onChangeRoom(roomOpt.id)}
-                    className={`cursor-pointer rounded-xl border px-3 py-2 text-left transition-all ${
-                      isSelected
-                        ? 'border-[#151515] bg-[#151515] text-white'
-                        : 'border-[#151515]/12 bg-[#FAF8F1] text-[#151515] hover:bg-white'
-                    }`}
+                    className={`cursor-pointer rounded-xl border px-3 py-2 text-left transition-all ${isSelected
+                      ? 'border-[#151515] bg-[#151515] text-white'
+                      : 'border-[#151515]/12 bg-[#FAF8F1] text-[#151515] hover:bg-white'
+                      }`}
                   >
                     <span className="block truncate text-xs font-bold">{roomOpt.label}</span>
                     <span
-                      className={`block truncate text-[10px] ${
-                        isSelected ? 'text-neutral-300' : 'text-[#666159]'
-                      }`}
+                      className={`block truncate text-[10px] ${isSelected ? 'text-neutral-300' : 'text-[#666159]'
+                        }`}
                     >
                       {roomOpt.subtitle}
                     </span>
@@ -400,7 +397,7 @@ export function ClientBookingStepSchedule({
               <button
                 type="button"
                 aria-label="Next day"
-                onClick={() => onChangeDate(shiftCalendarDate(preferredDate, 1))}
+                onClick={() => onChangeDate(addDaysToIsoDate(preferredDate, 1))}
                 className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[#151515] hover:bg-[#FAF8F1]"
               >
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -465,7 +462,7 @@ export function ClientBookingStepSchedule({
                 aria-hidden="true"
               />
               <div>
-                <p className="font-bold text-[#151515]">Schedule Sync Pending</p>
+                <p className="font-bold text-[#151515]">Live Schedule Temporarily Unavailable</p>
                 <p className="mt-0.5 leading-relaxed">
                   Live room availability has not been initialized yet. Unverified free slots are
                   hidden for accuracy — please check back shortly or contact studio staff.
@@ -491,7 +488,7 @@ export function ClientBookingStepSchedule({
                 </span>
                 <button
                   type="button"
-                  onClick={() => onChangeDate(shiftCalendarDate(preferredDate, 1))}
+                  onClick={() => onChangeDate(addDaysToIsoDate(preferredDate, 1))}
                   className="inline-flex cursor-pointer items-center gap-1 font-semibold text-[#151515] underline"
                 >
                   <span>Check Next Day</span>
@@ -589,11 +586,10 @@ export function ClientBookingStepSchedule({
                           aria-pressed={isSelected}
                           aria-label={`Select ${slot.rangeLabel} WIB (${slot.availableRoomLabels.join(', ')})`}
                           onClick={() => onSelectStartMinute(slot.startMinute)}
-                          className={`flex min-h-14 w-full cursor-pointer flex-col justify-between rounded-xl border p-2.5 text-left transition-all ${
-                            isSelected
-                              ? 'border-[#151515] bg-[#151515] text-white shadow-xs ring-2 ring-[#C8F13A]'
-                              : 'border-[#8BAD12]/40 bg-[#EDF8C2]/55 text-[#151515] hover:border-[#151515]/40 hover:bg-[#EDF8C2]'
-                          }`}
+                          className={`flex min-h-14 w-full cursor-pointer flex-col justify-between rounded-xl border p-2.5 text-left transition-all ${isSelected
+                            ? 'border-[#151515] bg-[#151515] text-white shadow-xs ring-2 ring-[#C8F13A]'
+                            : 'border-[#8BAD12]/40 bg-[#EDF8C2]/55 text-[#151515] hover:border-[#151515]/40 hover:bg-[#EDF8C2]'
+                            }`}
                         >
                           <div className="flex items-start justify-between gap-1">
                             <div>
@@ -601,9 +597,8 @@ export function ClientBookingStepSchedule({
                                 {slot.startLabel}
                               </span>
                               <span
-                                className={`block font-mono text-[10px] ${
-                                  isSelected ? 'text-neutral-300' : 'text-[#46433D]'
-                                }`}
+                                className={`block font-mono text-[10px] ${isSelected ? 'text-neutral-300' : 'text-[#46433D]'
+                                  }`}
                               >
                                 {slot.rangeLabel}
                               </span>
@@ -617,9 +612,8 @@ export function ClientBookingStepSchedule({
                           </div>
 
                           <span
-                            className={`mt-1 truncate font-mono text-[10px] font-bold uppercase ${
-                              isSelected ? 'text-[#C8F13A]' : 'text-[#243300]'
-                            }`}
+                            className={`mt-1 truncate font-mono text-[10px] font-bold uppercase ${isSelected ? 'text-[#C8F13A]' : 'text-[#243300]'
+                              }`}
                           >
                             {requestedRoomId === 'any'
                               ? slot.availableRoomLabels.length === 2

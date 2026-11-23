@@ -1,5 +1,6 @@
 import {
   BOOKING_REQUEST_ACTIVITY_TYPES,
+  BOOKING_REQUEST_SOURCES,
   BOOKING_REQUEST_STATUS,
   BOOKING_REQUEST_TYPES,
 } from '@/features/admin/booking-requests/config/booking-request-config';
@@ -1409,6 +1410,7 @@ export function createInMemoryBookingRepositoryAdapter(
   const bookkeepingSubscribers = new Set();
   const bookingRequestNewSubscribers = new Set();
   const bookingRequestListSubscribers = new Set();
+  const bookingRequestClientSubscribers = new Set();
   const bookingRequestDocSubscribers = new Map();
   const bookingRequestActivitySubscribers = new Map();
   const bookingRequestCommSubscribers = new Map();
@@ -1439,6 +1441,19 @@ export function createInMemoryBookingRepositoryAdapter(
         hasMore,
         isTruncated: hasMore,
         lastCursor: visible.length > 0 ? visible[visible.length - 1].id : null,
+        maxLimit: sub.maxLimit,
+      });
+    }
+
+    for (const sub of bookingRequestClientSubscribers) {
+      const ownOnly = allSorted.filter(
+        (r) => r.source === BOOKING_REQUEST_SOURCES.CLIENT_PORTAL && r.clientUid === sub.clientUid,
+      );
+      const hasMore = ownOnly.length > sub.maxLimit;
+      sub.onData?.({
+        requests: hasMore ? ownOnly.slice(0, sub.maxLimit) : ownOnly,
+        hasMore,
+        isTruncated: hasMore,
         maxLimit: sub.maxLimit,
       });
     }
@@ -1727,6 +1742,7 @@ export function createInMemoryBookingRepositoryAdapter(
       bookkeepingSubscribers,
       bookingRequestNewSubscribers,
       bookingRequestListSubscribers,
+      bookingRequestClientSubscribers,
       bookingRequestDocSubscribers,
       bookingRequestActivitySubscribers,
       bookingRequestCommSubscribers,

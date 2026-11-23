@@ -12,12 +12,9 @@ import { mapPublicServiceToInternalPricing } from '@/features/admin/booking-requ
 import { usePricingSettings } from '@/features/admin/settings/hooks/usePricingSettings';
 import { useCalendarInvoiceSummaries } from '@/features/admin/payment/hooks/useInvoicePaymentSummaries';
 import { useAuth } from '@/features/auth/AuthContext';
-import { usePublicAvailabilityMetadata } from '@/features/public-availability/hooks/usePublicAvailability';
 import { useFactoryResetStatus } from '@/features/admin/settings/danger-area/hooks/useFactoryReset';
-import {
-  backfillPublicAvailabilityProjections,
-  mapPublicAvailabilityErrorToMessage,
-} from '@/features/public-availability/services/public-availability-service';
+import { useOptionalOwnerPublicAvailabilitySync } from '@/features/public-availability/context/OwnerPublicAvailabilitySyncContext';
+import { useOwnerPublicAvailabilityAutoSync } from '@/features/public-availability/hooks/useOwnerPublicAvailabilityAutoSync';
 
 import { BookingDetailDrawer } from '../components/BookingDetailDrawer';
 import { BookingFormDialog } from '../components/BookingFormDialog';
@@ -59,17 +56,22 @@ export function AdminCalendarPage() {
     .trim()
     .toLowerCase();
   const isOwner = actorRole === 'owner';
-  const [isSyncingPublicCalendar, setIsSyncingPublicCalendar] = useState(false);
-  const [publicSyncError, setPublicSyncError] = useState('');
-  const autoSyncAttemptedRef = useRef(false);
-  const syncingPublicRef = useRef(false);
+  const { isLocked: isFactoryResetLocked } = useFactoryResetStatus({ enabled: isOwner });
+  const contextAvailabilitySync = useOptionalOwnerPublicAvailabilitySync();
+  const standaloneAvailabilitySync = useOwnerPublicAvailabilityAutoSync({
+    enabled: !contextAvailabilitySync && isOwner && !isFactoryResetLocked,
+    actorUid,
+    actorRole,
+  });
+  const availabilitySync = contextAvailabilitySync || standaloneAvailabilitySync;
   const {
     metadata: publicMetadata,
     isReady: isPublicScheduleReady,
     isLoading: isPublicMetaLoading,
-    error: publicMetaError,
-  } = usePublicAvailabilityMetadata({ enabled: isOwner });
-  const { isLocked: isFactoryResetLocked } = useFactoryResetStatus({ enabled: isOwner });
+    metaError: publicMetaError,
+    isSyncing: isSyncingPublicCalendar,
+    syncError: publicSyncError,
+  } = availabilitySync;
   const [searchParams, setSearchParams] = useSearchParams();
   const requestIdParam = searchParams.get('requestId') || '';
   const isRequestAction = searchParams.get('action') === 'new-booking' && Boolean(requestIdParam);
@@ -99,12 +101,12 @@ export function AdminCalendarPage() {
       sourceBookingRequest: null,
       initialSlot: shouldOpenNew
         ? {
-            date: initialDate,
-            studioId: paramStudioId === 'room-b' ? 'room-b' : 'room-a',
-            startMinute: 600,
-            defaultServiceId: 'rehearsal',
-            defaultOptionId: 'rehearsal-regular',
-          }
+          date: initialDate,
+          studioId: paramStudioId === 'room-b' ? 'room-b' : 'room-a',
+          startMinute: 600,
+          defaultServiceId: 'rehearsal',
+          defaultOptionId: 'rehearsal-regular',
+        }
         : null,
       editingBooking: null,
     };
@@ -370,9 +372,9 @@ export function AdminCalendarPage() {
         !isFactoryResetLocked &&
         !isPublicScheduleReady &&
         !publicMetaError &&
-        !syncingPublicRef.current
+        !isSyncingPublicCalendar
       ) {
-        void handleSyncPublicAvailability({ silent: true });
+        void availabilitySync.triggerSync();
       }
       return created;
     } catch (err) {
@@ -407,72 +409,16 @@ export function AdminCalendarPage() {
     }
   };
 
-  const handleSyncPublicAvailability = useCallback(
-    async ({ silent = false } = {}) => {
-      if (!isOwner || !actorUid || isFactoryResetLocked || syncingPublicRef.current) return;
-      syncingPublicRef.current = true;
-      setIsSyncingPublicCalendar(true);
-      setPublicSyncError('');
-      try {
-        const result = await backfillPublicAvailabilityProjections({
-          actorUid,
-          actorRole,
-          fromDateIso: getJakartaTodayIso(),
-        });
-        const msg = `Kalender publik (/availability) aktif & tersinkron (${result.activeProjectedCount} sesi aktif diverifikasi).`;
-        setStatusFeedback(msg);
-        if (!silent) {
-          toast.success(msg);
-        }
-      } catch (err) {
-        const msg = mapPublicAvailabilityErrorToMessage(err, { isAdmin: true });
-        setPublicSyncError(msg);
-        if (!silent) {
-          toast.error(msg);
-        }
-      } finally {
-        syncingPublicRef.current = false;
-        setIsSyncingPublicCalendar(false);
-      }
-    },
-    [actorRole, actorUid, isFactoryResetLocked, isOwner],
-  );
-
-  // One-time safe Owner auto-initialization if /availability metadata has not been initialized yet
-  useEffect(() => {
-    if (
-      !isOwner ||
-      !actorUid ||
-      isFactoryResetLocked ||
-      isPublicMetaLoading ||
-      publicMetaError ||
-      isPublicScheduleReady ||
-      isSyncingPublicCalendar ||
-      autoSyncAttemptedRef.current
-    ) {
-      return undefined;
+  const handleSyncPublicAvailability = useCallback(async () => {
+    if (!isOwner || !actorUid || isFactoryResetLocked || isSyncingPublicCalendar) return;
+    const outcome = await availabilitySync.triggerSync();
+    if (outcome?.ok) {
+      setStatusFeedback(outcome.message);
+      toast.success(outcome.message);
+    } else if (outcome?.errorMessage) {
+      toast.error(outcome.errorMessage);
     }
-
-    let isCancelled = false;
-    Promise.resolve().then(() => {
-      if (isCancelled || autoSyncAttemptedRef.current) return;
-      autoSyncAttemptedRef.current = true;
-      void handleSyncPublicAvailability({ silent: true });
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [
-    actorUid,
-    handleSyncPublicAvailability,
-    isFactoryResetLocked,
-    isOwner,
-    isPublicMetaLoading,
-    isPublicScheduleReady,
-    isSyncingPublicCalendar,
-    publicMetaError,
-  ]);
+  }, [actorUid, availabilitySync, isFactoryResetLocked, isOwner, isSyncingPublicCalendar]);
 
   const publicSyncedAtLabel = useMemo(() => {
     const formatted = formatIndonesianTimestamp(
@@ -487,13 +433,12 @@ export function AdminCalendarPage() {
       {isOwner ? (
         <div
           data-testid="admin-public-availability-sync-banner"
-          className={`flex flex-col gap-2 rounded-2xl border px-4 py-2.5 text-xs ${
-            !isPublicMetaLoading && !publicMetaError && !isPublicScheduleReady
-              ? 'border-[#FF4B22]/35 bg-[#FFF4E8] text-[#7A271A]'
-              : isPublicScheduleReady
-                ? 'border-[#8BAD12]/35 bg-[#F4FBE0] text-[#243300]'
-                : 'border-[#151515]/10 bg-white/85 text-[#46433D]'
-          }`}
+          className={`flex flex-col gap-2 rounded-2xl border px-4 py-2.5 text-xs ${!isPublicMetaLoading && !publicMetaError && !isPublicScheduleReady
+            ? 'border-[#FF4B22]/35 bg-[#FFF4E8] text-[#7A271A]'
+            : isPublicScheduleReady
+              ? 'border-[#8BAD12]/35 bg-[#F4FBE0] text-[#243300]'
+              : 'border-[#151515]/10 bg-white/85 text-[#46433D]'
+            }`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -503,11 +448,11 @@ export function AdminCalendarPage() {
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                   <span>Menyinkronkan jadwal kalender publik...</span>
                 </span>
-              ) : isPublicScheduleReady ? (
+              ) : isPublicScheduleReady && !publicSyncError ? (
                 <>
                   <span className="inline-flex items-center gap-1 rounded-full bg-[#C8F13A] px-2 py-0.5 text-[11px] font-bold text-[#151515]">
                     <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                    <span>Aktif &amp; Tersinkron</span>
+                    <span>Aktif &amp; Tersinkron Otomatis</span>
                   </span>
                   {publicSyncedAtLabel ? (
                     <span className="text-[11px] text-[#46433D]">
@@ -519,10 +464,12 @@ export function AdminCalendarPage() {
                 <span className="inline-flex items-center gap-1 font-semibold text-[#B92B0C]">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>
-                    Kalender Publik (/availability) Belum Aktif — pengunjung belum dapat melihat
-                    slot tersedia hingga sinkronisasi selesai.
+                    Kalender Publik (/availability) Belum Aktif — sedang menyiapkan jadwal slot
+                    untuk pengunjung.
                   </span>
                 </span>
+              ) : isPublicMetaLoading ? (
+                <span>Memeriksa status sinkronisasi kalender publik...</span>
               ) : (
                 <span>Sinkron otomatis untuk setiap booking baru &amp; perubahan jadwal.</span>
               )}
@@ -538,30 +485,27 @@ export function AdminCalendarPage() {
                 </Link>
               ) : null}
 
-              <button
-                type="button"
-                onClick={() => handleSyncPublicAvailability({ silent: false })}
-                disabled={isFactoryResetLocked || isSyncingPublicCalendar}
-                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  !isPublicMetaLoading && !publicMetaError && !isPublicScheduleReady
-                    ? 'border-[#151515] bg-[#151515] text-white hover:bg-[#FF4B22]'
-                    : 'border-[#151515]/15 bg-white text-[#151515] hover:bg-[#151515] hover:text-white'
-                }`}
-              >
-                <RefreshCw
-                  className={`h-3 w-3 ${isSyncingPublicCalendar ? 'animate-spin' : ''}`}
-                  aria-hidden="true"
-                />
-                <span>
-                  {isSyncingPublicCalendar
-                    ? 'Menyinkronkan...'
-                    : !isPublicMetaLoading && !publicMetaError && !isPublicScheduleReady
-                      ? 'Aktifkan & Sinkronkan Sekarang'
-                      : isPublicScheduleReady
-                        ? 'Sinkronkan Ulang'
-                        : 'Sinkronkan Data Lama (Backfill)'}
-                </span>
-              </button>
+              {isSyncingPublicCalendar ||
+                (!isPublicMetaLoading && (!isPublicScheduleReady || Boolean(publicSyncError))) ? (
+                <button
+                  type="button"
+                  onClick={() => void handleSyncPublicAvailability()}
+                  disabled={isFactoryResetLocked || isSyncingPublicCalendar}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#151515] bg-[#151515] px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#FF4B22] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={`h-3 w-3 ${isSyncingPublicCalendar ? 'animate-spin' : ''}`}
+                    aria-hidden="true"
+                  />
+                  <span>
+                    {isSyncingPublicCalendar
+                      ? 'Menyinkronkan...'
+                      : publicSyncError
+                        ? 'Coba Sinkronkan'
+                        : 'Aktifkan & Sinkronkan Sekarang'}
+                  </span>
+                </button>
+              ) : null}
             </div>
           </div>
 

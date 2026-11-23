@@ -87,6 +87,7 @@ import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
 import {
   BOOKING_REQUEST_SOURCES,
+  BOOKING_REQUEST_STATUS,
   BOOKING_REQUEST_TYPES,
 } from '@/features/admin/booking-requests/config/booking-request-config';
 import {
@@ -101,14 +102,17 @@ import {
   setBookingRepositoryAdapter,
 } from '@/features/admin/calendar/repositories/calendar-booking-repository';
 import { resolveFormDurationMinutes } from '@/features/admin/calendar/schemas/booking-schema';
-import { createInMemoryBookingRepositoryAdapter } from '@/features/admin/calendar/services/calendar-booking-service';
+import {
+  createBooking,
+  createInMemoryBookingRepositoryAdapter,
+} from '@/features/admin/calendar/services/calendar-booking-service';
 import {
   calculateBookingPricingSnapshot,
   calculateCustomerPriceEstimate,
 } from '@/features/admin/calendar/utils/booking-pricing';
 import {
+  addDaysToIsoDate,
   getJakartaTodayIso,
-  shiftCalendarDate,
 } from '@/features/admin/calendar/utils/calendar-date';
 import {
   createInMemoryCustomerRepositoryAdapter,
@@ -254,7 +258,7 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
   let bookingRequestAdapter;
   let bookingAdapter;
   const todayIso = getJakartaTodayIso();
-  const tomorrowIso = shiftCalendarDate(todayIso, 1);
+  const tomorrowIso = addDaysToIsoDate(todayIso, 1);
 
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
@@ -833,5 +837,309 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       discountAmount: 30000,
       totalAmount: 370000,
     });
+  });
+
+  it('G. Displays live confirmed sessions, pending requests, history, and Overview summary in Client Portal with real-time confirmation updates and error retry', async () => {
+    const user = userEvent.setup();
+    const yesterdayIso = addDaysToIsoDate(todayIso, -1);
+    const dayAfterIso = addDaysToIsoDate(todayIso, 2);
+
+    seedAuthenticatedClient(clientAdapter, {
+      uid: 'client-book-uid-1',
+      customerId: 'cust_book_client_1',
+      displayName: 'Dimas Pratama',
+      phoneDisplay: '+62 812-5555-8888',
+    });
+
+    bookingRequestAdapter._seedRequests([
+      {
+        id: 'req_cp_confirmed_upcoming',
+        requestReference: 'REQ-UPCM0001',
+        requestType: BOOKING_REQUEST_TYPES.STUDIO_BOOKING,
+        status: BOOKING_REQUEST_STATUS.CONFIRMED,
+        customerName: 'Dimas Pratama',
+        bandName: 'Midnight Echo',
+        contactPhone: '+6281255558888',
+        publicServiceId: 'rehearsal',
+        serviceLabelSnapshot: 'Rehearsal',
+        requestedRoomId: 'room-a',
+        preferredDate: tomorrowIso,
+        preferredStartMinute: 720,
+        preferredDurationMinutes: 120,
+        source: BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+        clientUid: 'client-book-uid-1',
+        customerId: 'cust_book_client_1',
+        serviceOptionId: 'rehearsal-regular',
+        serviceOptionName: 'Reguler',
+        pricingVersion: 2,
+        linkedBookingId: 'bkg_cp_up_1',
+        confirmedBookingSnapshot: {
+          bookingId: 'bkg_cp_up_1',
+          bookingReference: 'BKG_CP_UP_1',
+          studioId: 'room-a',
+          studioName: 'Room A — Live Room',
+          serviceTypeName: 'Rehearsal',
+          serviceOptionName: 'Reguler',
+          date: tomorrowIso,
+          startMinute: 720,
+          endMinute: 840,
+          durationMinutes: 120,
+        },
+        confirmedAt: `${todayIso}T09:00:00.000Z`,
+        createdAt: `${todayIso}T08:00:00.000Z`,
+      },
+      {
+        id: 'req_cp_pending_studio',
+        requestReference: 'REQ-PEND0002',
+        requestType: BOOKING_REQUEST_TYPES.STUDIO_BOOKING,
+        status: BOOKING_REQUEST_STATUS.NEW,
+        customerName: 'Dimas Pratama',
+        bandName: 'Midnight Echo',
+        contactPhone: '+6281255558888',
+        publicServiceId: 'recording',
+        serviceLabelSnapshot: 'Recording',
+        requestedRoomId: 'room-b',
+        preferredDate: dayAfterIso,
+        preferredStartMinute: 900,
+        preferredDurationMinutes: 120,
+        source: BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+        clientUid: 'client-book-uid-1',
+        customerId: 'cust_book_client_1',
+        serviceOptionId: 'tracking-regular',
+        serviceOptionName: 'Tracking Reguler',
+        pricingVersion: 2,
+        createdAt: `${todayIso}T10:00:00.000Z`,
+      },
+      {
+        id: 'req_cp_wfa_mix',
+        requestReference: 'REQ-MIX00003',
+        requestType: BOOKING_REQUEST_TYPES.POST_PRODUCTION_INQUIRY,
+        status: BOOKING_REQUEST_STATUS.IN_REVIEW,
+        customerName: 'Dimas Pratama',
+        bandName: 'Senja EP',
+        contactPhone: '+6281255558888',
+        publicServiceId: 'mixing',
+        serviceLabelSnapshot: 'Mixing',
+        targetDeadline: dayAfterIso,
+        notes: 'Need warm vintage bus glue',
+        source: BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+        clientUid: 'client-book-uid-1',
+        customerId: 'cust_book_client_1',
+        serviceOptionId: 'mixing-regular',
+        serviceOptionName: 'Mixing Reguler',
+        pricingVersion: 2,
+        createdAt: `${todayIso}T07:00:00.000Z`,
+      },
+      {
+        id: 'req_cp_past_confirmed',
+        requestReference: 'REQ-PAST0004',
+        requestType: BOOKING_REQUEST_TYPES.STUDIO_BOOKING,
+        status: BOOKING_REQUEST_STATUS.CONFIRMED,
+        customerName: 'Dimas Pratama',
+        bandName: 'Midnight Echo',
+        contactPhone: '+6281255558888',
+        publicServiceId: 'rehearsal',
+        serviceLabelSnapshot: 'Rehearsal',
+        requestedRoomId: 'room-a',
+        preferredDate: yesterdayIso,
+        preferredStartMinute: 600,
+        preferredDurationMinutes: 60,
+        source: BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+        clientUid: 'client-book-uid-1',
+        customerId: 'cust_book_client_1',
+        serviceOptionId: 'rehearsal-regular',
+        serviceOptionName: 'Reguler',
+        pricingVersion: 2,
+        linkedBookingId: 'bkg_cp_past_1',
+        confirmedBookingSnapshot: {
+          bookingId: 'bkg_cp_past_1',
+          bookingReference: 'BKG_CP_PAST1',
+          studioId: 'room-a',
+          studioName: 'Room A — Live Room',
+          serviceTypeName: 'Rehearsal',
+          serviceOptionName: 'Reguler',
+          date: yesterdayIso,
+          startMinute: 600,
+          endMinute: 660,
+          durationMinutes: 60,
+        },
+        confirmedAt: `${yesterdayIso}T08:00:00.000Z`,
+        createdAt: `${yesterdayIso}T07:00:00.000Z`,
+      },
+      {
+        id: 'req_cp_declined_hist',
+        requestReference: 'REQ-DECL0005',
+        requestType: BOOKING_REQUEST_TYPES.STUDIO_BOOKING,
+        status: BOOKING_REQUEST_STATUS.DECLINED,
+        statusReason: 'Room maintenance scheduled.',
+        customerName: 'Dimas Pratama',
+        bandName: 'Midnight Echo',
+        contactPhone: '+6281255558888',
+        publicServiceId: 'rehearsal',
+        serviceLabelSnapshot: 'Rehearsal',
+        requestedRoomId: 'room-a',
+        preferredDate: yesterdayIso,
+        preferredStartMinute: 780,
+        preferredDurationMinutes: 120,
+        source: BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+        clientUid: 'client-book-uid-1',
+        customerId: 'cust_book_client_1',
+        serviceOptionId: 'rehearsal-regular',
+        serviceOptionName: 'Reguler',
+        pricingVersion: 2,
+        createdAt: `${yesterdayIso}T05:00:00.000Z`,
+      },
+      {
+        id: 'req_other_client_secret',
+        requestReference: 'REQ-OTHER999',
+        requestType: BOOKING_REQUEST_TYPES.STUDIO_BOOKING,
+        status: BOOKING_REQUEST_STATUS.CONFIRMED,
+        customerName: 'Secret Band',
+        contactPhone: '+6281999999999',
+        publicServiceId: 'rehearsal',
+        serviceLabelSnapshot: 'Rehearsal',
+        requestedRoomId: 'room-b',
+        preferredDate: tomorrowIso,
+        preferredStartMinute: 600,
+        preferredDurationMinutes: 60,
+        source: BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+        clientUid: 'other-client-uid-999',
+        customerId: 'cust_other_999',
+        serviceOptionId: 'rehearsal-regular',
+        serviceOptionName: 'Reguler',
+        pricingVersion: 2,
+        linkedBookingId: 'bkg_other_secret',
+        confirmedBookingSnapshot: {
+          bookingId: 'bkg_other_secret',
+          bookingReference: 'BKG_SECRET_X',
+          studioId: 'room-b',
+          studioName: 'Room B — Control + Booth',
+          serviceTypeName: 'Rehearsal',
+          serviceOptionName: 'Reguler',
+          date: tomorrowIso,
+          startMinute: 600,
+          endMinute: 660,
+          durationMinutes: 60,
+        },
+      },
+    ]);
+
+    renderAppAt('/portal/bookings');
+
+    const bookingsPage = await screen.findByTestId('client-bookings-page');
+    expect(await screen.findByText('Live Updates')).toBeTruthy();
+    expect(bookingsPage.textContent).not.toContain('Sync Pending');
+
+    // Strict client isolation: another client's record never appears
+    expect(screen.queryByText('REQ-OTHER999')).toBeNull();
+    expect(screen.queryByText('BKG_SECRET_X')).toBeNull();
+
+    const upcomingSection = screen.getByTestId('client-bookings-section-upcoming');
+    const requestsSection = screen.getByTestId('client-bookings-section-requests');
+    const historySection = screen.getByTestId('client-bookings-section-history');
+
+    expect(within(upcomingSection).getByText('BKG_CP_UP_1')).toBeTruthy();
+    expect(within(requestsSection).getByText('REQ-PEND0002')).toBeTruthy();
+    expect(within(requestsSection).getByText('REQ-MIX00003')).toBeTruthy();
+    expect(within(historySection).getByText('BKG_CP_PAST1')).toBeTruthy();
+    expect(within(historySection).getByText('REQ-DECL0005')).toBeTruthy();
+    expect(within(historySection).getByText('Room maintenance scheduled.')).toBeTruthy();
+
+    // Tab filters work accurately
+    await user.click(screen.getByRole('tab', { name: /Upcoming/i }));
+    expect(screen.queryByTestId('client-bookings-section-requests')).toBeNull();
+    expect(screen.queryByTestId('client-bookings-section-history')).toBeNull();
+    await user.click(screen.getByRole('tab', { name: /All Groups/i }));
+
+    // Real-time update: confirming pending request moves it to Upcoming immediately with zero manual sync
+    await createBooking({
+      actorUid: 'owner-uid-1',
+      bookingRequestId: 'req_cp_pending_studio',
+      formValues: {
+        customerName: 'Dimas Pratama',
+        phone: '+6281255558888',
+        bandName: 'Midnight Echo',
+        studioId: 'room-b',
+        serviceTypeId: 'recording',
+        serviceOptionId: 'tracking-regular',
+        date: dayAfterIso,
+        startMinute: 900,
+        durationPreset: '120',
+        initialPaymentStatus: 'unpaid',
+      },
+      pricingSettings: DEFAULT_PRICING_SETTINGS,
+      adapter: bookingAdapter,
+    });
+
+    await waitFor(() => {
+      const nextUpcoming = screen.getByTestId('client-bookings-section-upcoming');
+      expect(within(nextUpcoming).getByText('REQ-PEND0002')).toBeTruthy();
+    });
+    expect(
+      within(screen.getByTestId('client-bookings-section-requests')).queryByText('REQ-PEND0002'),
+    ).toBeNull();
+    cleanup();
+
+    // Verify /portal Overview shows live counts, Next Session & Recent Activity
+    renderAppAt('/portal');
+    const overviewPage = await screen.findByTestId('client-portal-home');
+    expect(await screen.findByText('Live updates')).toBeTruthy();
+    expect(overviewPage.textContent).not.toContain('Awaiting module sync');
+    expect(overviewPage.textContent).not.toContain('Schedule Integration Pending');
+
+    const nextSessionCard = screen.getByTestId('client-overview-next-session');
+    expect(await within(nextSessionCard).findByText('BKG_CP_UP_1')).toBeTruthy();
+    expect(within(nextSessionCard).getByText('Room A — Live Room')).toBeTruthy();
+
+    const activityCard = screen.getByTestId('client-overview-recent-activity');
+    expect(within(activityCard).getByText('BKG_CP_UP_1')).toBeTruthy();
+    cleanup();
+
+    // Error + Try Again retry flow on /portal/bookings
+    bookingRequestAdapter._setNextClientSubscribeError({
+      code: 'unavailable',
+      message: 'Network unavailable',
+    });
+    renderAppAt('/portal/bookings');
+    const errorState = await screen.findByTestId('client-bookings-error-state');
+    expect(errorState.textContent).toContain('Network connection interrupted');
+    await user.click(within(errorState).getByRole('button', { name: /try again/i }));
+    expect(await screen.findByTestId('client-bookings-section-upcoming')).toBeTruthy();
+  });
+
+  it('H. Automatically heals Public Availability & Public Pricing from AdminLayout without manual user clicks and hides redundant Re-sync buttons once healthy', async () => {
+    seedAuthenticatedStaff(clientAdapter, 'owner', 'owner-uid-1');
+
+    bookingAdapter._sharedStore.publicAvailability.clear();
+    const freshAvailabilityAdapter = createInMemoryPublicAvailabilityRepositoryAdapter({
+      sharedStore: bookingAdapter._sharedStore,
+      initialMetadata: { isReady: false, backfilledFromDate: '' },
+    });
+    setPublicAvailabilityRepositoryAdapter(freshAvailabilityAdapter);
+    publicPricingAdapter._setStoredDoc(null);
+
+    // Visiting generic /admin/dashboard silently heals BOTH Public Availability & Public Pricing
+    renderAppAt('/admin/dashboard');
+
+    await waitFor(async () => {
+      const meta = await freshAvailabilityAdapter.getPublicAvailabilityMetadata();
+      expect(meta.isReady).toBe(true);
+      expect(publicPricingAdapter._getStoredDoc()?.version).toBe(2);
+    });
+    cleanup();
+
+    // Healthy banners on Calendar & Price Settings show passive automatic status without redundant manual re-sync buttons
+    renderAppAt('/admin/calendar');
+    const calendarSyncBanner = await screen.findByTestId('admin-public-availability-sync-banner');
+    await waitFor(() => {
+      expect(calendarSyncBanner.textContent).toMatch(/aktif & tersinkron otomatis/i);
+    });
+    expect(within(calendarSyncBanner).queryByRole('button', { name: /sinkronkan/i })).toBeNull();
+    cleanup();
+
+    renderAppAt('/admin/settings/price-and-fee');
+    const pricingSyncBanner = await screen.findByTestId('public-pricing-synced-banner');
+    expect(pricingSyncBanner.textContent).toMatch(/tersinkron otomatis/i);
+    expect(within(pricingSyncBanner).queryByRole('button', { name: /re-sync/i })).toBeNull();
   });
 });

@@ -78,6 +78,11 @@ vi.mock('firebase/firestore', () => ({
 import { SiteFooter } from '@/components/landing/SiteFooter';
 import { SiteHeader } from '@/components/landing/SiteHeader';
 import {
+  createInMemoryBookingRequestRepositoryAdapter,
+  resetBookingRequestRepositoryAdapter,
+  setBookingRequestRepositoryAdapter,
+} from '@/features/admin/booking-requests/repositories/booking-request-repository';
+import {
   createInMemoryCustomerRepositoryAdapter,
   resetCustomerRepositoryAdapter,
   setCustomerRepositoryAdapter,
@@ -211,6 +216,7 @@ describe('Client Portal Phase 1 — Google Auth, Instant Provisioning & Security
     clientAdapter = createInMemoryClientPortalRepositoryAdapter(customerAdapter);
     setCustomerRepositoryAdapter(customerAdapter);
     setClientPortalRepositoryAdapter(clientAdapter);
+    setBookingRequestRepositoryAdapter(createInMemoryBookingRequestRepositoryAdapter());
 
     authMockState.staffLookup = (uid) => clientAdapter.hasStaffProfile(uid);
     authMockState.auth.currentUser = null;
@@ -231,6 +237,7 @@ describe('Client Portal Phase 1 — Google Auth, Instant Provisioning & Security
   afterEach(() => {
     cleanup();
     resetClientPortalRepositoryAdapter();
+    resetBookingRequestRepositoryAdapter();
     resetCustomerRepositoryAdapter();
     authMockState.listeners.clear();
     authMockState.staffLookup = null;

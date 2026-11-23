@@ -8,6 +8,8 @@ import { BookingRequestAlertsProvider } from '@/features/admin/booking-requests/
 import { useBookingRequestAlerts } from '@/features/admin/booking-requests/hooks/useBookingRequestAlerts';
 import { useFactoryResetStatus } from '@/features/admin/settings/danger-area/hooks/useFactoryReset';
 import { AuthContext } from '@/features/auth/AuthContext';
+import { OwnerPublicAvailabilitySyncContext } from '@/features/public-availability/context/OwnerPublicAvailabilitySyncContext';
+import { useOwnerPublicAvailabilityAutoSync } from '@/features/public-availability/hooks/useOwnerPublicAvailabilityAutoSync';
 import { OwnerPublicPricingSyncContext } from '@/features/public-pricing/context/OwnerPublicPricingSyncContext';
 import { useOwnerPublicPricingAutoSync } from '@/features/public-pricing/hooks/useOwnerPublicPricingAutoSync';
 
@@ -34,6 +36,12 @@ function AdminLayoutShell() {
   });
 
   const ownerPricingSync = useOwnerPublicPricingAutoSync({
+    enabled: isActiveOwner && !isFactoryResetLocked,
+    actorUid: auth?.user?.uid || auth?.profile?.uid || '',
+    actorRole: auth?.role || auth?.profile?.role || '',
+  });
+
+  const ownerAvailabilitySync = useOwnerPublicAvailabilityAutoSync({
     enabled: isActiveOwner && !isFactoryResetLocked,
     actorUid: auth?.user?.uid || auth?.profile?.uid || '',
     actorRole: auth?.role || auth?.profile?.role || '',
@@ -155,9 +163,42 @@ function AdminLayoutShell() {
               </div>
             ) : null}
 
-            <OwnerPublicPricingSyncContext.Provider value={ownerPricingSync}>
-              <Outlet />
-            </OwnerPublicPricingSyncContext.Provider>
+            {isActiveOwner &&
+            ownerAvailabilitySync.syncError &&
+            location.pathname !== '/admin/calendar' ? (
+              <div
+                role="alert"
+                data-testid="admin-public-availability-sync-error-banner"
+                className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#FF4B22]/30 bg-[#FFEDE8] px-4 py-2.5 text-xs text-[#8C2B14]"
+              >
+                <span className="inline-flex items-center gap-2 font-medium">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#B92B0C]" aria-hidden="true" />
+                  <span>
+                    <strong>Kalender Publik (/availability) gagal disinkronkan:</strong>{' '}
+                    {ownerAvailabilitySync.syncError}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  disabled={ownerAvailabilitySync.isSyncing}
+                  onClick={() => void ownerAvailabilitySync.triggerSync()}
+                  className="sa-control inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-[#151515] px-3 py-1 text-xs font-semibold text-white hover:bg-[#2a2926] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {ownerAvailabilitySync.isSyncing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  <span>Coba Sinkronkan</span>
+                </button>
+              </div>
+            ) : null}
+
+            <OwnerPublicAvailabilitySyncContext.Provider value={ownerAvailabilitySync}>
+              <OwnerPublicPricingSyncContext.Provider value={ownerPricingSync}>
+                <Outlet />
+              </OwnerPublicPricingSyncContext.Provider>
+            </OwnerPublicAvailabilitySyncContext.Provider>
           </motion.div>
         </main>
 

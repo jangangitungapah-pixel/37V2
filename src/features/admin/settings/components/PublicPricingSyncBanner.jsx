@@ -74,7 +74,7 @@ export function PublicPricingSyncBanner({
     );
   }
 
-  if (isSynced) {
+  if (isSynced && !syncError) {
     return (
       <div
         role="status"
@@ -85,19 +85,10 @@ export function PublicPricingSyncBanner({
         <div className="flex flex-wrap items-center gap-2">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-[#4F6800]" aria-hidden="true" />
           <span>
-            <strong>Public Pricing Catalog</strong> aktif &amp; tersinkron (v
-            {normalizedServerVersion}).
+            <strong>Public Pricing Catalog</strong> aktif &amp; tersinkron otomatis (v
+            {normalizedServerVersion}). Diperbarui otomatis setiap kali Anda menyimpan perubahan.
           </span>
         </div>
-        <button
-          type="button"
-          onClick={triggerSync}
-          disabled={isSyncing}
-          className="sa-control inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-[#151515]/15 bg-white px-3 py-1 text-xs font-semibold text-[#151515] hover:bg-[#FAF8F1] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw className="h-3 w-3" aria-hidden="true" />
-          <span>Re-sync</span>
-        </button>
       </div>
     );
   }

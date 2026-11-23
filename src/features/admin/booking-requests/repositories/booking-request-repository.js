@@ -6,6 +6,7 @@ import {
   BOOKING_REQUEST_COMMUNICATIONS_SUBCOLLECTION,
   BOOKING_REQUEST_INBOX_PAGE_SIZE,
   BOOKING_REQUEST_NEW_BADGE_LIMIT,
+  BOOKING_REQUEST_SOURCES,
   BOOKING_REQUEST_STATUS,
   BOOKING_REQUEST_TIMELINE_LIMIT,
   PUBLIC_BOOKING_REQUESTS_COLLECTION,
@@ -148,6 +149,76 @@ export function createFirestoreBookingRequestRepositoryAdapter() {
                 hasMore,
                 isTruncated: hasMore,
                 lastCursor: visibleDocs[visibleDocs.length - 1] || null,
+                maxLimit,
+              });
+            },
+            (err) => {
+              if (!isCancelled) onError?.(err);
+            },
+          );
+        } catch (err) {
+          if (!isCancelled) onError?.(err);
+        }
+      })();
+
+      return () => {
+        isCancelled = true;
+        unsubscribe?.();
+      };
+    },
+
+    subscribeClientBookingRequests({ clientUid, maxLimit = 100, onData, onError }) {
+      let unsubscribe = null;
+      let isCancelled = false;
+
+      const cleanClientUid = String(clientUid || '').trim();
+      if (!cleanClientUid) {
+        onData?.({
+          requests: [],
+          hasMore: false,
+          isTruncated: false,
+          maxLimit,
+        });
+        return () => {};
+      }
+
+      (async () => {
+        try {
+          const [{ collection, limit, onSnapshot, query, where }, { getFirebaseDb }] =
+            await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+          if (isCancelled) return;
+          if (typeof onSnapshot !== 'function') {
+            onError?.(new Error('Firestore realtime listener unavailable.'));
+            return;
+          }
+
+          const db = getFirebaseDb();
+          const fetchLimit = maxLimit + 1;
+          const q = query(
+            collection(db, PUBLIC_BOOKING_REQUESTS_COLLECTION),
+            where('source', '==', BOOKING_REQUEST_SOURCES.CLIENT_PORTAL),
+            where('clientUid', '==', cleanClientUid),
+            limit(fetchLimit),
+          );
+
+          unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+              if (isCancelled) return;
+              const docs = Array.isArray(snapshot?.docs) ? snapshot.docs : [];
+              const allDocs = docs
+                .map((d) => normalizeBookingRequestRecord(d.id, d.data()))
+                .filter(Boolean)
+                .sort((a, b) => {
+                  const diff = getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt);
+                  if (diff !== 0) return diff;
+                  return String(b.id).localeCompare(String(a.id));
+                });
+              const hasMore = allDocs.length > maxLimit;
+              onData?.({
+                requests: hasMore ? allDocs.slice(0, maxLimit) : allDocs,
+                hasMore,
+                isTruncated: hasMore,
                 maxLimit,
               });
             },
@@ -502,11 +573,13 @@ export function createInMemoryBookingRequestRepositoryAdapter(
   const newSubscribers = shared?.bookingRequestNewSubscribers || new Set();
   const listSubscribers = shared?.bookingRequestListSubscribers || new Set();
   const docSubscribers = shared?.bookingRequestDocSubscribers || new Map();
+  const clientSubscribers = shared?.bookingRequestClientSubscribers || new Set();
   const activitySubscribers = shared?.bookingRequestActivitySubscribers || new Map();
   const commSubscribers = shared?.bookingRequestCommSubscribers || new Map();
 
   let queuedCreateError = null;
   let queuedUpdateError = null;
+  let queuedClientSubscribeError = null;
 
   for (const seed of initialRequests || []) {
     const norm = normalizeBookingRequestRecord(seed.id, seed);
@@ -549,6 +622,19 @@ export function createInMemoryBookingRequestRepositoryAdapter(
         hasMore,
         isTruncated: hasMore,
         lastCursor: visible.length > 0 ? visible[visible.length - 1].id : null,
+        maxLimit: sub.maxLimit,
+      });
+    }
+
+    for (const sub of clientSubscribers) {
+      const ownOnly = allSorted.filter(
+        (r) => r.source === BOOKING_REQUEST_SOURCES.CLIENT_PORTAL && r.clientUid === sub.clientUid,
+      );
+      const hasMore = ownOnly.length > sub.maxLimit;
+      sub.onData?.({
+        requests: hasMore ? ownOnly.slice(0, sub.maxLimit) : ownOnly,
+        hasMore,
+        isTruncated: hasMore,
         maxLimit: sub.maxLimit,
       });
     }
@@ -624,6 +710,47 @@ export function createInMemoryBookingRequestRepositoryAdapter(
       });
       return () => {
         listSubscribers.delete(sub);
+      };
+    },
+
+    subscribeClientBookingRequests({ clientUid, maxLimit = 100, onData, onError }) {
+      const cleanClientUid = String(clientUid || '').trim();
+      if (queuedClientSubscribeError) {
+        const err = queuedClientSubscribeError;
+        queuedClientSubscribeError = null;
+        let cancelled = false;
+        queueMicrotask(() => {
+          if (!cancelled) onError?.(err);
+        });
+        return () => {
+          cancelled = true;
+        };
+      }
+
+      if (!cleanClientUid) {
+        onData?.({
+          requests: [],
+          hasMore: false,
+          isTruncated: false,
+          maxLimit,
+        });
+        return () => {};
+      }
+
+      const sub = { clientUid: cleanClientUid, maxLimit, onData, onError };
+      clientSubscribers.add(sub);
+      const ownOnly = sortedRequests().filter(
+        (r) => r.source === BOOKING_REQUEST_SOURCES.CLIENT_PORTAL && r.clientUid === cleanClientUid,
+      );
+      const hasMore = ownOnly.length > maxLimit;
+      onData?.({
+        requests: hasMore ? ownOnly.slice(0, maxLimit) : ownOnly,
+        hasMore,
+        isTruncated: hasMore,
+        maxLimit,
+      });
+      return () => {
+        clientSubscribers.delete(sub);
       };
     },
 
@@ -830,6 +957,10 @@ export function createInMemoryBookingRequestRepositoryAdapter(
 
     _setNextUpdateError(err) {
       queuedUpdateError = err;
+    },
+
+    _setNextClientSubscribeError(err) {
+      queuedClientSubscribeError = err;
     },
 
     _inspectState() {
