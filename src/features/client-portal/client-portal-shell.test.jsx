@@ -29,7 +29,7 @@ vi.mock('@/lib/firebase/firestore', () => ({
 
 vi.mock('firebase/auth', () => {
   class MockGoogleAuthProvider {
-    setCustomParameters() {}
+    setCustomParameters() { }
   }
 
   return {
@@ -89,7 +89,7 @@ vi.mock('firebase/firestore', () => ({
   },
   onSnapshot: vi.fn((_q, onNext) => {
     queueMicrotask(() => onNext({ docs: [] }));
-    return () => {};
+    return () => { };
   }),
 }));
 
