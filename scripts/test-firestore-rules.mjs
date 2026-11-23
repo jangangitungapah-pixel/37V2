@@ -2713,6 +2713,297 @@ async function runTests() {
     '✓ Client Portal Phase 3 rules (publicPricingCatalog & client_portal bookingRequests) passed',
   );
 
+  // 2E. Public galleryItems & landingPagePlacements read rules across Unauth, Active/Suspended Client, Staff, and Owner
+  await adminSetDoc('galleryItems/gal_draft_1', {
+    schemaVersion: 1,
+    title: 'Draft Backstage Photo',
+    category: 'Studio',
+    altText: 'Draft backstage studio view',
+    caption: 'Draft caption',
+    cloudinaryPublicId: '37music/gal_draft_1',
+    cloudinaryAssetId: 'asset_draft_1',
+    secureUrl: 'https://res.cloudinary.com/demo/image/upload/v1/gal_draft_1.jpg',
+    resourceType: 'image',
+    format: 'jpg',
+    width: 1200,
+    height: 800,
+    bytes: 180000,
+    status: 'draft',
+    sortOrder: 200,
+    uploadedAt: SERVER_TS,
+    uploadedByUid: 'owner-1',
+    createdAt: SERVER_TS,
+    createdByUid: 'owner-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'owner-1',
+    version: 1,
+  });
+  await adminSetDoc('galleryItems/gal_archived_1', {
+    schemaVersion: 1,
+    title: 'Archived Studio Photo',
+    category: 'Studio',
+    altText: 'Archived studio rig photo',
+    caption: 'Archived caption',
+    cloudinaryPublicId: '37music/gal_archived_1',
+    cloudinaryAssetId: 'asset_archived_1',
+    secureUrl: 'https://res.cloudinary.com/demo/image/upload/v1/gal_archived_1.jpg',
+    resourceType: 'image',
+    format: 'jpg',
+    width: 1200,
+    height: 800,
+    bytes: 190000,
+    status: 'archived',
+    sortOrder: 300,
+    uploadedAt: SERVER_TS,
+    uploadedByUid: 'owner-1',
+    createdAt: SERVER_TS,
+    createdByUid: 'owner-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'owner-1',
+    version: 1,
+  });
+  await adminSetDoc('landingPagePlacements/hero-featured', {
+    schemaVersion: 1,
+    placementId: 'hero-featured',
+    sourceGalleryItemId: 'gal_draft_1',
+    cloudinaryPublicId: '37music/gal_draft_1',
+    cloudinaryAssetId: 'asset_draft_1',
+    secureUrl: 'https://res.cloudinary.com/demo/image/upload/v1/gal_draft_1.jpg',
+    resourceType: 'image',
+    format: 'jpg',
+    width: 1200,
+    height: 800,
+    bytes: 180000,
+    altText: 'Hero draft studio banner',
+    copy: {
+      topSticker: 'LIVE STUDIO',
+      captionTitle: 'Live Floor Tangerangs Finest',
+      captionSubtitle: 'Acoustic treated room',
+      floatingBadgeTitle: 'READY TO TRACK',
+      floatingBadgeSubtitle: '10:00 - 23:00 WIB',
+    },
+    status: 'draft',
+    version: 1,
+    createdAt: SERVER_TS,
+    createdByUid: 'owner-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'owner-1',
+  });
+
+  const publishedGalleryQuery = {
+    structuredQuery: {
+      from: [{ collectionId: 'galleryItems' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'status' },
+          op: 'EQUAL',
+          value: { stringValue: 'published' },
+        },
+      },
+      orderBy: [{ field: { fieldPath: 'sortOrder' }, direction: 'ASCENDING' }],
+      limit: 100,
+    },
+  };
+  const publishedPlacementsQuery = {
+    structuredQuery: {
+      from: [{ collectionId: 'landingPagePlacements' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'status' },
+          op: 'EQUAL',
+          value: { stringValue: 'published' },
+        },
+      },
+      limit: 10,
+    },
+  };
+
+  for (const [roleLabel, actorToken] of [
+    ['Anon', null],
+    ['Active Client', TOKEN_CLIENT_MATCHED],
+    ['Suspended Client', TOKEN_CLIENT_NEW],
+    ['Active Staff', TOKEN_STAFF],
+    ['Active Owner', TOKEN_OWNER],
+  ]) {
+    assert.equal(
+      (await userRequest('GET', '/galleryItems/gal_1', actorToken)).status,
+      200,
+      `${roleLabel} can GET published galleryItems/gal_1`,
+    );
+    assert.equal(
+      (await userRequest('GET', '/landingPagePlacements/room-a', actorToken)).status,
+      200,
+      `${roleLabel} can GET published landingPagePlacements/room-a`,
+    );
+
+    const galleryListRes = await userRequest(
+      'POST',
+      ':runQuery',
+      actorToken,
+      publishedGalleryQuery,
+    );
+    assert.equal(
+      galleryListRes.status,
+      200,
+      `${roleLabel} published galleryItems query failed: ${JSON.stringify(galleryListRes.body)}`,
+    );
+    const galleryIds = (Array.isArray(galleryListRes.body) ? galleryListRes.body : [])
+      .map((row) => row?.document?.name?.split('/').pop())
+      .filter(Boolean);
+    assert.ok(galleryIds.includes('gal_1'), `${roleLabel} gallery list includes published gal_1`);
+    assert.ok(
+      !galleryIds.includes('gal_draft_1') && !galleryIds.includes('gal_archived_1'),
+      `${roleLabel} gallery list excludes draft & archived items`,
+    );
+
+    const placementsListRes = await userRequest(
+      'POST',
+      ':runQuery',
+      actorToken,
+      publishedPlacementsQuery,
+    );
+    assert.equal(
+      placementsListRes.status,
+      200,
+      `${roleLabel} published placements query failed: ${JSON.stringify(placementsListRes.body)}`,
+    );
+    const placementIds = (Array.isArray(placementsListRes.body) ? placementsListRes.body : [])
+      .map((row) => row?.document?.name?.split('/').pop())
+      .filter(Boolean);
+    assert.ok(
+      placementIds.includes('room-a'),
+      `${roleLabel} placements list includes published room-a`,
+    );
+    assert.ok(
+      !placementIds.includes('hero-featured'),
+      `${roleLabel} placements list excludes draft hero-featured`,
+    );
+  }
+
+  // Non-published documents and unfiltered collection list remain locked strictly to Active Owner
+  for (const [roleLabel, actorToken] of [
+    ['Anon', null],
+    ['Active Client', TOKEN_CLIENT_MATCHED],
+    ['Active Staff', TOKEN_STAFF],
+    ['Inactive Owner', TOKEN_INACTIVE_OWNER],
+  ]) {
+    assert.equal(
+      (await userRequest('GET', '/galleryItems/gal_draft_1', actorToken)).status,
+      403,
+      `${roleLabel} denied reading draft galleryItem`,
+    );
+    assert.equal(
+      (await userRequest('GET', '/galleryItems/gal_archived_1', actorToken)).status,
+      403,
+      `${roleLabel} denied reading archived galleryItem`,
+    );
+    assert.equal(
+      (await userRequest('GET', '/landingPagePlacements/hero-featured', actorToken)).status,
+      403,
+      `${roleLabel} denied reading draft landingPagePlacement`,
+    );
+    assert.equal(
+      (await userRequest('GET', '/galleryItems', actorToken)).status,
+      403,
+      `${roleLabel} denied unfiltered galleryItems list`,
+    );
+    assert.equal(
+      (await userRequest('GET', '/landingPagePlacements', actorToken)).status,
+      403,
+      `${roleLabel} denied unfiltered landingPagePlacements list`,
+    );
+  }
+
+  for (const ownerPath of [
+    '/galleryItems/gal_draft_1',
+    '/galleryItems/gal_archived_1',
+    '/landingPagePlacements/hero-featured',
+    '/galleryItems',
+    '/landingPagePlacements',
+  ]) {
+    assert.equal(
+      (await userRequest('GET', ownerPath, TOKEN_OWNER)).status,
+      200,
+      `Active Owner can read ${ownerPath}`,
+    );
+  }
+
+  // Non-existent document GET behavior: 403 for non-owner, 404 for Active Owner (initial tx.get support)
+  for (const [roleLabel, actorToken] of [
+    ['Anon', null],
+    ['Active Client', TOKEN_CLIENT_MATCHED],
+  ]) {
+    assert.equal(
+      (await userRequest('GET', '/galleryItems/gal_nonexistent', actorToken)).status,
+      403,
+      `${roleLabel} gets 403 on missing galleryItem`,
+    );
+    assert.equal(
+      (await userRequest('GET', '/landingPagePlacements/studio-exterior', actorToken)).status,
+      403,
+      `${roleLabel} gets 403 on missing landingPagePlacement`,
+    );
+  }
+  assert.equal(
+    (await userRequest('GET', '/galleryItems/gal_nonexistent', TOKEN_OWNER)).status,
+    404,
+    'Active Owner gets 404 on missing galleryItem for tx.get() create flow',
+  );
+  assert.equal(
+    (await userRequest('GET', '/landingPagePlacements/studio-exterior', TOKEN_OWNER)).status,
+    404,
+    'Active Owner gets 404 on missing landingPagePlacement for tx.get() create flow',
+  );
+
+  // Active Client cannot update or delete galleryItems or landingPagePlacements
+  assert.equal(
+    (await userRequest('DELETE', '/galleryItems/gal_1', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client denied deleting galleryItems',
+  );
+  assert.equal(
+    (await userRequest('DELETE', '/landingPagePlacements/room-a', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client denied deleting landingPagePlacements',
+  );
+  const clientGalleryUpdateAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/galleryItems/gal_1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            title: 'Tampered Room A',
+            category: 'Rooms',
+            altText: 'Room A inside studio',
+            caption: 'Room A photo',
+            cloudinaryPublicId: '37music/gal_1',
+            cloudinaryAssetId: 'asset_1',
+            secureUrl: 'https://res.cloudinary.com/demo/image/upload/v1/gal_1.jpg',
+            resourceType: 'image',
+            format: 'jpg',
+            width: 1200,
+            height: 800,
+            bytes: 200000,
+            status: 'published',
+            sortOrder: 100,
+            uploadedAt: SERVER_TS,
+            uploadedByUid: 'owner-1',
+            createdAt: SERVER_TS,
+            createdByUid: 'owner-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'client-matched-1',
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(clientGalleryUpdateAttempt.status, 403, 'Client denied updating galleryItems');
+
+  console.log('✓ Public galleryItems & landingPagePlacements Client/Public read rules passed');
+
   // 3. systemOperations/factoryReset read & start authorization
   assert.equal(
     (await userRequest('GET', '/systemOperations/factoryReset', TOKEN_STAFF)).status,

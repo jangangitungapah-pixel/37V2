@@ -128,8 +128,9 @@ Uses **four fixed document IDs**:
 
 ## 5. Firestore Security Rules (`firestore.rules`)
 
-- `match /landingPagePlacements/{placementId}`:
-  - `allow read`: Active Owner can read all; Anonymous visitors (`request.auth == null`) and Active Staff (`isActiveStaff()`) can read **only when `resource.data.status == 'published'`**. Inactive accounts are denied.
-  - `allow create`: Active Owner only (`isActiveOwner()`), fixed `placementId in ['hero-featured', 'room-a', 'room-b', 'studio-exterior']`, strict 19-key shape, placement-specific `copy` validation, `version == 1`, `createdByUid == request.auth.uid`, `updatedByUid == request.auth.uid`.
-  - `allow update`: Active Owner only, `version == resource.data.version + 1`, `createdAt` and `createdByUid` unchanged, `updatedByUid == request.auth.uid`.
+- `match /galleryItems/{galleryItemId}` & `match /landingPagePlacements/{placementId}`:
+  - `allow get`: Allowed when `(resource != null && resource.data.status == 'published')` for all public visitors and signed-in users (including Clients and Staff), or unconditionally for `isActiveOwner()` (so Owner `tx.get()` on non-existent docs during first creation returns 404/non-existent instead of permission denied).
+  - `allow list`: Allowed when filtered to `resource.data.status == 'published'` for all public visitors and signed-in users (including Clients and Staff), or unfiltered for `isActiveOwner()`. Draft/archived items and non-owner unfiltered queries are denied.
+  - `allow create`: Active Owner only (`isActiveOwner()`). On `landingPagePlacements`, enforces fixed `placementId in ['hero-featured', 'room-a', 'room-b', 'studio-exterior']`, strict 19-key shape, placement-specific `copy` validation, `version == 1`, `createdByUid == request.auth.uid`, and `updatedByUid == request.auth.uid`.
+  - `allow update`: Active Owner only (`isActiveOwner()`), enforcing monotonic `version == resource.data.version + 1`, immutable `createdAt`/`createdByUid`, and `updatedByUid == request.auth.uid`.
   - `allow delete`: `if false`.

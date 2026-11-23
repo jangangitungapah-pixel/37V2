@@ -2184,11 +2184,11 @@ service cloud.firestore {
     }
 
     match /galleryItems/{galleryItemId} {
-      allow read: if isActiveOwner()
-        || (
-          resource.data.status == 'published'
-          && (request.auth == null || isActiveStaff())
-        );
+      allow get: if (resource != null && resource.data.status == 'published')
+        || isActiveOwner();
+
+      allow list: if resource.data.status == 'published'
+        || isActiveOwner();
 
       allow create: if isActiveOwner()
         && isValidGalleryItemCreate(request.resource.data);
@@ -2344,11 +2344,11 @@ service cloud.firestore {
     }
 
     match /landingPagePlacements/{placementId} {
-      allow read: if isActiveOwner()
-        || (
-          resource.data.status == 'published'
-          && (request.auth == null || isActiveStaff())
-        );
+      allow get: if (resource != null && resource.data.status == 'published')
+        || isActiveOwner();
+
+      allow list: if resource.data.status == 'published'
+        || isActiveOwner();
 
       allow create: if isActiveOwner()
         && isValidLandingPagePlacementCreate(request.resource.data, placementId);

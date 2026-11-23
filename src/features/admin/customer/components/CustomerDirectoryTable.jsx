@@ -152,9 +152,8 @@ export function CustomerDirectoryTable({
                         <td className="col-start-1 row-start-1 min-w-0 md:table-cell md:px-3.5 md:py-3 md:align-middle md:whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             <Phone
-                              className={`h-3.5 w-3.5 shrink-0 ${
-                                group.isSharedNumber ? 'text-[#FF4B22]' : 'text-[#8B857B]'
-                              }`}
+                              className={`h-3.5 w-3.5 shrink-0 ${group.isSharedNumber ? 'text-[#FF4B22]' : 'text-[#8B857B]'
+                                }`}
                               aria-hidden="true"
                             />
                             <span className="truncate font-mono text-xs font-semibold text-[#151515]">
