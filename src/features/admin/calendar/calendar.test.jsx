@@ -898,6 +898,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       const emptySlotBtn = await screen.findByRole('button', {
         name: new RegExp(`tambah booking room b tanggal ${todayIso} jam 11:00`, 'i'),
       });
+      expect(emptySlotBtn.textContent.trim()).toBe('');
       await user.click(emptySlotBtn);
 
       const modal = await screen.findByRole('dialog', { name: /tambah booking/i });

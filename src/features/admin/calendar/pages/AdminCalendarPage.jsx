@@ -587,7 +587,7 @@ export function AdminCalendarPage() {
 
       {/* 3. Main Workspace Split: Timeline Grid + Upcoming Bookings Sidebar */}
       <div className="grid grid-cols-1 items-start gap-3.5 sm:gap-4 xl:grid-cols-12">
-        <div className="min-w-0 xl:col-span-8 2xl:col-span-9">
+        <div className="min-w-0 xl:col-span-9">
           <CalendarGrid
             viewMode={viewMode}
             activeDate={activeDate}
@@ -604,7 +604,7 @@ export function AdminCalendarPage() {
           />
         </div>
 
-        <aside className="min-w-0 xl:col-span-4 2xl:col-span-3">
+        <aside className="min-w-0 xl:col-span-3">
           <UpcomingBookings
             bookings={upcomingBookings}
             onSelectBooking={(booking) => setSelectedBookingId(booking.id)}

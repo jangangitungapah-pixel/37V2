@@ -49,7 +49,7 @@ export function CalendarDayView({
       }
       bannerRight="Klik slot jam untuk tambah booking"
       columns={columns}
-      columnTrackCss={visibleRooms.length === 1 ? 'minmax(200px, 1fr)' : 'minmax(145px, 1fr)'}
+      columnTrackCss={visibleRooms.length === 1 ? 'minmax(180px, 1fr)' : 'minmax(116px, 1fr)'}
       cardVariant="timeline"
       onSelectEmptySlot={onSelectEmptySlot}
       onSelectBooking={onSelectBooking}

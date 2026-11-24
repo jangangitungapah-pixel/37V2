@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { AlertCircle, Plus } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 import {
   CALENDAR_DISPLAY_END_MINUTE,
@@ -17,7 +17,7 @@ import {
 import { formatIndonesianDateCompact } from '../utils/calendar-date';
 import { CalendarBookingCard } from './CalendarBookingCard';
 
-const TIME_COLUMN_WIDTH_PX = 52;
+const TIME_COLUMN_WIDTH_PX = 46;
 
 export function CalendarTimelineGrid({
   ariaLabel,
@@ -294,13 +294,8 @@ export function CalendarTimelineGrid({
                     }
                     aria-label={`Tambah booking ${col.slotAriaTarget || col.title} tanggal ${col.dateIso} jam ${slot.label}`}
                     style={{ height: `${rowHeightPx}px` }}
-                    className="group flex w-full cursor-pointer items-center justify-center border-b border-[#151515]/6 px-1.5 transition-colors last:border-b-0 hover:bg-[#EDF8C2]/55"
-                  >
-                    <span className="text-studio-ink inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-0.5 font-mono text-[10px] font-medium opacity-0 shadow-xs transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-55">
-                      <Plus className="h-3 w-3 shrink-0" aria-hidden="true" />
-                      <span>{slot.label}</span>
-                    </span>
-                  </button>
+                    className="relative block w-full cursor-pointer border-b border-[#151515]/[0.055] bg-transparent outline-none transition-colors duration-150 last:border-b-0 hover:bg-[#C8F13A]/[0.12] focus-visible:z-[4] focus-visible:bg-[#C8F13A]/[0.16] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8BAD12] active:bg-[#C8F13A]/[0.2]"
+                  />
                 ))}
 
                 {/* Proportionally Positioned Booking Cards */}

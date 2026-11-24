@@ -26,23 +26,27 @@ export function CalendarBookingCard({
   const durationLabel = formatDurationMinutes(booking.durationMinutes);
   const serviceSummary = booking.packageLabel || booking.recordingTypeLabel || booking.serviceLabel;
   const isShortDuration = Number(booking.durationMinutes) <= 45;
-
+  const isLongDuration = Number(booking.durationMinutes) >= 90;
   const isRoomA = booking.studioId === 'room-a';
-  const cardSurfaceClass = isCancelled
-    ? 'bg-[#151515]/[0.03] border-[#151515]/12 text-[#666159] opacity-75'
-    : isRoomA
-      ? 'bg-white border-[#151515]/14 text-studio-ink hover:bg-[#FCFBF7]'
-      : 'bg-[#FAF8F1] border-[#151515]/14 text-studio-ink hover:bg-white';
 
-  const leftAccentClass = isCancelled
-    ? 'border-l-[3.5px] border-l-[#8B857B]'
+  const cardSurfaceClass = isCancelled
+    ? 'border-[#C8C4BA] bg-[#F0EFEA] text-[#67635C] opacity-80'
     : isRoomA
-      ? 'border-l-[3.5px] border-l-[#9BC416]'
-      : 'border-l-[3.5px] border-l-studio-orange';
+      ? 'border-[#A7BF4E]/75 bg-gradient-to-br from-[#F4F8E2] via-[#FCFDF8] to-[#EEF4D8] text-[#202A08] shadow-[0_3px_10px_-7px_rgba(48,65,9,0.5)]'
+      : 'border-[#ECA287]/75 bg-gradient-to-br from-[#FFF0E8] via-[#FFFCF9] to-[#FBE6DC] text-[#3E1B11] shadow-[0_3px_10px_-7px_rgba(123,46,23,0.42)]';
+
+  const topAccentClass = isCancelled
+    ? 'before:bg-[#8B857B]'
+    : isRoomA
+      ? 'before:bg-[#A7C72A]'
+      : 'before:bg-[#FF6E49]';
+
+  const baseCardClass =
+    'relative isolate flex w-full min-w-0 cursor-pointer flex-col overflow-hidden border border-l-[4px] text-left outline-none transition-[box-shadow,transform] duration-150 before:absolute before:inset-x-0 before:top-0 before:h-[3px] hover:-translate-y-px hover:shadow-[0_8px_18px_-12px_rgba(21,21,21,0.6)] focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8BAD12] active:translate-y-0';
 
   const ariaLabel = `Booking ${booking.customerName}, ${room.label}, ${timeRangeLabel}, ${serviceSummary}, pembayaran ${paymentMeta.shortLabel}, sesi ${sessionMeta.label}`;
 
-  // Single-row compact strip for very short (e.g. 30-minute) or tightly split multi-lane timeline blocks
+  // Very short bookings stay on one quiet line so proportional half-hour blocks remain readable.
   if (isShortDuration && variant === 'timeline') {
     return (
       <button
@@ -53,27 +57,20 @@ export function CalendarBookingCard({
           onSelectBooking(booking);
         }}
         aria-label={ariaLabel}
-        className={`${cardSurfaceClass} ${leftAccentClass} flex w-full cursor-pointer items-center justify-between gap-1.5 overflow-hidden rounded-lg border px-2 py-0.5 text-left shadow-xs transition-all hover:shadow-sm`}
+        title={ariaLabel}
+        className={`${baseCardClass} ${cardSurfaceClass} ${topAccentClass} items-center justify-between gap-1 rounded-[9px] border-l-[3px] px-1.5 py-0.5`}
       >
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span
-            className={`shrink-0 rounded-full border px-1.5 py-0 font-mono text-[8.5px] leading-tight font-semibold ${room.badgeClass}`}
-          >
-            {room.shortLabel}
-          </span>
-          <span className="truncate text-[11px] leading-none font-semibold">
-            {booking.customerName}
-          </span>
-        </div>
-
-        <span className="shrink-0 font-mono text-[9px] leading-none font-medium text-[#666159] tabular-nums">
+        <span className="min-w-0 flex-1 truncate text-[10px] leading-none font-semibold tracking-tight">
+          {booking.customerName}
+        </span>
+        <span className="shrink-0 font-mono text-[8px] leading-none font-semibold tracking-tight text-[#4F4B43] tabular-nums">
           {timeRangeLabel}
         </span>
       </button>
     );
   }
 
-  // Timeline-compact variant used for Week & Month columns where width is narrower
+  // Week and Month columns are deliberately compact; the detail drawer carries the full record.
   if (variant === 'compact' || isMultiLane) {
     return (
       <button
@@ -84,52 +81,37 @@ export function CalendarBookingCard({
           onSelectBooking(booking);
         }}
         aria-label={ariaLabel}
-        className={`${cardSurfaceClass} ${leftAccentClass} flex w-full cursor-pointer flex-col justify-between overflow-hidden rounded-lg border p-1.5 text-left shadow-xs transition-all hover:shadow-sm`}
+        title={ariaLabel}
+        className={`${baseCardClass} ${cardSurfaceClass} ${topAccentClass} justify-between gap-0.5 rounded-[9px] border-l-[3px] p-1.5`}
       >
-        <div className="min-w-0 space-y-0.5">
-          <div className="flex items-center justify-between gap-1">
-            <span className="truncate font-mono text-[9.5px] leading-none font-semibold tracking-tight text-[#46433D] tabular-nums">
-              {timeRangeLabel}
-            </span>
-            <span
-              className={`shrink-0 rounded-full border px-1.5 py-0 font-mono text-[8.5px] leading-tight font-semibold ${room.badgeClass}`}
-            >
-              {room.shortLabel}
-            </span>
-          </div>
-
-          <p className="truncate text-[11px] leading-tight font-semibold">{booking.customerName}</p>
-
-          {!isMultiLane && booking.bandName ? (
-            <p className="truncate text-[10px] leading-tight font-medium text-[#666159]">
-              {booking.bandName}
-            </p>
-          ) : null}
+        <div className="flex min-w-0 items-center justify-between gap-1">
+          <span className="truncate font-mono text-[8.5px] leading-none font-semibold tracking-tight text-[#46433D] tabular-nums">
+            {timeRangeLabel}
+          </span>
+          <span
+            className={`shrink-0 rounded-full border px-1 py-0 font-mono text-[7.5px] leading-tight font-bold ${room.badgeClass}`}
+          >
+            {room.shortLabel}
+          </span>
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-1">
+        <p className="min-w-0 truncate text-[10px] leading-tight font-bold tracking-tight">
+          {booking.customerName}
+        </p>
+
+        <div className="mt-auto flex min-w-0 flex-wrap items-center gap-1 pt-0.5">
           {!isMultiLane ? (
-            <span className="max-w-full truncate rounded-full border border-[#151515]/10 bg-[#151515]/[0.045] px-1.5 py-0 text-[8.5px] leading-tight font-medium text-[#46433D]">
+            <span className="max-w-full truncate rounded-full border border-[#151515]/10 bg-white/70 px-1.5 py-0 text-[8px] leading-tight font-medium text-[#46433D]">
               {serviceSummary}
             </span>
           ) : null}
-
           <span
-            className={`rounded-full border px-1.5 py-0 text-[8.5px] leading-tight font-medium ${paymentMeta.badgeClass}`}
+            className={`rounded-full border px-1.5 py-0 text-[8px] leading-tight font-semibold ${paymentMeta.badgeClass}`}
           >
             {paymentMeta.shortLabel}
           </span>
-
-          {!isMultiLane ? (
-            <span
-              className={`rounded-full border px-1.5 py-0 text-[8.5px] leading-tight font-medium ${sessionMeta.badgeClass}`}
-            >
-              {sessionMeta.label}
-            </span>
-          ) : null}
-
           {endsAfterDisplay ? (
-            <span className="rounded-full border border-amber-500/25 bg-[#FEF4DD] px-1.5 py-0 text-[8.5px] leading-tight font-medium text-[#8A4B08]">
+            <span className="rounded-full border border-amber-500/25 bg-[#FEF4DD] px-1.5 py-0 text-[8px] leading-tight font-semibold text-[#8A4B08]">
               s/d {formatMinuteOfDay(booking.endMinute)}
             </span>
           ) : null}
@@ -147,57 +129,62 @@ export function CalendarBookingCard({
         onSelectBooking(booking);
       }}
       aria-label={ariaLabel}
-      className={`${cardSurfaceClass} ${leftAccentClass} group flex w-full cursor-pointer flex-col justify-between overflow-hidden rounded-xl border p-2 text-left shadow-xs transition-all hover:shadow-sm`}
+      title={ariaLabel}
+      className={`${baseCardClass} ${cardSurfaceClass} ${topAccentClass} justify-between gap-0.5 rounded-[11px] border-l-[4px] p-1.5 sm:p-2`}
     >
-      <div className="min-w-0 space-y-0.5">
-        {/* Top Metadata Row: Time + Room Badge */}
-        <div className="flex flex-wrap items-center justify-between gap-1">
-          <span className="text-studio-ink font-mono text-[10.5px] leading-none font-semibold tracking-tight tabular-nums">
-            {timeRangeLabel} <span className="font-normal text-[#666159]">({durationLabel})</span>
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center justify-between gap-1">
+          <span className="truncate font-mono text-[9px] leading-none font-bold tracking-tight text-[#46433D] tabular-nums sm:text-[10px]">
+            {timeRangeLabel}
           </span>
-
           <span
-            className={`rounded-full border px-2 py-0.5 text-[9.5px] leading-none font-semibold ${room.badgeClass}`}
+            className={`shrink-0 rounded-full border px-1.5 py-0 text-[8px] leading-tight font-bold sm:text-[9px] ${room.badgeClass}`}
           >
-            {room.label}
+            {room.shortLabel}
           </span>
         </div>
 
-        {/* Customer + Band Name */}
-        <div className="min-w-0 pt-0.5">
-          <p className="truncate text-xs leading-tight font-semibold">{booking.customerName}</p>
-          {booking.bandName && Number(booking.durationMinutes) >= 60 ? (
-            <p className="truncate text-[11px] leading-tight font-medium text-[#666159]">
+        <div className="mt-1 min-w-0">
+          <p className="truncate text-[11px] leading-tight font-bold tracking-tight sm:text-xs">
+            {booking.customerName}
+          </p>
+          {booking.bandName && isLongDuration ? (
+            <p className="mt-0.5 truncate text-[9px] leading-tight font-medium text-[#666159] sm:text-[10px]">
               {booking.bandName}
             </p>
           ) : null}
         </div>
       </div>
 
-      {/* Bottom Badges: Service + Payment Status + Session Status */}
-      <div className="mt-1.5 flex flex-wrap items-center gap-1">
-        <span className="truncate rounded-full border border-[#151515]/10 bg-[#151515]/[0.045] px-2 py-0.5 text-[9.5px] leading-none font-medium text-[#46433D]">
-          {serviceSummary}
-        </span>
-
+      {isLongDuration ? (
+        <div className="mt-auto flex min-w-0 flex-wrap items-center gap-1 pt-1">
+          <span className="max-w-full truncate rounded-full border border-[#151515]/10 bg-white/70 px-1.5 py-0 text-[8px] leading-tight font-semibold text-[#46433D] sm:text-[9px]">
+            {serviceSummary}
+          </span>
+          <span
+            className={`rounded-full border px-1.5 py-0 text-[8px] leading-tight font-semibold sm:text-[9px] ${paymentMeta.badgeClass}`}
+          >
+            {paymentMeta.shortLabel}
+          </span>
+          <span
+            className={`rounded-full border px-1.5 py-0 text-[8px] leading-tight font-semibold sm:text-[9px] ${sessionMeta.badgeClass}`}
+          >
+            {sessionMeta.label}
+          </span>
+          {endsAfterDisplay ? (
+            <span className="rounded-full border border-amber-500/25 bg-[#FEF4DD] px-1.5 py-0 text-[8px] leading-tight font-semibold text-[#8A4B08]">
+              s/d {formatMinuteOfDay(booking.endMinute)}
+            </span>
+          ) : null}
+        </div>
+      ) : (
         <span
-          className={`rounded-full border px-2 py-0.5 text-[9.5px] leading-none font-medium ${paymentMeta.badgeClass}`}
+          className={`mt-auto inline-flex w-fit rounded-full border px-1.5 py-0 text-[8px] leading-tight font-semibold ${paymentMeta.badgeClass}`}
         >
           {paymentMeta.shortLabel}
         </span>
-
-        <span
-          className={`rounded-full border px-2 py-0.5 text-[9.5px] leading-none font-medium ${sessionMeta.badgeClass}`}
-        >
-          {sessionMeta.label}
-        </span>
-
-        {endsAfterDisplay ? (
-          <span className="rounded-full border border-amber-500/25 bg-[#FEF4DD] px-2 py-0.5 text-[9.5px] leading-none font-medium text-[#8A4B08]">
-            Lanjut s/d {formatMinuteOfDay(booking.endMinute)}
-          </span>
-        ) : null}
-      </div>
+      )}
+      <span className="sr-only">{durationLabel}</span>
     </button>
   );
 }

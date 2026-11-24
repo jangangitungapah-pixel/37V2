@@ -89,7 +89,7 @@ export function CalendarFilters({
             <div
               role="group"
               aria-label="Filter status pembayaran"
-              className="flex flex-wrap gap-1.5 md:inline-flex md:w-auto md:flex-nowrap"
+              className="grid w-full grid-cols-2 gap-1.5 md:inline-grid md:w-auto md:grid-cols-4"
             >
               {PAYMENT_FILTER_OPTIONS.map((option) => {
                 const isSelected = paymentFilter === option.id;
@@ -103,8 +103,8 @@ export function CalendarFilters({
                     aria-pressed={isSelected}
                     className={
                       isSelected
-                        ? 'inline-flex min-h-9.5 cursor-pointer items-center justify-center rounded-xl border border-[#8BAD12]/45 bg-[#EDF8C2] px-3 py-1.5 text-center text-xs font-semibold whitespace-nowrap text-[#243300] shadow-xs transition-all'
-                        : 'hover:text-studio-ink inline-flex min-h-9.5 cursor-pointer items-center justify-center rounded-xl border border-[#151515]/12 bg-white px-3 py-1.5 text-center text-xs font-medium whitespace-nowrap text-[#46433D] transition-all hover:border-[#151515]/25 hover:bg-[#F8F6EF]'
+                        ? 'inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-xl border border-[#8BAD12]/45 bg-[#EDF8C2] px-3 py-1.5 text-center text-xs font-semibold whitespace-nowrap text-[#243300] shadow-xs transition-all md:w-auto'
+                        : 'hover:text-studio-ink inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-xl border border-[#151515]/12 bg-white px-3 py-1.5 text-center text-xs font-medium whitespace-nowrap text-[#46433D] transition-all hover:border-[#151515]/25 hover:bg-[#F8F6EF] md:w-auto'
                     }
                   >
                     <span className="sm:hidden">{mobileLabel}</span>
