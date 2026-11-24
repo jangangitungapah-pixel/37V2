@@ -286,33 +286,27 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     });
   });
 
-  it('provides mobile quick-dock navigation across Ringkasan, Jadwal, Inbox, Tagihan, and opens More menu drawer', async () => {
+  it('keeps mobile workspace navigation in the drawer without a persistent bottom dock', async () => {
     const user = userEvent.setup();
     mockAuthenticatedRole('owner');
-    renderAdminAt('/admin/dashboard');
+    const { container } = renderAdminAt('/admin/dashboard');
 
-    await screen.findByRole('heading', { name: /welcome back, 37 music studio owner\./i });
+    await screen.findByRole('heading', { name: /welcome back, 37 music studio owner\\./i });
 
-    const mobileDock = screen.getByRole('navigation', { name: /pintasan navigasi mobile/i });
+    expect(screen.queryByRole('navigation', { name: /pintasan navigasi mobile/i })).toBeNull();
+    expect(container.querySelector('main')?.className).not.toContain('pb-[calc(5.75rem');
 
-    await user.click(within(mobileDock).getByRole('link', { name: 'Jadwal' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Calendar' })).toBeTruthy();
-
-    await user.click(within(mobileDock).getByRole('link', { name: 'Inbox' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Booking Requests' })).toBeTruthy();
-
-    await user.click(within(mobileDock).getByRole('link', { name: 'Tagihan' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Payment and Bill' })).toBeTruthy();
-
-    await user.click(within(mobileDock).getByRole('link', { name: 'Ringkasan' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeTruthy();
-
-    await user.click(within(mobileDock).getByRole('button', { name: /buka menu lainnya/i }));
+    const drawerTrigger = screen.getByRole('button', { name: /open navigation drawer/i });
+    await user.click(drawerTrigger);
     const drawer = await screen.findByRole('dialog');
     expect(drawer.getAttribute('aria-label')).toBe('Mobile workspace navigation drawer');
     expect(
       within(drawer).getByRole('navigation', { name: /mobile admin workspace navigation/i }),
     ).toBeTruthy();
+
+    await user.click(within(drawer).getByRole('link', { name: 'Calendar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('heading', { level: 1, name: 'Calendar' })).toBeTruthy();
   });
 
   it('protects all nested admin routes from unauthenticated access and restricts /admin/reviews to Owner only', async () => {

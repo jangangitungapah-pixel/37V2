@@ -62,7 +62,7 @@ export function ClientPortalLayout() {
 
         <main
           id="client-main-content"
-          className="w-full flex-1 px-2.5 py-3 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
+          className="w-full flex-1 px-3 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-5 sm:pt-4 sm:pb-5 xl:px-7"
         >
           <motion.div
             key={location.pathname}
@@ -72,7 +72,7 @@ export function ClientPortalLayout() {
               duration: prefersReducedMotion ? 0 : 0.18,
               ease: [0.22, 1, 0.36, 1],
             }}
-            className="mx-auto w-full max-w-[1440px]"
+            className="mx-auto w-full max-w-[1560px]"
           >
             <Outlet />
           </motion.div>

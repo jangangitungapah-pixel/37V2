@@ -13,7 +13,6 @@ import { useOwnerPublicAvailabilityAutoSync } from '@/features/public-availabili
 import { OwnerPublicPricingSyncContext } from '@/features/public-pricing/context/OwnerPublicPricingSyncContext';
 import { useOwnerPublicPricingAutoSync } from '@/features/public-pricing/hooks/useOwnerPublicPricingAutoSync';
 
-import { AdminMobileBottomNav } from '../components/AdminMobileBottomNav';
 import { AdminMobileDrawer } from '../components/AdminMobileDrawer';
 import { AdminSidebar } from '../components/AdminSidebar';
 import { AdminTopbar } from '../components/AdminTopbar';
@@ -97,7 +96,7 @@ function AdminLayoutShell() {
 
         <main
           id="admin-main-content"
-          className="w-full flex-1 px-3.5 pt-3.5 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-5 sm:pb-[calc(6rem+env(safe-area-inset-bottom))] lg:px-8 lg:py-6"
+          className="w-full flex-1 px-3 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-5 sm:pt-4 sm:pb-5 xl:px-7"
         >
           <motion.div
             key={location.pathname}
@@ -107,7 +106,7 @@ function AdminLayoutShell() {
               duration: prefersReducedMotion ? 0 : 0.22,
               ease: [0.16, 1, 0.3, 1],
             }}
-            className="mx-auto w-full max-w-[1440px]"
+            className="mx-auto w-full max-w-[1560px]"
           >
             {isActiveOwner &&
             isFactoryResetLocked &&
@@ -115,7 +114,7 @@ function AdminLayoutShell() {
               <div
                 role="status"
                 data-testid="admin-factory-reset-maintenance-banner"
-                className="mb-4 flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-red-300 bg-red-50/90 px-3.5 py-2.5 text-xs text-red-950 shadow-2xs sm:px-4"
+                className="mb-3 flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-red-300 bg-red-50/90 px-3.5 py-2.5 text-xs text-red-950 shadow-2xs sm:px-4"
               >
                 <span className="inline-flex items-start gap-2 font-medium sm:items-center">
                   <Lock className="mt-0.5 h-4 w-4 shrink-0 text-red-700 sm:mt-0" aria-hidden="true" />
@@ -217,15 +216,8 @@ function AdminLayoutShell() {
         </footer>
       </div>
 
-      <AdminMobileBottomNav
-        isMobileDrawerOpen={isMobileDrawerOpen}
-        onOpenMobileDrawer={() => setIsMobileDrawerOpen(true)}
-        navBadges={navBadges}
-      />
-
       <Toaster
         position="bottom-right"
-        mobileOffset={{ bottom: '86px', left: '12px', right: '12px' }}
         toastOptions={{
           style: {
             background: '#FFFFFF',

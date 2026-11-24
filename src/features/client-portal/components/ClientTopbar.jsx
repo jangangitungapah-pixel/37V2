@@ -64,7 +64,7 @@ export function ClientTopbar({
 
   return (
     <header className="sa-topbar sticky top-0 z-20">
-      <div className="mx-auto flex min-h-[52px] w-full max-w-[1440px] items-center justify-between gap-1.5 px-2.5 py-1.5 sm:min-h-[60px] sm:gap-2.5 sm:px-6 sm:py-2.5 lg:px-8">
+      <div className="mx-auto flex min-h-[54px] w-full max-w-[1560px] items-center justify-between gap-2 px-3 py-1.5 sm:min-h-[58px] sm:gap-3 sm:px-5 sm:py-2 xl:px-7>
         {/* Left: Mobile Drawer Button / Desktop Sidebar Toggle + Breadcrumb + Dynamic Page Title */}
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
           {/* Mobile & Tablet Off-Canvas Drawer Trigger */}
@@ -109,7 +109,7 @@ export function ClientTopbar({
               </ol>
             </nav>
 
-            <h1 className="truncate text-base font-bold tracking-[-0.02em] text-[#151515] sm:text-xl sm:leading-tight">
+            <h1 className="truncate text-[15px] font-bold tracking-[-0.025em] text-[#151515] sm:text-lg sm:leading-tight">
               {activeNavItem.label}
             </h1>
           </div>
