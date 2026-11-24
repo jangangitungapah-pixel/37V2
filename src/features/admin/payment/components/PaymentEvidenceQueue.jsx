@@ -99,7 +99,7 @@ export function PaymentEvidenceQueue({
           <div
             role="tablist"
             aria-label="Filter status bukti pembayaran"
-            className="flex flex-wrap items-center gap-1.5"
+            className="sa-scroll-x flex flex-nowrap items-center gap-1.5 sm:flex-wrap"
           >
             {EVIDENCE_FILTER_OPTIONS.map((opt) => {
               const active = statusFilter === opt.id;
@@ -113,7 +113,7 @@ export function PaymentEvidenceQueue({
                   role="tab"
                   aria-selected={active}
                   onClick={() => setStatusFilter(opt.id)}
-                  className={`inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  className={`inline-flex min-h-9.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
                     active
                       ? 'border-[#151515] bg-[#151515] text-[#F1EEE4]'
                       : 'border-[#151515]/12 bg-[#F8F6EF] text-[#46433D] hover:border-[#151515]/30 hover:text-[#151515]'
@@ -147,14 +147,14 @@ export function PaymentEvidenceQueue({
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Cari bukti pembayaran berdasarkan nomor invoice, nama pelanggan, atau referensi"
               placeholder="Cari invoice, pelanggan, ref..."
-              className="sa-input min-h-9 w-full pr-8 pl-8.5 text-xs"
+              className="sa-input min-h-10.5 w-full pr-10 pl-8.5 text-xs"
             />
             {searchQuery ? (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Hapus pencarian bukti pembayaran"
-                className="absolute top-1/2 right-2 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-[#666159] hover:bg-[#151515]/[0.06] hover:text-[#151515]"
+                className="absolute top-1/2 right-1 inline-flex h-8.5 w-8.5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.06] hover:text-[#151515]"
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
@@ -178,7 +178,7 @@ export function PaymentEvidenceQueue({
               <button
                 type="button"
                 onClick={onRetry}
-                className="sa-btn-secondary inline-flex min-h-8 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                className="sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold"
               >
                 <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Coba Lagi</span>
@@ -221,7 +221,7 @@ export function PaymentEvidenceQueue({
                     setSearchQuery('');
                     setStatusFilter('all');
                   }}
-                  className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center px-3.5 py-1.5 text-xs font-semibold"
+                  className="sa-control sa-btn-secondary inline-flex min-h-10.5 cursor-pointer items-center px-4 py-2 text-xs font-semibold"
                 >
                   Lihat Semua Bukti
                 </button>
@@ -329,7 +329,7 @@ export function PaymentEvidenceQueue({
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#151515]/[0.06] pt-2.5 sm:flex-col sm:items-end sm:border-t-0 sm:pt-0">
+                  <div className="flex shrink-0 flex-col items-stretch gap-2.5 border-t border-[#151515]/[0.06] pt-2.5 sm:items-end sm:gap-3 sm:border-t-0 sm:pt-0">
                     {invoice ? (
                       <div className="text-left sm:text-right">
                         <p className="text-[10.5px] text-[#666159]">Sisa Tagihan Invoice</p>
@@ -347,7 +347,7 @@ export function PaymentEvidenceQueue({
                       type="button"
                       onClick={() => onSelectEvidence?.(item, invoice)}
                       aria-label={`${isPending ? 'Tinjau' : 'Lihat detail'} bukti pembayaran ${item.invoiceNumber}`}
-                      className={`sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1 px-3 py-1 text-xs font-semibold ${
+                      className={`sa-control inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1 px-3.5 py-2 text-xs font-semibold sm:w-auto ${
                         isPending ? 'sa-btn-lime' : 'sa-btn-secondary'
                       }`}
                     >
@@ -367,7 +367,7 @@ export function PaymentEvidenceQueue({
           <button
             type="button"
             onClick={onLoadMore}
-            className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold"
+            className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold sm:w-auto"
           >
             Muat Lebih Banyak Bukti Pembayaran
           </button>

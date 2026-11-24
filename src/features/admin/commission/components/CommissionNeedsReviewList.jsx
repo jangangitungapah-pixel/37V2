@@ -55,7 +55,7 @@ export function CommissionNeedsReviewList({
           type="button"
           aria-expanded={isExpanded}
           onClick={() => setIsExpanded((prev) => !prev)}
-          className="sa-control sa-btn-secondary inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+          className="sa-control sa-btn-secondary inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
         >
           <span>{isExpanded ? 'Tutup' : `Lihat (${items.length})`}</span>
           {isExpanded ? (
@@ -68,7 +68,7 @@ export function CommissionNeedsReviewList({
 
       {/* Expandable Detail Cards */}
       {isExpanded ? (
-        <div className="border-t border-amber-500/20 bg-white/55 p-4">
+        <div className="border-t border-amber-500/20 bg-white/55 p-3 sm:p-4">
           <p className="mb-3 text-xs leading-relaxed text-[#666159]">
             Sesi di bawah ini sudah selesai tetapi belum memiliki catatan komisi yang valid. Angka
             tidak dihitung ulang otomatis dan tidak ikut diposting ke Pembukuan. Tandai selesai bila
@@ -81,7 +81,7 @@ export function CommissionNeedsReviewList({
               return (
                 <li
                   key={item.bookingId}
-                  className="sa-subcard flex flex-col justify-between gap-3 p-3.5 sm:flex-row sm:items-center"
+                  className="sa-subcard flex flex-col justify-between gap-3 p-3 sm:flex-row sm:items-center sm:p-3.5"
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
@@ -92,7 +92,7 @@ export function CommissionNeedsReviewList({
                       <span className="text-[#666159]">• Selesai: {completedText}</span>
                     </div>
 
-                    <p className="truncate text-sm font-semibold text-[#151515]">
+                    <p className="text-sm leading-snug font-semibold break-words text-[#151515]">
                       {item.booking.customerName}
                       {item.booking.bandName ? ` (${item.booking.bandName})` : ''} —{' '}
                       <span className="font-normal text-[#46433D]">
@@ -103,11 +103,11 @@ export function CommissionNeedsReviewList({
                     <p className="text-xs font-medium text-[#B92B0C]">Alasan: {item.reason}</p>
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
                     <button
                       type="button"
                       onClick={() => onResolveBookingItem?.(item)}
-                      className="sa-control sa-btn-lime inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                      className="sa-control sa-btn-lime inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:flex-initial"
                     >
                       <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Tandai Selesai</span>
@@ -116,7 +116,7 @@ export function CommissionNeedsReviewList({
                     <button
                       type="button"
                       onClick={() => onSelectBookingItem?.(item)}
-                      className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold"
+                      className="sa-control sa-btn-secondary inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold sm:flex-initial"
                     >
                       <span>Detail</span>
                       <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />

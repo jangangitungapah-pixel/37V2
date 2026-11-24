@@ -40,7 +40,13 @@ export function FactoryResetPreview({
           </div>
         </div>
 
-        <AdminButton variant="secondary" size="sm" onClick={onRefresh} disabled={isLoading}>
+        <AdminButton
+          variant="secondary"
+          size="sm"
+          onClick={onRefresh}
+          disabled={isLoading}
+          className="min-h-10 w-full justify-center sm:w-auto"
+        >
           <RefreshCw
             className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`}
             aria-hidden="true"
@@ -95,34 +101,34 @@ export function FactoryResetPreview({
 
       {preflight ? (
         <>
-          <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-red-200/80 bg-red-50/40 p-3.5">
-              <dt className="font-mono text-[10.5px] font-semibold tracking-wide text-red-800 uppercase">
+          <dl className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
+            <div className="rounded-xl border border-red-200/80 bg-red-50/40 p-3 sm:p-3.5">
+              <dt className="font-mono text-[10px] font-semibold tracking-wide text-red-800 uppercase sm:text-[10.5px]">
                 Koleksi Utama Dihapus
               </dt>
-              <dd className="mt-1 text-xl font-bold text-[#151515]">
+              <dd className="mt-1 text-lg font-bold text-[#151515] sm:text-xl">
                 {typeof preflight.topLevelDocumentCount === 'number'
                   ? preflight.topLevelDocumentCount
                   : 'Error'}
               </dd>
             </div>
 
-            <div className="rounded-xl border border-red-200/80 bg-red-50/40 p-3.5">
-              <dt className="font-mono text-[10.5px] font-semibold tracking-wide text-red-800 uppercase">
+            <div className="rounded-xl border border-red-200/80 bg-red-50/40 p-3 sm:p-3.5">
+              <dt className="font-mono text-[10px] font-semibold tracking-wide text-red-800 uppercase sm:text-[10.5px]">
                 Subkoleksi Request
               </dt>
-              <dd className="mt-1 text-xl font-bold text-[#151515]">
+              <dd className="mt-1 text-lg font-bold text-[#151515] sm:text-xl">
                 {typeof preflight.subcollectionDocumentCount === 'number'
                   ? preflight.subcollectionDocumentCount
                   : 'Error'}
               </dd>
             </div>
 
-            <div className="rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3.5">
-              <dt className="font-mono text-[10.5px] font-semibold tracking-wide text-[#756F65] uppercase">
+            <div className="rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3 sm:p-3.5">
+              <dt className="font-mono text-[10px] font-semibold tracking-wide text-[#756F65] uppercase sm:text-[10.5px]">
                 Estimasi Total Hapus
               </dt>
-              <dd className="mt-1 text-xl font-bold text-[#151515]">
+              <dd className="mt-1 text-lg font-bold text-[#151515] sm:text-xl">
                 {typeof preflight.totalDeleteOperations === 'number'
                   ? `${preflight.totalDeleteOperations} dok`
                   : 'Tidak lengkap'}
@@ -134,11 +140,11 @@ export function FactoryResetPreview({
               ) : null}
             </div>
 
-            <div className="rounded-xl border border-[#8BAD12]/35 bg-[#F4FBE0] p-3.5">
-              <dt className="font-mono text-[10.5px] font-semibold tracking-wide text-[#243300] uppercase">
+            <div className="rounded-xl border border-[#8BAD12]/35 bg-[#F4FBE0] p-3 sm:p-3.5">
+              <dt className="font-mono text-[10px] font-semibold tracking-wide text-[#243300] uppercase sm:text-[10.5px]">
                 Konfigurasi &amp; Aset Dijaga
               </dt>
-              <dd className="mt-1 text-xl font-bold text-[#151515]">
+              <dd className="mt-1 text-lg font-bold text-[#151515] sm:text-xl">
                 {preflight.preservedDetectedCount} item terdeteksi
               </dd>
             </div>
@@ -194,6 +200,7 @@ export function FactoryResetPreview({
               size="md"
               disabled={!canStartDestructive}
               onClick={onRequestStartReset}
+              className="min-h-11 w-full justify-center sm:w-auto"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               <span>Mulai Factory Reset</span>

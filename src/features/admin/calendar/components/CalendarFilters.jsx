@@ -125,8 +125,8 @@ export function CalendarFilters({
             </span>
           </div>
 
-          <div className="flex w-full items-center gap-1.5 sm:gap-2">
-            <div className="relative min-w-0 flex-1">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:flex-nowrap">
+            <div className="relative w-full min-w-0 sm:flex-1">
               <Search
                 className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#8B857B]"
                 aria-hidden="true"
@@ -137,14 +137,14 @@ export function CalendarFilters({
                 onChange={(event) => onSearchQueryChange(event.target.value)}
                 aria-label="Cari customer, band, atau project"
                 placeholder="Cari nama, band, atau acara..."
-                className="sa-input h-9.5 w-full rounded-xl py-1.5 pr-8 pl-9 text-xs font-medium sm:h-10"
+                className="sa-input h-10 w-full rounded-xl py-1.5 pr-10 pl-9 text-xs font-medium"
               />
               {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => onSearchQueryChange('')}
                   aria-label="Bersihkan pencarian"
-                  className="hover:text-studio-orange absolute top-1/2 right-1.5 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] transition-colors sm:h-8 sm:w-8"
+                  className="hover:text-studio-orange absolute top-1/2 right-1 inline-flex h-8.5 w-8.5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] transition-colors"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -158,8 +158,8 @@ export function CalendarFilters({
               aria-pressed={showCancelled}
               className={
                 showCancelled
-                  ? 'inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#8BAD12]/45 bg-[#EDF8C2] px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[#243300] shadow-xs transition-all sm:min-h-10 sm:px-3.5'
-                  : 'sa-control sa-btn-secondary inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-[#46433D] sm:min-h-10 sm:px-3.5'
+                  ? 'inline-flex min-h-10 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#8BAD12]/45 bg-[#EDF8C2] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#243300] shadow-xs transition-all sm:flex-initial sm:px-3.5'
+                  : 'sa-control sa-btn-secondary inline-flex min-h-10 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#46433D] sm:flex-initial sm:px-3.5'
               }
             >
               {showCancelled ? (
@@ -167,7 +167,7 @@ export function CalendarFilters({
               ) : (
                 <EyeOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               )}
-              <span className="hidden min-[360px]:inline sm:hidden">Batal</span>
+              <span className="sm:hidden">Batal</span>
               <span className="hidden sm:inline">Tampilkan Batal</span>
             </button>
 
@@ -175,7 +175,7 @@ export function CalendarFilters({
               type="button"
               aria-expanded={mobileFiltersOpen}
               onClick={() => setMobileFiltersOpen((prev) => !prev)}
-              className="sa-control sa-btn-secondary inline-flex h-9.5 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 text-xs font-semibold sm:hidden"
+              className="sa-control sa-btn-secondary inline-flex min-h-10 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 text-xs font-semibold sm:hidden"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Filter</span>

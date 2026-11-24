@@ -150,7 +150,7 @@ export function LandingPageMediaManager({
                   size="sm"
                   onClick={() => onChangePhoto?.(def.id)}
                   aria-label={`Ganti Foto untuk ${def.label}`}
-                  className="flex-1"
+                  className="min-h-10 flex-1"
                 >
                   <ImagePlus className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
                   <span>Ganti Foto</span>
@@ -162,7 +162,7 @@ export function LandingPageMediaManager({
                   size="sm"
                   onClick={() => onEditCopy?.(def.id)}
                   aria-label={`Edit Teks untuk ${def.label}`}
-                  className="flex-1"
+                  className="min-h-10 flex-1"
                 >
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Edit Teks</span>

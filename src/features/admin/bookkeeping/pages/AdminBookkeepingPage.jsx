@@ -389,12 +389,12 @@ export function AdminBookkeepingPage() {
             <div ref={newEntryMenuRef} className="relative">
               <AdminButton
                 variant="orange"
-                size="xs"
+                size="sm"
                 onClick={() => setNewEntryMenuOpen((prev) => !prev)}
                 aria-expanded={newEntryMenuOpen}
                 aria-haspopup="menu"
                 aria-label="Tambah catatan pembukuan baru"
-                className="min-h-9 gap-1 px-2.5 sm:min-h-10 sm:gap-1.5 sm:px-3.5"
+                className="min-h-10 gap-1.5 px-3 sm:px-3.5"
               >
                 <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
                 <span>New Entry</span>

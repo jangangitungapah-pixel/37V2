@@ -40,10 +40,10 @@ export function CommissionBookingDetailDrawer({ item, open, onOpenChange }) {
           data-admin-portal-layer="true"
           aria-label={`Detail komisi booking ${item.bookingId}`}
           data-commission-scoped="true"
-          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-lg flex-col outline-none"
+          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-lg flex-col outline-none"
         >
           {/* Sticky Header */}
-          <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-5 py-4">
+          <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3.5 sm:px-5 sm:py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -61,14 +61,14 @@ export function CommissionBookingDetailDrawer({ item, open, onOpenChange }) {
                 <Dialog.Title className="mt-2 truncate text-lg font-bold tracking-tight text-[#151515] sm:text-xl">
                   {booking.customerName}
                 </Dialog.Title>
-                <Dialog.Description className="mt-0.5 font-mono text-xs text-[#666159]">
+                <Dialog.Description className="mt-0.5 font-mono text-xs break-all text-[#666159]">
                   Booking ID: <strong className="text-[#151515]">{item.bookingId}</strong>
                 </Dialog.Description>
               </div>
 
               <Dialog.Close
                 aria-label="Tutup detail komisi booking"
-                className="sa-control inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
               >
                 <X className="h-4.5 w-4.5" aria-hidden="true" />
               </Dialog.Close>
@@ -76,7 +76,7 @@ export function CommissionBookingDetailDrawer({ item, open, onOpenChange }) {
           </div>
 
           {/* Scrollable Body */}
-          <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+          <div className="sa-safe-bottom flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
             {/* Session Info */}
             <section className="sa-card p-4">
               <h3 className="flex items-center gap-1.5 text-xs font-semibold text-[#666159]">
@@ -85,45 +85,45 @@ export function CommissionBookingDetailDrawer({ item, open, onOpenChange }) {
               </h3>
 
               <dl className="mt-3 space-y-2 text-xs">
-                <div className="flex justify-between gap-2">
-                  <dt className="text-[#666159]">Customer / Band</dt>
-                  <dd className="text-right font-semibold text-[#151515]">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="shrink-0 text-[#666159]">Customer / Band</dt>
+                  <dd className="min-w-0 text-right font-semibold break-words text-[#151515]">
                     {booking.customerName}
                     {booking.bandName ? ` (${booking.bandName})` : ''}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-[#666159]">Booking ID</dt>
-                  <dd className="text-right font-mono font-medium text-[#151515]">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="shrink-0 text-[#666159]">Booking ID</dt>
+                  <dd className="min-w-0 text-right font-mono font-medium break-all text-[#151515]">
                     {item.bookingId}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-[#666159]">Layanan &amp; Subkategori</dt>
-                  <dd className="text-right font-medium text-[#151515]">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="shrink-0 text-[#666159]">Layanan &amp; Subkategori</dt>
+                  <dd className="min-w-0 text-right font-medium break-words text-[#151515]">
                     {serviceInfo.serviceTypeName} — {serviceInfo.serviceOptionName}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-[#666159]">Ruangan Studio</dt>
-                  <dd className="text-right font-medium text-[#151515]">{room.label}</dd>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="shrink-0 text-[#666159]">Ruangan Studio</dt>
+                  <dd className="min-w-0 text-right font-medium text-[#151515]">{room.label}</dd>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-[#666159]">Tanggal Booking</dt>
-                  <dd className="text-right font-mono font-medium text-[#151515]">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="shrink-0 text-[#666159]">Tanggal Booking</dt>
+                  <dd className="min-w-0 text-right font-mono font-medium text-[#151515]">
                     {booking.date ? formatIndonesianDateMedium(booking.date) : '-'} (
                     {formatMinuteRange(booking.startMinute, booking.endMinute)})
                   </dd>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-[#666159]">Selesai Aktual</dt>
-                  <dd className="text-right font-mono font-semibold text-[#151515]">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="shrink-0 text-[#666159]">Selesai Aktual</dt>
+                  <dd className="min-w-0 text-right font-mono font-semibold text-[#151515]">
                     {formatIndonesianTimestamp(booking.actualCompletedAt)}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-[#666159]">Durasi Sesi</dt>
-                  <dd className="text-right font-mono font-medium text-[#151515]">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="shrink-0 text-[#666159]">Durasi Sesi</dt>
+                  <dd className="min-w-0 text-right font-mono font-medium text-[#151515]">
                     {formatDurationMinutes(booking.durationMinutes)}
                   </dd>
                 </div>
@@ -154,38 +154,38 @@ export function CommissionBookingDetailDrawer({ item, open, onOpenChange }) {
               ) : (
                 <div className="mt-3 space-y-2.5">
                   <div className="sa-panel-ivory p-3 text-xs">
-                    <div className="flex justify-between gap-2">
-                      <div>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[#151515]">Staff / Studio Guard</p>
-                        <p className="mt-0.5 font-mono text-[10.5px] text-[#666159]">
+                        <p className="mt-0.5 font-mono text-[10.5px] break-words text-[#666159]">
                           Basis: {getCommissionBasisLabel(snapshot.staff?.basis)} (Rate:{' '}
                           {formatRupiah(snapshot.staff?.rate || 0)})
                         </p>
                       </div>
-                      <span className="font-mono font-bold text-[#151515] tabular-nums">
+                      <span className="shrink-0 font-mono font-bold text-[#151515] tabular-nums">
                         {formatRupiah(item.staffPayableAmount)}
                       </span>
                     </div>
                   </div>
 
                   <div className="sa-panel-ivory p-3 text-xs">
-                    <div className="flex justify-between gap-2">
-                      <div>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[#151515]">
                           Recording Operator / External PIC
                         </p>
-                        <p className="mt-0.5 font-mono text-[10.5px] text-[#666159]">
+                        <p className="mt-0.5 font-mono text-[10.5px] break-words text-[#666159]">
                           Basis: {getCommissionBasisLabel(snapshot.recordingOperator?.basis)} (Rate:{' '}
                           {formatRupiah(snapshot.recordingOperator?.rate || 0)})
                         </p>
                       </div>
-                      <span className="font-mono font-bold text-[#151515] tabular-nums">
+                      <span className="shrink-0 font-mono font-bold text-[#151515] tabular-nums">
                         {formatRupiah(item.recordingOperatorPayableAmount)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex justify-between rounded-xl border border-[#8BAD12]/35 bg-[#EDF8C2] p-3 text-xs font-bold text-[#151515]">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#8BAD12]/35 bg-[#EDF8C2] p-3 text-xs font-bold text-[#151515]">
                     <span>Total Dibayar (Payable Total)</span>
                     <span className="font-mono tabular-nums">
                       {formatRupiah(item.payableTotal)}
@@ -193,8 +193,8 @@ export function CommissionBookingDetailDrawer({ item, open, onOpenChange }) {
                   </div>
 
                   <div className="rounded-xl border border-dashed border-[#151515]/15 bg-white p-3 text-xs">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
                         <p className="inline-flex items-center gap-1.5 font-semibold text-[#46433D]">
                           <Info
                             className="h-3.5 w-3.5 shrink-0 text-[#666159]"
@@ -207,7 +207,7 @@ export function CommissionBookingDetailDrawer({ item, open, onOpenChange }) {
                           hutang biaya ke Pembukuan
                         </p>
                       </div>
-                      <span className="font-mono font-bold text-[#46433D] tabular-nums">
+                      <span className="shrink-0 font-mono font-bold text-[#46433D] tabular-nums">
                         {formatRupiah(item.ownerAllocationReference)}
                       </span>
                     </div>

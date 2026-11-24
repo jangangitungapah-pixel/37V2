@@ -1019,7 +1019,7 @@ export function BookingFormDialog({
             aria-label={dialogTitle}
             data-calendar-scoped="true"
             data-admin-portal-layer="true"
-            className="sa-dialog fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden sm:inset-y-4 sm:h-auto sm:max-h-[92dvh] sm:w-[95vw] sm:rounded-[22px]"
+            className="sa-dialog fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden rounded-none sm:inset-y-4 sm:h-auto sm:max-h-[92dvh] sm:w-[95vw] sm:rounded-[22px]"
           >
             {/* Sticky Header + Compact Mobile 4-Stage Stepper */}
             <div className="shrink-0 border-b border-white/10 bg-[#151515] px-3.5 py-2.5 text-[#F1EEE4] sm:px-6 sm:py-4">
@@ -1042,9 +1042,9 @@ export function BookingFormDialog({
                 <Dialog.Close
                   aria-label="Tutup form booking"
                   disabled={isSubmitting}
-                  className="hover:border-studio-lime hover:text-studio-lime inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-white/12 bg-white/6 text-white transition-colors sm:h-10 sm:w-10 sm:rounded-xl"
+                  className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/12 bg-white/6 text-white transition-colors"
                 >
-                  <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
+                  <X className="h-4.5 w-4.5" aria-hidden="true" />
                 </Dialog.Close>
               </div>
 
@@ -1065,7 +1065,7 @@ export function BookingFormDialog({
                       onClick={() => handleStepSelect(step.id)}
                       aria-label={`${step.order}. ${step.label}`}
                       aria-current={isStepActive ? 'step' : undefined}
-                      className={`flex min-h-8 cursor-pointer items-center justify-center gap-1 rounded-lg border px-1.5 py-1 text-center transition-all sm:min-h-10.5 sm:justify-between sm:gap-2 sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-left ${isStepActive
+                      className={`flex min-h-10 cursor-pointer items-center justify-center gap-1 rounded-lg border px-1.5 py-1 text-center transition-all sm:min-h-10.5 sm:justify-between sm:gap-2 sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-left ${isStepActive
                         ? 'border-studio-lime bg-studio-lime text-studio-ink font-semibold shadow-xs'
                         : 'border-white/10 bg-white/6 text-neutral-200 hover:border-white/20 hover:bg-white/10'
                         }`}
@@ -1462,7 +1462,7 @@ export function BookingFormDialog({
                   ref={serviceSectionRef}
                   aria-labelledby="step-service-heading"
                   onFocusCapture={() => setActiveStep('service')}
-                  className="sa-card p-5 sm:p-6"
+                  className="sa-card p-3.5 sm:p-6"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
@@ -1747,7 +1747,7 @@ export function BookingFormDialog({
                   ref={scheduleSectionRef}
                   aria-labelledby="step-schedule-heading"
                   onFocusCapture={() => setActiveStep('schedule')}
-                  className="sa-card p-5 sm:p-6"
+                  className="sa-card p-3.5 sm:p-6"
                 >
                   <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
@@ -2028,7 +2028,7 @@ export function BookingFormDialog({
                   ref={paymentSectionRef}
                   aria-labelledby="step-payment-heading"
                   onFocusCapture={() => setActiveStep('payment')}
-                  className="sa-card p-5 sm:p-6"
+                  className="sa-card p-3.5 sm:p-6"
                 >
                   <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
@@ -2383,7 +2383,7 @@ export function BookingFormDialog({
             </form>
 
             {/* Sticky Action Footer (compact single-row summary + actions on phones) */}
-            <div className="shrink-0 border-t border-[#151515]/10 bg-white/95 px-3.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:px-6 sm:py-3.5 sm:pb-[max(0.875rem,env(safe-area-inset-bottom))]">
+            <div className="sa-safe-bottom shrink-0 border-t border-[#151515]/10 bg-white/95 px-3.5 pt-2 backdrop-blur-md sm:px-6 sm:pt-3.5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 sm:justify-start sm:gap-x-4 sm:gap-y-1">
                   <div className="flex items-baseline gap-1.5 sm:block">
@@ -2410,7 +2410,7 @@ export function BookingFormDialog({
                     type="button"
                     disabled={isSubmitting}
                     onClick={() => handleDialogOpenChange(false)}
-                    className="sa-control sa-btn-secondary min-h-9.5 flex-1 cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-semibold sm:min-h-10.5 sm:flex-initial sm:px-4 sm:py-2"
+                    className="sa-control sa-btn-secondary min-h-11 flex-1 cursor-pointer rounded-xl px-3.5 py-2 text-xs font-semibold sm:min-h-10.5 sm:flex-initial sm:px-4"
                   >
                     Batal
                   </button>
@@ -2419,7 +2419,7 @@ export function BookingFormDialog({
                     type="submit"
                     form="studio-booking-form"
                     disabled={isSubmitting || Boolean(liveValidation.errors.scheduleConflict)}
-                    className="sa-control sa-btn-orange inline-flex min-h-9.5 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-10.5 sm:flex-initial sm:px-5 sm:py-2"
+                    className="sa-control sa-btn-orange inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-10.5 sm:flex-initial sm:px-5"
                   >
                     {isSubmitting ? (
                       <>

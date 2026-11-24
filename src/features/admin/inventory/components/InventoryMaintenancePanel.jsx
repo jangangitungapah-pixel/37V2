@@ -62,7 +62,7 @@ export function InventoryMaintenancePanel({ item, onTriggerMovement }) {
             <button
               type="button"
               onClick={() => onTriggerMovement?.(INVENTORY_MOVEMENT_TYPES.SEND_TO_MAINTENANCE)}
-              className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold"
+              className="sa-control sa-btn-secondary inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:w-auto"
             >
               <Wrench className="h-3.5 w-3.5 text-[#8A4B08]" aria-hidden="true" />
               <span>Send to Maintenance</span>
@@ -73,7 +73,7 @@ export function InventoryMaintenancePanel({ item, onTriggerMovement }) {
             <button
               type="button"
               onClick={() => onTriggerMovement?.(INVENTORY_MOVEMENT_TYPES.RETURN_FROM_MAINTENANCE)}
-              className="sa-control sa-btn-lime inline-flex min-h-9 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold"
+              className="sa-control sa-btn-lime inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:w-auto"
             >
               <span>Return from Maintenance ({maintenanceQty})</span>
             </button>

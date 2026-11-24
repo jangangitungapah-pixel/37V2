@@ -434,7 +434,7 @@ export function AdminPaymentAndBillPage() {
           <button
             type="button"
             onClick={() => setLegacyImportOpen(true)}
-            className="sa-control sa-btn-primary inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold"
+            className="sa-control sa-btn-primary inline-flex min-h-10.5 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold sm:w-auto"
           >
             <Database className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
             <span>Periksa Booking Lama</span>
@@ -502,7 +502,7 @@ export function AdminPaymentAndBillPage() {
                     <button
                       type="button"
                       onClick={handleClearInvoiceFilters}
-                      className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold"
+                      className="sa-control sa-btn-lime inline-flex min-h-10.5 cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold"
                     >
                       Clear Filters
                     </button>
@@ -510,7 +510,7 @@ export function AdminPaymentAndBillPage() {
                     <button
                       type="button"
                       onClick={() => setLegacyImportOpen(true)}
-                      className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                      className="sa-control sa-btn-lime inline-flex min-h-10.5 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
                     >
                       <Database className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Review Existing Bookings</span>

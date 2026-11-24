@@ -117,7 +117,7 @@ export function CustomerDirectoryTable({
                                 onOpenMergeGroup?.(activeProfilesInGroup, activeProfilesInGroup[0])
                               }
                               aria-label="Merge History"
-                              className="sa-control sa-btn-lime inline-flex h-7.5 shrink-0 cursor-pointer items-center justify-center gap-1 px-2.5 text-[11px] font-semibold"
+                              className="sa-control sa-btn-lime inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold"
                             >
                               <GitMerge className="h-3 w-3" aria-hidden="true" />
                               <span>Gabung Profil</span>
@@ -161,7 +161,7 @@ export function CustomerDirectoryTable({
                             </span>
                           </div>
                           {hasPreviousPhones ? (
-                            <div className="mt-0.5 hidden items-center gap-1 font-mono text-[10px] text-[#8B857B] sm:flex">
+                            <div className="mt-0.5 flex items-center gap-1 font-mono text-[10px] text-[#8B857B]">
                               <History className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
                               <span>{profile.previousPhones.length} nomor lama</span>
                             </div>
@@ -174,7 +174,7 @@ export function CustomerDirectoryTable({
                             <button
                               type="button"
                               onClick={() => onSelectProfile?.(profile)}
-                              className="max-w-full cursor-pointer truncate text-left text-sm font-semibold text-[#151515] transition-colors hover:text-[#FF4B22]"
+                              className="max-w-full cursor-pointer truncate py-1 text-left text-sm font-semibold text-[#151515] transition-colors hover:text-[#FF4B22]"
                             >
                               {profile.displayName}
                             </button>
@@ -193,7 +193,7 @@ export function CustomerDirectoryTable({
                           </div>
 
                           {hasAliases ? (
-                            <div className="mt-0.5 hidden items-center gap-1 text-[11px] text-[#666159] sm:flex">
+                            <div className="mt-0.5 flex items-center gap-1 text-[11px] text-[#666159]">
                               <Tag className="h-3 w-3 shrink-0" aria-hidden="true" />
                               <span className="truncate">
                                 Nama lain: {profile.nameAliases.join(', ')}
@@ -293,7 +293,7 @@ export function CustomerDirectoryTable({
                               <button
                                 type="button"
                                 onClick={() => onOpenMergeGroup?.(activeProfilesInGroup, profile)}
-                                className="sa-control sa-btn-secondary inline-flex h-8 cursor-pointer items-center justify-center gap-1 px-2.5 text-xs font-semibold"
+                                className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold"
                               >
                                 <GitMerge className="h-3 w-3 text-[#46433D]" aria-hidden="true" />
                                 <span>Gabung</span>
@@ -304,7 +304,7 @@ export function CustomerDirectoryTable({
                               type="button"
                               onClick={() => onSelectProfile?.(profile)}
                               aria-label={`Buka detail profil ${profile.displayName}`}
-                              className="sa-control sa-btn-secondary inline-flex h-8 cursor-pointer items-center justify-center gap-1 px-3 text-xs font-semibold hover:bg-[#C8F13A]"
+                              className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold hover:bg-[#C8F13A]"
                             >
                               <span>Detail</span>
                               <ChevronRight

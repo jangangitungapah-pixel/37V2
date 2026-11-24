@@ -1,7 +1,8 @@
 import { useContext } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
-import { ShieldCheck, X } from 'lucide-react';
+import { ArrowUpRight, ShieldCheck, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
+import { Link } from 'react-router';
 
 import { AuthContext } from '@/features/auth/AuthContext';
 
@@ -14,6 +15,9 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef, navBadges = 
   const actorRole = String(auth?.role || auth?.profile?.role || '')
     .trim()
     .toLowerCase();
+  const displayName =
+    auth?.profile?.displayName || auth?.user?.displayName || 'Studio Team Member';
+  const roleLabel = actorRole === 'owner' ? 'OWNER' : 'STAFF';
   const visibleNavItems = ADMIN_NAVIGATION_ITEMS.filter(
     (item) => !Array.isArray(item.roles) || item.roles.includes(actorRole),
   );
@@ -35,7 +39,7 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef, navBadges = 
             data-admin-portal-layer="true"
             finalFocus={() => (triggerRef?.current?.isConnected ? triggerRef.current : true)}
             aria-label="Mobile workspace navigation drawer"
-            className="flex h-full w-[280px] max-w-[86vw] flex-col justify-between overflow-y-auto rounded-r-2xl border-r border-white/10 bg-[#151515] text-[#F1EEE4] shadow-[16px_0_48px_-12px_rgba(21,21,21,0.45)] outline-none"
+            className="flex h-dvh w-[290px] max-w-[86vw] flex-col justify-between overflow-y-auto rounded-r-2xl border-r border-white/10 bg-[#151515] text-[#F1EEE4] shadow-[16px_0_48px_-12px_rgba(21,21,21,0.45)] outline-none"
           >
             <motion.div
               initial={prefersReducedMotion ? false : { x: -24, opacity: 0.85 }}
@@ -93,17 +97,27 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef, navBadges = 
               </div>
 
               {/* Drawer Footer */}
-              <div className="border-t border-white/[0.08] p-3">
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 shrink-0 text-[#C8F13A]" aria-hidden="true" />
-                    <span className="text-[11px] font-semibold text-neutral-200">
-                      37 Studio • Admin
+              <div className="border-t border-white/[0.08] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 shrink-0 text-[#C8F13A]" aria-hidden="true" />
+                      <span className="truncate text-[11.5px] font-semibold text-neutral-100">
+                        {displayName}
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-[#C8F13A]/15 px-2 py-0.5 font-mono text-[9.5px] font-bold text-[#C8F13A]">
+                      {roleLabel}
                     </span>
                   </div>
-                  <p className="mt-0.5 hidden text-[10.5px] text-neutral-400 sm:block">
-                    Akses Owner &amp; Staff studio
-                  </p>
+                  <Link
+                    to="/"
+                    onClick={handleClose}
+                    className="mt-2.5 flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.06] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/[0.12] hover:text-[#C8F13A]"
+                  >
+                    <span>Website Publik</span>
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Link>
                 </div>
               </div>
             </motion.div>

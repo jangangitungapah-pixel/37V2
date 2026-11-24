@@ -199,7 +199,7 @@ export function PaymentEvidenceReviewDrawer({
             evidence ? `Tinjau bukti pembayaran ${evidence.invoiceNumber}` : 'Tinjau bukti pembayaran'
           }
           data-payment-scoped="true"
-          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col outline-none"
+          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-xl flex-col outline-none"
         >
           {/* Sticky Header */}
           <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3 sm:px-5 sm:py-4">
@@ -235,7 +235,7 @@ export function PaymentEvidenceReviewDrawer({
               <Dialog.Close
                 disabled={isSubmitting}
                 aria-label="Tutup panel tinjau bukti pembayaran"
-                className="sa-control inline-flex h-8.5 w-8.5 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
@@ -249,7 +249,7 @@ export function PaymentEvidenceReviewDrawer({
                     onOpenChange?.(false);
                     onOpenInvoice(evidence.invoiceId);
                   }}
-                  className="sa-control sa-btn-secondary inline-flex min-h-8 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                  className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                 >
                   <ReceiptText className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                   <span>Buka Detail Invoice</span>
@@ -260,7 +260,7 @@ export function PaymentEvidenceReviewDrawer({
           </div>
 
           {/* Scrollable Body */}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-8 sm:px-5">
+          <div className="sa-safe-bottom min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
             {evidence ? (
               <>
                 {/* 1. Validated Cloudinary Image Preview */}
@@ -341,7 +341,7 @@ export function PaymentEvidenceReviewDrawer({
                       <span>Memuat saldo invoice terbaru...</span>
                     </div>
                   ) : invoice ? (
-                    <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-[#151515]/[0.07] pt-3 font-mono text-xs">
+                    <dl className="mt-3 grid grid-cols-1 gap-2.5 border-t border-[#151515]/[0.07] pt-3 font-mono text-xs min-[400px]:grid-cols-3 min-[400px]:gap-2">
                       <div>
                         <dt className="font-sans text-[11px] text-[#666159]">Total Invoice</dt>
                         <dd className="mt-0.5 font-semibold text-[#151515] tabular-nums">
@@ -423,7 +423,7 @@ export function PaymentEvidenceReviewDrawer({
                               setVerifiedAmountInput(e.target.value.replace(/[^\d]/g, ''));
                               setActionError('');
                             }}
-                            className="sa-input min-h-10 w-full px-3 font-mono text-sm font-bold text-[#151515]"
+                            className="sa-input min-h-10.5 w-full px-3 font-mono text-sm font-bold text-[#151515]"
                           />
                           <p className="text-[11px] text-[#666159]">
                             Default mengikuti nominal klaim ({formatRupiah(evidence.claimedAmount)}).
@@ -450,7 +450,7 @@ export function PaymentEvidenceReviewDrawer({
                             value={verifyNotes}
                             onChange={(e) => setVerifyNotes(e.target.value)}
                             placeholder="Contoh: Mutasi masuk BCA terkonfirmasi"
-                            className="sa-input min-h-9 w-full px-3 text-xs"
+                            className="sa-input min-h-10 w-full px-3 text-xs"
                           />
                         </div>
 
@@ -494,7 +494,7 @@ export function PaymentEvidenceReviewDrawer({
                             type="button"
                             disabled={isSubmitting}
                             onClick={handleConfirmVerify}
-                            className="sa-control sa-btn-lime inline-flex min-h-9 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold disabled:opacity-60"
+                            className="sa-control sa-btn-lime inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold disabled:opacity-60 sm:w-auto"
                           >
                             {isSubmitting ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -511,7 +511,7 @@ export function PaymentEvidenceReviewDrawer({
                             type="button"
                             disabled={isSubmitting}
                             onClick={() => setConfirmMode('none')}
-                            className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center px-3 py-1.5 text-xs font-semibold"
+                            className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-3.5 py-2 text-xs font-semibold sm:w-auto"
                           >
                             Batal
                           </button>
@@ -561,7 +561,7 @@ export function PaymentEvidenceReviewDrawer({
                             type="button"
                             disabled={isSubmitting}
                             onClick={handleConfirmReject}
-                            className="sa-control inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[#FF4B22] bg-[#FF4B22] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#d93915] disabled:opacity-60"
+                            className="sa-control inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[#FF4B22] bg-[#FF4B22] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#d93915] disabled:opacity-60 sm:w-auto"
                           >
                             {isSubmitting ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -577,7 +577,7 @@ export function PaymentEvidenceReviewDrawer({
                               setConfirmMode('none');
                               setActionError('');
                             }}
-                            className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center px-3 py-1.5 text-xs font-semibold"
+                            className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-3.5 py-2 text-xs font-semibold sm:w-auto"
                           >
                             Batal
                           </button>
@@ -590,7 +590,7 @@ export function PaymentEvidenceReviewDrawer({
                             type="button"
                             disabled={isSubmitting}
                             onClick={handleRequestVerifyConfirm}
-                            className="sa-control sa-btn-lime inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                            className="sa-control sa-btn-lime inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold sm:w-auto sm:flex-1"
                           >
                             <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                             <span>Verifikasi &amp; Catat Pembayaran</span>
@@ -604,7 +604,7 @@ export function PaymentEvidenceReviewDrawer({
                             setActionError('');
                             setConfirmMode('reject');
                           }}
-                          className="sa-control inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[#FF4B22]/30 bg-[#FFEDE8]/85 px-4 py-2 text-xs font-semibold text-[#B92B0C] hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white"
+                          className="sa-control inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[#FF4B22]/30 bg-[#FFEDE8]/85 px-4 py-2 text-xs font-semibold text-[#B92B0C] hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white sm:w-auto"
                         >
                           <XCircle className="h-4 w-4" aria-hidden="true" />
                           <span>Tolak Bukti</span>

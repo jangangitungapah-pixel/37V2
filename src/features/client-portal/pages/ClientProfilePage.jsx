@@ -139,7 +139,9 @@ export function ClientProfilePage() {
           <dl className="space-y-3 text-xs sm:text-sm">
             <div className="sa-panel-ivory flex flex-col gap-1 px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
               <dt className="font-medium text-[#666159]">Authentication Provider</dt>
-              <dd className="font-semibold text-[#151515]">Google</dd>
+              <dd className="font-semibold text-[#151515]">
+                {clientAccount?.authProvider === 'password' ? 'Email & Password' : 'Google'}
+              </dd>
             </div>
 
             <div className="sa-panel-ivory flex flex-col gap-1 px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
@@ -147,8 +149,16 @@ export function ClientProfilePage() {
                 <Mail className="h-3.5 w-3.5 text-[#8B857B]" aria-hidden="true" />
                 <span>Email Verification</span>
               </dt>
-              <dd className="inline-flex items-center gap-1.5 font-semibold text-[#0F6246]">
-                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+              <dd
+                className={`inline-flex items-center gap-1.5 font-semibold ${
+                  isEmailVerified ? 'text-[#0F6246]' : 'text-[#666159]'
+                }`}
+              >
+                {isEmailVerified ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <Info className="h-3.5 w-3.5 text-amber-600" aria-hidden="true" />
+                )}
                 <span>{isEmailVerified ? 'Verified' : 'Unverified'}</span>
               </dd>
             </div>

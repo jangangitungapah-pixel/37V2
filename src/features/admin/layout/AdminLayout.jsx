@@ -13,6 +13,7 @@ import { useOwnerPublicAvailabilityAutoSync } from '@/features/public-availabili
 import { OwnerPublicPricingSyncContext } from '@/features/public-pricing/context/OwnerPublicPricingSyncContext';
 import { useOwnerPublicPricingAutoSync } from '@/features/public-pricing/hooks/useOwnerPublicPricingAutoSync';
 
+import { AdminMobileBottomNav } from '../components/AdminMobileBottomNav';
 import { AdminMobileDrawer } from '../components/AdminMobileDrawer';
 import { AdminSidebar } from '../components/AdminSidebar';
 import { AdminTopbar } from '../components/AdminTopbar';
@@ -96,7 +97,7 @@ function AdminLayoutShell() {
 
         <main
           id="admin-main-content"
-          className="w-full flex-1 px-2.5 py-3 sm:px-6 sm:py-6 lg:px-8 lg:py-7"
+          className="w-full flex-1 px-3 pt-3 pb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:px-8 lg:py-7"
         >
           <motion.div
             key={location.pathname}
@@ -114,10 +115,10 @@ function AdminLayoutShell() {
               <div
                 role="status"
                 data-testid="admin-factory-reset-maintenance-banner"
-                className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-red-300 bg-red-50 px-4 py-2.5 text-xs text-red-950"
+                className="mb-4 flex flex-col items-start justify-between gap-2.5 rounded-2xl border border-red-300 bg-red-50 p-3 text-xs text-red-950 sm:flex-row sm:items-center sm:px-4 sm:py-2.5"
               >
-                <span className="inline-flex items-center gap-2 font-medium">
-                  <Lock className="h-4 w-4 shrink-0 text-red-700" aria-hidden="true" />
+                <span className="inline-flex items-start gap-2 font-medium sm:items-center">
+                  <Lock className="mt-0.5 h-4 w-4 shrink-0 text-red-700 sm:mt-0" aria-hidden="true" />
                   <span>
                     <strong>Maintenance Mode Aktif:</strong> Factory Reset (
                     {activeResetOp?.operationId}) berstatus <strong>{activeResetOp?.status}</strong>
@@ -126,7 +127,7 @@ function AdminLayoutShell() {
                 </span>
                 <Link
                   to="/admin/settings/danger-area"
-                  className="font-bold text-red-800 underline hover:text-red-950"
+                  className="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-red-300 bg-white px-3 py-1.5 font-bold text-red-800 hover:text-red-950 sm:min-h-0 sm:w-auto sm:border-0 sm:bg-transparent sm:p-0 sm:underline"
                 >
                   Buka Danger Area →
                 </Link>
@@ -138,10 +139,13 @@ function AdminLayoutShell() {
               <div
                 role="alert"
                 data-testid="admin-public-pricing-sync-error-banner"
-                className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#FF4B22]/30 bg-[#FFEDE8] px-4 py-2.5 text-xs text-[#8C2B14]"
+                className="mb-4 flex flex-col items-start justify-between gap-2.5 rounded-2xl border border-[#FF4B22]/30 bg-[#FFEDE8] p-3 text-xs text-[#8C2B14] sm:flex-row sm:items-center sm:px-4 sm:py-2.5"
               >
-                <span className="inline-flex items-center gap-2 font-medium">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#B92B0C]" aria-hidden="true" />
+                <span className="inline-flex items-start gap-2 font-medium sm:items-center">
+                  <AlertTriangle
+                    className="mt-0.5 h-4 w-4 shrink-0 text-[#B92B0C] sm:mt-0"
+                    aria-hidden="true"
+                  />
                   <span>
                     <strong>Public Pricing Catalog gagal disinkronkan:</strong>{' '}
                     {ownerPricingSync.syncError}
@@ -151,7 +155,7 @@ function AdminLayoutShell() {
                   type="button"
                   disabled={ownerPricingSync.isSyncing}
                   onClick={ownerPricingSync.triggerSync}
-                  className="sa-control inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-[#151515] px-3 py-1 text-xs font-semibold text-white hover:bg-[#2a2926] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="sa-control inline-flex min-h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#151515] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2a2926] disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-8 sm:w-auto sm:py-1"
                 >
                   {ownerPricingSync.isSyncing ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -169,10 +173,13 @@ function AdminLayoutShell() {
               <div
                 role="alert"
                 data-testid="admin-public-availability-sync-error-banner"
-                className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#FF4B22]/30 bg-[#FFEDE8] px-4 py-2.5 text-xs text-[#8C2B14]"
+                className="mb-4 flex flex-col items-start justify-between gap-2.5 rounded-2xl border border-[#FF4B22]/30 bg-[#FFEDE8] p-3 text-xs text-[#8C2B14] sm:flex-row sm:items-center sm:px-4 sm:py-2.5"
               >
-                <span className="inline-flex items-center gap-2 font-medium">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#B92B0C]" aria-hidden="true" />
+                <span className="inline-flex items-start gap-2 font-medium sm:items-center">
+                  <AlertTriangle
+                    className="mt-0.5 h-4 w-4 shrink-0 text-[#B92B0C] sm:mt-0"
+                    aria-hidden="true"
+                  />
                   <span>
                     <strong>Kalender Publik (/availability) gagal disinkronkan:</strong>{' '}
                     {ownerAvailabilitySync.syncError}
@@ -182,7 +189,7 @@ function AdminLayoutShell() {
                   type="button"
                   disabled={ownerAvailabilitySync.isSyncing}
                   onClick={() => void ownerAvailabilitySync.triggerSync()}
-                  className="sa-control inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-[#151515] px-3 py-1 text-xs font-semibold text-white hover:bg-[#2a2926] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="sa-control inline-flex min-h-10 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#151515] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2a2926] disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-8 sm:w-auto sm:py-1"
                 >
                   {ownerAvailabilitySync.isSyncing ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -202,7 +209,7 @@ function AdminLayoutShell() {
           </motion.div>
         </main>
 
-        <footer className="hidden border-t border-[#151515]/[0.07] bg-white/35 px-3 py-3 backdrop-blur-xs sm:block sm:px-6 sm:py-3.5 lg:px-8">
+        <footer className="hidden border-t border-[#151515]/[0.07] bg-white/35 px-3 py-3 backdrop-blur-xs sm:px-6 sm:py-3.5 lg:block lg:px-8">
           <div className="mx-auto flex w-full max-w-[1440px] flex-col items-start justify-between gap-1 text-[11px] text-[#666159] sm:flex-row sm:items-center">
             <p>© 2026 37 Music Studio • Studio Management Workspace</p>
             <p className="font-mono text-[10.5px] text-[#8B857B]">Owner &amp; Staff Portal</p>
@@ -210,8 +217,15 @@ function AdminLayoutShell() {
         </footer>
       </div>
 
+      <AdminMobileBottomNav
+        isMobileDrawerOpen={isMobileDrawerOpen}
+        onOpenMobileDrawer={() => setIsMobileDrawerOpen(true)}
+        navBadges={navBadges}
+      />
+
       <Toaster
         position="bottom-right"
+        mobileOffset={{ bottom: '80px', left: '12px', right: '12px' }}
         toastOptions={{
           style: {
             background: '#FFFFFF',

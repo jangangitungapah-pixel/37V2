@@ -2,17 +2,29 @@ import { useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
+  CheckCircle2,
   Disc3,
+  Eye,
+  EyeOff,
+  KeyRound,
   Loader2,
+  Lock,
   LogOut,
+  Mail,
   Music2,
   ShieldCheck,
   Sparkles,
+  User,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router';
 
+import {
+  isValidCustomerEmail,
+  normalizeCustomerEmail,
+} from '@/features/admin/customer/utils/customer-email';
 import { useAuth } from '@/features/auth/AuthContext';
 
 import {
@@ -81,12 +93,24 @@ export function ClientLoginPage() {
     role,
     clientAuthError,
     loginWithGoogle,
+    loginClientWithEmailPassword,
+    registerClientWithEmailPassword,
+    resetClientPassword,
     logout,
     clearClientAuthError,
   } = useAuth();
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'reset'
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [activeAction, setActiveAction] = useState(''); // '' | 'email' | 'google' | 'reset'
   const [localError, setLocalError] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSuccessMessage, setResetSuccessMessage] = useState('');
 
   const targetDestination = resolveSafePortalRedirect(location.state?.from);
 
@@ -111,14 +135,125 @@ export function ClientLoginPage() {
     status === 'authenticated' && accountType === 'staff' && profile?.active === true,
   );
 
+  const isBusy = Boolean(activeAction) || status === 'loading';
   const displayedError = localError || clientAuthError || '';
 
-  const handleGoogleContinue = async () => {
-    if (isSubmitting || status === 'loading') return;
+  const handleModeSwitch = (nextMode) => {
+    if (isBusy) return;
+    setLocalError('');
+    setResetSuccessMessage('');
+    clearClientAuthError?.();
+    setMode(nextMode);
+  };
+
+  const handleOpenForgotPassword = () => {
+    if (isBusy) return;
+    setLocalError('');
+    setResetSuccessMessage('');
+    clearClientAuthError?.();
+    setResetEmail(email.trim());
+    setMode('reset');
+  };
+
+  const handleEmailAuthSubmit = async (event) => {
+    event.preventDefault();
+    if (isBusy) return;
 
     setLocalError('');
     clearClientAuthError?.();
-    setIsSubmitting(true);
+
+    const normalizedEmail = normalizeCustomerEmail(email);
+
+    if (mode === 'signup') {
+      const cleanName = displayName.trim();
+      if (cleanName.length < 2) {
+        setLocalError('Masukkan nama lengkap atau nama band Anda (minimal 2 karakter).');
+        return;
+      }
+      if (!normalizedEmail || !isValidCustomerEmail(normalizedEmail)) {
+        setLocalError('Masukkan alamat email yang valid.');
+        return;
+      }
+      if (!password || password.length < 6) {
+        setLocalError('Password minimal terdiri dari 6 karakter.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setLocalError('Konfirmasi password belum sama dengan password yang dimasukkan.');
+        return;
+      }
+
+      setActiveAction('email');
+      try {
+        await registerClientWithEmailPassword({
+          displayName: cleanName,
+          email: normalizedEmail,
+          password,
+        });
+        navigate(targetDestination, { replace: true });
+      } catch (err) {
+        setLocalError(
+          err?.message || 'Tidak dapat menyelesaikan pendaftaran saat ini. Silakan coba lagi.',
+        );
+      } finally {
+        setActiveAction('');
+      }
+      return;
+    }
+
+    if (!normalizedEmail || !isValidCustomerEmail(normalizedEmail)) {
+      setLocalError('Masukkan alamat email yang valid.');
+      return;
+    }
+    if (!password) {
+      setLocalError('Masukkan password Anda.');
+      return;
+    }
+
+    setActiveAction('email');
+    try {
+      await loginClientWithEmailPassword(normalizedEmail, password);
+      navigate(targetDestination, { replace: true });
+    } catch (err) {
+      setLocalError(err?.message || 'Tidak dapat menyelesaikan masuk saat ini. Silakan coba lagi.');
+    } finally {
+      setActiveAction('');
+    }
+  };
+
+  const handleResetPasswordSubmit = async (event) => {
+    event.preventDefault();
+    if (isBusy) return;
+
+    setLocalError('');
+    setResetSuccessMessage('');
+    clearClientAuthError?.();
+
+    const normalizedResetEmail = normalizeCustomerEmail(resetEmail);
+    if (!normalizedResetEmail || !isValidCustomerEmail(normalizedResetEmail)) {
+      setLocalError('Masukkan alamat email yang valid.');
+      return;
+    }
+
+    setActiveAction('reset');
+    try {
+      const result = await resetClientPassword(normalizedResetEmail);
+      setResetSuccessMessage(result?.message || '');
+    } catch (err) {
+      setLocalError(
+        err?.message || 'Tidak dapat mengirim instruksi reset password saat ini. Silakan coba lagi.',
+      );
+    } finally {
+      setActiveAction('');
+    }
+  };
+
+  const handleGoogleContinue = async () => {
+    if (isBusy) return;
+
+    setLocalError('');
+    clearClientAuthError?.();
+    setActiveAction('google');
 
     try {
       const result = await loginWithGoogle();
@@ -131,7 +266,7 @@ export function ClientLoginPage() {
           'Tidak dapat menyelesaikan masuk dengan Google saat ini. Silakan coba lagi.',
       );
     } finally {
-      setIsSubmitting(false);
+      setActiveAction('');
     }
   };
 
@@ -190,7 +325,6 @@ export function ClientLoginPage() {
             aria-label="37 Music Studio Client Portal overview"
             className="relative flex flex-col justify-between overflow-hidden bg-[#121212] p-6 text-[#F1EEE4] sm:p-9 lg:col-span-6 lg:p-11"
           >
-            {/* Atmospheric Ambient Studio Lighting */}
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-[#C8F13A]/15 blur-3xl"
@@ -215,7 +349,6 @@ export function ClientLoginPage() {
               </p>
             </div>
 
-            {/* Acoustic Studio Visual Accent (desktop / tablet) */}
             <div className="relative z-10 mt-8 hidden border-t border-white/10 pt-6 sm:block">
               <div className="flex items-end justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-xs">
                 <div className="flex items-end gap-1.5" aria-hidden="true">
@@ -225,30 +358,43 @@ export function ClientLoginPage() {
                 </div>
                 <div className="text-right">
                   <p className="font-mono text-[10px] font-bold tracking-[0.16em] text-[#C8F13A] uppercase">
-                    INSTANT GOOGLE ACCESS
+                    INSTANT PORTAL ACCESS
                   </p>
                   <p className="mt-0.5 text-xs text-neutral-300">
-                    Akses cepat dan aman tanpa proses persetujuan manual
+                    Akses cepat dengan Email &amp; Password atau Google tanpa persetujuan manual
                   </p>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Focused Minimalist Google Authentication Card Column */}
+          {/* Authentication Column (Email/Password Sign-In / Sign-Up + Reset + Google) */}
           <section className="flex flex-col justify-between bg-white p-6 sm:p-9 lg:col-span-6 lg:p-11">
             <div>
               <div className="inline-flex items-center gap-1.5 rounded-full border border-[#151515]/10 bg-[#FAF8F3] px-3 py-1 font-mono text-[10px] font-bold tracking-wider text-[#46433D] uppercase">
                 <Sparkles className="h-3 w-3 text-[#FF4B22]" aria-hidden="true" />
-                <span>Selamat Datang</span>
+                <span>
+                  {mode === 'reset'
+                    ? 'Pemulihan Akses'
+                    : mode === 'signup'
+                      ? 'Buat Akun Baru'
+                      : 'Selamat Datang'}
+                </span>
               </div>
 
               <h2 className="mt-4 text-2xl font-bold tracking-tight text-[#151515] sm:text-3xl">
-                Masuk ke Client Portal
+                {mode === 'reset'
+                  ? 'Reset Password Akun'
+                  : mode === 'signup'
+                    ? 'Daftar Client Portal'
+                    : 'Masuk ke Client Portal'}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-[#666159]">
-                Gunakan akun Google pribadi Anda untuk langsung masuk ke ruang Client Portal 37
-                Music Studio.
+                {mode === 'reset'
+                  ? 'Masukkan alamat email akun Client Portal Anda untuk menerima tautan pengaturan ulang password.'
+                  : mode === 'signup'
+                    ? 'Buat akun menggunakan email & password untuk langsung memesan sesi dan memantau tagihan studio.'
+                    : 'Masuk dengan email & password Anda atau gunakan akun Google pribadi Anda.'}
               </p>
 
               {/* Calm Staff / Owner Notice if currently logged into Admin */}
@@ -256,7 +402,7 @@ export function ClientLoginPage() {
                 <div
                   role="status"
                   data-testid="client-login-staff-notice"
-                  className="mt-6 space-y-3 rounded-2xl border border-[#151515]/12 bg-[#FAF8F3] p-4 text-xs text-[#46433D]"
+                  className="mt-5 space-y-3 rounded-2xl border border-[#151515]/12 bg-[#FAF8F3] p-4 text-xs text-[#46433D]"
                 >
                   <div className="flex items-start gap-2.5">
                     <Music2 className="mt-0.5 h-4 w-4 shrink-0 text-[#151515]" aria-hidden="true" />
@@ -279,55 +425,370 @@ export function ClientLoginPage() {
                       className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[#151515]/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-[#151515] hover:bg-neutral-50"
                     >
                       <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>Keluar &amp; Ganti Akun Google</span>
+                      <span>Keluar &amp; Ganti Akun</span>
                     </button>
                   </div>
                 </div>
               ) : null}
 
-              {/* Safe Inline Authentication Feedback */}
+              {/* Safe Inline Authentication Error */}
               {displayedError ? (
                 <div
                   role="alert"
                   aria-live="assertive"
                   data-testid="client-login-error-alert"
-                  className="mt-6 flex items-start gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFF4F1] p-4 text-xs leading-relaxed font-medium text-[#9A270B] sm:text-sm"
+                  className="mt-5 flex items-start gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFF4F1] p-4 text-xs leading-relaxed font-medium text-[#9A270B] sm:text-sm"
                 >
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>{displayedError}</span>
                 </div>
               ) : null}
 
-              {/* Primary Google Sign-In / Instant Sign-Up CTA */}
-              <div className="mt-7">
-                <button
-                  type="button"
-                  data-testid="client-google-login-button"
-                  disabled={isSubmitting || status === 'loading'}
-                  aria-busy={isSubmitting || status === 'loading'}
-                  onClick={handleGoogleContinue}
-                  className="flex min-h-13 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border border-[#151515]/15 bg-white px-5 py-3.5 text-sm font-semibold text-[#151515] shadow-[0_6px_20px_-8px_rgba(21,21,21,0.22)] transition-all hover:border-[#151515]/40 hover:bg-[#FAF8F3] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-65"
+              {/* Safe Password Reset Confirmation */}
+              {resetSuccessMessage ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  data-testid="client-reset-success-alert"
+                  className="mt-5 flex items-start gap-2.5 rounded-2xl border border-emerald-500/25 bg-[#E6F6EC] p-4 text-xs leading-relaxed font-medium text-[#0F6246] sm:text-sm"
                 >
-                  {isSubmitting || status === 'loading' ? (
-                    <>
-                      <Loader2
-                        className="h-4.5 w-4.5 animate-spin text-[#151515]"
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{resetSuccessMessage}</span>
+                </div>
+              ) : null}
+
+              {mode === 'reset' ? (
+                <form
+                  onSubmit={handleResetPasswordSubmit}
+                  noValidate
+                  data-testid="client-reset-password-form"
+                  className="mt-6 space-y-4"
+                >
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="client-reset-email"
+                      className="block text-xs font-semibold tracking-wide text-[#151515]"
+                    >
+                      Alamat Email Terdaftar
+                    </label>
+                    <div className="relative">
+                      <Mail
+                        className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#666159]"
                         aria-hidden="true"
                       />
-                      <span>Menghubungkan akun Google...</span>
-                    </>
-                  ) : (
-                    <>
-                      <GoogleBrandMark />
-                      <span>Continue with Google</span>
-                    </>
-                  )}
-                </button>
+                      <input
+                        id="client-reset-email"
+                        data-testid="client-reset-email-input"
+                        type="email"
+                        autoComplete="email"
+                        value={resetEmail}
+                        onChange={(e) => {
+                          setResetEmail(e.target.value);
+                          setLocalError('');
+                          clearClientAuthError?.();
+                        }}
+                        placeholder="nama@email.com"
+                        disabled={isBusy}
+                        className="min-h-11 w-full rounded-xl border border-[#151515]/15 bg-white pr-4 pl-10 text-sm text-[#151515] transition-colors placeholder:text-[#8B857B] focus:border-[#151515] focus:ring-3 focus:ring-[#C8F13A]/45 focus:outline-none disabled:bg-neutral-50"
+                      />
+                    </div>
+                  </div>
 
-                <p className="mt-3 text-center text-xs text-[#666159]">
-                  Masuk atau daftar menggunakan akun Google Anda.
-                </p>
-              </div>
+                  <button
+                    type="submit"
+                    data-testid="client-reset-submit-button"
+                    disabled={isBusy}
+                    aria-busy={activeAction === 'reset'}
+                    className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#151515] px-5 py-3 text-sm font-semibold text-[#C8F13A] shadow-[0_8px_20px_-8px_rgba(21,21,21,0.35)] transition-all hover:bg-[#262521] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-65"
+                  >
+                    {activeAction === 'reset' ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                        <span>Mengirim tautan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound className="h-4 w-4" aria-hidden="true" />
+                        <span>Kirim Link Reset Password</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="client-back-to-signin-button"
+                    disabled={isBusy}
+                    onClick={() => handleModeSwitch('signin')}
+                    className="inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#151515]/12 bg-[#FAF8F3] px-4 py-2 text-xs font-semibold text-[#151515] hover:border-[#151515]/30"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Kembali ke Masuk</span>
+                  </button>
+                </form>
+              ) : (
+                <>
+                  {/* Mode Switcher Tabs */}
+                  <div
+                    role="tablist"
+                    aria-label="Pilih mode masuk atau pendaftaran Client Portal"
+                    data-testid="client-auth-mode-tabs"
+                    className="mt-6 grid grid-cols-2 gap-1 rounded-2xl border border-[#151515]/10 bg-[#F4F1E8] p-1"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={mode === 'signin'}
+                      data-testid="client-auth-tab-signin"
+                      disabled={isBusy}
+                      onClick={() => handleModeSwitch('signin')}
+                      className={`min-h-10 cursor-pointer rounded-xl px-3 py-2 text-xs font-bold transition-all sm:text-sm ${
+                        mode === 'signin'
+                          ? 'bg-[#151515] text-[#C8F13A] shadow-xs'
+                          : 'text-[#46433D] hover:text-[#151515]'
+                      }`}
+                    >
+                      Masuk
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={mode === 'signup'}
+                      data-testid="client-auth-tab-signup"
+                      disabled={isBusy}
+                      onClick={() => handleModeSwitch('signup')}
+                      className={`min-h-10 cursor-pointer rounded-xl px-3 py-2 text-xs font-bold transition-all sm:text-sm ${
+                        mode === 'signup'
+                          ? 'bg-[#151515] text-[#C8F13A] shadow-xs'
+                          : 'text-[#46433D] hover:text-[#151515]'
+                      }`}
+                    >
+                      Daftar Akun
+                    </button>
+                  </div>
+
+                  {/* Manual Email & Password Form */}
+                  <form
+                    onSubmit={handleEmailAuthSubmit}
+                    noValidate
+                    data-testid="client-email-auth-form"
+                    className="mt-5 space-y-3.5"
+                  >
+                    {mode === 'signup' ? (
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="client-signup-name"
+                          className="block text-xs font-semibold tracking-wide text-[#151515]"
+                        >
+                          Nama Lengkap / Band
+                        </label>
+                        <div className="relative">
+                          <User
+                            className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#666159]"
+                            aria-hidden="true"
+                          />
+                          <input
+                            id="client-signup-name"
+                            data-testid="client-signup-name-input"
+                            type="text"
+                            autoComplete="name"
+                            maxLength={120}
+                            value={displayName}
+                            onChange={(e) => {
+                              setDisplayName(e.target.value);
+                              setLocalError('');
+                              clearClientAuthError?.();
+                            }}
+                            placeholder="Contoh: Nadia Pratama / Midnight Echo"
+                            disabled={isBusy}
+                            className="min-h-11 w-full rounded-xl border border-[#151515]/15 bg-white pr-4 pl-10 text-sm text-[#151515] transition-colors placeholder:text-[#8B857B] focus:border-[#151515] focus:ring-3 focus:ring-[#C8F13A]/45 focus:outline-none disabled:bg-neutral-50"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="client-auth-email"
+                        className="block text-xs font-semibold tracking-wide text-[#151515]"
+                      >
+                        Alamat Email
+                      </label>
+                      <div className="relative">
+                        <Mail
+                          className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#666159]"
+                          aria-hidden="true"
+                        />
+                        <input
+                          id="client-auth-email"
+                          data-testid="client-auth-email-input"
+                          type="email"
+                          autoComplete="email"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            setLocalError('');
+                            clearClientAuthError?.();
+                          }}
+                          placeholder="nama@email.com"
+                          disabled={isBusy}
+                          className="min-h-11 w-full rounded-xl border border-[#151515]/15 bg-white pr-4 pl-10 text-sm text-[#151515] transition-colors placeholder:text-[#8B857B] focus:border-[#151515] focus:ring-3 focus:ring-[#C8F13A]/45 focus:outline-none disabled:bg-neutral-50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <label
+                          htmlFor="client-auth-password"
+                          className="block text-xs font-semibold tracking-wide text-[#151515]"
+                        >
+                          Password
+                        </label>
+                        {mode === 'signin' ? (
+                          <button
+                            type="button"
+                            data-testid="client-forgot-password-trigger"
+                            disabled={isBusy}
+                            onClick={handleOpenForgotPassword}
+                            className="cursor-pointer text-xs font-semibold text-[#46433D] underline underline-offset-4 hover:text-[#FF4B22] disabled:cursor-not-allowed"
+                          >
+                            Lupa password?
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="relative">
+                        <Lock
+                          className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#666159]"
+                          aria-hidden="true"
+                        />
+                        <input
+                          id="client-auth-password"
+                          data-testid="client-auth-password-input"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            setLocalError('');
+                            clearClientAuthError?.();
+                          }}
+                          placeholder={
+                            mode === 'signup' ? 'Minimal 6 karakter' : 'Masukkan password Anda'
+                          }
+                          disabled={isBusy}
+                          className="min-h-11 w-full rounded-xl border border-[#151515]/15 bg-white pr-11 pl-10 text-sm text-[#151515] transition-colors placeholder:text-[#8B857B] focus:border-[#151515] focus:ring-3 focus:ring-[#C8F13A]/45 focus:outline-none disabled:bg-neutral-50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                          className="absolute top-1/2 right-2 inline-flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.06] hover:text-[#151515]"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" aria-hidden="true" />
+                          ) : (
+                            <Eye className="h-4 w-4" aria-hidden="true" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {mode === 'signup' ? (
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="client-signup-confirm-password"
+                          className="block text-xs font-semibold tracking-wide text-[#151515]"
+                        >
+                          Konfirmasi Password
+                        </label>
+                        <div className="relative">
+                          <Lock
+                            className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#666159]"
+                            aria-hidden="true"
+                          />
+                          <input
+                            id="client-signup-confirm-password"
+                            data-testid="client-signup-confirm-password-input"
+                            type={showPassword ? 'text' : 'password'}
+                            autoComplete="new-password"
+                            value={confirmPassword}
+                            onChange={(e) => {
+                              setConfirmPassword(e.target.value);
+                              setLocalError('');
+                              clearClientAuthError?.();
+                            }}
+                            placeholder="Ulangi password Anda"
+                            disabled={isBusy}
+                            className="min-h-11 w-full rounded-xl border border-[#151515]/15 bg-white pr-4 pl-10 text-sm text-[#151515] transition-colors placeholder:text-[#8B857B] focus:border-[#151515] focus:ring-3 focus:ring-[#C8F13A]/45 focus:outline-none disabled:bg-neutral-50"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <button
+                      type="submit"
+                      data-testid="client-email-submit-button"
+                      disabled={isBusy}
+                      aria-busy={activeAction === 'email'}
+                      className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#151515] px-5 py-3 text-sm font-semibold text-[#C8F13A] shadow-[0_8px_20px_-8px_rgba(21,21,21,0.35)] transition-all hover:bg-[#262521] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-65"
+                    >
+                      {activeAction === 'email' ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                          <span>
+                            {mode === 'signup' ? 'Mendaftarkan akun...' : 'Memeriksa akses...'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span>{mode === 'signup' ? 'Daftar & Masuk' : 'Masuk dengan Email'}</span>
+                          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  {/* Divider */}
+                  <div className="my-5 flex items-center gap-3">
+                    <span className="h-px flex-1 bg-[#151515]/10" aria-hidden="true" />
+                    <span className="font-mono text-[10px] font-semibold tracking-[0.18em] text-[#8B857B] uppercase">
+                      ATAU
+                    </span>
+                    <span className="h-px flex-1 bg-[#151515]/10" aria-hidden="true" />
+                  </div>
+
+                  {/* Secondary / Instant Google Sign-In / Sign-Up CTA */}
+                  <div>
+                    <button
+                      type="button"
+                      data-testid="client-google-login-button"
+                      disabled={isBusy}
+                      aria-busy={activeAction === 'google' || status === 'loading'}
+                      onClick={handleGoogleContinue}
+                      className="flex min-h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border border-[#151515]/15 bg-white px-5 py-3 text-sm font-semibold text-[#151515] shadow-[0_6px_20px_-8px_rgba(21,21,21,0.18)] transition-all hover:border-[#151515]/40 hover:bg-[#FAF8F3] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-65"
+                    >
+                      {activeAction === 'google' || status === 'loading' ? (
+                        <>
+                          <Loader2
+                            className="h-4.5 w-4.5 animate-spin text-[#151515]"
+                            aria-hidden="true"
+                          />
+                          <span>Menghubungkan akun Google...</span>
+                        </>
+                      ) : (
+                        <>
+                          <GoogleBrandMark />
+                          <span>Continue with Google</span>
+                        </>
+                      )}
+                    </button>
+
+                    <p className="mt-2.5 text-center text-xs text-[#666159]">
+                      Masuk atau daftar menggunakan akun Google Anda.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Subtle Footer & Legal Attribution */}
@@ -335,7 +796,7 @@ export function ClientLoginPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" aria-hidden="true" />
-                  <span>Dilindungi Firebase Google Authentication</span>
+                  <span>Dilindungi Firebase Authentication</span>
                 </span>
                 <Link
                   to="/privacy"

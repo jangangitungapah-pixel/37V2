@@ -496,7 +496,13 @@ export function AdminGalleryPage() {
         }
         actions={
           isOwner ? (
-            <AdminButton type="button" variant="primary" size="sm" onClick={handleTriggerAddPhotos}>
+            <AdminButton
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={handleTriggerAddPhotos}
+              className="min-h-10"
+            >
               <Plus className="h-4 w-4 text-[#C8F13A]" aria-hidden="true" />
               <span>Add Photos</span>
             </AdminButton>
@@ -507,14 +513,14 @@ export function AdminGalleryPage() {
           <div
             role="tablist"
             aria-label="Mode pengelolaan galeri"
-            className="inline-flex rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-1"
+            className="grid w-full grid-cols-2 rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-1 sm:inline-flex sm:w-auto"
           >
             <button
               type="button"
               role="tab"
               aria-selected={activeTab === GALLERY_TABS.PHOTOS}
               onClick={() => setActiveTab(GALLERY_TABS.PHOTOS)}
-              className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors ${
+              className={`inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors sm:px-3.5 ${
                 activeTab === GALLERY_TABS.PHOTOS
                   ? 'bg-[#151515] text-[#F1EEE4] shadow-xs'
                   : 'text-[#46433D] hover:text-[#151515]'
@@ -523,7 +529,7 @@ export function AdminGalleryPage() {
               <Images className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Photos</span>
               <span
-                className={`py-0.2 rounded-full px-1.5 font-mono text-[10px] ${
+                className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
                   activeTab === GALLERY_TABS.PHOTOS
                     ? 'bg-[#C8F13A] text-[#151515]'
                     : 'bg-[#151515]/10 text-[#46433D]'
@@ -538,7 +544,7 @@ export function AdminGalleryPage() {
               role="tab"
               aria-selected={activeTab === GALLERY_TABS.LANDING_PAGE}
               onClick={() => setActiveTab(GALLERY_TABS.LANDING_PAGE)}
-              className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors ${
+              className={`inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors sm:px-3.5 ${
                 activeTab === GALLERY_TABS.LANDING_PAGE
                   ? 'bg-[#151515] text-[#F1EEE4] shadow-xs'
                   : 'text-[#46433D] hover:text-[#151515]'
@@ -632,6 +638,7 @@ export function AdminGalleryPage() {
                         variant="primary"
                         size="sm"
                         onClick={handleTriggerAddPhotos}
+                        className="min-h-10"
                       >
                         <ImagePlus className="h-4 w-4 text-[#C8F13A]" aria-hidden="true" />
                         <span>Add Photos</span>

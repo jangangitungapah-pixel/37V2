@@ -81,7 +81,7 @@ export function GalleryUploadQueue({
                   ) : null}
                 </div>
 
-                <div className="flex shrink-0 items-center gap-1.5">
+                <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-1.5 sm:w-auto">
                   {item.status === UPLOAD_QUEUE_STATUSES.QUEUED ? (
                     <AdminButton
                       type="button"
@@ -89,6 +89,7 @@ export function GalleryUploadQueue({
                       size="xs"
                       onClick={() => onCancelQueued?.(item.queueId)}
                       aria-label={`Cancel queued upload for ${item.fileName}`}
+                      className="min-h-9.5"
                     >
                       <X className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Batal</span>
@@ -103,6 +104,7 @@ export function GalleryUploadQueue({
                         size="xs"
                         onClick={() => onRetryUpload?.(item.queueId)}
                         aria-label={`Retry upload for ${item.fileName}`}
+                        className="min-h-9.5"
                       >
                         <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>Coba Lagi</span>
@@ -113,6 +115,7 @@ export function GalleryUploadQueue({
                         size="xs"
                         onClick={() => onDismissItem?.(item.queueId)}
                         aria-label={`Dismiss failed upload for ${item.fileName}`}
+                        className="h-9.5 w-9.5 p-0"
                       >
                         <X className="h-3.5 w-3.5" aria-hidden="true" />
                       </AdminButton>
@@ -126,6 +129,7 @@ export function GalleryUploadQueue({
                       size="xs"
                       onClick={() => onRetryMetadataSave?.(item.queueId)}
                       aria-label={`Retry save metadata for ${item.fileName}`}
+                      className="min-h-9.5"
                     >
                       <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Simpan Ulang Foto</span>

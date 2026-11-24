@@ -55,7 +55,12 @@ export function BookkeepingCashSummary({
           </p>
         </div>
 
-        <AdminButton variant="secondary" size="sm" onClick={handleExportCsv}>
+        <AdminButton
+          variant="secondary"
+          size="sm"
+          onClick={handleExportCsv}
+          className="min-h-10 w-full justify-center sm:w-auto"
+        >
           <Download className="h-3.5 w-3.5" aria-hidden="true" />
           <span>Export Cash Movement CSV</span>
         </AdminButton>

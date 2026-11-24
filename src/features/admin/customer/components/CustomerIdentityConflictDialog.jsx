@@ -45,36 +45,37 @@ export function CustomerIdentityConflictDialog({
           className="sa-overlay-backdrop fixed inset-0 z-[60]"
         />
 
-        <Dialog.Popup
-          data-admin-portal-layer="true"
-          aria-label="Konfirmasi identitas customer"
-          data-customer-scoped="true"
-          className="sa-dialog fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
-        >
-          {/* Header */}
-          <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-4">
-            <div className="min-w-0">
-              <AdminStatusBadge tone="orange" icon={AlertTriangle} size="sm" className="uppercase">
-                {isMultiple ? 'Nomor Bersama • Pilih Pelanggan' : 'Konfirmasi Data Pelanggan'}
-              </AdminStatusBadge>
-              <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
-                {isMultiple
-                  ? 'Pilih Pelanggan yang Sesuai'
-                  : 'Nomor telepon sudah digunakan oleh customer lain.'}
-              </Dialog.Title>
-              <Dialog.Description className="mt-0.5 truncate font-mono text-[11px] text-[#666159] sm:mt-1 sm:text-xs">
-                Nomor HP: <strong className="text-[#151515]">{formattedPhone}</strong>
-              </Dialog.Description>
-            </div>
+        <Dialog.Viewport className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4">
+          <Dialog.Popup
+            data-admin-portal-layer="true"
+            aria-label="Konfirmasi identitas customer"
+            data-customer-scoped="true"
+            className="sa-dialog flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+          >
+            {/* Header */}
+            <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
+              <div className="min-w-0">
+                <AdminStatusBadge tone="orange" icon={AlertTriangle} size="sm" className="uppercase">
+                  {isMultiple ? 'Nomor Bersama • Pilih Pelanggan' : 'Konfirmasi Data Pelanggan'}
+                </AdminStatusBadge>
+                <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
+                  {isMultiple
+                    ? 'Pilih Pelanggan yang Sesuai'
+                    : 'Nomor telepon sudah digunakan oleh customer lain.'}
+                </Dialog.Title>
+                <Dialog.Description className="mt-0.5 truncate font-mono text-[11px] text-[#666159] sm:mt-1 sm:text-xs">
+                  Nomor HP: <strong className="text-[#151515]">{formattedPhone}</strong>
+                </Dialog.Description>
+              </div>
 
-            <Dialog.Close
-              aria-label="Tutup dialog konflik customer"
-              onClick={handleClose}
-              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
-            >
-              <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
-            </Dialog.Close>
-          </div>
+              <Dialog.Close
+                aria-label="Tutup dialog konflik customer"
+                onClick={handleClose}
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
+              >
+                <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
+              </Dialog.Close>
+            </div>
 
           {/* Body */}
           <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-white px-4 py-3.5 sm:space-y-4 sm:px-6 sm:py-5">
@@ -229,17 +230,18 @@ export function CustomerIdentityConflictDialog({
           </div>
 
           {/* Footer */}
-          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-3.5 sm:pb-[max(0.875rem,env(safe-area-inset-bottom))]">
+          <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:flex-row sm:items-center sm:justify-end sm:px-6 sm:py-3.5">
             <button
               type="button"
               onClick={handleClose}
-              className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold sm:min-h-10 sm:py-2"
+              className="sa-control sa-btn-secondary inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold sm:w-auto"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Periksa Kembali</span>
             </button>
           </div>
-        </Dialog.Popup>
+          </Dialog.Popup>
+        </Dialog.Viewport>
       </Dialog.Portal>
     </Dialog.Root>
   );

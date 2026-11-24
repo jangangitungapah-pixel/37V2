@@ -53,79 +53,85 @@ export function InventoryArchiveDialog({
           className="sa-overlay-backdrop fixed inset-0 z-[60]"
         />
 
-        <Dialog.Popup
+        <div
           data-admin-portal-layer="true"
-          aria-label={willArchive ? 'Konfirmasi arsipkan barang' : 'Konfirmasi aktifkan barang'}
-          className="sa-dialog fixed inset-x-4 top-1/2 z-[70] mx-auto max-w-md -translate-y-1/2 overflow-hidden outline-none"
+          className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4"
         >
-          <div className="flex items-start justify-between gap-2 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-5 sm:py-4">
-            <div className="min-w-0">
-              <AdminStatusBadge
-                tone={willArchive ? 'orange' : 'lime'}
-                size="sm"
-                className="uppercase"
+          <Dialog.Popup
+            aria-label={willArchive ? 'Konfirmasi arsipkan barang' : 'Konfirmasi aktifkan barang'}
+            className="sa-dialog flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+          >
+            <div className="flex shrink-0 items-start justify-between gap-2 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-5 sm:py-4">
+              <div className="min-w-0">
+                <AdminStatusBadge
+                  tone={willArchive ? 'orange' : 'lime'}
+                  size="sm"
+                  className="uppercase"
+                >
+                  {willArchive ? 'Arsipkan Item' : 'Aktifkan Kembali'}
+                </AdminStatusBadge>
+                <Dialog.Title className="mt-1.5 truncate text-base font-bold tracking-tight text-[#151515] sm:text-lg">
+                  {willArchive ? `Arsipkan ${item.name}?` : `Aktifkan ${item.name}?`}
+                </Dialog.Title>
+              </div>
+              <Dialog.Close
+                aria-label="Tutup dialog arsip inventory"
+                disabled={isWorking}
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
               >
-                {willArchive ? 'Arsipkan Item' : 'Aktifkan Kembali'}
-              </AdminStatusBadge>
-              <Dialog.Title className="mt-1.5 truncate text-base font-bold tracking-tight text-[#151515] sm:text-lg">
-                {willArchive ? `Arsipkan ${item.name}?` : `Aktifkan ${item.name}?`}
-              </Dialog.Title>
+                <X className="h-4.5 w-4.5" aria-hidden="true" />
+              </Dialog.Close>
             </div>
-            <Dialog.Close
-              aria-label="Tutup dialog arsip inventory"
-              disabled={isWorking}
-              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </Dialog.Close>
-          </div>
 
-          <div className="space-y-3.5 bg-white p-4 text-xs leading-relaxed sm:p-5">
-            {error ? (
-              <div
-                role="alert"
-                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 font-medium text-[#B92B0C]"
-              >
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>{error}</span>
-              </div>
-            ) : null}
+            <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-white p-4 text-xs leading-relaxed sm:p-5">
+              {error ? (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 font-medium text-[#B92B0C]"
+                >
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{error}</span>
+                </div>
+              ) : null}
 
-            {willArchive && !eligibility.allowed ? (
-              <div
-                role="alert"
-                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 font-medium text-[#B92B0C]"
-              >
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>{eligibility.reason}</span>
-              </div>
-            ) : willArchive ? (
-              <p className="text-[#46433D]">
-                Barang dan seluruh riwayat pergerakan tetap tersimpan aman (tidak ada hapus
-                permanen). Item yang diarsipkan disembunyikan dari daftar aktif dan dapat dicari
-                melalui filter <strong className="text-[#151515]">Archived</strong>.
-              </p>
-            ) : !isOwner ? (
-              <div
-                role="alert"
-                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 font-medium text-[#B92B0C]"
-              >
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>Hanya Owner aktif yang dapat mengaktifkan kembali item yang diarsipkan.</span>
-              </div>
-            ) : (
-              <p className="text-[#46433D]">
-                Item <strong className="text-[#151515]">{item.name}</strong> akan tampil kembali
-                pada daftar aktif dan siap mencatat pergerakan stok.
-              </p>
-            )}
+              {willArchive && !eligibility.allowed ? (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 font-medium text-[#B92B0C]"
+                >
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{eligibility.reason}</span>
+                </div>
+              ) : willArchive ? (
+                <p className="text-[#46433D]">
+                  Barang dan seluruh riwayat pergerakan tetap tersimpan aman (tidak ada hapus
+                  permanen). Item yang diarsipkan disembunyikan dari daftar aktif dan dapat dicari
+                  melalui filter <strong className="text-[#151515]">Archived</strong>.
+                </p>
+              ) : !isOwner ? (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 font-medium text-[#B92B0C]"
+                >
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    Hanya Owner aktif yang dapat mengaktifkan kembali item yang diarsipkan.
+                  </span>
+                </div>
+              ) : (
+                <p className="text-[#46433D]">
+                  Item <strong className="text-[#151515]">{item.name}</strong> akan tampil kembali
+                  pada daftar aktif dan siap mencatat pergerakan stok.
+                </p>
+              )}
+            </div>
 
-            <div className="flex items-center justify-end gap-2 pt-1">
+            <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-5 sm:py-3.5">
               <button
                 type="button"
                 disabled={isWorking}
                 onClick={() => onOpenChange?.(false)}
-                className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-4 py-2 text-xs font-semibold"
+                className="sa-control sa-btn-secondary min-h-11 flex-1 cursor-pointer px-4 py-2 text-xs font-semibold sm:flex-initial"
               >
                 Batal
               </button>
@@ -133,7 +139,7 @@ export function InventoryArchiveDialog({
                 type="button"
                 disabled={isWorking || (willArchive ? !eligibility.allowed : !isOwner)}
                 onClick={handleConfirm}
-                className={`sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-50 ${
+                className={`sa-control inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-50 sm:flex-initial ${
                   willArchive ? 'sa-btn-orange' : 'sa-btn-lime'
                 }`}
               >
@@ -147,8 +153,8 @@ export function InventoryArchiveDialog({
                 <span>{willArchive ? 'Ya, Arsipkan' : 'Aktifkan Kembali'}</span>
               </button>
             </div>
-          </div>
-        </Dialog.Popup>
+          </Dialog.Popup>
+        </div>
       </Dialog.Portal>
     </Dialog.Root>
   );

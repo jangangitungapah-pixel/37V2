@@ -64,35 +64,36 @@ export function CustomerMergeDialog({
           className="sa-overlay-backdrop fixed inset-0 z-[60]"
         />
 
-        <Dialog.Popup
-          data-admin-portal-layer="true"
-          aria-label="Merge customer history"
-          data-customer-scoped="true"
-          className="sa-dialog fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
-        >
-          {/* Header */}
-          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-5 py-4 sm:px-6">
-            <div className="min-w-0">
-              <AdminStatusBadge tone="orange" icon={GitMerge} size="sm" className="uppercase">
-                Gabungkan Data Pelanggan
-              </AdminStatusBadge>
-              <Dialog.Title className="mt-2 text-lg font-bold tracking-tight text-[#151515] sm:text-xl">
-                Gabungkan Riwayat Profil
-              </Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-xs text-[#666159]">
-                Riwayat booking kedua profil tampil jadi satu, sementara data booking lama tetap
-                tersimpan aman.
-              </Dialog.Description>
-            </div>
+        <Dialog.Viewport className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4">
+          <Dialog.Popup
+            data-admin-portal-layer="true"
+            aria-label="Merge customer history"
+            data-customer-scoped="true"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+          >
+            {/* Header */}
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-6 sm:py-4">
+              <div className="min-w-0">
+                <AdminStatusBadge tone="orange" icon={GitMerge} size="sm" className="uppercase">
+                  Gabungkan Data Pelanggan
+                </AdminStatusBadge>
+                <Dialog.Title className="mt-1.5 text-lg font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
+                  Gabungkan Riwayat Profil
+                </Dialog.Title>
+                <Dialog.Description className="mt-0.5 text-xs text-[#666159]">
+                  Riwayat booking kedua profil tampil jadi satu, sementara data booking lama tetap
+                  tersimpan aman.
+                </Dialog.Description>
+              </div>
 
-            <Dialog.Close
-              aria-label="Tutup dialog merge customer"
-              disabled={isMerging}
-              className="sa-control inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
-            >
-              <X className="h-4.5 w-4.5" aria-hidden="true" />
-            </Dialog.Close>
-          </div>
+              <Dialog.Close
+                aria-label="Tutup dialog merge customer"
+                disabled={isMerging}
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
+              >
+                <X className="h-4.5 w-4.5" aria-hidden="true" />
+              </Dialog.Close>
+            </div>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-white px-5 py-5 sm:px-6">
             {error ? (
@@ -176,7 +177,7 @@ export function CustomerMergeDialog({
                 type="button"
                 onClick={handleSwap}
                 disabled={!targetProfile || !sourceProfile}
-                className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold"
+                className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-2 text-xs font-semibold"
               >
                 <ArrowDownUp className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                 <span>Tukar Posisi Profil</span>
@@ -209,12 +210,12 @@ export function CustomerMergeDialog({
             ) : null}
           </div>
 
-          <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-5 py-3.5 sm:px-6">
+          <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-6 sm:py-3.5">
             <button
               type="button"
               disabled={isMerging}
               onClick={() => onOpenChange?.(false)}
-              className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-4 py-2 text-xs font-semibold"
+              className="sa-control sa-btn-secondary min-h-11 flex-1 cursor-pointer px-4 py-2 text-xs font-semibold sm:flex-initial"
             >
               Batal
             </button>
@@ -223,7 +224,7 @@ export function CustomerMergeDialog({
               disabled={isMerging || !targetProfile || !sourceProfile}
               onClick={handleConfirm}
               aria-label="Confirm Merge"
-              className="sa-control sa-btn-orange inline-flex min-h-10 cursor-pointer items-center gap-2 px-5 py-2 text-xs font-semibold disabled:opacity-60"
+              className="sa-control sa-btn-orange inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 px-5 py-2 text-xs font-semibold disabled:opacity-60 sm:flex-initial"
             >
               {isMerging ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -233,7 +234,8 @@ export function CustomerMergeDialog({
               <span>Ya, Gabungkan</span>
             </button>
           </div>
-        </Dialog.Popup>
+          </Dialog.Popup>
+        </Dialog.Viewport>
       </Dialog.Portal>
     </Dialog.Root>
   );

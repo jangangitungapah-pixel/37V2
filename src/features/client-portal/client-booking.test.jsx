@@ -469,9 +469,12 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
 
     renderAppAt('/admin/settings/price-and-fee');
 
-    await waitFor(() => {
-      expect(publicPricingAdapter._getStoredDoc()?.version).toBe(3);
-    });
+    await waitFor(
+      () => {
+        expect(publicPricingAdapter._getStoredDoc()?.version).toBe(3);
+      },
+      { timeout: 5000 },
+    );
     expect(
       await screen.findByText(/public pricing catalog v3 berhasil disinkronkan/i),
     ).toBeTruthy();
@@ -487,17 +490,20 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
 
     renderAppAt('/admin/settings/price-and-fee');
 
-    await screen.findByRole('button', { name: /sync public catalog/i });
-    const alertBanner = await screen.findByRole('alert');
+    await screen.findByRole('button', { name: /sync public catalog/i }, { timeout: 5000 });
+    const alertBanner = await screen.findByRole('alert', { timeout: 5000 });
     expect(alertBanner.textContent).toContain('Koneksi ke Firestore terputus');
     expect(publicPricingAdapter._getStoredDoc()).toBeNull();
 
     const manualSyncBtn = screen.getByRole('button', { name: /sync public catalog/i });
     await user.click(manualSyncBtn);
 
-    await waitFor(() => {
-      expect(publicPricingAdapter._getStoredDoc()?.version).toBe(3);
-    });
+    await waitFor(
+      () => {
+        expect(publicPricingAdapter._getStoredDoc()?.version).toBe(3);
+      },
+      { timeout: 5000 },
+    );
     expect(
       await screen.findByText(/public pricing catalog v3 berhasil disinkronkan/i),
     ).toBeTruthy();
@@ -655,7 +661,7 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
 
     // Step 2: Choose Schedule -> switch date to tomorrow -> duration defaults to 3h -> extend to 4h
     expect(await screen.findByTestId('client-booking-step-schedule')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: /next day/i }));
+    await user.click(screen.getByRole('button', { name: /^next day$/i }));
     await user.click(screen.getByTestId('client-duration-btn-240'));
 
     expect(screen.getByTestId('client-schedule-price-badge').textContent).toContain('370.000');

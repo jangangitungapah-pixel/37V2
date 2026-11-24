@@ -71,16 +71,16 @@ export function InventoryFilters({
           <button
             type="button"
             onClick={onClearFilters}
-            className="sa-control inline-flex min-h-7.5 cursor-pointer items-center gap-1 border-[#FF4B22]/25 bg-[#FFEDE8] px-2.5 py-0.5 text-[11px] font-semibold text-[#B92B0C] hover:bg-[#ffdfd6] sm:min-h-8 sm:gap-1.5 sm:py-1"
+            className="sa-control inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 border-[#FF4B22]/25 bg-[#FFEDE8] px-3 py-1 text-xs font-semibold text-[#B92B0C] hover:bg-[#ffdfd6]"
           >
-            <RotateCcw className="h-3 w-3" aria-hidden="true" />
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Clear Filters</span>
           </button>
         ) : null}
       </div>
 
       <div
-        className={`grid grid-cols-2 gap-2 sm:gap-2.5 ${
+        className={`grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:gap-2.5 ${
           workspaceTab === 'all' ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
         }`}
       >
@@ -96,7 +96,7 @@ export function InventoryFilters({
               id="inv-filter-type"
               value={typeFilter}
               onChange={(e) => onTypeFilterChange?.(e.target.value)}
-              className="sa-input min-h-9 w-full px-2.5 text-xs font-medium text-[#151515] sm:min-h-10 sm:px-3"
+              className="sa-input min-h-10.5 w-full px-2.5 text-xs font-medium text-[#151515] sm:min-h-10 sm:px-3"
             >
               <option value="all">All Types</option>
               {INVENTORY_ITEM_TYPE_OPTIONS.map((opt) => (
@@ -119,7 +119,7 @@ export function InventoryFilters({
             id="inv-filter-category"
             value={categoryFilter}
             onChange={(e) => onCategoryFilterChange?.(e.target.value)}
-            className="sa-input min-h-9 w-full px-2.5 text-xs font-medium text-[#151515] sm:min-h-10 sm:px-3"
+            className="sa-input min-h-10.5 w-full px-2.5 text-xs font-medium text-[#151515] sm:min-h-10 sm:px-3"
           >
             <option value="all">All Categories</option>
             {INVENTORY_CATEGORIES.map((cat) => (
@@ -141,7 +141,7 @@ export function InventoryFilters({
             id="inv-filter-location"
             value={locationFilter}
             onChange={(e) => onLocationFilterChange?.(e.target.value)}
-            className="sa-input min-h-9 w-full px-2.5 text-xs font-medium text-[#151515] sm:min-h-10 sm:px-3"
+            className="sa-input min-h-10.5 w-full px-2.5 text-xs font-medium text-[#151515] sm:min-h-10 sm:px-3"
           >
             <option value="all">All Locations</option>
             {INVENTORY_LOCATIONS.map((loc) => (
@@ -163,7 +163,7 @@ export function InventoryFilters({
             id="inv-filter-status"
             value={statusFilter}
             onChange={(e) => onStatusFilterChange?.(e.target.value)}
-            className="sa-input min-h-9 w-full px-2.5 text-xs font-medium text-[#151515] sm:min-h-10 sm:px-3"
+            className="sa-input min-h-10.5 w-full px-2.5 text-xs font-medium text-[#151515] sm:min-h-10 sm:px-3"
           >
             <option value="all">All Active Status</option>
             {statusOptions.map((opt) => (

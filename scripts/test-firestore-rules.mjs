@@ -101,6 +101,14 @@ const TOKEN_CLIENT_PASSWORD = makeEmulatorJwt('client-password-1', 'pwuser@gmail
   signInProvider: 'password',
   emailVerified: true,
 });
+const TOKEN_CLIENT_PASSWORD_UNVERIFIED = makeEmulatorJwt('client-pw-new-1', 'pwnew@gmail.com', {
+  signInProvider: 'password',
+  emailVerified: false,
+});
+const TOKEN_CLIENT_PASSWORD_HIJACK = makeEmulatorJwt('client-pw-hijack-1', 'matched@gmail.com', {
+  signInProvider: 'password',
+  emailVerified: true,
+});
 const SERVER_TS = { _ts: new Date('2026-11-22T10:00:00.000Z').toISOString() };
 
 async function clearDb() {
@@ -2083,6 +2091,378 @@ async function runTests() {
   );
   console.log(
     '✓ Client Portal Phase 1 rules (Google provisioning, email index, isolation & suspension) passed',
+  );
+
+  // =========================================================================
+  // CLIENT PORTAL EMAIL & PASSWORD SECURITY RULES (ANTI-HIJACK + ISOLATION)
+  // =========================================================================
+  // 1. Unverified manual Email/Password user CAN create isolated clientAccount + link + profile
+  const passwordIsolatedCreateRes = await userRequest(
+    'POST',
+    ':commit',
+    TOKEN_CLIENT_PASSWORD_UNVERIFIED,
+    {
+      writes: [
+        {
+          update: {
+            name: `${DB_ROOT}/clientAccounts/client-pw-new-1`,
+            fields: toFsFields({
+              schemaVersion: 1,
+              uid: 'client-pw-new-1',
+              role: 'client',
+              status: 'active',
+              customerId: 'client_client-pw-new-1',
+              profileSource: 'isolated_client_profile',
+              emailNormalized: 'pwnew@gmail.com',
+              displayName: 'Manual Band',
+              photoURL: '',
+              authProvider: 'password',
+              emailVerified: false,
+              version: 1,
+            }),
+          },
+          updateTransforms: [
+            { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+            { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+          ],
+          currentDocument: { exists: false },
+        },
+        {
+          update: {
+            name: `${DB_ROOT}/clientCustomerLinks/client_client-pw-new-1`,
+            fields: toFsFields({
+              schemaVersion: 1,
+              customerId: 'client_client-pw-new-1',
+              ownerUid: 'client-pw-new-1',
+              emailNormalized: 'pwnew@gmail.com',
+              profileSource: 'isolated_client_profile',
+              version: 1,
+            }),
+          },
+          updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+          currentDocument: { exists: false },
+        },
+        {
+          update: {
+            name: `${DB_ROOT}/clientProfiles/client_client-pw-new-1`,
+            fields: toFsFields({
+              schemaVersion: 1,
+              customerId: 'client_client-pw-new-1',
+              ownerUid: 'client-pw-new-1',
+              profileSource: 'isolated_client_profile',
+              displayName: 'Manual Band',
+              emailNormalized: 'pwnew@gmail.com',
+              phoneDisplay: '',
+              photoURL: '',
+              status: 'active',
+              version: 1,
+            }),
+          },
+          updateTransforms: [
+            { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+            { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+          ],
+          currentDocument: { exists: false },
+        },
+      ],
+    },
+  );
+  assert.equal(
+    passwordIsolatedCreateRes.status,
+    200,
+    `Password client isolated atomic create failed: ${JSON.stringify(passwordIsolatedCreateRes.body)}`,
+  );
+  assert.equal(
+    (await userRequest('GET', '/clientProfiles/client_client-pw-new-1', TOKEN_CLIENT_PASSWORD_UNVERIFIED))
+      .status,
+    200,
+    'Active Email/Password client can GET own isolated clientProfile',
+  );
+
+  // 2. Password-provider user CANNOT spoof authProvider: 'google.com' or emailVerified: true
+  const passwordSpoofProviderRes = await userRequest('POST', ':commit', TOKEN_CLIENT_PASSWORD_UNVERIFIED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-pw-new-1-spoof`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-pw-new-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'client_client-pw-new-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'pwnew@gmail.com',
+            displayName: 'Manual Band',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    passwordSpoofProviderRes.status,
+    403,
+    'Password client denied spoofing authProvider or emailVerified',
+  );
+
+  // 3. Password-provider user CANNOT link to existing customer even with matching customerEmailIndex & verified claim
+  await adminSetDoc('customers/cust_pw_hijack_target', {
+    displayName: 'Hijack Target Band',
+    normalizedName: 'hijack target band',
+    phoneDisplay: '+62 812-0000-4444',
+    phoneNormalized: '+6281200004444',
+    email: 'pwtarget@gmail.com',
+    emailNormalized: 'pwtarget@gmail.com',
+    nameAliases: [],
+    previousPhones: [],
+    status: 'active',
+    mergedIntoCustomerId: null,
+    historyCustomerIds: ['cust_pw_hijack_target'],
+    bookingCount: 0,
+    firstBookingDate: '',
+    lastBookingDate: '',
+    notes: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  });
+  await adminSetDoc('clientProfiles/cust_pw_hijack_target', {
+    schemaVersion: 1,
+    customerId: 'cust_pw_hijack_target',
+    ownerUid: null,
+    profileSource: 'linked_customer',
+    displayName: 'Hijack Target Band',
+    emailNormalized: 'pwtarget@gmail.com',
+    phoneDisplay: '+62 812-0000-4444',
+    photoURL: '',
+    status: 'active',
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc('customerEmailIndex/pwtarget@gmail.com', {
+    schemaVersion: 1,
+    emailNormalized: 'pwtarget@gmail.com',
+    customerId: 'cust_pw_hijack_target',
+    status: 'active',
+    updatedByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
+  const tokenPwTarget = makeEmulatorJwt('client-pw-hijack-1', 'pwtarget@gmail.com', {
+    signInProvider: 'password',
+    emailVerified: true,
+  });
+  assert.equal(
+    (await userRequest('GET', '/customerEmailIndex/pwtarget@gmail.com', tokenPwTarget)).status,
+    403,
+    'Password-provider client denied reading customerEmailIndex even with verified email',
+  );
+  const pwLinkedHijackRes = await userRequest('POST', ':commit', tokenPwTarget, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-pw-hijack-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-pw-hijack-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'cust_pw_hijack_target',
+            profileSource: 'linked_customer',
+            emailNormalized: 'pwtarget@gmail.com',
+            displayName: 'Hijacker',
+            photoURL: '',
+            authProvider: 'password',
+            emailVerified: true,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/cust_pw_hijack_target`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'cust_pw_hijack_target',
+            ownerUid: 'client-pw-hijack-1',
+            emailNormalized: 'pwtarget@gmail.com',
+            profileSource: 'linked_customer',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    pwLinkedHijackRes.status,
+    403,
+    'Password client denied creating linked_customer binding against existing studio customer',
+  );
+
+  // 4. Staff password account CANNOT create clientAccounts/{uid}
+  const staffPwClientAttempt = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/staff-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'staff-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'client_staff-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'staff@37music.id',
+            displayName: 'Staff User',
+            photoURL: '',
+            authProvider: 'password',
+            emailVerified: true,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/client_staff-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'client_staff-1',
+            ownerUid: 'staff-1',
+            emailNormalized: 'staff@37music.id',
+            profileSource: 'isolated_client_profile',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientProfiles/client_staff-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'client_staff-1',
+            ownerUid: 'staff-1',
+            profileSource: 'isolated_client_profile',
+            displayName: 'Staff User',
+            emailNormalized: 'staff@37music.id',
+            phoneDisplay: '',
+            photoURL: '',
+            status: 'active',
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    staffPwClientAttempt.status,
+    403,
+    'Staff password account cannot create clientAccounts doc',
+  );
+
+  // 5. Owner can suspend and reactivate a password clientAccounts doc
+  const fetchedPwAcct = await userRequest('GET', '/clientAccounts/client-pw-new-1', TOKEN_OWNER);
+  const pwCreatedAtTs = fetchedPwAcct.body.fields.createdAt.timestampValue;
+  const ownerSuspendPwRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-pw-new-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-pw-new-1',
+            role: 'client',
+            status: 'suspended',
+            customerId: 'client_client-pw-new-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'pwnew@gmail.com',
+            displayName: 'Manual Band',
+            photoURL: '',
+            authProvider: 'password',
+            emailVerified: false,
+            createdAt: { _ts: pwCreatedAtTs },
+            version: 2,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    ownerSuspendPwRes.status,
+    200,
+    `Owner suspending password client failed: ${JSON.stringify(ownerSuspendPwRes.body)}`,
+  );
+  const ownerReactivatePwRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-pw-new-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-pw-new-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'client_client-pw-new-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'pwnew@gmail.com',
+            displayName: 'Manual Band',
+            photoURL: '',
+            authProvider: 'password',
+            emailVerified: false,
+            createdAt: { _ts: pwCreatedAtTs },
+            version: 3,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    ownerReactivatePwRes.status,
+    200,
+    `Owner reactivating password client failed: ${JSON.stringify(ownerReactivatePwRes.body)}`,
+  );
+  assert.equal(
+    (await userRequest('GET', '/customerEmailIndex/matched@gmail.com', TOKEN_CLIENT_PASSWORD_HIJACK))
+      .status,
+    403,
+    'Password-provider client denied reading matched studio customerEmailIndex',
+  );
+  console.log(
+    '✓ Client Portal Email & Password rules (isolated create, anti-hijack, staff isolation, owner suspend/reactivate) passed',
   );
 
   // 2D. CLIENT PORTAL PHASE 3 SECURITY RULES (publicPricingCatalog + client_portal bookingRequests)

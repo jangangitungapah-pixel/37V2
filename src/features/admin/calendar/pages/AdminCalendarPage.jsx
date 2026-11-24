@@ -41,7 +41,7 @@ function getInitialCalendarViewMode() {
   if (typeof window === 'undefined') {
     return 'month';
   }
-  return window.innerWidth < 1024 ? 'week' : 'month';
+  return window.innerWidth < 768 ? 'day' : window.innerWidth < 1024 ? 'week' : 'month';
 }
 
 export function AdminCalendarPage() {
@@ -495,7 +495,7 @@ export function AdminCalendarPage() {
                   type="button"
                   onClick={() => void handleSyncPublicAvailability()}
                   disabled={isFactoryResetLocked || isSyncingPublicCalendar}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#151515] bg-[#151515] px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#FF4B22] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 rounded-lg border border-[#151515] bg-[#151515] px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#FF4B22] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RefreshCw
                     className={`h-3 w-3 ${isSyncingPublicCalendar ? 'animate-spin' : ''}`}
@@ -552,7 +552,7 @@ export function AdminCalendarPage() {
             type="button"
             onClick={() => setStatusFeedback('')}
             aria-label="Tutup notifikasi status"
-            className="inline-flex h-7 w-7 cursor-pointer items-center justify-center"
+            className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-black/5"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -593,6 +593,7 @@ export function AdminCalendarPage() {
             activeDate={activeDate}
             focusRequestKey={focusRequestKey}
             roomFilter={roomFilter}
+            onRoomFilterChange={setRoomFilter}
             bookings={filteredBookings}
             isLoading={isLoading}
             error={error}

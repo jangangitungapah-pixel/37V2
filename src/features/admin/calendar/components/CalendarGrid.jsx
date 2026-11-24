@@ -9,6 +9,7 @@ export function CalendarGrid({
   activeDate,
   focusRequestKey = 0,
   roomFilter,
+  onRoomFilterChange,
   bookings,
   isLoading,
   error,
@@ -55,7 +56,7 @@ export function CalendarGrid({
           className="flex items-center gap-2 rounded-xl border border-[#151515]/10 bg-[#F8F6EF] px-3.5 py-2 text-xs font-medium text-[#46433D]"
         >
           <Loader2 className="h-3.5 w-3.5 animate-spin text-[#666159]" aria-hidden="true" />
-          <span>Memuat jadwal studio dari Firestore...</span>
+          <span>Memuat kalender dari Firestore...</span>
         </div>
       ) : null}
 
@@ -64,6 +65,7 @@ export function CalendarGrid({
         <CalendarDayView
           activeDate={activeDate}
           roomFilter={roomFilter}
+          onRoomFilterChange={onRoomFilterChange}
           bookings={bookings}
           onSelectEmptySlot={onSelectEmptySlot}
           onSelectBooking={onSelectBooking}

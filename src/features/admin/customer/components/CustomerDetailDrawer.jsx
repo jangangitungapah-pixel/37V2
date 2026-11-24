@@ -90,7 +90,7 @@ export function CustomerDetailDrawer({
             data-admin-portal-layer="true"
             aria-label={`Detail customer ${customer.displayName}`}
             data-customer-scoped="true"
-            className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col outline-none"
+            className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-xl flex-col outline-none"
           >
             {/* Sticky Header */}
             <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3 sm:px-5 sm:py-4">
@@ -122,7 +122,7 @@ export function CustomerDetailDrawer({
 
                 <Dialog.Close
                   aria-label="Tutup detail customer"
-                  className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
+                  className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
                 >
                   <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
                 </Dialog.Close>
@@ -134,7 +134,7 @@ export function CustomerDetailDrawer({
                   <button
                     type="button"
                     onClick={() => onEditCustomer?.(customer)}
-                    className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                    className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                   >
                     <Edit3 className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                     <span>Edit Profil</span>
@@ -144,7 +144,7 @@ export function CustomerDetailDrawer({
                     <button
                       type="button"
                       onClick={() => onUpdatePhone?.(customer)}
-                      className="sa-control sa-btn-lime inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                      className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                     >
                       <PhoneForwarded className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Ganti No. HP</span>
@@ -156,7 +156,7 @@ export function CustomerDetailDrawer({
                       type="button"
                       onClick={() => onOpenMerge?.(samePhonePeers, customer)}
                       aria-label="Merge History"
-                      className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                      className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                     >
                       <GitMerge className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                       <span>Gabung Riwayat</span>
@@ -166,7 +166,7 @@ export function CustomerDetailDrawer({
                   <button
                     type="button"
                     onClick={() => onToggleArchive?.(customer)}
-                    className={`sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold ${
+                    className={`sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold ${
                       isArchived ? 'sa-btn-lime' : 'sa-btn-orange'
                     }`}
                   >
@@ -187,7 +187,7 @@ export function CustomerDetailDrawer({
             </div>
 
             {/* Scrollable Body */}
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-8 sm:px-5">
+            <div className="sa-safe-bottom min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
               {/* SECTION 1: IDENTITY */}
               <AdminSurface
                 as="section"
@@ -406,7 +406,7 @@ export function CustomerDetailDrawer({
                   </div>
                   <Link
                     to="/admin/payment-and-bill"
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#666159] transition-colors hover:text-[#FF4B22]"
+                    className="inline-flex min-h-9.5 items-center gap-1 px-1 text-xs font-semibold text-[#666159] transition-colors hover:text-[#FF4B22]"
                   >
                     <span>Payment &amp; Bill</span>
                     <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
@@ -470,7 +470,7 @@ export function CustomerDetailDrawer({
                           <Link
                             to={`/admin/payment-and-bill?invoiceId=${encodeURIComponent(inv.id)}`}
                             aria-label={`Buka invoice ${inv.invoiceNumber}`}
-                            className="sa-control sa-btn-primary inline-flex h-8 shrink-0 items-center gap-1 px-2.5 text-[11px] font-semibold"
+                            className="sa-control sa-btn-primary inline-flex min-h-9.5 shrink-0 items-center gap-1 px-3 py-1.5 text-[11px] font-semibold"
                           >
                             <span>Lihat Invoice</span>
                             <ExternalLink className="h-3 w-3 text-[#C8F13A]" aria-hidden="true" />

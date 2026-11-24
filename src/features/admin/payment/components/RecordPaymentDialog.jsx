@@ -131,72 +131,73 @@ export function RecordPaymentDialog({
           className="sa-overlay-backdrop fixed inset-0 z-[60]"
         />
 
-        <Dialog.Popup
-          data-admin-portal-layer="true"
-          aria-label="Catat pembayaran invoice"
-          data-payment-scoped="true"
-          className="sa-dialog fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
-        >
-          {/* Header */}
-          <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 sm:gap-3 sm:px-5 sm:py-4">
-            <div className="min-w-0">
-              <AdminStatusBadge tone="lime" icon={Banknote} size="sm" className="uppercase">
-                Catat Pembayaran Pelanggan
-              </AdminStatusBadge>
-              <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
-                Catat Pembayaran
-              </Dialog.Title>
-              <Dialog.Description className="mt-0.5 truncate font-mono text-[11px] text-[#666159] sm:text-xs">
-                <strong className="text-[#151515]">{invoice.invoiceNumber}</strong> •{' '}
-                {invoice.customerSnapshot?.name}
-              </Dialog.Description>
+        <Dialog.Viewport className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4">
+          <Dialog.Popup
+            data-admin-portal-layer="true"
+            aria-label="Catat pembayaran invoice"
+            data-payment-scoped="true"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+          >
+            {/* Header */}
+            <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:gap-3 sm:px-5 sm:py-4">
+              <div className="min-w-0">
+                <AdminStatusBadge tone="lime" icon={Banknote} size="sm" className="uppercase">
+                  Catat Pembayaran Pelanggan
+                </AdminStatusBadge>
+                <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
+                  Catat Pembayaran
+                </Dialog.Title>
+                <Dialog.Description className="mt-0.5 truncate font-mono text-[11px] text-[#666159] sm:text-xs">
+                  <strong className="text-[#151515]">{invoice.invoiceNumber}</strong> •{' '}
+                  {invoice.customerSnapshot?.name}
+                </Dialog.Description>
+              </div>
+
+              <Dialog.Close
+                aria-label="Tutup dialog catat pembayaran"
+                disabled={isSubmitting}
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
+              >
+                <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
+              </Dialog.Close>
             </div>
 
-            <Dialog.Close
-              aria-label="Tutup dialog catat pembayaran"
-              disabled={isSubmitting}
-              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
+            <form
+              id="record-payment-form"
+              onSubmit={handleSubmit}
+              noValidate
+              className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-white px-4 py-3.5 sm:space-y-4 sm:px-5 sm:py-4"
             >
-              <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
-            </Dialog.Close>
-          </div>
-
-          <form
-            id="record-payment-form"
-            onSubmit={handleSubmit}
-            noValidate
-            className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-white px-4 py-3.5 sm:space-y-4 sm:px-5 sm:py-4"
-          >
-            {submitError ? (
-              <div
-                role="alert"
-                className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 text-xs font-medium text-[#B92B0C]"
-              >
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>{submitError}</span>
-              </div>
-            ) : null}
-
-            {/* Payment Amount */}
-            <div>
-              <div className="flex items-center justify-between gap-2">
-                <label
-                  htmlFor="record-payment-amount"
-                  className="block text-xs font-semibold text-[#151515]"
+              {submitError ? (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 text-xs font-medium text-[#B92B0C]"
                 >
-                  Nominal Pembayaran (Rp) <span className="text-[#FF4B22]">*</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAmountInput(String(currentBalance));
-                    setFieldErrors((prev) => ({ ...prev, amount: '' }));
-                  }}
-                  className="cursor-pointer rounded-full border border-[#8BAD12]/35 bg-[#EDF8C2] px-2.5 py-0.5 text-[11px] font-semibold text-[#243300] transition-colors hover:bg-[#C8F13A]"
-                >
-                  Bayar Lunas ({formatRupiah(currentBalance)})
-                </button>
-              </div>
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>{submitError}</span>
+                </div>
+              ) : null}
+
+              {/* Payment Amount */}
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label
+                    htmlFor="record-payment-amount"
+                    className="block text-xs font-semibold text-[#151515]"
+                  >
+                    Nominal Pembayaran (Rp) <span className="text-[#FF4B22]">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAmountInput(String(currentBalance));
+                      setFieldErrors((prev) => ({ ...prev, amount: '' }));
+                    }}
+                    className="inline-flex min-h-9.5 shrink-0 cursor-pointer items-center rounded-full border border-[#8BAD12]/35 bg-[#EDF8C2] px-3 py-1 text-[11px] font-semibold text-[#243300] transition-colors hover:bg-[#C8F13A]"
+                  >
+                    Bayar Lunas ({formatRupiah(currentBalance)})
+                  </button>
+                </div>
               <input
                 id="record-payment-amount"
                 type="text"
@@ -359,36 +360,37 @@ export function RecordPaymentDialog({
             </div>
           </form>
 
-          {/* Sticky Footer */}
-          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:gap-2.5 sm:px-5 sm:py-3.5 sm:pb-[max(0.875rem,env(safe-area-inset-bottom))]">
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleClose}
-              className="sa-control sa-btn-secondary min-h-9.5 flex-1 cursor-pointer px-4 py-1.5 text-xs font-semibold sm:min-h-10 sm:flex-initial sm:py-2"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              form="record-payment-form"
-              disabled={isSubmitting || evidenceUpload.isUploading || parsedAmount <= 0 || exceedsBalance}
-              className="sa-control sa-btn-lime inline-flex min-h-9.5 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:flex-initial sm:px-5 sm:py-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                  <span>Menyimpan...</span>
-                </>
-              ) : (
-                <>
-                  <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Simpan Pembayaran</span>
-                </>
-              )}
-            </button>
-          </div>
-        </Dialog.Popup>
+            {/* Sticky Footer */}
+            <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:gap-2.5 sm:px-5 sm:py-3.5">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleClose}
+                className="sa-control sa-btn-secondary min-h-11 flex-1 cursor-pointer px-4 py-2 text-xs font-semibold sm:flex-initial"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                form="record-payment-form"
+                disabled={isSubmitting || evidenceUpload.isUploading || parsedAmount <= 0 || exceedsBalance}
+                className="sa-control sa-btn-lime inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial sm:px-5"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Simpan Pembayaran</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Viewport>
       </Dialog.Portal>
     </Dialog.Root>
   );

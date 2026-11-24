@@ -130,14 +130,14 @@ export function WhatsAppTemplateManager({ open, onOpenChange, actorUid, actorRol
           data-admin-portal-layer="true"
           className="sa-overlay-backdrop fixed inset-0 z-50"
         />
-        <Dialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
+        <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-5">
           <Dialog.Popup
             data-admin-portal-layer="true"
             aria-label="Kelola Template Pesan WhatsApp"
-            className="sa-dialog flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-[#FAF8F1]"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl rounded-b-none bg-[#FAF8F1] sm:rounded-2xl"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#151515] px-5 py-4 text-[#F1EEE4]">
-              <div>
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#151515] px-4 py-3.5 text-[#F1EEE4] sm:px-5 sm:py-4">
+              <div className="min-w-0">
                 <span className="inline-block rounded-full bg-[#C8F13A] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[#151515] uppercase">
                   OWNER ONLY · WHATSAPP TEMPLATES
                 </span>
@@ -150,13 +150,13 @@ export function WhatsAppTemplateManager({ open, onOpenChange, actorUid, actorRol
               </div>
               <Dialog.Close
                 aria-label="Tutup pengelola template"
-                className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white hover:text-[#C8F13A]"
+                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white hover:text-[#C8F13A]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="sa-safe-bottom min-h-0 flex-1 overflow-y-auto px-4 pt-4 sm:px-6 sm:pt-6 sm:pb-6">
               {editingTemplate ? (
                 <form onSubmit={handleSaveEditor} className="space-y-4">
                   <div className="flex items-center justify-between gap-2">
@@ -259,7 +259,7 @@ export function WhatsAppTemplateManager({ open, onOpenChange, actorUid, actorRol
                               body: `${p.body}{${v}}`,
                             }))
                           }
-                          className="cursor-pointer rounded-md border border-[#151515]/15 bg-white px-2 py-0.5 font-mono text-[11px] text-[#151515] hover:bg-[#EDF8C2]"
+                          className="inline-flex min-h-9 cursor-pointer items-center rounded-md border border-[#151515]/15 bg-white px-2.5 py-1 font-mono text-[11px] text-[#151515] hover:bg-[#EDF8C2]"
                         >
                           +{`{${v}}`}
                         </button>
@@ -345,18 +345,25 @@ export function WhatsAppTemplateManager({ open, onOpenChange, actorUid, actorRol
                           <AdminButton
                             variant="secondary"
                             size="xs"
+                            className="min-h-9"
                             onClick={() => handleToggleActive(tpl)}
                           >
                             <Check className="h-3 w-3" aria-hidden="true" />
                             <span>{tpl.isActive ? 'Nonaktifkan' : 'Aktifkan'}</span>
                           </AdminButton>
-                          <AdminButton variant="secondary" size="xs" onClick={() => startEdit(tpl)}>
+                          <AdminButton
+                            variant="secondary"
+                            size="xs"
+                            className="min-h-9"
+                            onClick={() => startEdit(tpl)}
+                          >
                             Edit
                           </AdminButton>
                           {tpl.isBuiltIn ? (
                             <AdminButton
                               variant="ghost"
                               size="xs"
+                              className="min-h-9"
                               onClick={() => handleRestoreDefault(tpl.id)}
                             >
                               <RotateCcw className="h-3 w-3" aria-hidden="true" />

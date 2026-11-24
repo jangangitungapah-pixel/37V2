@@ -74,7 +74,7 @@ export function ServiceTypeCard({
             disabled={readOnly}
             onClick={() => onEditService(serviceType)}
             aria-label={`Edit Service ${serviceType.name}`}
-            className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Pencil className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
             <span>Edit</span>
@@ -85,7 +85,7 @@ export function ServiceTypeCard({
             disabled={readOnly}
             onClick={() => onRequestDeleteService(serviceType)}
             aria-label={`Delete Service ${serviceType.name}`}
-            className="sa-control inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[#FF4B22]/20 bg-[#FFEDE8]/80 px-3 py-1.5 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[#FF4B22]/20 bg-[#FFEDE8]/80 px-3 py-1.5 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Delete</span>
@@ -96,7 +96,7 @@ export function ServiceTypeCard({
             onClick={() => setIsExpanded((prev) => !prev)}
             aria-expanded={isExpanded}
             aria-label={`${isExpanded ? 'Tutup' : 'Buka'} daftar subcategory ${serviceType.name}`}
-            className="sa-control sa-btn-secondary inline-flex h-9 w-9 cursor-pointer items-center justify-center text-[#46433D] hover:bg-[#EDF8C2] hover:text-[#151515]"
+            className="sa-control sa-btn-secondary inline-flex h-10 w-10 cursor-pointer items-center justify-center text-[#46433D] hover:bg-[#EDF8C2] hover:text-[#151515]"
           >
             {isExpanded ? (
               <ChevronUp className="h-4 w-4" aria-hidden="true" />

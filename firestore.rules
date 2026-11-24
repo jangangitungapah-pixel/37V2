@@ -44,6 +44,22 @@ service cloud.firestore {
         && isValidNormalizedEmail(request.auth.token.email.trim().lower());
     }
 
+    function hasEligibleClientAuth() {
+      return request.auth != null
+        && ('firebase' in request.auth.token)
+        && ('email' in request.auth.token)
+        && request.auth.token.email is string
+        && isValidNormalizedEmail(request.auth.token.email.trim().lower())
+        && (
+          request.auth.token.firebase.sign_in_provider == 'password'
+          || (
+            request.auth.token.firebase.sign_in_provider == 'google.com'
+            && ('email_verified' in request.auth.token)
+            && request.auth.token.email_verified == true
+          )
+        );
+    }
+
     function normalizedAuthEmail() {
       return request.auth.token.email.trim().lower();
     }
@@ -52,25 +68,40 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/clientAccounts/$(uid));
     }
 
+    function isValidActiveClientAccountDoc(uid) {
+      let acct = getClientAccountDoc(uid);
+      return acct.data.uid == uid
+        && acct.data.role == 'client'
+        && acct.data.status == 'active'
+        && acct.data.customerId is string
+        && acct.data.customerId.size() >= 1;
+    }
+
     function isActiveClient() {
-      return request.auth != null
+      return hasEligibleClientAuth()
         && !isAnyStaffProfile()
-        && hasVerifiedGoogleEmail()
         && exists(/databases/$(database)/documents/clientAccounts/$(request.auth.uid))
-        && getClientAccountDoc(request.auth.uid).data.uid == request.auth.uid
-        && getClientAccountDoc(request.auth.uid).data.role == 'client'
-        && getClientAccountDoc(request.auth.uid).data.status == 'active'
-        && getClientAccountDoc(request.auth.uid).data.customerId is string
-        && getClientAccountDoc(request.auth.uid).data.customerId.size() >= 1;
+        && isValidActiveClientAccountDoc(request.auth.uid);
+    }
+
+    function isActiveClientCustomerMatch(uid, customerId) {
+      let acct = getClientAccountDoc(uid);
+      let link = get(/databases/$(database)/documents/clientCustomerLinks/$(customerId));
+      return acct.data.uid == uid
+        && acct.data.role == 'client'
+        && acct.data.status == 'active'
+        && acct.data.customerId == customerId
+        && link.data.ownerUid == uid;
     }
 
     function isClientOwnerOfCustomer(customerId) {
-      return isActiveClient()
+      return hasEligibleClientAuth()
+        && !isAnyStaffProfile()
         && customerId is string
         && customerId.size() >= 1
-        && getClientAccountDoc(request.auth.uid).data.customerId == customerId
+        && exists(/databases/$(database)/documents/clientAccounts/$(request.auth.uid))
         && exists(/databases/$(database)/documents/clientCustomerLinks/$(customerId))
-        && get(/databases/$(database)/documents/clientCustomerLinks/$(customerId)).data.ownerUid == request.auth.uid;
+        && isActiveClientCustomerMatch(request.auth.uid, customerId);
     }
 
     function isClientReadableInvoiceData(data) {
@@ -79,12 +110,17 @@ service cloud.firestore {
         && isClientOwnerOfCustomer(data.customerId);
     }
 
+    function isClientReadableParentInvoiceDoc(invoiceId, customerId) {
+      let inv = get(/databases/$(database)/documents/invoices/$(invoiceId));
+      return inv.data.customerId == customerId
+        && inv.data.invoiceStatus in ['issued', 'void'];
+    }
+
     function isClientReadableParentInvoice(invoiceId, customerId) {
       return invoiceId is string
         && invoiceId.size() >= 1
         && exists(/databases/$(database)/documents/invoices/$(invoiceId))
-        && get(/databases/$(database)/documents/invoices/$(invoiceId)).data.customerId == customerId
-        && get(/databases/$(database)/documents/invoices/$(invoiceId)).data.invoiceStatus in ['issued', 'void'];
+        && isClientReadableParentInvoiceDoc(invoiceId, customerId);
     }
 
     function getFactoryResetOperation() {
@@ -3028,6 +3064,20 @@ service cloud.firestore {
         );
     }
 
+    function isValidClientBookingCatalogSnapshot(data) {
+      let catalog = get(/databases/$(database)/documents/publicPricingCatalog/current);
+      return catalog.data.schemaVersion == 3
+        && data.pricingVersion == catalog.data.version
+        && catalog.data.serviceOptionIndex is list
+        && catalog.data.serviceOptionIndex.hasAny([{
+          'serviceTypeId': data.publicServiceId,
+          'serviceLabelSnapshot': data.serviceLabelSnapshot,
+          'serviceOptionId': data.serviceOptionId,
+          'serviceOptionName': data.serviceOptionName,
+          'deliveryMode': data.requestType == 'studio_booking' ? 'studio' : 'wfa'
+        }]);
+    }
+
     function isValidClientPortalBookingRequestCreate(data) {
       return isActiveClient()
         && isValidClientBookingRequestKeys(data)
@@ -3046,16 +3096,7 @@ service cloud.firestore {
         && data.pricingVersion is int
         && data.pricingVersion >= 1
         && exists(/databases/$(database)/documents/publicPricingCatalog/current)
-        && get(/databases/$(database)/documents/publicPricingCatalog/current).data.schemaVersion == 3
-        && data.pricingVersion == get(/databases/$(database)/documents/publicPricingCatalog/current).data.version
-        && get(/databases/$(database)/documents/publicPricingCatalog/current).data.serviceOptionIndex is list
-        && get(/databases/$(database)/documents/publicPricingCatalog/current).data.serviceOptionIndex.hasAny([{
-          'serviceTypeId': data.publicServiceId,
-          'serviceLabelSnapshot': data.serviceLabelSnapshot,
-          'serviceOptionId': data.serviceOptionId,
-          'serviceOptionName': data.serviceOptionName,
-          'deliveryMode': data.requestType == 'studio_booking' ? 'studio' : 'wfa'
-        }])
+        && isValidClientBookingCatalogSnapshot(data)
         && isValidClientPortalProjectDetails(data);
     }
 
@@ -3863,8 +3904,9 @@ service cloud.firestore {
         && data.displayName.size() <= 120
         && data.photoURL is string
         && data.photoURL.size() <= 500
-        && data.authProvider == 'google.com'
-        && data.emailVerified == true
+        && data.authProvider in ['google.com', 'password']
+        && data.emailVerified is bool
+        && (data.authProvider != 'google.com' || data.emailVerified == true)
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
         && data.version is int
@@ -3897,13 +3939,49 @@ service cloud.firestore {
         && data.version == 1;
     }
 
+    function isClientAccountCreateLinkMatched(data, uid) {
+      let linkAfter = getAfter(/databases/$(database)/documents/clientCustomerLinks/$(data.customerId));
+      return linkAfter.data.ownerUid == uid
+        && linkAfter.data.customerId == data.customerId
+        && linkAfter.data.profileSource == data.profileSource;
+    }
+
+    function isClientAccountCreateIsolatedProfileMatched(data, uid) {
+      let profileAfter = getAfter(/databases/$(database)/documents/clientProfiles/$(data.customerId));
+      return profileAfter.data.ownerUid == uid
+        && profileAfter.data.customerId == data.customerId
+        && profileAfter.data.profileSource == 'isolated_client_profile'
+        && profileAfter.data.status == 'active';
+    }
+
+    function isClientAccountCreateLinkedCustomerMatched(data, emailNormalized) {
+      let emailIdx = get(/databases/$(database)/documents/customerEmailIndex/$(emailNormalized));
+      let profile = get(/databases/$(database)/documents/clientProfiles/$(data.customerId));
+      return emailIdx.data.status == 'active'
+        && emailIdx.data.customerId == data.customerId
+        && profile.data.status == 'active'
+        && profile.data.emailNormalized == emailNormalized;
+    }
+
+    function isClientCustomerLinkCreateAccountMatched(data, uid, customerId) {
+      let acctAfter = getAfter(/databases/$(database)/documents/clientAccounts/$(uid));
+      return acctAfter.data.customerId == customerId
+        && acctAfter.data.profileSource == data.profileSource;
+    }
+
+    function isClientCustomerLinkCreateEmailIndexMatched(customerId, emailNormalized) {
+      let emailIdx = get(/databases/$(database)/documents/customerEmailIndex/$(emailNormalized));
+      return emailIdx.data.status == 'active'
+        && emailIdx.data.customerId == customerId;
+    }
+
     match /clientAccounts/{uid} {
       allow get: if isActiveOwner()
         || (request.auth != null && request.auth.uid == uid);
 
       allow list: if isActiveOwner();
 
-      allow create: if hasVerifiedGoogleEmail()
+      allow create: if hasEligibleClientAuth()
         && !isAnyStaffProfile()
         && !isFactoryResetLocked()
         && request.auth.uid == uid
@@ -3911,29 +3989,26 @@ service cloud.firestore {
         && request.resource.data.role == 'client'
         && request.resource.data.status == 'active'
         && request.resource.data.emailNormalized == normalizedAuthEmail()
+        && request.resource.data.authProvider == request.auth.token.firebase.sign_in_provider
+        && request.resource.data.emailVerified == (
+          ('email_verified' in request.auth.token) && request.auth.token.email_verified == true
+        )
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
         && request.resource.data.version == 1
         && !exists(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId))
-        && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId)).data.ownerUid == uid
-        && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId)).data.customerId == request.resource.data.customerId
-        && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId)).data.profileSource == request.resource.data.profileSource
+        && isClientAccountCreateLinkMatched(request.resource.data, uid)
         && (
           (
             request.resource.data.profileSource == 'isolated_client_profile'
             && request.resource.data.customerId == ('client_' + uid)
-            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.ownerUid == uid
-            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.customerId == request.resource.data.customerId
-            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.profileSource == 'isolated_client_profile'
-            && getAfter(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.status == 'active'
+            && isClientAccountCreateIsolatedProfileMatched(request.resource.data, uid)
           ) || (
-            request.resource.data.profileSource == 'linked_customer'
+            hasVerifiedGoogleEmail()
+            && request.resource.data.profileSource == 'linked_customer'
             && exists(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail()))
-            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.status == 'active'
-            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.customerId == request.resource.data.customerId
             && exists(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId))
-            && get(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.status == 'active'
-            && get(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId)).data.emailNormalized == normalizedAuthEmail()
+            && isClientAccountCreateLinkedCustomerMatched(request.resource.data, normalizedAuthEmail())
           )
         );
 
@@ -3962,24 +4037,23 @@ service cloud.firestore {
 
       allow list: if isActiveOwner();
 
-      allow create: if hasVerifiedGoogleEmail()
+      allow create: if hasEligibleClientAuth()
         && !isAnyStaffProfile()
         && !isFactoryResetLocked()
         && isValidClientCustomerLinkShape(request.resource.data, customerId)
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.emailNormalized == normalizedAuthEmail()
         && request.resource.data.createdAt == request.time
-        && getAfter(/databases/$(database)/documents/clientAccounts/$(request.auth.uid)).data.customerId == customerId
-        && getAfter(/databases/$(database)/documents/clientAccounts/$(request.auth.uid)).data.profileSource == request.resource.data.profileSource
+        && isClientCustomerLinkCreateAccountMatched(request.resource.data, request.auth.uid, customerId)
         && (
           (
             request.resource.data.profileSource == 'isolated_client_profile'
             && customerId == ('client_' + request.auth.uid)
           ) || (
-            request.resource.data.profileSource == 'linked_customer'
+            hasVerifiedGoogleEmail()
+            && request.resource.data.profileSource == 'linked_customer'
             && exists(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail()))
-            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.status == 'active'
-            && get(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail())).data.customerId == customerId
+            && isClientCustomerLinkCreateEmailIndexMatched(customerId, normalizedAuthEmail())
           )
         );
 
@@ -3989,12 +4063,7 @@ service cloud.firestore {
 
     match /clientProfiles/{customerId} {
       allow get: if isActiveStaff()
-        || (
-          isActiveClient()
-          && getClientAccountDoc(request.auth.uid).data.customerId == customerId
-          && exists(/databases/$(database)/documents/clientCustomerLinks/$(customerId))
-          && get(/databases/$(database)/documents/clientCustomerLinks/$(customerId)).data.ownerUid == request.auth.uid
-        );
+        || isClientOwnerOfCustomer(customerId);
 
       allow list: if isActiveStaff();
 
@@ -4007,7 +4076,7 @@ service cloud.firestore {
             && request.resource.data.profileSource == 'linked_customer'
             && existsAfter(/databases/$(database)/documents/customers/$(customerId))
           ) || (
-            hasVerifiedGoogleEmail()
+            hasEligibleClientAuth()
             && !isAnyStaffProfile()
             && isValidClientProfileShape(request.resource.data, customerId)
             && customerId == ('client_' + request.auth.uid)

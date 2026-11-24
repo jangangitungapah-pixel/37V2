@@ -127,6 +127,7 @@ export function AdminCustomerReviewsPage() {
   return (
     <div data-admin-portal="true" className="space-y-5">
       <AdminPageHeader
+        compactMobile
         eyebrow="Owner Review Moderation"
         titleId="admin-customer-reviews-heading"
         title="Customer Reviews"
@@ -156,7 +157,7 @@ export function AdminCustomerReviewsPage() {
         <div
           role="tablist"
           aria-label="Kategori moderasi ulasan pelanggan"
-          className="flex flex-wrap gap-1.5"
+          className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap"
         >
           {REVIEW_TABS.map((tab) => {
             const isSelected = activeTab === tab.id;
@@ -176,15 +177,15 @@ export function AdminCustomerReviewsPage() {
                 role="tab"
                 aria-selected={isSelected}
                 onClick={() => setActiveTab(tab.id)}
-                className={`inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-colors ${
+                className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-between gap-1.5 rounded-xl px-2.5 py-2 text-left text-[11.5px] leading-tight font-bold transition-colors sm:justify-start sm:gap-2 sm:px-3.5 sm:text-xs ${
                   isSelected
                     ? 'bg-[#151515] text-[#C8F13A]'
                     : 'bg-[#FAF8F3] text-[#46433D] hover:bg-[#EFECE3]'
                 }`}
               >
-                <span>{tab.label}</span>
+                <span className="truncate">{tab.label}</span>
                 <span
-                  className={`rounded-full px-2 py-0.5 font-mono text-[10px] ${
+                  className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] ${
                     isSelected ? 'bg-[#C8F13A] text-[#151515]' : 'bg-white text-[#151515]'
                   }`}
                 >

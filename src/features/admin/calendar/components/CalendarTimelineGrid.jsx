@@ -143,7 +143,7 @@ export function CalendarTimelineGrid({
                   key={`overflow-${booking.id}`}
                   type="button"
                   onClick={() => onSelectBooking(booking)}
-                  className="hover:bg-studio-lime text-studio-ink inline-flex cursor-pointer items-center gap-1 rounded-full border border-amber-500/30 bg-white px-2.5 py-0.5 font-mono text-[10.5px] font-medium transition-colors"
+                  className="hover:bg-studio-lime text-studio-ink inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-full border border-amber-500/30 bg-white px-2.5 py-1 font-mono text-[10.5px] font-medium transition-colors"
                 >
                   <span>{formatIndonesianDateCompact(booking.date)}</span>
                   <span>• {formatMinuteRange(booking.startMinute, booking.endMinute, false)}</span>
@@ -157,7 +157,10 @@ export function CalendarTimelineGrid({
       ) : null}
 
       {/* Unified Horizontal Scroll Container (Header + Body share the exact same CSS Grid) */}
-      <div ref={scrollContainerRef} className="w-full overflow-x-auto overscroll-x-contain">
+      <div
+        ref={scrollContainerRef}
+        className="max-h-[70dvh] w-full overflow-x-auto overflow-y-auto overscroll-x-contain sm:max-h-none"
+      >
         <div
           className="grid min-w-full"
           style={{
@@ -166,7 +169,7 @@ export function CalendarTimelineGrid({
           }}
         >
           {/* ROW 1: Sticky Top-Left WIB Corner + Column Headers */}
-          <div className="sticky left-0 z-10 flex items-center justify-center border-r border-b border-white/10 bg-[#151515] px-1.5 py-2.5 font-mono text-[10.5px] font-semibold tracking-wide text-neutral-300 shadow-[2px_0_12px_-4px_rgba(21,21,21,0.3)]">
+          <div className="sticky top-0 left-0 z-30 flex items-center justify-center border-r border-b border-white/10 bg-[#151515] px-1.5 py-2.5 font-mono text-[10.5px] font-semibold tracking-wide text-neutral-300 shadow-[2px_0_12px_-4px_rgba(21,21,21,0.3)]">
             WIB
           </div>
 
@@ -178,7 +181,7 @@ export function CalendarTimelineGrid({
                 data-column-date={col.dateIso}
                 data-column-today={col.isToday ? 'true' : 'false'}
                 data-column-selected={col.isSelected ? 'true' : 'false'}
-                className={`flex flex-col justify-between border-r border-b border-white/10 px-2.5 py-2.5 text-[#F1EEE4] last:border-r-0 ${
+                className={`sticky top-0 z-20 flex flex-col justify-between border-r border-b border-white/10 px-2.5 py-2.5 text-[#F1EEE4] last:border-r-0 ${
                   col.isToday ? 'bg-[#1D2114]' : col.isSelected ? 'bg-[#22201C]' : 'bg-[#151515]'
                 } ${col.isSelected ? 'border-b-studio-orange border-b-2' : col.isToday ? 'border-b-studio-lime border-b-2' : ''}`}
               >
@@ -203,7 +206,7 @@ export function CalendarTimelineGrid({
                     type="button"
                     onClick={col.onHeaderClick}
                     aria-label={col.headerClickAriaLabel || `Buka Day View ${col.dateIso}`}
-                    className={`mt-1.5 inline-flex w-full cursor-pointer items-baseline justify-between gap-1 text-left transition-colors ${
+                    className={`mt-1 inline-flex min-h-8 w-full cursor-pointer items-center justify-between gap-1 rounded-md py-0.5 text-left transition-colors ${
                       col.isToday || col.isSelected
                         ? 'text-studio-lime font-semibold'
                         : 'hover:text-studio-lime font-semibold text-white'
@@ -293,7 +296,7 @@ export function CalendarTimelineGrid({
                     style={{ height: `${rowHeightPx}px` }}
                     className="group flex w-full cursor-pointer items-center justify-center border-b border-[#151515]/6 px-1.5 transition-colors last:border-b-0 hover:bg-[#EDF8C2]/55"
                   >
-                    <span className="text-studio-ink inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-0.5 font-mono text-[10px] font-medium opacity-0 shadow-xs transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                    <span className="text-studio-ink inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-0.5 font-mono text-[10px] font-medium opacity-0 shadow-xs transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-55">
                       <Plus className="h-3 w-3 shrink-0" aria-hidden="true" />
                       <span>{slot.label}</span>
                     </span>
@@ -361,7 +364,7 @@ export function CalendarTimelineGrid({
                         key={`after-${b.id}`}
                         type="button"
                         onClick={() => onSelectBooking(b)}
-                        className="hover:bg-studio-lime text-studio-ink cursor-pointer rounded-full border border-amber-500/30 bg-[#FEF4DD] px-2 py-0.5 font-mono text-[9.5px] font-medium transition-colors"
+                        className="hover:bg-studio-lime text-studio-ink inline-flex min-h-8 cursor-pointer items-center rounded-full border border-amber-500/30 bg-[#FEF4DD] px-2.5 py-1 font-mono text-[9.5px] font-medium transition-colors"
                       >
                         {formatMinuteRange(b.startMinute, b.endMinute, false)} • {b.customerName}
                       </button>

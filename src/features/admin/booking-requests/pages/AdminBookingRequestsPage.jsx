@@ -80,6 +80,7 @@ export function AdminBookingRequestsPage() {
   return (
     <div data-calendar-scoped="true" className="space-y-4 sm:space-y-5">
       <AdminPageHeader
+        compactMobile
         eyebrow="PUBLIC INQUIRY DESK"
         icon={Inbox}
         title="Incoming Booking Requests"
@@ -96,7 +97,12 @@ export function AdminBookingRequestsPage() {
         }
         actions={
           isOwner ? (
-            <AdminButton variant="secondary" size="sm" onClick={() => setTemplateManagerOpen(true)}>
+            <AdminButton
+              variant="secondary"
+              size="md"
+              className="w-full sm:w-auto"
+              onClick={() => setTemplateManagerOpen(true)}
+            >
               <Settings2 className="h-4 w-4" aria-hidden="true" />
               <span>Kelola Template WhatsApp</span>
             </AdminButton>

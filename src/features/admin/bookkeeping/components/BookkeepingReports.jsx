@@ -174,9 +174,9 @@ export function BookkeepingReports({
             <button
               type="button"
               onClick={() => setOpeningFormOpen((prev) => !prev)}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-[#F8F6EF] px-2 py-1 text-[11px] font-semibold text-[#46433D] hover:text-[#151515]"
+              className="inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 rounded-lg bg-[#F8F6EF] px-3 py-1 text-xs font-semibold text-[#46433D] hover:text-[#151515]"
             >
-              <Settings2 className="h-3 w-3" aria-hidden="true" />
+              <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Saldo Awal</span>
             </button>
           </div>
@@ -251,35 +251,42 @@ export function BookkeepingReports({
                     value={openingAmount}
                     onChange={(e) => setOpeningAmount(e.target.value)}
                     placeholder="Nominal saldo awal (IDR)"
-                    className="sa-input min-h-9 w-full px-2.5 py-1 font-mono text-xs text-[#151515]"
+                    className="sa-input min-h-10 w-full px-2.5 py-1 font-mono text-xs text-[#151515]"
                   />
                   <input
                     type="date"
                     value={openingAsOf}
                     onChange={(e) => setOpeningAsOf(e.target.value)}
-                    className="sa-input min-h-9 w-full px-2.5 py-1 font-mono text-xs text-[#151515]"
+                    className="sa-input min-h-10 w-full px-2.5 py-1 font-mono text-xs text-[#151515]"
                   />
                   <input
                     type="text"
                     value={openingNote}
                     onChange={(e) => setOpeningNote(e.target.value)}
                     placeholder="Catatan singkat (opsional)"
-                    className="sa-input min-h-9 w-full px-2.5 py-1 text-xs text-[#151515]"
+                    className="sa-input min-h-10 w-full px-2.5 py-1 text-xs text-[#151515]"
                   />
                 </div>
               ) : null}
 
               {openingError ? <p className="text-[11px] text-[#B92B0C]">{openingError}</p> : null}
 
-              <div className="flex justify-end gap-1.5">
+              <div className="flex justify-end gap-2">
                 <AdminButton
                   variant="secondary"
-                  size="xs"
+                  size="sm"
                   onClick={() => setOpeningFormOpen(false)}
+                  className="min-h-10"
                 >
                   Tutup
                 </AdminButton>
-                <AdminButton type="submit" variant="primary" size="xs" disabled={isSavingOpening}>
+                <AdminButton
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={isSavingOpening}
+                  className="min-h-10"
+                >
                   {isSavingOpening ? (
                     <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
                   ) : null}

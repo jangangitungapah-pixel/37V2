@@ -1,3 +1,7 @@
+import {
+  isValidCustomerEmail,
+  normalizeCustomerEmail,
+} from '@/features/admin/customer/utils/customer-email';
 import { createAuthError } from '@/features/auth/auth-helpers';
 import { isFirebaseConfigured } from '@/lib/firebase/client';
 
@@ -8,9 +12,12 @@ import {
   CLIENT_SUSPENDED_MESSAGE,
 } from '../config/client-portal-config';
 import { getClientPortalRepositoryAdapter } from '../repositories/client-portal-repository';
-import { validateGoogleFirebaseUser } from '../utils/client-auth-helpers';
+import {
+  CLIENT_PASSWORD_RESET_CONFIRMATION,
+  validateClientFirebaseUser,
+} from '../utils/client-auth-helpers';
 
-async function loadGoogleAuthDeps() {
+async function loadClientAuthDeps() {
   const [authSdk, { getFirebaseAuth }] = await Promise.all([
     import('firebase/auth'),
     import('@/lib/firebase/auth'),
@@ -32,17 +39,22 @@ function isLinkConflictError(err) {
 }
 
 /**
- * Resolves an authenticated Google user's canonical Client authorization & profile binding.
- * When `allowProvision: true` (interactive Google login or redirect return), immediately provisions
- * an `active` Client account linked via exact verified email matching or an isolated personal profile.
- * Never approves or modifies Staff/Owner identities.
+ * Resolves an authenticated Client user's canonical authorization & profile binding.
+ * Supports both verified Google (`google.com`) and manual Email/Password (`password`) accounts:
+ * - Only verified Google accounts may look up and bind to existing `customerEmailIndex` records.
+ * - Unverified/password accounts always provision safely into isolated `client_{uid}` profiles.
+ * - Never approves or modifies Staff/Owner identities.
  */
 export async function resolveOrProvisionClientAccount(
   firebaseUser,
-  { allowProvision = false, adapter = getClientPortalRepositoryAdapter() } = {},
+  {
+    allowProvision = false,
+    preferredDisplayName = '',
+    adapter = getClientPortalRepositoryAdapter(),
+  } = {},
 ) {
   if (!firebaseUser?.uid) {
-    throw createAuthError('client/unauthenticated', 'Sesi autentikasi Google tidak ditemukan.');
+    throw createAuthError('client/unauthenticated', 'Sesi autentikasi tidak ditemukan.');
   }
 
   // 1. Strict role separation: never convert or overwrite an existing Staff/Owner profile
@@ -51,8 +63,10 @@ export async function resolveOrProvisionClientAccount(
     throw createAuthError('client/staff-account-blocked', CLIENT_ADMIN_ACCOUNT_NOTICE);
   }
 
-  // 2. Check existing account first or validate Google identity claims
-  const identity = await validateGoogleFirebaseUser(firebaseUser);
+  // 2. Validate supported Client auth provider & email identity claims
+  const identity = await validateClientFirebaseUser(firebaseUser, {
+    fallbackDisplayName: preferredDisplayName,
+  });
 
   const existingAccount = await adapter.getClientAccount(identity.uid);
   if (existingAccount) {
@@ -95,16 +109,22 @@ export async function resolveOrProvisionClientAccount(
     );
   }
 
-  // 3. Exact verified email matching via Staff-maintained `customerEmailIndex/{emailNormalized}`
-  let emailIndex;
-  try {
-    emailIndex = await adapter.getEmailIndexForOwnEmail(identity.emailNormalized);
-  } catch {
-    emailIndex = null;
+  // 3. Exact verified Google email matching via Staff-maintained `customerEmailIndex/{emailNormalized}`
+  //    Password accounts never claim studio customer records before email verification.
+  const canLinkExistingCustomer =
+    identity.authProvider === 'google.com' && identity.emailVerified === true;
+
+  let emailIndex = null;
+  if (canLinkExistingCustomer) {
+    try {
+      emailIndex = await adapter.getEmailIndexForOwnEmail(identity.emailNormalized);
+    } catch {
+      emailIndex = null;
+    }
   }
 
   let provisionedResult = null;
-  if (emailIndex && emailIndex.status === 'active' && emailIndex.customerId) {
+  if (canLinkExistingCustomer && emailIndex && emailIndex.status === 'active' && emailIndex.customerId) {
     try {
       provisionedResult = await adapter.provisionClientAccountLinked({
         uid: identity.uid,
@@ -112,6 +132,8 @@ export async function resolveOrProvisionClientAccount(
         displayName: identity.displayName,
         photoURL: identity.photoURL,
         matchedCustomerId: emailIndex.customerId,
+        authProvider: identity.authProvider,
+        emailVerified: identity.emailVerified,
       });
     } catch (linkErr) {
       if (linkErr?.code === 'client/staff-account-blocked') {
@@ -123,13 +145,15 @@ export async function resolveOrProvisionClientAccount(
     }
   }
 
-  // 4. Ambiguous / missing / claimed match -> safely fall back to isolated client profile
+  // 4. Ambiguous / missing / password-based -> safely provision isolated client profile
   if (!provisionedResult) {
     provisionedResult = await adapter.provisionClientAccountIsolated({
       uid: identity.uid,
       emailNormalized: identity.emailNormalized,
       displayName: identity.displayName,
       photoURL: identity.photoURL,
+      authProvider: identity.authProvider,
+      emailVerified: identity.emailVerified,
     });
   }
 
@@ -163,8 +187,19 @@ export async function resolveOrProvisionClientAccount(
   };
 }
 
-async function cleanupFailedGoogleAuthSession(auth, error, signOutFn, adapter) {
-  if (error?.code === 'client/staff-account-blocked' && auth?.currentUser?.uid) {
+async function cleanupFailedClientAuthSession(
+  auth,
+  error,
+  signOutFn,
+  adapter,
+  { preserveExistingStaffSession = false, previousStaffUid = '' } = {},
+) {
+  if (
+    preserveExistingStaffSession &&
+    error?.code === 'client/staff-account-blocked' &&
+    auth?.currentUser?.uid &&
+    (!previousStaffUid || previousStaffUid === auth.currentUser.uid)
+  ) {
     try {
       const staff = await adapter.hasStaffProfile(auth.currentUser.uid);
       if (staff?.active) {
@@ -184,6 +219,8 @@ async function cleanupFailedGoogleAuthSession(auth, error, signOutFn, adapter) {
  * falling back to `signInWithRedirect` only if popup is blocked or unsupported.
  */
 export async function signInClientWithGoogle({
+  preserveExistingStaffSession = false,
+  previousStaffUid = '',
   adapter = getClientPortalRepositoryAdapter(),
 } = {}) {
   if (!isFirebaseConfigured()) {
@@ -191,7 +228,7 @@ export async function signInClientWithGoogle({
   }
 
   const { auth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut } =
-    await loadGoogleAuthDeps();
+    await loadClientAuthDeps();
 
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters?.({ prompt: 'select_account' });
@@ -219,9 +256,146 @@ export async function signInClientWithGoogle({
       adapter,
     });
   } catch (err) {
-    await cleanupFailedGoogleAuthSession(auth, err, signOut, adapter);
+    await cleanupFailedClientAuthSession(auth, err, signOut, adapter, {
+      preserveExistingStaffSession,
+      previousStaffUid,
+    });
     throw err;
   }
+}
+
+/**
+ * Creates a new Client account manually with Email & Password and immediately activates
+ * an isolated Client profile (`client_{uid}`) without requiring email verification upfront.
+ */
+export async function signUpClientWithEmailPassword({
+  displayName,
+  email,
+  password,
+  preserveExistingStaffSession = false,
+  previousStaffUid = '',
+  adapter = getClientPortalRepositoryAdapter(),
+} = {}) {
+  if (!isFirebaseConfigured()) {
+    throw createAuthError('firebase/not-configured', 'Firebase configuration is incomplete.');
+  }
+
+  const cleanName = String(displayName ?? '').trim();
+  if (cleanName.length < 2 || cleanName.length > 120) {
+    throw createAuthError(
+      'client/missing-name',
+      'Masukkan nama lengkap atau nama band Anda (minimal 2 karakter).',
+    );
+  }
+
+  const emailNormalized = normalizeCustomerEmail(email ?? '');
+  if (!emailNormalized || !isValidCustomerEmail(emailNormalized)) {
+    throw createAuthError('client/invalid-email', 'Masukkan alamat email yang valid.');
+  }
+
+  const rawPassword = typeof password === 'string' ? password : '';
+  if (rawPassword.length < 6) {
+    throw createAuthError('client/weak-password', 'Password minimal terdiri dari 6 karakter.');
+  }
+
+  const { auth, createUserWithEmailAndPassword, updateProfile, signOut } =
+    await loadClientAuthDeps();
+
+  const credential = await createUserWithEmailAndPassword(auth, emailNormalized, rawPassword);
+  const createdUser = credential?.user;
+
+  if (createdUser && typeof updateProfile === 'function') {
+    await updateProfile(createdUser, { displayName: cleanName }).catch(() => {});
+  }
+
+  try {
+    return await resolveOrProvisionClientAccount(createdUser, {
+      allowProvision: true,
+      preferredDisplayName: cleanName,
+      adapter,
+    });
+  } catch (err) {
+    await cleanupFailedClientAuthSession(auth, err, signOut, adapter, {
+      preserveExistingStaffSession,
+      previousStaffUid,
+    });
+    throw err;
+  }
+}
+
+/**
+ * Authenticates a Client user manually using Email & Password.
+ */
+export async function signInClientWithEmailPassword({
+  email,
+  password,
+  preserveExistingStaffSession = false,
+  previousStaffUid = '',
+  adapter = getClientPortalRepositoryAdapter(),
+} = {}) {
+  if (!isFirebaseConfigured()) {
+    throw createAuthError('firebase/not-configured', 'Firebase configuration is incomplete.');
+  }
+
+  const emailNormalized = normalizeCustomerEmail(email ?? '');
+  if (!emailNormalized || !isValidCustomerEmail(emailNormalized)) {
+    throw createAuthError('client/invalid-email', 'Masukkan alamat email yang valid.');
+  }
+
+  const rawPassword = typeof password === 'string' ? password : '';
+  if (!rawPassword) {
+    throw createAuthError('client/missing-password', 'Masukkan password Anda.');
+  }
+
+  const { auth, signInWithEmailAndPassword, signOut } = await loadClientAuthDeps();
+
+  const credential = await signInWithEmailAndPassword(auth, emailNormalized, rawPassword);
+  const authenticatedUser = credential?.user;
+
+  try {
+    return await resolveOrProvisionClientAccount(authenticatedUser, {
+      allowProvision: true,
+      adapter,
+    });
+  } catch (err) {
+    await cleanupFailedClientAuthSession(auth, err, signOut, adapter, {
+      preserveExistingStaffSession,
+      previousStaffUid,
+    });
+    throw err;
+  }
+}
+
+/**
+ * Sends a Firebase password reset email for Client Portal users without disclosing
+ * whether a specific email exists.
+ */
+export async function requestClientPasswordReset(email) {
+  if (!isFirebaseConfigured()) {
+    throw createAuthError('firebase/not-configured', 'Firebase configuration is incomplete.');
+  }
+
+  const emailNormalized = normalizeCustomerEmail(email ?? '');
+  if (!emailNormalized || !isValidCustomerEmail(emailNormalized)) {
+    throw createAuthError('client/invalid-email', 'Masukkan alamat email yang valid.');
+  }
+
+  const { auth, sendPasswordResetEmail } = await loadClientAuthDeps();
+
+  try {
+    await sendPasswordResetEmail(auth, emailNormalized);
+  } catch (error) {
+    if (error?.code === 'auth/user-not-found') {
+      return {
+        message: CLIENT_PASSWORD_RESET_CONFIRMATION,
+      };
+    }
+    throw error;
+  }
+
+  return {
+    message: CLIENT_PASSWORD_RESET_CONFIRMATION,
+  };
 }
 
 /**
@@ -234,7 +408,7 @@ export async function completeGoogleRedirectIfPresent({
     return null;
   }
 
-  const { auth, getRedirectResult, signOut } = await loadGoogleAuthDeps();
+  const { auth, getRedirectResult, signOut } = await loadClientAuthDeps();
   if (typeof getRedirectResult !== 'function') {
     return null;
   }
@@ -250,7 +424,7 @@ export async function completeGoogleRedirectIfPresent({
       adapter,
     });
   } catch (err) {
-    await cleanupFailedGoogleAuthSession(auth, err, signOut, adapter);
+    await cleanupFailedClientAuthSession(auth, err, signOut, adapter);
     throw err;
   }
 }

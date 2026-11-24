@@ -20,7 +20,13 @@ export function SettingsBreadcrumb({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+    <div
+      className={
+        backTo
+          ? 'flex flex-wrap items-center justify-between gap-2 sm:gap-3'
+          : 'hidden sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-3'
+      }
+    >
       <nav aria-label="Settings breadcrumb" className="hidden min-w-0 sm:block">
         <ol className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-[#666159]">
           {items.map((item, idx) => {
@@ -60,7 +66,7 @@ export function SettingsBreadcrumb({
         <button
           type="button"
           onClick={() => handleGo(backTo)}
-          className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+          className="sa-control sa-btn-secondary inline-flex min-h-10.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
         >
           <ArrowLeft className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span>{backLabel}</span>

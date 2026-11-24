@@ -28,6 +28,8 @@ function buildNewClientAccountPayload({
   emailNormalized,
   displayName,
   photoURL,
+  authProvider = 'google.com',
+  emailVerified = true,
   timestamp,
 }) {
   return {
@@ -40,8 +42,8 @@ function buildNewClientAccountPayload({
     emailNormalized,
     displayName,
     photoURL,
-    authProvider: 'google.com',
-    emailVerified: true,
+    authProvider,
+    emailVerified: Boolean(emailVerified),
     createdAt: timestamp,
     updatedAt: timestamp,
     version: 1,
@@ -208,6 +210,8 @@ export function createFirestoreClientPortalRepositoryAdapter() {
       displayName,
       photoURL,
       matchedCustomerId,
+      authProvider = 'google.com',
+      emailVerified = true,
     }) {
       const [{ doc, runTransaction, serverTimestamp }, { getFirebaseDb }] = await Promise.all([
         import('firebase/firestore'),
@@ -260,6 +264,8 @@ export function createFirestoreClientPortalRepositoryAdapter() {
           emailNormalized,
           displayName,
           photoURL,
+          authProvider,
+          emailVerified,
           timestamp: nowServer,
         });
         const linkPayload = buildNewClientCustomerLinkPayload({
@@ -287,7 +293,14 @@ export function createFirestoreClientPortalRepositoryAdapter() {
       });
     },
 
-    async provisionClientAccountIsolated({ uid, emailNormalized, displayName, photoURL }) {
+    async provisionClientAccountIsolated({
+      uid,
+      emailNormalized,
+      displayName,
+      photoURL,
+      authProvider = 'google.com',
+      emailVerified = true,
+    }) {
       const [{ doc, runTransaction, serverTimestamp }, { getFirebaseDb }] = await Promise.all([
         import('firebase/firestore'),
         import('@/lib/firebase/firestore'),
@@ -324,6 +337,8 @@ export function createFirestoreClientPortalRepositoryAdapter() {
           emailNormalized,
           displayName,
           photoURL,
+          authProvider,
+          emailVerified,
           timestamp: nowServer,
         });
         const linkPayload = buildNewClientCustomerLinkPayload({
@@ -527,6 +542,8 @@ export function createInMemoryClientPortalRepositoryAdapter(customerAdapterOrBri
       displayName,
       photoURL,
       matchedCustomerId,
+      authProvider = 'google.com',
+      emailVerified = true,
     }) {
       return runSerial(async () => {
         if (staffProfilesMap.has(uid)) {
@@ -573,6 +590,8 @@ export function createInMemoryClientPortalRepositoryAdapter(customerAdapterOrBri
             emailNormalized,
             displayName,
             photoURL,
+            authProvider,
+            emailVerified,
             timestamp: nowIso,
           }),
         );
@@ -592,7 +611,14 @@ export function createInMemoryClientPortalRepositoryAdapter(customerAdapterOrBri
       });
     },
 
-    async provisionClientAccountIsolated({ uid, emailNormalized, displayName, photoURL }) {
+    async provisionClientAccountIsolated({
+      uid,
+      emailNormalized,
+      displayName,
+      photoURL,
+      authProvider = 'google.com',
+      emailVerified = true,
+    }) {
       return runSerial(async () => {
         if (staffProfilesMap.has(uid)) {
           throw createRepositoryError(
@@ -624,6 +650,8 @@ export function createInMemoryClientPortalRepositoryAdapter(customerAdapterOrBri
             emailNormalized,
             displayName,
             photoURL,
+            authProvider,
+            emailVerified,
             timestamp: nowIso,
           }),
         );

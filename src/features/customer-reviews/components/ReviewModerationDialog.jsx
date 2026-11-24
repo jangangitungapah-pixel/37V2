@@ -58,14 +58,15 @@ export function ReviewModerationDialog({
           data-admin-portal-layer="true"
           className="sa-overlay-backdrop fixed inset-0 z-[70]"
         />
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4">
           <Dialog.Popup
             data-admin-portal-layer="true"
             data-testid="review-moderation-dialog"
-            className="w-full max-w-md rounded-2xl border border-[#151515]/15 bg-white p-5 text-[#151515] shadow-2xl outline-none sm:p-6"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl rounded-b-none border border-[#151515]/15 bg-white p-0 text-[#151515] shadow-2xl outline-none sm:rounded-2xl"
           >
-            <div className="flex items-start justify-between gap-3 border-b border-[#151515]/10 pb-3">
-              <div>
+            {/* Sticky Header */}
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/10 bg-white px-4 py-3.5 sm:px-6 sm:py-4">
+              <div className="min-w-0">
                 <Dialog.Title className="text-base font-bold tracking-tight">
                   {meta.title}
                 </Dialog.Title>
@@ -76,13 +77,14 @@ export function ReviewModerationDialog({
               <Dialog.Close
                 aria-label="Tutup dialog moderasi"
                 disabled={isSubmitting}
-                className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#151515]/10 bg-white text-[#46433D] disabled:opacity-50"
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#151515]/10 bg-white text-[#46433D] disabled:opacity-50"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
             </div>
 
-            <div className="mt-4 space-y-3">
+            {/* Scrollable Body */}
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-6">
               <div className="rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3.5 text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold text-[#151515]">{review.displayName}</span>
@@ -113,11 +115,13 @@ export function ReviewModerationDialog({
               ) : null}
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-end gap-2.5 border-t border-[#151515]/10 pt-3.5">
+            {/* Sticky Footer */}
+            <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/10 bg-white p-3.5 sm:flex-row sm:items-center sm:justify-end sm:gap-2.5 sm:px-6">
               <AdminButton
                 variant="secondary"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
+                className="min-h-11 w-full sm:w-auto"
               >
                 Batal
               </AdminButton>
@@ -128,6 +132,7 @@ export function ReviewModerationDialog({
                   (targetStatus === CUSTOMER_REVIEW_STATUS.PUBLISHED && !review.consentToPublish)
                 }
                 onClick={onConfirm}
+                className="min-h-11 w-full sm:w-auto"
               >
                 {isSubmitting ? (
                   <>

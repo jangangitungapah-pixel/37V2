@@ -48,20 +48,21 @@ export function CommissionPeriodFilter({
             <span>Periode Selesai Aktual:</span>
           </span>
 
-          <div className="sa-pill-track grid w-full grid-cols-3 gap-1 sm:inline-flex sm:w-auto">
+          <div className="sa-pill-track grid w-full grid-cols-2 gap-1 min-[420px]:grid-cols-3 sm:inline-flex sm:w-auto">
             {COMMISSION_PERIOD_PRESET_OPTIONS.map((opt) => {
               const isSelected = preset === opt.id;
+              const isCustom = opt.id === COMMISSION_PERIOD_PRESETS.CUSTOM;
               return (
                 <button
                   key={opt.id}
                   type="button"
                   onClick={() => onPresetChange?.(opt.id)}
                   aria-pressed={isSelected}
-                  className={
+                  className={`${isCustom ? 'col-span-2 min-[420px]:col-span-1 ' : ''}${
                     isSelected
-                      ? 'min-h-8.5 cursor-pointer rounded-[10px] bg-white px-2.5 py-1 text-xs font-semibold text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-9 sm:px-3 sm:py-1.5'
-                      : 'min-h-8.5 cursor-pointer rounded-[10px] px-2.5 py-1 text-xs font-medium text-[#666159] transition-colors hover:text-[#151515] sm:min-h-9 sm:px-3 sm:py-1.5'
-                  }
+                      ? 'min-h-10 cursor-pointer rounded-[10px] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-3'
+                      : 'min-h-10 cursor-pointer rounded-[10px] px-2.5 py-1.5 text-xs font-medium text-[#666159] transition-colors hover:text-[#151515] sm:px-3'
+                  }`}
                 >
                   {opt.label}
                 </button>
@@ -70,7 +71,7 @@ export function CommissionPeriodFilter({
           </div>
         </div>
 
-        <div className="sa-panel-ivory flex flex-wrap items-center justify-between gap-2 px-2.5 py-1 text-xs sm:px-3 sm:py-1.5">
+        <div className="sa-panel-ivory flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 text-xs sm:px-3">
           <span className="hidden text-[#666159] sm:inline">Rentang Aktif:</span>
           <span className="font-mono font-semibold text-[#151515]">{periodLabel} (WIB)</span>
         </div>
@@ -86,7 +87,7 @@ export function CommissionPeriodFilter({
               aria-label="Dari tanggal selesai"
               value={customStartDate}
               onChange={(e) => onCustomStartDateChange?.(e.target.value)}
-              className="sa-input h-9.5 w-full px-3 font-mono text-xs font-semibold"
+              className="sa-input h-10.5 w-full px-3 font-mono text-xs font-semibold"
             />
           </label>
           <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[#46433D]">
@@ -96,7 +97,7 @@ export function CommissionPeriodFilter({
               aria-label="Sampai tanggal selesai"
               value={customEndDate}
               onChange={(e) => onCustomEndDateChange?.(e.target.value)}
-              className="sa-input h-9.5 w-full px-3 font-mono text-xs font-semibold"
+              className="sa-input h-10.5 w-full px-3 font-mono text-xs font-semibold"
             />
           </label>
         </div>
@@ -116,7 +117,7 @@ export function CommissionPeriodFilter({
               aria-label="Filter layanan komisi"
               value={serviceFilter}
               onChange={(e) => onServiceFilterChange?.(e.target.value)}
-              className="sa-input h-9.5 w-full px-3 text-xs font-medium sm:h-10 sm:w-44"
+              className="sa-input h-10.5 w-full px-3 text-xs font-medium sm:w-44"
             >
               <option value="all">Semua Layanan</option>
               <option value="rehearsal">Rehearsal</option>
@@ -130,7 +131,7 @@ export function CommissionPeriodFilter({
               aria-label="Filter status posting sesi"
               value={statusFilter}
               onChange={(e) => onStatusFilterChange?.(e.target.value)}
-              className="sa-input h-9.5 w-full px-3 text-xs font-medium sm:h-10 sm:w-48"
+              className="sa-input h-10.5 w-full px-3 text-xs font-medium sm:w-48"
             >
               <option value={COMMISSION_REVIEW_STATUS_FILTER.PENDING}>Belum Diposting</option>
               <option value={COMMISSION_REVIEW_STATUS_FILTER.POSTED}>Sudah Diposting</option>
@@ -140,14 +141,14 @@ export function CommissionPeriodFilter({
         </div>
 
         <div className="order-1 flex w-full min-w-0 flex-1 flex-col gap-1.5 xl:order-2 xl:max-w-md">
-          <div className="hidden items-center justify-between gap-2 text-xs sm:flex">
+          <div className="flex items-center justify-between gap-2 text-xs">
             <span className="text-[#666159]">Hasil Tampil:</span>
             <div className="flex items-center gap-2">
               {hasSecondaryFilters ? (
                 <button
                   type="button"
                   onClick={onResetFilters}
-                  className="cursor-pointer font-semibold text-[#FF4B22] hover:underline"
+                  className="inline-flex min-h-9.5 cursor-pointer items-center rounded-lg px-2 py-1 font-semibold text-[#FF4B22] hover:bg-[#FFEDE8]/70 hover:underline"
                 >
                   Reset Filter
                 </button>
@@ -170,14 +171,14 @@ export function CommissionPeriodFilter({
                 value={searchQuery}
                 onChange={(e) => onSearchQueryChange?.(e.target.value)}
                 placeholder="Cari ID booking, pelanggan, band, atau paket..."
-                className="sa-input h-9.5 w-full py-2 pr-9 pl-9.5 text-xs font-medium sm:h-10 sm:text-[13px]"
+                className="sa-input h-10.5 w-full py-2 pr-10 pl-9.5 text-xs font-medium sm:text-[13px]"
               />
               {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => onSearchQueryChange?.('')}
                   aria-label="Bersihkan pencarian komisi"
-                  className="absolute top-1/2 right-1.5 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
+                  className="absolute top-1/2 right-1 inline-flex h-8.5 w-8.5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -188,7 +189,11 @@ export function CommissionPeriodFilter({
               type="button"
               aria-expanded={mobileFiltersOpen}
               onClick={() => setMobileFiltersOpen((prev) => !prev)}
-              className="sa-control sa-btn-secondary inline-flex h-9.5 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 text-xs font-semibold sm:hidden"
+              className={`sa-control inline-flex h-10.5 shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs font-semibold sm:hidden ${
+                mobileFiltersOpen || dropdownFilterCount > 0
+                  ? 'border-[#8BAD12]/40 bg-[#EDF8C2] text-[#243300]'
+                  : 'sa-btn-secondary'
+              }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Filter</span>

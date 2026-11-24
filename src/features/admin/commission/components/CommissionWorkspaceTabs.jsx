@@ -27,7 +27,7 @@ export function CommissionWorkspaceTabs({
     <div
       role="tablist"
       aria-label="Workspace Commission and Fee"
-      className="sa-pill-track grid w-full grid-cols-2 sm:inline-grid sm:w-auto"
+      className="sa-pill-track grid w-full grid-cols-2 gap-1 sm:inline-grid sm:w-auto"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -41,8 +41,8 @@ export function CommissionWorkspaceTabs({
             onClick={() => onTabChange?.(tab.id)}
             className={
               isActive
-                ? 'inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-10 sm:px-4'
-                : 'inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-2 rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:min-h-10 sm:px-4'
+                ? 'inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] bg-white px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-4'
+                : 'inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:px-4'
             }
           >
             <Icon

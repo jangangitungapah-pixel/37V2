@@ -89,7 +89,7 @@ export function DashboardOwnerFinancials({
                   type="button"
                   onClick={() => onPeriodChange?.(opt.id)}
                   aria-pressed={isActive}
-                  className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                  className={`min-h-9.5 cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                     isActive
                       ? 'bg-[#151515] text-[#F8F6EF] shadow-2xs'
                       : 'text-[#46433D] hover:text-[#151515]'
@@ -103,7 +103,7 @@ export function DashboardOwnerFinancials({
 
           <Link
             to="/admin/pembukuan"
-            className="inline-flex items-center gap-1 rounded-xl border border-[#151515]/12 bg-white px-3 py-1.5 text-xs font-semibold text-[#151515] transition-colors hover:bg-[#F8F6EF]"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#151515]/12 bg-white px-3 py-1.5 text-xs font-semibold text-[#151515] transition-colors hover:bg-[#F8F6EF]"
           >
             <FileSpreadsheet className="h-3.5 w-3.5 text-[#658800]" aria-hidden="true" />
             <span>Buka Pembukuan</span>

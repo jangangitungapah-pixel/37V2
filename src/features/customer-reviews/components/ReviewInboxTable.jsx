@@ -77,6 +77,7 @@ export function ReviewInboxTable({
                   variant="secondary"
                   size="sm"
                   onClick={() => onInspectReview?.(review)}
+                  className="min-h-10"
                 >
                   <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Detail</span>
@@ -87,6 +88,7 @@ export function ReviewInboxTable({
                     variant="primary"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.PUBLISHED)}
+                    className="min-h-10"
                   >
                     Publish
                   </AdminButton>
@@ -97,6 +99,7 @@ export function ReviewInboxTable({
                     variant="secondary"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.ARCHIVED)}
+                    className="min-h-10"
                   >
                     Archive
                   </AdminButton>
@@ -107,6 +110,7 @@ export function ReviewInboxTable({
                     variant="secondary"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.PENDING)}
+                    className="min-h-10"
                   >
                     Restore Pending
                   </AdminButton>
@@ -117,6 +121,7 @@ export function ReviewInboxTable({
                     variant="danger"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.REJECTED)}
+                    className="min-h-10"
                   >
                     Reject
                   </AdminButton>
@@ -125,7 +130,7 @@ export function ReviewInboxTable({
                 <Link
                   to={`/admin/calendar?bookingId=${encodeURIComponent(review.bookingId)}`}
                   aria-label={`Buka booking ${review.bookingId} di Calendar`}
-                  className="sa-control inline-flex h-8.5 items-center gap-1 rounded-xl border border-[#151515]/12 bg-[#FAF8F3] px-2.5 text-xs font-semibold text-[#151515] hover:bg-[#C8F13A]"
+                  className="sa-control inline-flex min-h-10 items-center gap-1 rounded-xl border border-[#151515]/12 bg-[#FAF8F3] px-3 text-xs font-semibold text-[#151515] hover:bg-[#C8F13A]"
                 >
                   <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Booking</span>

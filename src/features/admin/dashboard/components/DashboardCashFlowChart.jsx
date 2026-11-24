@@ -46,6 +46,60 @@ export function DashboardCashFlowChart({ cashFlowTrend }) {
     const initialWidth = el.clientWidth > 0 ? el.clientWidth : 640;
     const chartHeight = 260;
 
+    const getResponsiveLayout = (width) => {
+      const isCompact = width > 0 && width < 440;
+      return {
+        isCompact,
+        grid: isCompact
+          ? {
+              left: 42,
+              right: 10,
+              top: 48,
+              bottom: 26,
+              containLabel: false,
+            }
+          : {
+              left: 52,
+              right: 16,
+              top: 36,
+              bottom: 28,
+              containLabel: false,
+            },
+        legend: isCompact
+          ? {
+              top: 0,
+              left: 0,
+              right: 'auto',
+              itemGap: 10,
+              itemWidth: 10,
+              itemHeight: 10,
+              textStyle: {
+                color: '#46433D',
+                fontSize: 10.5,
+                fontWeight: 600,
+              },
+              data: ['Kas Masuk (Cash In)', 'Kas Keluar (Cash Out)'],
+            }
+          : {
+              top: 0,
+              left: 'auto',
+              right: 0,
+              itemGap: 12,
+              itemWidth: 10,
+              itemHeight: 10,
+              textStyle: {
+                color: '#46433D',
+                fontSize: 11,
+                fontWeight: 600,
+              },
+              data: ['Kas Masuk (Cash In)', 'Kas Keluar (Cash Out)'],
+            },
+      };
+    };
+
+    let lastCompact = initialWidth > 0 && initialWidth < 440;
+    const initialLayout = getResponsiveLayout(initialWidth);
+
     const chart = echarts.init(el, undefined, {
       renderer: 'svg',
       width: initialWidth,
@@ -55,26 +109,11 @@ export function DashboardCashFlowChart({ cashFlowTrend }) {
     chart.setOption({
       animation: !prefersReducedMotion,
       animationDuration: prefersReducedMotion ? 0 : 320,
-      grid: {
-        left: 52,
-        right: 16,
-        top: 36,
-        bottom: 28,
-      },
-      legend: {
-        top: 0,
-        right: 0,
-        itemWidth: 10,
-        itemHeight: 10,
-        textStyle: {
-          color: '#46433D',
-          fontSize: 11,
-          fontWeight: 600,
-        },
-        data: ['Kas Masuk (Cash In)', 'Kas Keluar (Cash Out)'],
-      },
+      grid: initialLayout.grid,
+      legend: initialLayout.legend,
       tooltip: {
         trigger: 'axis',
+        confine: true,
         axisPointer: { type: 'shadow' },
         backgroundColor: '#151515',
         borderColor: 'rgba(255,255,255,0.12)',
@@ -151,8 +190,18 @@ export function DashboardCashFlowChart({ cashFlowTrend }) {
     let observer = null;
     if (typeof ResizeObserver !== 'undefined') {
       observer = new ResizeObserver(() => {
-        if (el.clientWidth > 0) {
-          chart.resize({ width: el.clientWidth, height: chartHeight });
+        const nextWidth = el.clientWidth;
+        if (nextWidth > 0) {
+          chart.resize({ width: nextWidth, height: chartHeight });
+          const nextCompact = nextWidth < 440;
+          if (nextCompact !== lastCompact) {
+            lastCompact = nextCompact;
+            const nextLayout = getResponsiveLayout(nextWidth);
+            chart.setOption({
+              grid: nextLayout.grid,
+              legend: nextLayout.legend,
+            });
+          }
         }
       });
       observer.observe(el);

@@ -40,7 +40,7 @@ export function GalleryToolbar({
               type="button"
               aria-pressed={isActive}
               onClick={() => onFilterChange?.(filter.id)}
-              className={`sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+              className={`sa-control inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                 isActive
                   ? 'bg-[#151515] text-[#F1EEE4]'
                   : 'bg-white/80 text-[#46433D] hover:bg-[#151515]/[0.07]'
@@ -48,7 +48,7 @@ export function GalleryToolbar({
             >
               <span>{filter.label}</span>
               <span
-                className={`py-0.2 rounded-full px-1.5 font-mono text-[10px] ${
+                className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
                   isActive ? 'bg-[#C8F13A] text-[#151515]' : 'bg-[#151515]/10 text-[#46433D]'
                 }`}
               >
@@ -70,14 +70,14 @@ export function GalleryToolbar({
           onChange={(e) => onSearchChange?.(e.target.value)}
           placeholder="Cari judul foto..."
           aria-label="Search gallery photos by title"
-          className="sa-control min-h-9 w-full rounded-full border-[#151515]/15 bg-white pr-8 pl-8.5 text-xs text-[#151515] focus:border-[#151515] focus:outline-none"
+          className="sa-control min-h-10.5 w-full rounded-full border-[#151515]/15 bg-white pr-10 pl-8.5 text-xs text-[#151515] focus:border-[#151515] focus:outline-none"
         />
         {searchQuery ? (
           <button
             type="button"
             onClick={() => onSearchChange?.('')}
             aria-label="Clear search query"
-            className="absolute top-1/2 right-2.5 -translate-y-1/2 cursor-pointer rounded-full p-0.5 text-[#756F65] hover:text-[#151515]"
+            className="absolute top-1/2 right-1 inline-flex h-8.5 w-8.5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-[#756F65] hover:text-[#151515]"
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />
           </button>

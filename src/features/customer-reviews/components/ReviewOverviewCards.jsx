@@ -41,26 +41,26 @@ export function ReviewOverviewCards({ overview }) {
   return (
     <div
       data-testid="admin-reviews-overview-cards"
-      className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+      className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4"
     >
       {cards.map((card) => {
         const Icon = card.icon || XCircle;
         return (
-          <AdminSurface key={card.id} variant="card" className="p-4 sm:p-5">
+          <AdminSurface key={card.id} variant="card" className="p-3 sm:p-5">
             <div className="flex items-start justify-between gap-2">
-              <p className="font-mono text-[10.5px] font-bold tracking-wider text-[#756F65] uppercase">
+              <p className="font-mono text-[10px] leading-tight font-bold tracking-wider text-[#756F65] uppercase sm:text-[10.5px]">
                 {card.label}
               </p>
               <span
-                className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${card.toneClass}`}
+                className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border sm:h-8 sm:w-8 ${card.toneClass}`}
               >
-                <Icon className="h-4 w-4" aria-hidden="true" />
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
               </span>
             </div>
-            <p className="mt-2.5 text-2xl font-extrabold tracking-tight text-[#151515] sm:text-3xl">
+            <p className="mt-2 text-xl font-extrabold tracking-tight text-[#151515] sm:mt-2.5 sm:text-3xl">
               {card.value}
             </p>
-            <p className="mt-1 text-xs text-[#666159]">{card.sub}</p>
+            <p className="mt-1 text-[11px] text-[#666159] sm:text-xs">{card.sub}</p>
           </AdminSurface>
         );
       })}

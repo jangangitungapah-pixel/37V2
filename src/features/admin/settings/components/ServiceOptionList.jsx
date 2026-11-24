@@ -101,7 +101,7 @@ export function ServiceOptionList({
                         key={rule.id}
                         tone="emerald"
                         size="sm"
-                        className="font-mono"
+                        className="font-mono whitespace-normal"
                       >
                         {rule.mode === DISCOUNT_RULE_MODES.PER_COMPLETED_BLOCK
                           ? `Diskon -${formatRupiah(rule.discountAmount)} / ${formatDurationMinutes(rule.intervalMinutes)}`

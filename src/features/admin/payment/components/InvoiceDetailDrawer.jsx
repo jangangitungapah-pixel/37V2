@@ -145,7 +145,7 @@ export function InvoiceDetailDrawer({
           data-admin-portal-layer="true"
           aria-label={invoice ? `Detail invoice ${invoice.invoiceNumber}` : 'Detail invoice'}
           data-payment-scoped="true"
-          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col outline-none"
+          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-xl flex-col outline-none"
         >
           {/* Sticky Header */}
           <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3 sm:px-5 sm:py-4">
@@ -181,7 +181,7 @@ export function InvoiceDetailDrawer({
 
               <Dialog.Close
                 aria-label="Tutup detail invoice"
-                className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
               >
                 <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
               </Dialog.Close>
@@ -194,7 +194,7 @@ export function InvoiceDetailDrawer({
                   <button
                     type="button"
                     onClick={() => onOpenRecordPayment?.(invoice)}
-                    className="sa-control sa-btn-lime inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                    className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                   >
                     <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Catat Pembayaran</span>
@@ -204,7 +204,7 @@ export function InvoiceDetailDrawer({
                     <button
                       type="button"
                       onClick={() => onOpenEvidenceReview?.(pendingEvidence, invoice)}
-                      className="sa-control sa-btn-lime inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                      className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                     >
                       <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Tinjau Bukti Pembayaran</span>
@@ -219,7 +219,7 @@ export function InvoiceDetailDrawer({
                 <button
                   type="button"
                   onClick={() => onOpenPrintPreview?.(invoice, transactions)}
-                  className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                  className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                 >
                   <Printer className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                   <span>Cetak / PDF</span>
@@ -228,7 +228,7 @@ export function InvoiceDetailDrawer({
                 <button
                   type="button"
                   onClick={handleCopySummary}
-                  className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                  className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                 >
                   {copiedSummary ? (
                     <Check className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
@@ -242,7 +242,7 @@ export function InvoiceDetailDrawer({
                   <button
                     type="button"
                     onClick={() => onOpenVoidInvoice?.(invoice)}
-                    className="sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[#FF4B22]/25 bg-[#FFEDE8]/85 px-3 py-1 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white"
+                    className="sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[#FF4B22]/25 bg-[#FFEDE8]/85 px-3 py-1.5 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white"
                   >
                     <Ban className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Batalkan Invoice</span>
@@ -253,7 +253,7 @@ export function InvoiceDetailDrawer({
           </div>
 
           {/* Scrollable Body */}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 pb-8 sm:px-5">
+          <div className="sa-safe-bottom min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
             {error ? (
               <div
                 role="alert"
@@ -306,26 +306,26 @@ export function InvoiceDetailDrawer({
 
                     {!isVoid ? (
                       editingDueDate ? (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <input
                             type="date"
                             aria-label="Tanggal jatuh tempo invoice"
                             value={dueDateInput}
                             onChange={(e) => setDueDateInput(e.target.value)}
-                            className="sa-input h-8.5 px-2.5 font-mono text-xs font-medium"
+                            className="sa-input min-h-10 px-2.5 font-mono text-xs font-medium"
                           />
                           <button
                             type="button"
                             disabled={savingDueDate}
                             onClick={handleCommitDueDate}
-                            className="sa-control sa-btn-lime h-8.5 cursor-pointer px-2.5 text-xs font-semibold"
+                            className="sa-control sa-btn-lime min-h-10 cursor-pointer px-3 text-xs font-semibold"
                           >
                             Simpan
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingDueDate(false)}
-                            className="sa-control sa-btn-secondary h-8.5 cursor-pointer px-2.5 text-xs font-medium"
+                            className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-3 text-xs font-medium"
                           >
                             Batal
                           </button>
@@ -337,7 +337,7 @@ export function InvoiceDetailDrawer({
                             setDueDateInput(invoice.dueDate || '');
                             setEditingDueDate(true);
                           }}
-                          className="cursor-pointer text-xs font-semibold text-[#666159] underline-offset-2 transition-colors hover:text-[#FF4B22] hover:underline"
+                          className="inline-flex min-h-9.5 cursor-pointer items-center text-xs font-semibold text-[#666159] underline-offset-2 transition-colors hover:text-[#FF4B22] hover:underline"
                         >
                           {invoice.dueDate ? 'Ubah Jatuh Tempo' : '+ Atur Jatuh Tempo'}
                         </button>
@@ -409,7 +409,7 @@ export function InvoiceDetailDrawer({
                     {invoice.customerId ? (
                       <Link
                         to={`/admin/customer?customerId=${encodeURIComponent(invoice.customerId)}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#666159] transition-colors hover:text-[#FF4B22]"
+                        className="inline-flex min-h-9.5 items-center gap-1 px-1 text-xs font-semibold text-[#666159] transition-colors hover:text-[#FF4B22]"
                       >
                         <span>Lihat Pelanggan</span>
                         <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
@@ -616,11 +616,11 @@ export function InvoiceDetailDrawer({
                                   {formatRupiah(tx.amount)}
                                 </p>
 
-                                <div className="mt-2 flex items-center justify-end gap-1.5">
+                                <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() => onOpenReceipt?.(tx, invoice)}
-                                    className="sa-control sa-btn-secondary inline-flex h-7.5 cursor-pointer items-center gap-1 px-2.5 text-[11px] font-semibold hover:bg-[#C8F13A]"
+                                    className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1 px-3 py-1.5 text-[11px] font-semibold hover:bg-[#C8F13A]"
                                   >
                                     <ReceiptText className="h-3 w-3" aria-hidden="true" />
                                     <span>Kwitansi</span>
@@ -631,7 +631,7 @@ export function InvoiceDetailDrawer({
                                       type="button"
                                       onClick={() => onOpenCorrection?.(invoice, tx)}
                                       aria-label={`Koreksi atau batalkan transaksi ${tx.id}`}
-                                      className="sa-control inline-flex h-7.5 cursor-pointer items-center gap-1 rounded-lg border border-[#FF4B22]/25 bg-[#FFEDE8]/85 px-2.5 text-[11px] font-semibold text-[#B92B0C] transition-colors hover:bg-[#FF4B22] hover:text-white"
+                                      className="sa-control inline-flex min-h-9.5 cursor-pointer items-center gap-1 rounded-lg border border-[#FF4B22]/25 bg-[#FFEDE8]/85 px-3 py-1.5 text-[11px] font-semibold text-[#B92B0C] transition-colors hover:bg-[#FF4B22] hover:text-white"
                                     >
                                       <RotateCcw className="h-3 w-3" aria-hidden="true" />
                                       <span>Batalkan</span>
@@ -707,7 +707,7 @@ export function InvoiceDetailDrawer({
                             <li
                               key={ev.id}
                               data-testid={`admin-invoice-evidence-item-${ev.id}`}
-                              className="flex items-start gap-3 rounded-xl border border-[#151515]/10 bg-[#FAF8F3]/75 p-3 text-xs"
+                              className="flex flex-wrap items-start gap-3 rounded-xl border border-[#151515]/10 bg-[#FAF8F3]/75 p-3 text-xs min-[420px]:flex-nowrap"
                             >
                               <div className="shrink-0">
                                 <PaymentEvidencePreview
@@ -718,7 +718,7 @@ export function InvoiceDetailDrawer({
                                 />
                               </div>
 
-                              <div className="min-w-0 flex-1 space-y-1">
+                              <div className="min-w-[140px] flex-1 space-y-1">
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   <AdminStatusBadge
                                     tone={evStatusMeta.tone}
@@ -759,7 +759,7 @@ export function InvoiceDetailDrawer({
                                 <button
                                   type="button"
                                   onClick={() => onOpenEvidenceReview(ev, invoice)}
-                                  className={`sa-control shrink-0 cursor-pointer px-2.5 py-1 text-[11px] font-semibold ${
+                                  className={`sa-control ml-auto inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center px-3 py-1.5 text-[11px] font-semibold ${
                                     isEvPending ? 'sa-btn-lime' : 'sa-btn-secondary'
                                   }`}
                                 >

@@ -239,7 +239,7 @@ export function AdminCustomersPage() {
             type="button"
             onClick={() => openFormDialog('create')}
             aria-label="Add Customer"
-            className="sa-control sa-btn-orange inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:min-h-10.5 sm:px-4 sm:py-2"
+            className="sa-control sa-btn-orange inline-flex min-h-10.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold sm:px-4"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             <span>Tambah</span>
@@ -250,7 +250,7 @@ export function AdminCustomersPage() {
         {/* Metrics Row */}
         <dl
           aria-label="Ringkasan daftar pelanggan"
-          className="mt-3 grid grid-cols-3 gap-2 border-t border-[#151515]/[0.07] pt-3 sm:mt-5 sm:gap-3.5 sm:pt-5"
+          className="mt-3 grid grid-cols-3 gap-1.5 border-t border-[#151515]/[0.07] pt-3 min-[375px]:gap-2 sm:mt-5 sm:gap-3.5 sm:pt-5"
         >
           <AdminMetricCard
             label="Pelanggan"
@@ -260,6 +260,8 @@ export function AdminCustomersPage() {
             tone="neutral"
             compactMobile
             hideIconOnMobile
+            className="p-2.5 sm:p-4"
+            valueClassName="text-[15px] min-[375px]:text-base sm:text-xl"
           />
 
           <AdminMetricCard
@@ -270,6 +272,8 @@ export function AdminCustomersPage() {
             tone="neutral"
             compactMobile
             hideIconOnMobile
+            className="p-2.5 sm:p-4"
+            valueClassName="text-[15px] min-[375px]:text-base sm:text-xl"
           />
 
           <AdminMetricCard
@@ -284,6 +288,8 @@ export function AdminCustomersPage() {
             tone={metrics.sharedPhoneCount > 0 ? 'amber' : 'neutral'}
             compactMobile
             hideIconOnMobile
+            className="p-2.5 sm:p-4"
+            valueClassName="text-[15px] min-[375px]:text-base sm:text-xl"
           />
         </dl>
       </AdminSurface>
@@ -317,7 +323,7 @@ export function AdminCustomersPage() {
           <button
             type="button"
             onClick={() => setLegacyImportOpen(true)}
-            className="sa-control sa-btn-primary inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold"
+            className="sa-control sa-btn-primary inline-flex min-h-10.5 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold sm:w-auto"
           >
             <Database className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
             <span>Periksa &amp; Hubungkan</span>
@@ -380,7 +386,7 @@ export function AdminCustomersPage() {
                   <button
                     type="button"
                     onClick={() => openFormDialog('create')}
-                    className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                    className="sa-control sa-btn-lime inline-flex min-h-10.5 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
                   >
                     <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Add Customer</span>
@@ -389,7 +395,7 @@ export function AdminCustomersPage() {
                     <button
                       type="button"
                       onClick={() => setLegacyImportOpen(true)}
-                      className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                      className="sa-control sa-btn-secondary inline-flex min-h-10.5 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
                     >
                       <Database className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Review &amp; Import History</span>
@@ -416,7 +422,7 @@ export function AdminCustomersPage() {
               <button
                 type="button"
                 onClick={loadMoreCustomers}
-                className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold"
+                className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold sm:w-auto"
               >
                 Muat Lebih Banyak Customer
               </button>

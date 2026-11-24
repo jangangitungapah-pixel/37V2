@@ -115,6 +115,7 @@ export function FactoryResetProgress({
             size="sm"
             onClick={onRequestPause}
             disabled={isPauseRequested}
+            className="min-h-10 w-full justify-center sm:w-auto"
           >
             <Pause className="h-3.5 w-3.5" aria-hidden="true" />
             <span>
@@ -216,7 +217,7 @@ export function FactoryResetProgress({
                   onChange={(e) => setResumePassword(e.target.value)}
                   disabled={isVerifyingAndResuming}
                   placeholder="Password Owner saat ini..."
-                  className="w-full rounded-xl border border-[#151515]/20 bg-white py-2 pr-3 pl-9 text-xs text-[#151515] outline-none focus:border-[#151515]"
+                  className="min-h-11 w-full rounded-xl border border-[#151515]/20 bg-white py-2.5 pr-3 pl-9 text-sm text-[#151515] outline-none focus:border-[#151515] sm:text-xs"
                   required
                 />
               </div>
@@ -226,6 +227,7 @@ export function FactoryResetProgress({
                 variant="danger"
                 size="md"
                 disabled={isVerifyingAndResuming || resumePassword.length === 0}
+                className="min-h-11 w-full justify-center sm:w-auto"
               >
                 {isVerifyingAndResuming ? (
                   <>
@@ -254,7 +256,12 @@ export function FactoryResetProgress({
                 <span className="text-[#666159]">
                   Belum ada dokumen yang dihapus. Operasi masih dapat dibatalkan dengan aman.
                 </span>
-                <AdminButton variant="secondary" size="sm" onClick={onCancelBeforeDeletion}>
+                <AdminButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={onCancelBeforeDeletion}
+                  className="min-h-10 w-full justify-center sm:w-auto"
+                >
                   <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Batalkan Operasi</span>
                 </AdminButton>

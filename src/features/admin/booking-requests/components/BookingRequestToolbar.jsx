@@ -1,4 +1,5 @@
-import { RotateCcw, Search } from 'lucide-react';
+import { useState } from 'react';
+import { RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
 
 import { AdminButton, AdminSurface } from '@/features/admin/design-system';
 
@@ -24,6 +25,14 @@ export function BookingRequestToolbar({
   onResetFilters,
   hasActiveFilters,
 }) {
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const activeSecondaryFilterCount =
+    (statusFilter !== 'all' ? 1 : 0) +
+    (requestTypeFilter !== 'all' ? 1 : 0) +
+    (serviceFilter !== 'all' ? 1 : 0) +
+    (preferredDateFilter ? 1 : 0);
+
   const kpiCards = [
     {
       label: 'New',
@@ -61,7 +70,7 @@ export function BookingRequestToolbar({
     <div className="space-y-3 sm:space-y-4">
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-        {kpiCards.map((card) => (
+        {kpiCards.map((card, idx) => (
           <button
             key={card.label}
             type="button"
@@ -76,12 +85,14 @@ export function BookingRequestToolbar({
                 );
               }
             }}
-            className={`flex cursor-pointer flex-col items-start justify-between rounded-2xl border p-3.5 text-left transition-transform hover:-translate-y-0.5 ${card.toneClass}`}
+            className={`flex cursor-pointer flex-col items-start justify-between rounded-2xl border p-3 text-left transition-transform hover:-translate-y-0.5 sm:p-3.5 ${
+              idx === kpiCards.length - 1 ? 'col-span-2 sm:col-span-1' : ''
+            } ${card.toneClass}`}
           >
             <span className="font-mono text-[10px] font-bold tracking-wider uppercase opacity-85">
               {card.label}
             </span>
-            <span className="mt-1.5 text-2xl leading-none font-extrabold tracking-tight">
+            <span className="mt-1.5 text-xl leading-none font-extrabold tracking-tight sm:text-2xl">
               {card.value}
             </span>
           </button>
@@ -91,22 +102,39 @@ export function BookingRequestToolbar({
       {/* Filters Surface */}
       <AdminSurface variant="card" className="p-3.5 sm:p-4">
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-12">
-          <div className="relative lg:col-span-4">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#666159]"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              aria-label="Cari customer, band, nomor HP, atau referensi"
-              value={searchQuery}
-              onChange={(e) => onSearchQueryChange(e.target.value)}
-              placeholder="Cari nama, band, nomor WA, atau REQ-..."
-              className="sa-input min-h-10 w-full rounded-xl py-2 pr-3 pl-9 text-xs font-medium sm:text-sm"
-            />
+          <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-4">
+            <div className="relative min-w-0 flex-1">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#666159]"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                aria-label="Cari customer, band, nomor HP, atau referensi"
+                value={searchQuery}
+                onChange={(e) => onSearchQueryChange(e.target.value)}
+                placeholder="Cari nama, band, nomor WA, atau REQ-..."
+                className="sa-input min-h-10 w-full rounded-xl py-2 pr-3 pl-9 text-xs font-medium sm:text-sm"
+              />
+            </div>
+
+            <button
+              type="button"
+              aria-expanded={mobileFiltersOpen}
+              onClick={() => setMobileFiltersOpen((prev) => !prev)}
+              className="sa-control sa-btn-secondary inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs font-semibold sm:hidden"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Filter</span>
+              {activeSecondaryFilterCount > 0 ? (
+                <span className="rounded-full bg-[#151515] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#C8F13A]">
+                  {activeSecondaryFilterCount}
+                </span>
+              ) : null}
+            </button>
           </div>
 
-          <div className="lg:col-span-2">
+          <div className={`${mobileFiltersOpen ? 'block' : 'hidden sm:block'} lg:col-span-2`}>
             <select
               aria-label="Filter status request"
               value={statusFilter}
@@ -122,7 +150,7 @@ export function BookingRequestToolbar({
             </select>
           </div>
 
-          <div className="lg:col-span-2">
+          <div className={`${mobileFiltersOpen ? 'block' : 'hidden sm:block'} lg:col-span-2`}>
             <select
               aria-label="Filter tipe request"
               value={requestTypeFilter}
@@ -135,7 +163,7 @@ export function BookingRequestToolbar({
             </select>
           </div>
 
-          <div className="lg:col-span-2">
+          <div className={`${mobileFiltersOpen ? 'block' : 'hidden sm:block'} lg:col-span-2`}>
             <select
               aria-label="Filter layanan"
               value={serviceFilter}
@@ -151,7 +179,9 @@ export function BookingRequestToolbar({
             </select>
           </div>
 
-          <div className="flex items-center gap-2 lg:col-span-2">
+          <div
+            className={`${mobileFiltersOpen ? 'flex flex-col gap-2 sm:flex-row sm:items-center' : 'hidden sm:flex sm:items-center sm:gap-2'} lg:col-span-2`}
+          >
             <input
               type="date"
               aria-label="Filter tanggal pilihan"
@@ -166,9 +196,10 @@ export function BookingRequestToolbar({
                 onClick={onResetFilters}
                 aria-label="Reset semua filter"
                 title="Reset filter"
-                className="shrink-0"
+                className="min-h-10 w-full shrink-0 sm:min-h-9 sm:w-auto"
               >
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="sm:hidden">Reset Filter</span>
               </AdminButton>
             ) : null}
           </div>

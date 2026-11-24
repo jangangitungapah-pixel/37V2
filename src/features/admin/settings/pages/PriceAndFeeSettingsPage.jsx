@@ -408,7 +408,7 @@ export function PriceAndFeeSettingsPage() {
           <button
             type="button"
             onClick={() => handleGuardedNavigate('/admin/settings')}
-            className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+            className="sa-control sa-btn-secondary inline-flex min-h-10.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
           >
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Back to Settings</span>

@@ -17,17 +17,17 @@ export function AdminModulePlaceholderPage({ moduleId }) {
         aria-labelledby="module-placeholder-heading"
         className="p-4 sm:p-7 lg:p-9"
       >
-        <div className="hidden flex-wrap items-center justify-between gap-2 sm:flex">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <AdminStatusBadge tone="lime" icon={CheckCircle2}>
             SEGERA HADIR
           </AdminStatusBadge>
 
-          <AdminStatusBadge tone="ivory" size="sm" className="font-mono uppercase">
+          <AdminStatusBadge tone="ivory" size="sm" className="hidden font-mono uppercase sm:inline-flex">
             {moduleItem.eyebrow}
           </AdminStatusBadge>
         </div>
 
-        <div className="mt-0 flex flex-col items-start gap-3 sm:mt-6 sm:flex-row sm:items-center sm:gap-4">
+        <div className="mt-3 flex flex-col items-start gap-3 sm:mt-6 sm:flex-row sm:items-center sm:gap-4">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#151515]/10 bg-[#F8F6EF] text-[#151515] shadow-[0_6px_16px_-6px_rgba(21,21,21,0.1)] sm:h-14 sm:w-14">
             <IconComponent className="h-5 w-5 stroke-[1.8] sm:h-7 sm:w-7" aria-hidden="true" />
           </span>
@@ -79,7 +79,7 @@ export function AdminModulePlaceholderPage({ moduleId }) {
         <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-[#151515]/[0.08] pt-5 sm:mt-7">
           <Link
             to="/admin/dashboard"
-            className="sa-control sa-btn-primary inline-flex min-h-10 items-center gap-2 px-4 py-2 text-xs font-semibold sm:min-h-10.5 sm:px-5"
+            className="sa-control sa-btn-primary inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:min-h-10.5 sm:w-auto sm:px-5"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             <span>Kembali ke Dashboard</span>

@@ -75,7 +75,7 @@ export function InventoryItemDetailDrawer({
         <Dialog.Popup
           data-admin-portal-layer="true"
           aria-label={`Detail inventory ${item.name}`}
-          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col outline-none"
+          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-xl flex-col outline-none"
         >
           {/* Sticky Header */}
           <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3 sm:px-5 sm:py-4">
@@ -107,20 +107,20 @@ export function InventoryItemDetailDrawer({
 
               <Dialog.Close
                 aria-label="Tutup detail barang"
-                className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
               >
-                <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
+                <X className="h-4.5 w-4.5" aria-hidden="true" />
               </Dialog.Close>
             </div>
 
             {/* Metadata / Archive Top Actions */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-[#151515]/[0.07] pt-2.5 sm:mt-3 sm:gap-2 sm:pt-3">
+            <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-[#151515]/[0.07] pt-2.5 sm:mt-3 sm:pt-3">
               {!isArchived ? (
                 <>
                   <button
                     type="button"
                     onClick={() => onEditMetadata?.(item)}
-                    className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                    className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                   >
                     <Edit3 className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                     <span>Edit Metadata</span>
@@ -129,7 +129,7 @@ export function InventoryItemDetailDrawer({
                   <button
                     type="button"
                     onClick={() => onOpenArchive?.(item)}
-                    className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold text-[#B92B0C]"
+                    className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#B92B0C]"
                   >
                     <Archive className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Archive</span>
@@ -139,7 +139,7 @@ export function InventoryItemDetailDrawer({
                 <button
                   type="button"
                   onClick={() => onOpenArchive?.(item)}
-                  className="sa-control sa-btn-lime inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                  className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                 >
                   <ArchiveRestore className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Reactivate Item</span>
@@ -153,7 +153,7 @@ export function InventoryItemDetailDrawer({
           </div>
 
           {/* Scrollable Body */}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
+          <div className="sa-safe-bottom min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
             {/* B. Stock Overview */}
             <AdminSurface variant="card" className="space-y-3 p-3.5 sm:p-4">
               <div className="flex items-center justify-between gap-2">
@@ -245,13 +245,13 @@ export function InventoryItemDetailDrawer({
                   Quick Actions
                 </h3>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:flex sm:flex-wrap">
                   {!isEquipment ? (
                     <>
                       <button
                         type="button"
                         onClick={() => onOpenMovement?.(item, INVENTORY_MOVEMENT_TYPES.STOCK_IN)}
-                        className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                        className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:justify-start"
                       >
                         <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>Stock In</span>
@@ -261,7 +261,7 @@ export function InventoryItemDetailDrawer({
                         <button
                           type="button"
                           onClick={() => onOpenMovement?.(item, INVENTORY_MOVEMENT_TYPES.CONSUME)}
-                          className="sa-control sa-btn-orange inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                          className="sa-control sa-btn-orange inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:justify-start"
                         >
                           <MinusCircle className="h-3.5 w-3.5" aria-hidden="true" />
                           <span>Record Usage</span>
@@ -272,7 +272,7 @@ export function InventoryItemDetailDrawer({
                         <button
                           type="button"
                           onClick={() => onOpenMovement?.(item, INVENTORY_MOVEMENT_TYPES.WRITE_OFF)}
-                          className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#B92B0C]"
+                          className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#B92B0C] sm:justify-start"
                         >
                           <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                           <span>Write Off</span>
@@ -284,7 +284,7 @@ export function InventoryItemDetailDrawer({
                       <button
                         type="button"
                         onClick={() => onOpenMovement?.(item, INVENTORY_MOVEMENT_TYPES.STOCK_IN)}
-                        className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                        className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:justify-start"
                       >
                         <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>Add Equipment</span>
@@ -296,7 +296,7 @@ export function InventoryItemDetailDrawer({
                           onClick={() =>
                             onOpenMovement?.(item, INVENTORY_MOVEMENT_TYPES.SEND_TO_MAINTENANCE)
                           }
-                          className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                          className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:justify-start"
                         >
                           <Wrench className="h-3.5 w-3.5 text-[#8A4B08]" aria-hidden="true" />
                           <span>Send to Maintenance</span>
@@ -309,7 +309,7 @@ export function InventoryItemDetailDrawer({
                           onClick={() =>
                             onOpenMovement?.(item, INVENTORY_MOVEMENT_TYPES.RETURN_FROM_MAINTENANCE)
                           }
-                          className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                          className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:justify-start"
                         >
                           <span>Return from Maintenance</span>
                         </button>
@@ -321,7 +321,7 @@ export function InventoryItemDetailDrawer({
                           onClick={() =>
                             onOpenMovement?.(item, INVENTORY_MOVEMENT_TYPES.MARK_DAMAGED)
                           }
-                          className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#B92B0C]"
+                          className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#B92B0C] sm:justify-start"
                         >
                           <span>Mark Damaged</span>
                         </button>
@@ -333,7 +333,7 @@ export function InventoryItemDetailDrawer({
                           onClick={() =>
                             onOpenMovement?.(item, INVENTORY_MOVEMENT_TYPES.MARK_REPAIRED)
                           }
-                          className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                          className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:justify-start"
                         >
                           <span>Mark Repaired</span>
                         </button>
@@ -345,7 +345,7 @@ export function InventoryItemDetailDrawer({
                           onClick={() =>
                             onOpenMovement?.(item, INVENTORY_MOVEMENT_TYPES.MARK_RETIRED)
                           }
-                          className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                          className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:justify-start"
                         >
                           <span>Mark Lost / Retired</span>
                         </button>
@@ -358,7 +358,7 @@ export function InventoryItemDetailDrawer({
                     onClick={() =>
                       onOpenMovement?.(item, INVENTORY_MOVEMENT_TYPES.LOCATION_CHANGED)
                     }
-                    className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                    className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:justify-start"
                   >
                     <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Edit Location</span>
@@ -368,7 +368,7 @@ export function InventoryItemDetailDrawer({
                     <button
                       type="button"
                       onClick={() => onOpenAdjustment?.(item)}
-                      className="sa-control sa-btn-primary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                      className="sa-control sa-btn-primary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:justify-start"
                     >
                       <ShieldCheck className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
                       <span>Stock Adjustment</span>

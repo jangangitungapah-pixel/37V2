@@ -163,14 +163,14 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
         </p>
 
         <div className="border-studio-ink mt-2 border-2">
-          <div className="bg-studio-ink text-studio-ivory grid grid-cols-12 gap-2 px-3 py-2 font-mono text-[9.5px] font-extrabold uppercase">
+          <div className="bg-studio-ink text-studio-ivory hidden gap-2 px-3 py-2 font-mono text-[9.5px] font-extrabold uppercase sm:grid sm:grid-cols-12 print:grid print:grid-cols-12">
             <span className="col-span-7">Layanan &amp; Jadwal Sesi</span>
             <span className="col-span-2 text-center">Durasi</span>
             <span className="col-span-3 text-right">Subtotal</span>
           </div>
 
-          <div className="bg-studio-ivory/40 grid grid-cols-12 items-start gap-2 px-3 py-3 text-xs">
-            <div className="col-span-7 min-w-0">
+          <div className="bg-studio-ivory/40 flex flex-col gap-2 px-3 py-3 text-xs sm:grid sm:grid-cols-12 sm:items-start print:grid print:grid-cols-12 print:items-start">
+            <div className="min-w-0 sm:col-span-7 print:col-span-7">
               <p className="font-extrabold">
                 {serviceTitle}
                 {serviceOption ? ` — ${serviceOption}` : ''}
@@ -186,12 +186,20 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
               </p>
             </div>
 
-            <div className="col-span-2 text-center font-mono text-[11px] font-bold">
-              {durationLabel}
+            <div className="flex items-center justify-between border-t border-neutral-300/70 pt-2 font-mono text-[11px] sm:col-span-2 sm:block sm:border-t-0 sm:pt-0 sm:text-center print:col-span-2 print:block print:border-t-0 print:pt-0 print:text-center">
+              <span className="text-studio-muted-ink text-[10px] font-bold uppercase sm:hidden print:hidden">
+                Durasi
+              </span>
+              <span className="font-bold">{durationLabel}</span>
             </div>
 
-            <div className="col-span-3 text-right font-mono text-xs font-extrabold tabular-nums">
-              {formatRupiah(invoice.financialSnapshot?.subtotal || 0)}
+            <div className="flex items-center justify-between font-mono text-xs sm:col-span-3 sm:block sm:text-right print:col-span-3 print:block print:text-right">
+              <span className="text-studio-muted-ink text-[10px] font-bold uppercase sm:hidden print:hidden">
+                Subtotal
+              </span>
+              <span className="font-extrabold tabular-nums">
+                {formatRupiah(invoice.financialSnapshot?.subtotal || 0)}
+              </span>
             </div>
           </div>
         </div>
@@ -351,60 +359,62 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
             className="no-print sa-overlay-backdrop fixed inset-0 z-[70]"
           />
 
-          <Dialog.Popup
-            data-admin-portal-layer="true"
-            aria-label={`Preview cetak invoice ${invoice.invoiceNumber}`}
-            data-payment-scoped="true"
-            className="no-print sa-dialog fixed inset-x-0 bottom-0 z-[80] mx-auto flex h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[92dvh] sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
-          >
-            {/* Preview Action Header */}
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-5 py-3.5">
-              <div className="min-w-0">
-                <Dialog.Title className="text-base font-bold tracking-tight text-[#151515] sm:text-lg">
-                  Preview Cetak &amp; PDF — {invoice.invoiceNumber}
-                </Dialog.Title>
-                <Dialog.Description className="mt-0.5 text-xs text-[#666159]">
-                  Siap dicetak atau disimpan sebagai PDF melalui dialog cetak browser.
-                </Dialog.Description>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopySummary}
-                  className="sa-control sa-btn-secondary inline-flex h-9 cursor-pointer items-center gap-1.5 px-3 text-xs font-semibold"
-                >
-                  {copied ? (
-                    <Check className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
-                  )}
-                  <span>{copied ? 'Disalin' : 'Salin ke WhatsApp'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="sa-control sa-btn-lime inline-flex h-9 cursor-pointer items-center gap-1.5 px-3.5 text-xs font-semibold"
-                >
-                  <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Cetak / Simpan PDF</span>
-                </button>
+          <Dialog.Viewport className="no-print fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4">
+            <Dialog.Popup
+              data-admin-portal-layer="true"
+              aria-label={`Preview cetak invoice ${invoice.invoiceNumber}`}
+              data-payment-scoped="true"
+              className="no-print sa-dialog flex h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
+            >
+              {/* Preview Action Header */}
+              <div className="flex shrink-0 flex-wrap items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:flex-nowrap sm:items-center sm:px-5 sm:py-3.5">
+                <div className="min-w-0 flex-1">
+                  <Dialog.Title className="text-base font-bold tracking-tight text-[#151515] sm:text-lg">
+                    Preview Cetak &amp; PDF — {invoice.invoiceNumber}
+                  </Dialog.Title>
+                  <Dialog.Description className="mt-0.5 text-xs text-[#666159]">
+                    Siap dicetak atau disimpan sebagai PDF melalui dialog cetak browser.
+                  </Dialog.Description>
+                </div>
 
                 <Dialog.Close
                   aria-label="Tutup preview cetak invoice"
-                  className="sa-control inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
+                  className="sa-control order-2 inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:order-3"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </Dialog.Close>
-              </div>
-            </div>
 
-            {/* Scrollable Preview Canvas */}
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[#EBE7DC]/75 p-3 sm:p-6">
-              <InvoiceDocumentSheet invoice={invoice} transactions={transactions} />
-            </div>
-          </Dialog.Popup>
+                <div className="order-3 flex w-full items-center gap-2 sm:order-2 sm:w-auto sm:shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleCopySummary}
+                    className="sa-control sa-btn-secondary inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3 text-xs font-semibold sm:flex-initial"
+                  >
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
+                    )}
+                    <span>{copied ? 'Disalin' : 'Salin ke WhatsApp'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    className="sa-control sa-btn-lime inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3.5 text-xs font-semibold sm:flex-initial"
+                  >
+                    <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Cetak / Simpan PDF</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable Preview Canvas */}
+              <div className="sa-safe-bottom min-h-0 flex-1 overflow-y-auto bg-[#EBE7DC]/75 p-3 sm:p-6">
+                <InvoiceDocumentSheet invoice={invoice} transactions={transactions} />
+              </div>
+            </Dialog.Popup>
+          </Dialog.Viewport>
         </Dialog.Portal>
       </Dialog.Root>
 

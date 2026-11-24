@@ -8,8 +8,11 @@ import {
 import { getClientPortalRepositoryAdapter } from '@/features/client-portal/repositories/client-portal-repository';
 import {
   completeGoogleRedirectIfPresent,
+  requestClientPasswordReset,
   resolveOrProvisionClientAccount,
+  signInClientWithEmailPassword,
   signInClientWithGoogle,
+  signUpClientWithEmailPassword,
 } from '@/features/client-portal/services/client-auth-service';
 import { mapClientAuthErrorToMessage } from '@/features/client-portal/utils/client-auth-helpers';
 import { queryClient } from '@/lib/query-client';
@@ -474,90 +477,135 @@ export function AuthProvider({ children }) {
     [cleanupClientSubscription, resetSessionIsolation],
   );
 
-  const loginWithGoogle = useCallback(async () => {
-    const currentOperation = ++verificationCounterRef.current;
-    loginInFlightRef.current = true;
-    setAuthState((prev) => ({
-      ...prev,
-      clientAuthError: null,
-    }));
+  const executeInteractiveClientAuth = useCallback(
+    async (runClientAuth) => {
+      const currentOperation = ++verificationCounterRef.current;
+      loginInFlightRef.current = true;
+      const hadStaffSession =
+        verifiedCacheRef.current.accountType === 'staff' &&
+        Boolean(verifiedCacheRef.current.profile);
+      const previousStaffUid = hadStaffSession ? String(verifiedCacheRef.current.uid || '') : '';
 
-    try {
-      const result = await signInClientWithGoogle();
-      if (result?.redirected) {
-        loginInFlightRef.current = false;
-        return result;
-      }
+      setAuthState((prev) => ({
+        ...prev,
+        clientAuthError: null,
+      }));
 
-      const { user, clientAccount, clientProfile } = result;
-      if (activeUidRef.current && activeUidRef.current !== user.uid) {
-        queryClient.clear();
-      }
-      activeUidRef.current = user.uid;
-      verifiedCacheRef.current = {
-        uid: user.uid,
-        accountType: 'client',
-        profile: null,
-        clientAccount,
-        clientProfile,
-        role: CLIENT_ROLE,
-      };
-      attachClientAccountWatcher(user.uid, clientAccount.customerId);
-      loginInFlightRef.current = false;
+      try {
+        const result = await runClientAuth({
+          preserveExistingStaffSession: hadStaffSession,
+          previousStaffUid,
+        });
+        if (result?.redirected) {
+          loginInFlightRef.current = false;
+          return result;
+        }
 
-      if (verificationCounterRef.current === currentOperation) {
-        setAuthState({
-          status: 'authenticated',
+        const { user, clientAccount, clientProfile } = result;
+        if (activeUidRef.current && activeUidRef.current !== user.uid) {
+          queryClient.clear();
+        }
+        activeUidRef.current = user.uid;
+        verifiedCacheRef.current = {
+          uid: user.uid,
           accountType: 'client',
-          user,
           profile: null,
           clientAccount,
           clientProfile,
           role: CLIENT_ROLE,
-          authError: null,
-          clientAuthError: null,
-        });
-      }
+        };
+        attachClientAccountWatcher(user.uid, clientAccount.customerId);
+        loginInFlightRef.current = false;
 
-      return result;
-    } catch (error) {
-      loginInFlightRef.current = false;
-      const message = mapClientAuthErrorToMessage(error);
-
-      if (
-        error?.code === 'client/staff-account-blocked' &&
-        verifiedCacheRef.current.accountType === 'staff' &&
-        verifiedCacheRef.current.profile
-      ) {
         if (verificationCounterRef.current === currentOperation) {
-          setAuthState((prev) => ({
-            ...prev,
-            clientAuthError: message,
-          }));
+          setAuthState({
+            status: 'authenticated',
+            accountType: 'client',
+            user,
+            profile: null,
+            clientAccount,
+            clientProfile,
+            role: CLIENT_ROLE,
+            authError: null,
+            clientAuthError: null,
+          });
         }
-        throw createAuthError(error.code, message);
+
+        return result;
+      } catch (error) {
+        loginInFlightRef.current = false;
+        const message = mapClientAuthErrorToMessage(error);
+
+        if (
+          error?.code === 'client/staff-account-blocked' &&
+          hadStaffSession &&
+          verifiedCacheRef.current.accountType === 'staff' &&
+          verifiedCacheRef.current.profile
+        ) {
+          if (verificationCounterRef.current === currentOperation) {
+            setAuthState((prev) => ({
+              ...prev,
+              clientAuthError: message,
+            }));
+          }
+          throw createAuthError(error.code, message);
+        }
+
+        activeUidRef.current = null;
+        resetSessionIsolation();
+
+        if (verificationCounterRef.current === currentOperation) {
+          setAuthState({
+            status: 'unauthenticated',
+            accountType: null,
+            user: null,
+            profile: null,
+            clientAccount: null,
+            clientProfile: null,
+            role: null,
+            authError: null,
+            clientAuthError: message,
+          });
+        }
+
+        throw createAuthError(error?.code || 'client/auth-failed', message);
       }
+    },
+    [attachClientAccountWatcher, resetSessionIsolation],
+  );
 
-      activeUidRef.current = null;
-      resetSessionIsolation();
+  const loginWithGoogle = useCallback(
+    () =>
+      executeInteractiveClientAuth((sessionCtx) =>
+        signInClientWithGoogle(sessionCtx),
+      ),
+    [executeInteractiveClientAuth],
+  );
 
-      if (verificationCounterRef.current === currentOperation) {
-        setAuthState({
-          status: 'unauthenticated',
-          accountType: null,
-          user: null,
-          profile: null,
-          clientAccount: null,
-          clientProfile: null,
-          role: null,
-          authError: null,
-          clientAuthError: message,
-        });
-      }
+  const loginClientWithEmailPassword = useCallback(
+    (email, password) =>
+      executeInteractiveClientAuth((sessionCtx) =>
+        signInClientWithEmailPassword({ email, password, ...sessionCtx }),
+      ),
+    [executeInteractiveClientAuth],
+  );
 
-      throw createAuthError(error?.code || 'client/auth-failed', message);
+  const registerClientWithEmailPassword = useCallback(
+    ({ displayName, email, password }) =>
+      executeInteractiveClientAuth((sessionCtx) =>
+        signUpClientWithEmailPassword({ displayName, email, password, ...sessionCtx }),
+      ),
+    [executeInteractiveClientAuth],
+  );
+
+  const resetClientPassword = useCallback(async (email) => {
+    try {
+      return await requestClientPasswordReset(email);
+    } catch (error) {
+      const message = mapClientAuthErrorToMessage(error);
+      throw createAuthError(error?.code || 'client/reset-failed', message);
     }
-  }, [attachClientAccountWatcher, resetSessionIsolation]);
+  }, []);
 
   const logout = useCallback(async () => {
     ++verificationCounterRef.current;
@@ -667,6 +715,9 @@ export function AuthProvider({ children }) {
       lastReauthenticatedAt,
       login,
       loginWithGoogle,
+      loginClientWithEmailPassword,
+      registerClientWithEmailPassword,
+      resetClientPassword,
       logout,
       reauthenticate,
       resetPassword,
@@ -679,9 +730,12 @@ export function AuthProvider({ children }) {
       clearClientAuthError,
       lastReauthenticatedAt,
       login,
+      loginClientWithEmailPassword,
       loginWithGoogle,
       logout,
       reauthenticate,
+      registerClientWithEmailPassword,
+      resetClientPassword,
       resetPassword,
     ],
   );

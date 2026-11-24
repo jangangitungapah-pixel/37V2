@@ -91,7 +91,7 @@ export function PaymentEvidenceUploadField({
 
   return (
     <div data-testid="payment-evidence-upload-field" className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
         <label htmlFor={inputId} className="block text-xs font-semibold text-[#151515]">
           {resolvedLabel}{' '}
           {required ? (
@@ -197,80 +197,82 @@ export function PaymentEvidenceUploadField({
           data-testid="payment-evidence-selected-card"
           className="rounded-xl border border-[#151515]/14 bg-[#FAF8F3] p-3"
         >
-          <div className="flex items-start gap-3">
-            {previewUrl ? (
-              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#151515]/12 bg-white">
-                <img
-                  src={previewUrl}
-                  alt={isId ? 'Pratinjau file dipilih' : 'Selected proof preview'}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ) : (
-              <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-[#151515]/10 bg-white text-[#666159]">
-                <UploadCloud className="h-5 w-5" aria-hidden="true" />
-              </span>
-            )}
-
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-[#151515]">
-                {selectedFile?.name ||
-                  (isId ? 'Bukti pembayaran terunggah' : 'Uploaded payment proof')}
-              </p>
-              <p className="mt-0.5 font-mono text-[11px] text-[#666159]">
-                {selectedFile
-                  ? `${formatEvidenceFileSize(selectedFile.size)} · ${selectedFile.type || 'image'}`
-                  : isId
-                    ? 'Tersimpan sementara di Cloudinary'
-                    : 'Uploaded to Cloudinary'}
-              </p>
-
-              {/* Progress / State Status */}
-              {uploadState === PAYMENT_EVIDENCE_UPLOAD_STATES.UPLOADING ? (
-                <div className="mt-2 space-y-1">
-                  <div className="flex items-center justify-between text-[10.5px] font-medium text-[#46433D]">
-                    <span className="inline-flex items-center gap-1">
-                      <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                      <span>{isId ? 'Mengunggah gambar...' : 'Uploading image...'}</span>
-                    </span>
-                    <span className="font-mono tabular-nums">{progress}%</span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#151515]/10">
-                    <div
-                      className="h-full rounded-full bg-[#151515] transition-all duration-150"
-                      style={{ width: `${Math.max(5, progress)}%` }}
-                    />
-                  </div>
+          <div className="flex flex-col gap-2.5 min-[400px]:flex-row min-[400px]:items-start min-[400px]:gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              {previewUrl ? (
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#151515]/12 bg-white">
+                  <img
+                    src={previewUrl}
+                    alt={isId ? 'Pratinjau file dipilih' : 'Selected proof preview'}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
-              ) : uploadState === PAYMENT_EVIDENCE_UPLOAD_STATES.SAVING_METADATA ? (
-                <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[#46433D]">
-                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                  <span>{isId ? 'Menyimpan catatan bukti...' : 'Saving submission...'}</span>
+              ) : (
+                <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-[#151515]/10 bg-white text-[#666159]">
+                  <UploadCloud className="h-5 w-5" aria-hidden="true" />
+                </span>
+              )}
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-[#151515]">
+                  {selectedFile?.name ||
+                    (isId ? 'Bukti pembayaran terunggah' : 'Uploaded payment proof')}
                 </p>
-              ) : hasPreservedUpload ? (
-                <p
-                  data-testid="payment-evidence-preserved-badge"
-                  className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[#0F6246]"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <span>
-                    {isId
-                      ? 'Gambar sudah terunggah — tidak perlu unggah ulang jika mencoba simpan lagi.'
-                      : 'Image uploaded — retrying will save without re-uploading.'}
-                  </span>
+                <p className="mt-0.5 font-mono text-[11px] text-[#666159]">
+                  {selectedFile
+                    ? `${formatEvidenceFileSize(selectedFile.size)} · ${selectedFile.type || 'image'}`
+                    : isId
+                      ? 'Tersimpan sementara di Cloudinary'
+                      : 'Uploaded to Cloudinary'}
                 </p>
-              ) : null}
+
+                {/* Progress / State Status */}
+                {uploadState === PAYMENT_EVIDENCE_UPLOAD_STATES.UPLOADING ? (
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center justify-between text-[10.5px] font-medium text-[#46433D]">
+                      <span className="inline-flex items-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                        <span>{isId ? 'Mengunggah gambar...' : 'Uploading image...'}</span>
+                      </span>
+                      <span className="font-mono tabular-nums">{progress}%</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#151515]/10">
+                      <div
+                        className="h-full rounded-full bg-[#151515] transition-all duration-150"
+                        style={{ width: `${Math.max(5, progress)}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : uploadState === PAYMENT_EVIDENCE_UPLOAD_STATES.SAVING_METADATA ? (
+                  <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[#46433D]">
+                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                    <span>{isId ? 'Menyimpan catatan bukti...' : 'Saving submission...'}</span>
+                  </p>
+                ) : hasPreservedUpload ? (
+                  <p
+                    data-testid="payment-evidence-preserved-badge"
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[#0F6246]"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      {isId
+                        ? 'Gambar sudah terunggah — tidak perlu unggah ulang jika mencoba simpan lagi.'
+                        : 'Image uploaded — retrying will save without re-uploading.'}
+                    </span>
+                  </p>
+                ) : null}
+              </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center justify-end gap-1.5 border-t border-[#151515]/[0.07] pt-2 min-[400px]:border-t-0 min-[400px]:pt-0">
               {uploadState === PAYMENT_EVIDENCE_UPLOAD_STATES.UPLOADING ? (
                 <button
                   type="button"
                   onClick={cancelUpload}
                   aria-label={isId ? 'Batalkan unggahan' : 'Cancel upload'}
-                  className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg border border-[#151515]/15 bg-white px-2 text-[11px] font-semibold text-[#46433D] hover:text-[#151515]"
+                  className="inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[#151515]/15 bg-white px-3 text-[11px] font-semibold text-[#46433D] hover:text-[#151515] min-[400px]:flex-initial"
                 >
-                  <X className="h-3 w-3" aria-hidden="true" />
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{isId ? 'Batal' : 'Cancel'}</span>
                 </button>
               ) : !isBusy && !disabled ? (
@@ -279,16 +281,16 @@ export function PaymentEvidenceUploadField({
                     type="button"
                     onClick={triggerFilePicker}
                     aria-label={isId ? 'Ganti gambar bukti pembayaran' : 'Replace payment proof image'}
-                    className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg border border-[#151515]/15 bg-white px-2 text-[11px] font-semibold text-[#46433D] hover:border-[#151515]/30 hover:text-[#151515]"
+                    className="inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[#151515]/15 bg-white px-3 text-[11px] font-semibold text-[#46433D] hover:border-[#151515]/30 hover:text-[#151515] min-[400px]:flex-initial"
                   >
-                    <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{isId ? 'Ganti' : 'Replace'}</span>
                   </button>
                   <button
                     type="button"
                     onClick={reset}
                     aria-label={isId ? 'Hapus file dipilih' : 'Remove selected image'}
-                    className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[#151515]/12 bg-white text-[#666159] hover:border-[#FF4B22]/30 hover:text-[#B92B0C]"
+                    className="inline-flex min-h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#151515]/12 bg-white text-[#666159] hover:border-[#FF4B22]/30 hover:text-[#B92B0C]"
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>

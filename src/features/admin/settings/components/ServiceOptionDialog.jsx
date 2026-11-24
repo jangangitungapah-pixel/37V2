@@ -236,185 +236,191 @@ export function ServiceOptionDialog({
           className="sa-overlay-backdrop fixed inset-0 z-40"
         />
 
-        <Dialog.Popup
-          data-admin-portal-layer="true"
-          data-calendar-scoped="true"
-          className="sa-dialog fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[92dvh] sm:-translate-y-1/2 sm:rounded-2xl"
-        >
-          {/* Sticky Header */}
-          <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 sm:gap-3 sm:px-5 sm:py-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <AdminStatusBadge tone="lime" size="sm" className="font-mono uppercase">
-                  {serviceType?.name || 'SERVICE'}
-                </AdminStatusBadge>
-                <AdminStatusBadge tone="ink" size="sm" className="font-mono uppercase">
-                  {deliveryMode === DELIVERY_MODES.WFA ? 'WFA' : 'STUDIO'}
-                </AdminStatusBadge>
+        <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <Dialog.Popup
+            data-admin-portal-layer="true"
+            data-calendar-scoped="true"
+            className="sa-dialog flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+          >
+            {/* Sticky Header */}
+            <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:gap-3 sm:px-5 sm:py-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <AdminStatusBadge tone="lime" size="sm" className="font-mono uppercase">
+                    {serviceType?.name || 'SERVICE'}
+                  </AdminStatusBadge>
+                  <AdminStatusBadge tone="ink" size="sm" className="font-mono uppercase">
+                    {deliveryMode === DELIVERY_MODES.WFA ? 'WFA' : 'STUDIO'}
+                  </AdminStatusBadge>
+                </div>
+                <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
+                  {mode === 'edit' ? 'Edit Subcategory' : 'Add Subcategory'}
+                </Dialog.Title>
               </div>
-              <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
-                {mode === 'edit' ? 'Edit Subcategory' : 'Add Subcategory'}
-              </Dialog.Title>
+
+              <Dialog.Close
+                aria-label="Close subcategory dialog"
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
+              >
+                <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
+              </Dialog.Close>
             </div>
 
-            <Dialog.Close
-              aria-label="Close subcategory dialog"
-              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
+            {/* Scrollable Grouped Body */}
+            <form
+              id="service-option-dialog-form"
+              onSubmit={handleSubmit}
+              noValidate
+              className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-[#F8F6EF]/50 p-3.5 sm:space-y-4 sm:p-5"
             >
-              <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
-            </Dialog.Close>
-          </div>
-
-          {/* Scrollable Grouped Body */}
-          <form
-            id="service-option-dialog-form"
-            onSubmit={handleSubmit}
-            noValidate
-            className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-[#F8F6EF]/50 p-3.5 sm:space-y-4 sm:p-5"
-          >
-            {/* 01. BASIC INFORMATION */}
-            <section className="sa-subcard space-y-3 p-4">
-              <div className="border-b border-[#151515]/[0.07] pb-2.5">
-                <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
-                  01 • Basic Information
-                </span>
-                <h4 className="mt-0.5 text-sm font-bold text-[#151515]">Identitas Subcategory</h4>
-              </div>
-
-              <div>
-                <label htmlFor="opt-name" className="block text-xs font-semibold text-[#151515]">
-                  Subcategory Name <span className="text-[#FF4B22]">*</span>
-                </label>
-                <input
-                  id="opt-name"
-                  type="text"
-                  value={formValues.name}
-                  onChange={(e) => handleFieldChange('name', e.target.value)}
-                  placeholder="Contoh: Reguler / Paket 6 Hours / Lite / Pro"
-                  className="sa-input mt-1.5 min-h-10.5 w-full px-3.5 py-2 text-sm font-medium"
-                />
-                {errors.name ? (
-                  <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
-                    {errors.name}
-                  </p>
-                ) : null}
-              </div>
-
-              <div>
-                <label
-                  htmlFor="opt-description"
-                  className="block text-xs font-semibold text-[#151515]"
-                >
-                  Description
-                </label>
-                <input
-                  id="opt-description"
-                  type="text"
-                  value={formValues.description}
-                  onChange={(e) => handleFieldChange('description', e.target.value)}
-                  placeholder="Keterangan singkat subcategory..."
-                  className="sa-input mt-1.5 min-h-10.5 w-full px-3.5 py-2 text-sm"
-                />
-              </div>
-
-              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3">
-                <div>
-                  <span className="block text-xs font-semibold text-[#151515]">Active Status</span>
-                  <span className="block text-[11px] text-[#666159]">
-                    {isUnconfigured
-                      ? 'Pilih model harga terlebih dahulu untuk mengaktifkan subcategory ini'
-                      : 'Tampilkan sebagai pilihan booking aktif'}
-                  </span>
-                </div>
-                <input
-                  type="checkbox"
-                  disabled={isUnconfigured}
-                  checked={isUnconfigured ? false : formValues.isActive}
-                  onChange={(e) => handleFieldChange('isActive', e.target.checked)}
-                  className="accent-studio-ink h-4.5 w-4.5 cursor-pointer disabled:cursor-not-allowed"
-                />
-              </label>
-              {errors.isActive ? (
-                <p role="alert" className="text-xs font-medium text-[#B92B0C]">
-                  {errors.isActive}
-                </p>
-              ) : null}
-            </section>
-
-            {/* 02. CUSTOMER PRICING */}
-            <section className="sa-subcard space-y-3 p-4">
-              <div className="border-b border-[#151515]/[0.07] pb-2.5">
-                <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
-                  02 • Customer Pricing
-                </span>
-                <h4 className="mt-0.5 text-sm font-bold text-[#151515]">Tarif Customer</h4>
-              </div>
-
-              <PricingModeFields
-                deliveryMode={deliveryMode}
-                pricing={formValues.pricing}
-                errors={errors}
-                onChangePricing={handlePricingChange}
-              />
-            </section>
-
-            {/* 03. INTERNAL FEES */}
-            <section className="sa-subcard space-y-3 p-4">
-              <div className="border-b border-[#151515]/[0.07] pb-2.5">
-                <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
-                  03 • Internal Fees (Terpisah Dari Tagihan Customer)
-                </span>
-                <h4 className="mt-0.5 text-sm font-bold text-[#151515]">
-                  Alokasi Staff, Owner &amp; Operator
-                </h4>
-              </div>
-
-              <InternalFeeEditor
-                fees={formValues.fees}
-                deliveryMode={deliveryMode}
-                serviceTypeId={serviceType?.id || ''}
-                errors={errors}
-                onChangeFees={handleFeesChange}
-              />
-            </section>
-
-            {/* 04. DISCOUNT RULES (HOURLY ONLY) */}
-            {isHourly ? (
+              {/* 01. BASIC INFORMATION */}
               <section className="sa-subcard space-y-3 p-4">
                 <div className="border-b border-[#151515]/[0.07] pb-2.5">
                   <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
-                    04 • Duration Discount Rules (Opsional)
+                    01 • Basic Information
                   </span>
-                  <h4 className="mt-0.5 text-sm font-bold text-[#151515]">Aturan Diskon Durasi</h4>
+                  <h4 className="mt-0.5 text-sm font-bold text-[#151515]">Identitas Subcategory</h4>
                 </div>
 
-                <DiscountRulesEditor
-                  discountRules={formValues.discountRules}
+                <div>
+                  <label htmlFor="opt-name" className="block text-xs font-semibold text-[#151515]">
+                    Subcategory Name <span className="text-[#FF4B22]">*</span>
+                  </label>
+                  <input
+                    id="opt-name"
+                    type="text"
+                    value={formValues.name}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
+                    placeholder="Contoh: Reguler / Paket 6 Hours / Lite / Pro"
+                    className="sa-input mt-1.5 min-h-10.5 w-full px-3.5 py-2 text-sm font-medium"
+                  />
+                  {errors.name ? (
+                    <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
+                      {errors.name}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="opt-description"
+                    className="block text-xs font-semibold text-[#151515]"
+                  >
+                    Description
+                  </label>
+                  <input
+                    id="opt-description"
+                    type="text"
+                    value={formValues.description}
+                    onChange={(e) => handleFieldChange('description', e.target.value)}
+                    placeholder="Keterangan singkat subcategory..."
+                    className="sa-input mt-1.5 min-h-10.5 w-full px-3.5 py-2 text-sm"
+                  />
+                </div>
+
+                <label className="flex cursor-pointer items-center justify-between rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3">
+                  <div>
+                    <span className="block text-xs font-semibold text-[#151515]">
+                      Active Status
+                    </span>
+                    <span className="block text-[11px] text-[#666159]">
+                      {isUnconfigured
+                        ? 'Pilih model harga terlebih dahulu untuk mengaktifkan subcategory ini'
+                        : 'Tampilkan sebagai pilihan booking aktif'}
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    disabled={isUnconfigured}
+                    checked={isUnconfigured ? false : formValues.isActive}
+                    onChange={(e) => handleFieldChange('isActive', e.target.checked)}
+                    className="accent-studio-ink h-4.5 w-4.5 cursor-pointer disabled:cursor-not-allowed"
+                  />
+                </label>
+                {errors.isActive ? (
+                  <p role="alert" className="text-xs font-medium text-[#B92B0C]">
+                    {errors.isActive}
+                  </p>
+                ) : null}
+              </section>
+
+              {/* 02. CUSTOMER PRICING */}
+              <section className="sa-subcard space-y-3 p-4">
+                <div className="border-b border-[#151515]/[0.07] pb-2.5">
+                  <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
+                    02 • Customer Pricing
+                  </span>
+                  <h4 className="mt-0.5 text-sm font-bold text-[#151515]">Tarif Customer</h4>
+                </div>
+
+                <PricingModeFields
+                  deliveryMode={deliveryMode}
+                  pricing={formValues.pricing}
                   errors={errors}
-                  onChangeRules={(nextRules) => handleFieldChange('discountRules', nextRules)}
+                  onChangePricing={handlePricingChange}
                 />
               </section>
-            ) : null}
-          </form>
 
-          {/* Sticky Footer */}
-          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:gap-2.5 sm:px-5 sm:py-3.5 sm:pb-[max(0.875rem,env(safe-area-inset-bottom))]">
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="sa-control sa-btn-secondary min-h-9.5 flex-1 cursor-pointer px-4 py-1.5 text-xs font-semibold sm:min-h-10 sm:flex-initial sm:py-2"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="service-option-dialog-form"
-              className="sa-control sa-btn-orange min-h-9.5 flex-1 cursor-pointer px-4 py-1.5 text-xs font-semibold sm:min-h-10 sm:flex-initial sm:px-5 sm:py-2"
-            >
-              {mode === 'edit' ? 'Update Subcategory' : 'Add Subcategory'}
-            </button>
-          </div>
-        </Dialog.Popup>
+              {/* 03. INTERNAL FEES */}
+              <section className="sa-subcard space-y-3 p-4">
+                <div className="border-b border-[#151515]/[0.07] pb-2.5">
+                  <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
+                    03 • Internal Fees (Terpisah Dari Tagihan Customer)
+                  </span>
+                  <h4 className="mt-0.5 text-sm font-bold text-[#151515]">
+                    Alokasi Staff, Owner &amp; Operator
+                  </h4>
+                </div>
+
+                <InternalFeeEditor
+                  fees={formValues.fees}
+                  deliveryMode={deliveryMode}
+                  serviceTypeId={serviceType?.id || ''}
+                  errors={errors}
+                  onChangeFees={handleFeesChange}
+                />
+              </section>
+
+              {/* 04. DISCOUNT RULES (HOURLY ONLY) */}
+              {isHourly ? (
+                <section className="sa-subcard space-y-3 p-4">
+                  <div className="border-b border-[#151515]/[0.07] pb-2.5">
+                    <span className="font-mono text-[10px] font-semibold tracking-wider text-[#FF4B22] uppercase">
+                      04 • Duration Discount Rules (Opsional)
+                    </span>
+                    <h4 className="mt-0.5 text-sm font-bold text-[#151515]">
+                      Aturan Diskon Durasi
+                    </h4>
+                  </div>
+
+                  <DiscountRulesEditor
+                    discountRules={formValues.discountRules}
+                    errors={errors}
+                    onChangeRules={(nextRules) => handleFieldChange('discountRules', nextRules)}
+                  />
+                </section>
+              ) : null}
+            </form>
+
+            {/* Sticky Footer */}
+            <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3.5 sm:px-5">
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="sa-control sa-btn-secondary min-h-11 flex-1 cursor-pointer px-4 py-2 text-xs font-semibold sm:flex-initial"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="service-option-dialog-form"
+                className="sa-control sa-btn-orange min-h-11 flex-1 cursor-pointer px-4 py-2 text-xs font-semibold sm:flex-initial sm:px-5"
+              >
+                {mode === 'edit' ? 'Update Subcategory' : 'Add Subcategory'}
+              </button>
+            </div>
+          </Dialog.Popup>
+        </Dialog.Viewport>
       </Dialog.Portal>
     </Dialog.Root>
   );

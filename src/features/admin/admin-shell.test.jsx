@@ -286,6 +286,35 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     });
   });
 
+  it('provides mobile quick-dock navigation across Ringkasan, Jadwal, Inbox, Tagihan, and opens More menu drawer', async () => {
+    const user = userEvent.setup();
+    mockAuthenticatedRole('owner');
+    renderAdminAt('/admin/dashboard');
+
+    await screen.findByRole('heading', { name: /welcome back, 37 music studio owner\./i });
+
+    const mobileDock = screen.getByRole('navigation', { name: /pintasan navigasi mobile/i });
+
+    await user.click(within(mobileDock).getByRole('link', { name: 'Jadwal' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Calendar' })).toBeTruthy();
+
+    await user.click(within(mobileDock).getByRole('link', { name: 'Inbox' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Booking Requests' })).toBeTruthy();
+
+    await user.click(within(mobileDock).getByRole('link', { name: 'Tagihan' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Payment and Bill' })).toBeTruthy();
+
+    await user.click(within(mobileDock).getByRole('link', { name: 'Ringkasan' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeTruthy();
+
+    await user.click(within(mobileDock).getByRole('button', { name: /buka menu lainnya/i }));
+    const drawer = await screen.findByRole('dialog');
+    expect(drawer.getAttribute('aria-label')).toBe('Mobile workspace navigation drawer');
+    expect(
+      within(drawer).getByRole('navigation', { name: /mobile admin workspace navigation/i }),
+    ).toBeTruthy();
+  });
+
   it('protects all nested admin routes from unauthenticated access and restricts /admin/reviews to Owner only', async () => {
     // 1. Unauthenticated visitor blocked from /admin/dashboard and /admin/settings
     mockOnAuthStateChanged.mockImplementation((_auth, callback) => {

@@ -163,7 +163,7 @@ export function BookingCustomerReviewSection({ booking, readOnly = false, now })
           {isOwner ? (
             <Link
               to="/admin/reviews"
-              className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold text-[#151515] underline hover:text-[#DF532B]"
+              className="inline-flex min-h-10 items-center gap-1.5 py-1.5 font-mono text-[11px] font-bold text-[#151515] underline hover:text-[#DF532B]"
             >
               <span>Kelola Moderasi di Customer Reviews</span>
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
@@ -209,7 +209,7 @@ export function BookingCustomerReviewSection({ booking, readOnly = false, now })
                 type="button"
                 disabled={isIssuing || isRevoking}
                 onClick={handleGenerateInvitation}
-                className="sa-control inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[#151515]/15 bg-[#C8F13A] px-3.5 py-1.5 text-xs font-bold text-[#151515] hover:bg-[#b8e229] disabled:opacity-50"
+                className="sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-[#151515]/15 bg-[#C8F13A] px-3.5 py-1.5 text-xs font-bold text-[#151515] hover:bg-[#b8e229] disabled:opacity-50"
               >
                 {isIssuing ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -223,7 +223,7 @@ export function BookingCustomerReviewSection({ booking, readOnly = false, now })
                 type="button"
                 disabled={isIssuing || isRevoking}
                 onClick={handleRevokeInvitation}
-                className="sa-control inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-red-700/20 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-50 disabled:opacity-50"
+                className="sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-red-700/20 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-50 disabled:opacity-50"
               >
                 {isRevoking ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -285,7 +285,7 @@ export function BookingCustomerReviewSection({ booking, readOnly = false, now })
             type="button"
             disabled={isIssuing}
             onClick={handleGenerateInvitation}
-            className="sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-[#151515] px-4 py-2 font-mono text-xs font-bold tracking-wider text-[#C8F13A] uppercase hover:bg-[#2a2a2a] disabled:opacity-50"
+            className="sa-control inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#151515] px-4 py-2 font-mono text-xs font-bold tracking-wider text-[#C8F13A] uppercase hover:bg-[#2a2a2a] disabled:opacity-50 sm:w-auto"
           >
             {isIssuing ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />

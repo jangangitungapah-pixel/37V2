@@ -268,7 +268,7 @@ export function PublicSiteSettingsForm({ value, onChange, readOnly = false, isPe
           </div>
           <Link
             to="/admin/reviews"
-            className="inline-flex items-center gap-1 rounded-lg border border-[#151515]/15 bg-[#F8F6EF] px-2.5 py-1 text-[11px] font-semibold text-[#151515] hover:border-[#151515]"
+            className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-[#151515]/15 bg-[#F8F6EF] px-3 py-1.5 text-[11px] font-semibold text-[#151515] hover:border-[#151515]"
           >
             <span>Kelola Customer Reviews</span>
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -293,7 +293,7 @@ export function PublicSiteSettingsForm({ value, onChange, readOnly = false, isPe
                     type="button"
                     aria-label={`Hapus testimoni lama ${item.author}`}
                     onClick={() => handleRemoveTestimonial(item.id)}
-                    className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-red-700 hover:bg-red-50"
+                    className="inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-lg text-red-700 hover:bg-red-50"
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>

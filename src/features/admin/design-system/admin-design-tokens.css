@@ -352,6 +352,46 @@
     border-left: 1px solid var(--sa-border-hairline);
     box-shadow: var(--sa-shadow-overlay);
   }
+
+  [data-admin-portal='true'] .sa-safe-bottom,
+  [data-admin-portal-layer='true'] .sa-safe-bottom {
+    padding-bottom: max(0.875rem, env(safe-area-inset-bottom));
+  }
+
+  [data-admin-portal='true'] .sa-scroll-x,
+  [data-admin-portal-layer='true'] .sa-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  [data-admin-portal='true'] .sa-scroll-x::-webkit-scrollbar,
+  [data-admin-portal-layer='true'] .sa-scroll-x::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Prevent iOS Safari auto-zoom on mobile form controls inside Admin Portal (<640px) */
+@media (max-width: 639px) {
+  [data-admin-portal='true']
+    :where(
+      input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not(
+          [type='color']
+        ),
+      select,
+      textarea
+    ),
+  [data-admin-portal-layer='true']
+    :where(
+      input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not(
+          [type='color']
+        ),
+      select,
+      textarea
+    ) {
+    font-size: 16px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

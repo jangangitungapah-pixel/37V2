@@ -19,7 +19,9 @@ export function BookkeepingTransactionCard({ item, onSelect }) {
     <article className="sa-subcard space-y-2 p-3">
       <div className="flex items-start justify-between gap-2.5">
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-[#151515] sm:text-sm">{item.description}</p>
+          <p className="text-xs font-semibold break-words text-[#151515] sm:text-sm">
+            {item.description}
+          </p>
           <p className="mt-0.5 text-[11px] text-[#666159]">
             {item.categoryLabel} • {formatBookkeepingDateTime(item.date)}
           </p>
@@ -64,9 +66,9 @@ export function BookkeepingTransactionCard({ item, onSelect }) {
 
         <AdminButton
           variant="secondary"
-          size="xs"
+          size="sm"
           onClick={() => onSelect?.(item)}
-          className="min-h-9 shrink-0"
+          className="min-h-10 shrink-0"
         >
           <Eye className="h-3.5 w-3.5" aria-hidden="true" />
           <span>View Detail</span>

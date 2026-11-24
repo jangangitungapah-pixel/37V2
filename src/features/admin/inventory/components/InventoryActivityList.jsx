@@ -74,7 +74,7 @@ export function InventoryActivityList({
               placeholder="Cari nama barang, kode, alasan, atau pencatat..."
               value={searchQuery}
               onChange={(e) => onSearchQueryChange?.(e.target.value)}
-              className="sa-input min-h-9.5 w-full pr-3 pl-9 text-xs font-medium text-[#151515] sm:min-h-10"
+              className="sa-input min-h-10 w-full pr-3 pl-9 text-xs font-medium text-[#151515]"
             />
           </div>
 
@@ -84,13 +84,13 @@ export function InventoryActivityList({
                 type="button"
                 onClick={() => setMobileFiltersOpen((prev) => !prev)}
                 aria-expanded={showMobileFilterGrid}
-                className={`sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1 px-2.5 py-1 text-[11px] font-semibold sm:hidden ${
+                className={`sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold sm:hidden ${
                   showMobileFilterGrid
                     ? 'border-[#8BAD12]/40 bg-[#EDF8C2] text-[#243300]'
                     : 'sa-btn-secondary text-[#46433D]'
                 }`}
               >
-                <Filter className="h-3 w-3" aria-hidden="true" />
+                <Filter className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Filter</span>
                 {activeFilterCount > 0 ? (
                   <span className="rounded-full bg-[#151515] px-1.5 py-0.5 font-mono text-[9.5px] leading-none font-bold text-[#F1EEE4]">
@@ -103,9 +103,9 @@ export function InventoryActivityList({
                 <button
                   type="button"
                   onClick={onClearFilters}
-                  className="sa-control inline-flex min-h-8.5 cursor-pointer items-center gap-1 border-[#FF4B22]/25 bg-[#FFEDE8] px-2.5 py-1 text-[11px] font-semibold text-[#B92B0C]"
+                  className="sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 border-[#FF4B22]/25 bg-[#FFEDE8] px-3 py-1 text-xs font-semibold text-[#B92B0C]"
                 >
-                  <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Clear</span>
                 </button>
               ) : null}
@@ -122,7 +122,7 @@ export function InventoryActivityList({
             showMobileFilterGrid ? 'grid' : 'hidden sm:grid'
           }`}
         >
-          <div className="min-w-0">
+          <div className="col-span-2 min-w-0 min-[420px]:col-span-1">
             <label
               htmlFor="act-date-from"
               className="mb-0.5 block text-[10.5px] font-medium text-[#666159] sm:mb-1 sm:text-[11px]"
@@ -134,11 +134,11 @@ export function InventoryActivityList({
               type="date"
               value={dateFrom}
               onChange={(e) => onDateFromChange?.(e.target.value)}
-              className="sa-input min-h-9 w-full px-2 font-mono text-xs text-[#151515] sm:min-h-9.5 sm:px-2.5"
+              className="sa-input min-h-10 w-full px-2.5 font-mono text-xs text-[#151515]"
             />
           </div>
 
-          <div className="min-w-0">
+          <div className="col-span-2 min-w-0 min-[420px]:col-span-1">
             <label
               htmlFor="act-date-to"
               className="mb-0.5 block text-[10.5px] font-medium text-[#666159] sm:mb-1 sm:text-[11px]"
@@ -150,7 +150,7 @@ export function InventoryActivityList({
               type="date"
               value={dateTo}
               onChange={(e) => onDateToChange?.(e.target.value)}
-              className="sa-input min-h-9 w-full px-2 font-mono text-xs text-[#151515] sm:min-h-9.5 sm:px-2.5"
+              className="sa-input min-h-10 w-full px-2.5 font-mono text-xs text-[#151515]"
             />
           </div>
 
@@ -165,7 +165,7 @@ export function InventoryActivityList({
               id="act-item-type"
               value={itemTypeFilter}
               onChange={(e) => onItemTypeFilterChange?.(e.target.value)}
-              className="sa-input min-h-9 w-full px-2 text-xs font-medium text-[#151515] sm:min-h-9.5 sm:px-2.5"
+              className="sa-input min-h-10 w-full px-2.5 text-xs font-medium text-[#151515]"
             >
               <option value="all">All Types</option>
               {INVENTORY_ITEM_TYPE_OPTIONS.map((opt) => (
@@ -187,7 +187,7 @@ export function InventoryActivityList({
               id="act-mov-type"
               value={movementTypeFilter}
               onChange={(e) => onMovementTypeFilterChange?.(e.target.value)}
-              className="sa-input min-h-9 w-full px-2 text-xs font-medium text-[#151515] sm:min-h-9.5 sm:px-2.5"
+              className="sa-input min-h-10 w-full px-2.5 text-xs font-medium text-[#151515]"
             >
               <option value="all">All Movements</option>
               {MOVEMENT_FILTER_OPTIONS.map((opt) => (
@@ -209,7 +209,7 @@ export function InventoryActivityList({
               id="act-category"
               value={categoryFilter}
               onChange={(e) => onCategoryFilterChange?.(e.target.value)}
-              className="sa-input min-h-9 w-full px-2 text-xs font-medium text-[#151515] sm:min-h-9.5 sm:px-2.5"
+              className="sa-input min-h-10 w-full px-2.5 text-xs font-medium text-[#151515]"
             >
               <option value="all">All Categories</option>
               {INVENTORY_CATEGORIES.map((cat) => (

@@ -13,6 +13,9 @@ import {
   CLIENT_SUSPENDED_MESSAGE,
 } from '../config/client-portal-config';
 
+export const CLIENT_PASSWORD_RESET_CONFIRMATION =
+  'Jika alamat email terdaftar, tautan pengaturan ulang password telah dikirim ke kotak masuk Anda.';
+
 export function isClientRole(role) {
   return role === CLIENT_ROLE;
 }
@@ -39,68 +42,100 @@ function sanitizePhotoUrl(rawUrl = '') {
 }
 
 /**
- * Validates Firebase Authentication user & Google provider claims before Client provisioning or access.
- * Never trusts client form inputs or arbitrary profile claims.
+ * Validates Firebase Authentication user & supported Client provider claims (`google.com` or `password`)
+ * before Client provisioning or access. Never trusts arbitrary profile claims.
  */
-export async function validateGoogleFirebaseUser(firebaseUser) {
+export async function validateClientFirebaseUser(
+  firebaseUser,
+  { fallbackDisplayName = '' } = {},
+) {
   if (!firebaseUser?.uid) {
-    throw createAuthError('client/unauthenticated', 'Sesi autentikasi Google tidak ditemukan.');
+    throw createAuthError('client/unauthenticated', 'Sesi autentikasi tidak ditemukan.');
   }
 
   const providerList = Array.isArray(firebaseUser.providerData) ? firebaseUser.providerData : [];
   const hasGoogleProviderData = providerList.some(
     (entry) => entry && entry.providerId === 'google.com',
   );
+  const hasPasswordProviderData = providerList.some(
+    (entry) => entry && entry.providerId === 'password',
+  );
   const directProviderId = String(firebaseUser.providerId || '').trim();
-  const isGoogleProvider = hasGoogleProviderData || directProviderId === 'google.com';
 
-  if (!isGoogleProvider) {
-    throw createAuthError('client/invalid-provider', 'Silakan masuk menggunakan akun Google Anda.');
+  let claims = null;
+  if (typeof firebaseUser.getIdTokenResult === 'function') {
+    const tokenResult = await firebaseUser.getIdTokenResult();
+    claims = tokenResult?.claims || null;
+  }
+
+  const claimSignInProvider = String(claims?.firebase?.sign_in_provider || '').trim();
+  const inferredProvider =
+    claimSignInProvider ||
+    (hasGoogleProviderData || directProviderId === 'google.com'
+      ? 'google.com'
+      : hasPasswordProviderData || directProviderId === 'password'
+        ? 'password'
+        : '');
+
+  if (inferredProvider !== 'google.com' && inferredProvider !== 'password') {
+    throw createAuthError(
+      'client/invalid-provider',
+      'Metode masuk tidak didukung. Gunakan Google atau Email & Password.',
+    );
+  }
+
+  if (
+    claimSignInProvider &&
+    (directProviderId === 'google.com' || directProviderId === 'password') &&
+    directProviderId !== claimSignInProvider
+  ) {
+    throw createAuthError(
+      'client/invalid-provider',
+      'Metode autentikasi sesi tidak sesuai. Silakan masuk ulang.',
+    );
   }
 
   const emailNormalized = normalizeCustomerEmail(firebaseUser.email || '');
   if (!emailNormalized || !isValidCustomerEmail(emailNormalized)) {
     throw createAuthError(
       'client/missing-email',
-      'Akun Google tidak menyertakan alamat email yang valid.',
+      'Akun tidak menyertakan alamat email yang valid.',
     );
   }
 
-  if (firebaseUser.emailVerified !== true) {
+  const userVerified = firebaseUser.emailVerified === true;
+  const claimVerified = claims ? claims.email_verified === true : userVerified;
+  const emailVerified = Boolean(userVerified && claimVerified);
+
+  if (inferredProvider === 'google.com' && !emailVerified) {
     throw createAuthError(
       'client/email-unverified',
       'Alamat email Google Anda harus terverifikasi sebelum menggunakan Client Portal.',
     );
   }
 
-  if (typeof firebaseUser.getIdTokenResult === 'function') {
-    const tokenResult = await firebaseUser.getIdTokenResult();
-    const claims = tokenResult?.claims;
-    if (claims) {
-      const claimSignInProvider = claims?.firebase?.sign_in_provider;
-      if (claimSignInProvider && claimSignInProvider !== 'google.com') {
-        throw createAuthError(
-          'client/invalid-provider',
-          'Silakan masuk menggunakan metode Google Authentication.',
-        );
-      }
-      if (claims.email_verified !== true) {
-        throw createAuthError(
-          'client/email-unverified',
-          'Alamat email Google Anda harus terverifikasi sebelum menggunakan Client Portal.',
-        );
-      }
-    }
-  }
-
   return {
     uid: String(firebaseUser.uid).trim(),
     emailNormalized,
-    displayName: sanitizeDisplayName(firebaseUser.displayName, emailNormalized),
+    displayName: sanitizeDisplayName(
+      firebaseUser.displayName || fallbackDisplayName,
+      emailNormalized,
+    ),
     photoURL: sanitizePhotoUrl(firebaseUser.photoURL),
-    authProvider: 'google.com',
-    emailVerified: true,
+    authProvider: inferredProvider,
+    emailVerified,
   };
+}
+
+/**
+ * Validates Firebase Authentication user & Google provider claims before Google Client provisioning.
+ */
+export async function validateGoogleFirebaseUser(firebaseUser) {
+  const identity = await validateClientFirebaseUser(firebaseUser);
+  if (identity.authProvider !== 'google.com') {
+    throw createAuthError('client/invalid-provider', 'Silakan masuk menggunakan akun Google Anda.');
+  }
+  return identity;
 }
 
 export function normalizeClientAccountRecord(uid, raw = null) {
@@ -194,6 +229,24 @@ export function mapClientAuthErrorToMessage(error) {
     case 'auth/account-exists-with-different-credential':
     case 'auth/credential-already-in-use':
       return 'Email Google ini terhubung dengan metode masuk lain. Silakan hubungi tim 37 Music Studio.';
+    case 'auth/email-already-in-use':
+      return 'Email ini sudah terdaftar. Silakan masuk dengan password Anda atau gunakan Continue with Google.';
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Email atau password tidak sesuai. Jika akun Anda terdaftar melalui Google, gunakan tombol Continue with Google.';
+    case 'auth/invalid-email':
+    case 'client/invalid-email':
+      return 'Masukkan alamat email yang valid.';
+    case 'auth/weak-password':
+    case 'client/weak-password':
+      return 'Password minimal terdiri dari 6 karakter.';
+    case 'client/missing-name':
+      return 'Masukkan nama lengkap atau nama band Anda (minimal 2 karakter).';
+    case 'client/missing-password':
+      return 'Masukkan password Anda.';
+    case 'client/password-mismatch':
+      return 'Konfirmasi password belum sama dengan password yang dimasukkan.';
     case 'client/staff-account-blocked':
       return CLIENT_ADMIN_ACCOUNT_NOTICE;
     case 'client/email-unverified':
@@ -212,6 +265,6 @@ export function mapClientAuthErrorToMessage(error) {
     case 'firestore/permission-denied':
       return 'Akses akun tidak dapat diverifikasi saat ini. Silakan hubungi tim 37 Music Studio.';
     default:
-      return 'Tidak dapat menyelesaikan masuk dengan Google saat ini. Silakan coba lagi.';
+      return 'Tidak dapat menyelesaikan masuk ke Client Portal saat ini. Silakan coba lagi.';
   }
 }

@@ -33,7 +33,7 @@ export function PaymentWorkspaceTabs({
     <div
       role="tablist"
       aria-label="Workspace Payment and Bill"
-      className="sa-pill-track grid w-full grid-cols-1 gap-1 sm:inline-grid sm:w-auto sm:grid-cols-3"
+      className="sa-pill-track sa-scroll-x flex w-full items-center gap-1 sm:grid sm:w-auto sm:grid-cols-3"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -47,8 +47,8 @@ export function PaymentWorkspaceTabs({
             onClick={() => onTabChange(tab.id)}
             className={
               isActive
-                ? 'inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-10 sm:px-4'
-                : 'inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-2 rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:min-h-10 sm:px-4'
+                ? 'inline-flex min-h-10.5 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-4'
+                : 'inline-flex min-h-10.5 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:px-4'
             }
           >
             <Icon

@@ -78,8 +78,8 @@ export function PaymentTransactionList({
                     aria-pressed={isSelected}
                     className={
                       isSelected
-                        ? 'inline-flex min-h-8.5 w-full cursor-pointer items-center justify-center rounded-[10px] bg-white px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-9.5 sm:w-auto sm:px-3.5 sm:py-1.5'
-                        : 'inline-flex min-h-8.5 w-full cursor-pointer items-center justify-center rounded-[10px] px-2.5 py-1 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:min-h-9.5 sm:w-auto sm:px-3.5 sm:py-1.5'
+                        ? 'inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-[10px] bg-white px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:w-auto sm:px-3.5'
+                        : 'inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-[10px] px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:w-auto sm:px-3.5'
                     }
                   >
                     {opt.label}
@@ -109,14 +109,14 @@ export function PaymentTransactionList({
                   onChange={(event) => onSearchQueryChange(event.target.value)}
                   aria-label="Cari ID transaksi, no. invoice, pelanggan, atau referensi"
                   placeholder="Cari ID transaksi, no. invoice, pelanggan, atau ref..."
-                  className="sa-input h-9.5 w-full py-2 pr-9 pl-9.5 text-xs font-medium sm:h-10 sm:text-[13px]"
+                  className="sa-input h-10.5 w-full py-2 pr-10 pl-9.5 text-xs font-medium sm:text-[13px]"
                 />
                 {searchQuery ? (
                   <button
                     type="button"
                     onClick={() => onSearchQueryChange('')}
                     aria-label="Bersihkan pencarian transaksi"
-                    className="absolute top-1/2 right-1.5 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
+                    className="absolute top-1/2 right-1 inline-flex h-8.5 w-8.5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
                   >
                     <X className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
@@ -127,7 +127,7 @@ export function PaymentTransactionList({
                 type="button"
                 aria-expanded={mobileFiltersOpen}
                 onClick={() => setMobileFiltersOpen((prev) => !prev)}
-                className="sa-control sa-btn-secondary inline-flex h-9.5 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 text-xs font-semibold sm:hidden"
+                className="sa-control sa-btn-secondary inline-flex h-10.5 shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs font-semibold sm:hidden"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Filter</span>
@@ -143,9 +143,9 @@ export function PaymentTransactionList({
 
         {/* Method + Date Range (Collapsed on Mobile by Default) */}
         <div
-          className={`${mobileFiltersOpen ? 'grid' : 'hidden sm:grid'} grid-cols-1 gap-2.5 border-t border-[#151515]/[0.07] pt-3 min-[320px]:grid-cols-2 sm:pt-3.5 lg:flex lg:flex-wrap lg:items-end`}
+          className={`${mobileFiltersOpen ? 'grid' : 'hidden sm:grid'} grid-cols-1 gap-2.5 border-t border-[#151515]/[0.07] pt-3 min-[420px]:grid-cols-2 sm:pt-3.5 lg:flex lg:flex-wrap lg:items-end`}
         >
-          <div className="min-w-0 min-[320px]:col-span-2 lg:col-span-1 lg:w-44">
+          <div className="min-w-0 min-[420px]:col-span-2 lg:col-span-1 lg:w-44">
             <label
               htmlFor="tx-method-filter"
               className="mb-1 block text-xs font-medium text-[#666159]"
@@ -156,7 +156,7 @@ export function PaymentTransactionList({
               id="tx-method-filter"
               value={paymentMethod}
               onChange={(event) => onPaymentMethodChange(event.target.value)}
-              className="sa-input h-10 w-full cursor-pointer px-3 text-xs font-medium"
+              className="sa-input h-10.5 w-full cursor-pointer px-3 text-xs font-medium"
             >
               <option value="all">Semua Metode</option>
               {PAYMENT_METHOD_OPTIONS.map((m) => (
@@ -176,7 +176,7 @@ export function PaymentTransactionList({
               type="date"
               value={dateFrom}
               onChange={(event) => onDateFromChange(event.target.value)}
-              className="sa-input h-10 w-full min-w-0 px-3 font-mono text-xs font-medium"
+              className="sa-input h-10.5 w-full min-w-0 px-3 font-mono text-xs font-medium"
             />
           </div>
 
@@ -189,16 +189,16 @@ export function PaymentTransactionList({
               type="date"
               value={dateTo}
               onChange={(event) => onDateToChange(event.target.value)}
-              className="sa-input h-10 w-full min-w-0 px-3 font-mono text-xs font-medium"
+              className="sa-input h-10.5 w-full min-w-0 px-3 font-mono text-xs font-medium"
             />
           </div>
 
           {hasActiveFilters ? (
-            <div className="min-[320px]:col-span-2 lg:ml-auto">
+            <div className="min-[420px]:col-span-2 lg:ml-auto">
               <button
                 type="button"
                 onClick={onClearFilters}
-                className="sa-control sa-btn-secondary inline-flex h-10 w-full cursor-pointer items-center justify-center gap-1.5 px-3.5 text-xs font-semibold lg:w-auto"
+                className="sa-control sa-btn-secondary inline-flex h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 px-3.5 text-xs font-semibold lg:w-auto"
               >
                 <RotateCcw className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                 <span>Clear Filters</span>
@@ -281,7 +281,7 @@ export function PaymentTransactionList({
                     className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 px-3 py-2.5 transition-colors md:table-row md:p-0 ${rowBgClass}`}
                   >
                     <td className="col-start-1 row-start-1 min-w-0 md:table-cell md:px-3.5 md:py-3 md:align-middle">
-                      <p className="font-mono text-xs font-semibold whitespace-nowrap text-[#151515]">
+                      <p className="font-mono text-xs font-semibold break-words text-[#151515] md:whitespace-nowrap">
                         {formatIndonesianTimestamp(tx.receivedAt || tx.createdAt)}
                       </p>
                       <p className="mt-0.5 hidden truncate font-mono text-[10px] text-[#8B857B] sm:block md:break-all md:whitespace-normal">
@@ -293,7 +293,7 @@ export function PaymentTransactionList({
                       <button
                         type="button"
                         onClick={() => onOpenInvoice?.(tx.invoiceId)}
-                        className="block max-w-full cursor-pointer truncate text-left font-mono text-xs font-semibold text-[#151515] transition-colors hover:text-[#FF4B22]"
+                        className="block max-w-full cursor-pointer truncate py-1 text-left font-mono text-xs font-semibold text-[#151515] transition-colors hover:text-[#FF4B22]"
                       >
                         {tx.invoiceNumber || tx.invoiceId}
                       </button>
@@ -342,7 +342,7 @@ export function PaymentTransactionList({
 
                     <td className="col-start-2 row-start-1 justify-self-end md:table-cell md:px-3.5 md:py-3 md:text-right md:align-middle md:whitespace-nowrap">
                       <span
-                        className={`font-mono text-xs font-bold tabular-nums ${
+                        className={`font-mono text-xs font-bold whitespace-nowrap tabular-nums ${
                           isReversal
                             ? 'text-[#FF4B22]'
                             : isReversed
@@ -360,7 +360,7 @@ export function PaymentTransactionList({
                         type="button"
                         onClick={() => onOpenReceipt?.(tx, linkedInvoice)}
                         aria-label={`Buka receipt transaksi ${tx.id}`}
-                        className="sa-control sa-btn-secondary inline-flex h-8 cursor-pointer items-center justify-center gap-1 px-2.5 text-xs font-semibold hover:bg-[#C8F13A]"
+                        className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold hover:bg-[#C8F13A]"
                       >
                         <ReceiptText className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                         <span>Kwitansi</span>
@@ -379,7 +379,7 @@ export function PaymentTransactionList({
           <button
             type="button"
             onClick={onLoadMore}
-            className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold"
+            className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold sm:w-auto"
           >
             Muat Lebih Banyak Transaksi
           </button>

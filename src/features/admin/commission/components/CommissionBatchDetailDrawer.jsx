@@ -74,10 +74,10 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
           data-admin-portal-layer="true"
           aria-label={`Detail batch posting ${batch.id}`}
           data-commission-scoped="true"
-          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col outline-none"
+          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-xl flex-col outline-none"
         >
           {/* Sticky Header */}
-          <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-5 py-4">
+          <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3.5 sm:px-5 sm:py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <AdminStatusBadge tone="lime" icon={CheckCircle2} size="sm">
@@ -86,7 +86,7 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
                 <Dialog.Title className="mt-2 truncate text-lg font-bold tracking-tight text-[#151515] sm:text-xl">
                   {getBatchPeriodDisplay(batch)}
                 </Dialog.Title>
-                <Dialog.Description className="mt-0.5 truncate font-mono text-xs text-[#666159]">
+                <Dialog.Description className="mt-0.5 font-mono text-xs break-all text-[#666159]">
                   Batch ID: <strong className="text-[#151515]">{batch.id}</strong> •{' '}
                   {batch.bookingCount} sesi
                 </Dialog.Description>
@@ -94,7 +94,7 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
 
               <Dialog.Close
                 aria-label="Tutup detail batch komisi"
-                className="sa-control inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
               >
                 <X className="h-4.5 w-4.5" aria-hidden="true" />
               </Dialog.Close>
@@ -102,36 +102,36 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
           </div>
 
           {/* Scrollable Body */}
-          <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+          <div className="sa-safe-bottom flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
             {/* Batch Totals Summary */}
             <section className="sa-card p-4 text-xs">
               <dl className="space-y-2">
-                <div className="flex justify-between gap-2">
-                  <dt className="text-[#666159]">Waktu Posting</dt>
-                  <dd className="text-right font-mono font-medium text-[#151515]">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="shrink-0 text-[#666159]">Waktu Posting</dt>
+                  <dd className="min-w-0 text-right font-mono font-medium text-[#151515]">
                     {formatIndonesianTimestamp(batch.postedAt)}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-[#666159]">Staff Commission</dt>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="shrink-0 text-[#666159]">Staff Commission</dt>
                   <dd className="font-mono font-semibold text-[#151515] tabular-nums">
                     {formatRupiah(batch.staffCommissionTotal)}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-[#666159]">Recording Operator Fee</dt>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <dt className="shrink-0 text-[#666159]">Recording Operator Fee</dt>
                   <dd className="font-mono font-semibold text-[#151515] tabular-nums">
                     {formatRupiah(batch.recordingOperatorFeeTotal)}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-2 border-t border-[#151515]/[0.08] pt-2.5 text-sm font-bold">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-t border-[#151515]/[0.08] pt-2.5 text-sm font-bold">
                   <dt className="text-[#151515]">Total Kewajiban (Payable)</dt>
                   <dd className="font-mono text-[#FF4B22] tabular-nums">
                     {formatRupiah(batch.payableTotal)}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-2 text-[11px]">
-                  <dt className="text-[#666159]">Owner Allocation (Referensi)</dt>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[11px]">
+                  <dt className="shrink-0 text-[#666159]">Owner Allocation (Referensi)</dt>
                   <dd className="font-mono font-medium text-[#666159] tabular-nums">
                     {formatRupiah(batch.ownerAllocationReferenceTotal)}
                   </dd>
@@ -165,8 +165,10 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
                           {formatRupiah(entry.amount)}
                         </span>
                       </div>
-                      <p className="mt-1.5 font-medium text-[#151515]">{entry.description}</p>
-                      <p className="mt-0.5 font-mono text-[10.5px] text-[#8B857B]">
+                      <p className="mt-1.5 font-medium break-words text-[#151515]">
+                        {entry.description}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[10.5px] break-all text-[#8B857B]">
                         ID: {entry.id}
                       </p>
                     </div>
@@ -185,15 +187,15 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
                 <ul className="mt-3 divide-y divide-[#151515]/[0.06]">
                   {postingItems.map((item) => (
                     <li key={item.id} className="py-2.5 text-xs first:pt-0 last:pb-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-[#151515]">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold break-words text-[#151515]">
                             {item.customerSnapshot?.name}
                             {item.customerSnapshot?.bandName
                               ? ` (${item.customerSnapshot.bandName})`
                               : ''}
                           </p>
-                          <p className="mt-0.5 font-mono text-[10.5px] text-[#666159]">
+                          <p className="mt-0.5 font-mono text-[10.5px] break-words text-[#666159]">
                             {item.bookingId} • {item.serviceSnapshot?.serviceTypeName} (
                             {item.serviceSnapshot?.serviceOptionName})
                           </p>

@@ -7,7 +7,9 @@ export function StudioProfileSaveBar({ isDirty, isSaving, onDiscard }) {
     <AdminSurface
       variant={isDirty ? 'card' : 'subcard'}
       className={
-        isDirty ? 'sticky bottom-3 z-20 border-[#151515]/25 p-3.5 shadow-lg sm:p-4' : 'p-3.5 sm:p-4'
+        isDirty
+          ? 'sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 border-[#151515]/25 p-3.5 shadow-lg sm:p-4 lg:bottom-3'
+          : 'p-3.5 sm:p-4'
       }
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -17,21 +19,21 @@ export function StudioProfileSaveBar({ isDirty, isSaving, onDiscard }) {
               ? 'Ada perubahan profil studio yang belum disimpan'
               : 'Semua perubahan profil studio sudah sinkron'}
           </p>
-          <p className="mt-0.5 text-[11px] text-[#666159]">
+          <p className="mt-0.5 hidden text-[11px] text-[#666159] sm:block">
             {isDirty
               ? 'Klik Simpan Profil untuk menulis pembaruan ke Firestore.'
               : 'Ubah salah satu kolom di atas untuk mengaktifkan penyimpanan.'}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+        <div className="flex flex-col-reverse gap-2 min-[420px]:flex-row sm:shrink-0">
           <AdminButton
             type="button"
             variant="secondary"
             size="sm"
             onClick={onDiscard}
             disabled={!isDirty || isSaving}
-            className="flex-1 sm:flex-none"
+            className="min-h-10.5 w-full min-[420px]:flex-1 sm:w-auto sm:flex-none"
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Batalkan Perubahan</span>
@@ -42,7 +44,7 @@ export function StudioProfileSaveBar({ isDirty, isSaving, onDiscard }) {
             variant="primary"
             size="sm"
             disabled={!isDirty || isSaving}
-            className="flex-1 sm:flex-none"
+            className="min-h-10.5 w-full min-[420px]:flex-1 sm:w-auto sm:flex-none"
           >
             {isSaving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-[#C8F13A]" aria-hidden="true" />

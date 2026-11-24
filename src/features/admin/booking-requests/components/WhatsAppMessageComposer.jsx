@@ -299,7 +299,7 @@ export function WhatsAppMessageComposer({
                 key={`${slot.studioId}-${slot.startMinute}-${idx}`}
                 type="button"
                 onClick={() => handleInsertAlternativeSlot(slot)}
-                className="cursor-pointer rounded-lg border border-[#151515]/15 bg-[#EDF8C2]/70 px-2.5 py-1 font-mono text-[11px] font-semibold text-[#243300] hover:bg-[#C8F13A]"
+                className="inline-flex min-h-9 cursor-pointer items-center rounded-lg border border-[#151515]/15 bg-[#EDF8C2]/70 px-2.5 py-1.5 font-mono text-[11px] font-semibold text-[#243300] hover:bg-[#C8F13A]"
               >
                 + {slot.label}
               </button>
@@ -350,7 +350,7 @@ export function WhatsAppMessageComposer({
             <button
               type="button"
               onClick={() => setCustomBodyOverride(null)}
-              className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-semibold text-[#46433D] hover:underline"
+              className="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-[#46433D] hover:underline"
             >
               <RotateCcw className="h-3 w-3" aria-hidden="true" />
               <span>Reset ke template</span>
@@ -426,7 +426,7 @@ export function WhatsAppMessageComposer({
           <StickyNote className="h-3.5 w-3.5" aria-hidden="true" />
           <span>Catatan Internal Staff (Tidak Dikirim ke Customer)</span>
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input
             id="request-staff-note-input"
             type="text"
@@ -434,13 +434,14 @@ export function WhatsAppMessageComposer({
             value={staffNoteText}
             onChange={(e) => setStaffNoteText(e.target.value)}
             placeholder="Catat hasil telepon/WhatsApp atau detail tambahan..."
-            className="sa-input min-h-9 flex-1 rounded-xl px-3 py-1.5 text-xs"
+            className="sa-input min-h-10.5 flex-1 rounded-xl px-3 py-2 text-xs"
           />
           <AdminButton
             type="submit"
             variant="secondary"
             size="sm"
             disabled={isSavingNote || staffNoteText.trim().length < 3}
+            className="min-h-10.5 w-full shrink-0 sm:w-auto"
           >
             {isSavingNote ? 'Menyimpan...' : 'Simpan Catatan'}
           </AdminButton>

@@ -12,9 +12,9 @@ const VARIANT_STYLES = {
 };
 
 const SIZE_STYLES = {
-  xs: 'min-h-8 px-2.5 py-1 text-xs gap-1.5',
-  sm: 'min-h-9 px-3 py-1.5 text-xs gap-1.5',
-  md: 'min-h-10 px-4 py-2 text-xs sm:text-[13px] gap-2',
+  xs: 'min-h-9 sm:min-h-8 px-2.5 py-1 text-xs gap-1.5',
+  sm: 'min-h-10 sm:min-h-9 px-3 py-1.5 text-xs gap-1.5',
+  md: 'min-h-11 sm:min-h-10 px-4 py-2 text-xs sm:text-[13px] gap-2',
   lg: 'min-h-11 px-5 py-2.5 text-sm gap-2',
 };
 

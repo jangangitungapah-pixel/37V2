@@ -78,16 +78,21 @@ export function BookkeepingPayablesList({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <button
             type="button"
             onClick={() => setShowSettled((prev) => !prev)}
-            className="sa-control min-h-9 cursor-pointer bg-white px-3 py-1.5 text-xs font-medium text-[#46433D] hover:text-[#151515]"
+            className="sa-control inline-flex min-h-10 w-full cursor-pointer items-center justify-center bg-white px-3 py-1.5 text-xs font-medium text-[#46433D] hover:text-[#151515] sm:w-auto"
           >
             {showSettled ? 'Sembunyikan yang Lunas' : 'Tampilkan yang Sudah Lunas'}
           </button>
 
-          <AdminButton variant="secondary" size="sm" onClick={handleExportPayables}>
+          <AdminButton
+            variant="secondary"
+            size="sm"
+            onClick={handleExportPayables}
+            className="min-h-10 w-full justify-center sm:w-auto"
+          >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Export Payables CSV</span>
           </AdminButton>
@@ -277,7 +282,12 @@ export function BookkeepingPayablesList({
 
           {hasMorePayables ? (
             <div className="flex justify-center pt-2">
-              <AdminButton variant="secondary" size="sm" onClick={onLoadMorePayables}>
+              <AdminButton
+                variant="secondary"
+                size="sm"
+                onClick={onLoadMorePayables}
+                className="min-h-10"
+              >
                 Muat Lebih Banyak Kewajiban
               </AdminButton>
             </div>

@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,6 +10,9 @@ const authMockState = vi.hoisted(() => ({
   signInWithRedirect: vi.fn(),
   getRedirectResult: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
+  createUserWithEmailAndPassword: vi.fn(),
+  updateProfile: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
   signOut: vi.fn(),
   staffLookup: null,
 }));
@@ -43,6 +47,10 @@ vi.mock('firebase/auth', () => {
     signInWithRedirect: (...args) => authMockState.signInWithRedirect(...args),
     getRedirectResult: (...args) => authMockState.getRedirectResult(...args),
     signInWithEmailAndPassword: (...args) => authMockState.signInWithEmailAndPassword(...args),
+    createUserWithEmailAndPassword: (...args) =>
+      authMockState.createUserWithEmailAndPassword(...args),
+    updateProfile: (...args) => authMockState.updateProfile(...args),
+    sendPasswordResetEmail: (...args) => authMockState.sendPasswordResetEmail(...args),
     signOut: (...args) => authMockState.signOut(...args),
     onAuthStateChanged: (_auth, callback) => {
       authMockState.listeners.add(callback);
@@ -125,6 +133,33 @@ import {
   setClientPortalRepositoryAdapter,
 } from './repositories/client-portal-repository';
 import { resolveOrProvisionClientAccount } from './services/client-auth-service';
+import { CLIENT_PASSWORD_RESET_CONFIRMATION } from './utils/client-auth-helpers';
+
+function makeMockPasswordUser({
+  uid = 'password-uid-1',
+  email = 'manual@gmail.com',
+  displayName = '',
+  emailVerified = false,
+  claimProviderId = 'password',
+} = {}) {
+  return {
+    uid,
+    email,
+    displayName,
+    photoURL: '',
+    emailVerified,
+    providerId: 'password',
+    providerData: [{ providerId: 'password' }],
+    getIdTokenResult: async () => ({
+      claims: {
+        email_verified: emailVerified,
+        firebase: {
+          sign_in_provider: claimProviderId,
+        },
+      },
+    }),
+  };
+}
 
 function makeMockGoogleUser({
   uid = 'google-uid-1',
@@ -231,8 +266,13 @@ describe('Client Portal Phase 1 — Google Auth, Instant Provisioning & Security
     authMockState.signInWithRedirect.mockReset();
     authMockState.getRedirectResult.mockReset();
     authMockState.signInWithEmailAndPassword.mockReset();
+    authMockState.createUserWithEmailAndPassword.mockReset();
+    authMockState.updateProfile.mockReset();
+    authMockState.sendPasswordResetEmail.mockReset();
     authMockState.signOut.mockReset();
 
+    authMockState.updateProfile.mockResolvedValue(undefined);
+    authMockState.sendPasswordResetEmail.mockResolvedValue(undefined);
     authMockState.getRedirectResult.mockResolvedValue(null);
     authMockState.signOut.mockImplementation(async () => {
       emitFirebaseUser(null);
@@ -718,5 +758,269 @@ describe('Client Portal Phase 1 — Google Auth, Instant Provisioning & Security
     fireEvent.click(headerLoginLink);
 
     expect(await screen.findByTestId('client-login-page')).toBeTruthy();
+  });
+
+  it('registers a manual Email & Password client cleanly into an instant isolated profile and renders accurate My Profile metadata', async () => {
+    const user = userEvent.setup();
+
+    authMockState.createUserWithEmailAndPassword.mockImplementation(async (_auth, email) => {
+      const created = makeMockPasswordUser({
+        uid: 'client-pw-signup-1',
+        email,
+        displayName: '',
+        emailVerified: false,
+      });
+      emitFirebaseUser(created);
+      return { user: created };
+    });
+    authMockState.updateProfile.mockImplementation(async (firebaseUser, patch) => {
+      firebaseUser.displayName = patch.displayName;
+    });
+
+    renderPortalRouter({ initialEntries: ['/portal/login'] });
+
+    await user.click(await screen.findByTestId('client-auth-tab-signup'));
+    await user.type(screen.getByTestId('client-signup-name-input'), 'Raka Band Manual');
+    await user.type(screen.getByTestId('client-auth-email-input'), 'Raka.Manual@Gmail.com');
+    await user.type(screen.getByTestId('client-auth-password-input'), 'secret123');
+    await user.type(screen.getByTestId('client-signup-confirm-password-input'), 'secret123');
+    await user.click(screen.getByTestId('client-email-submit-button'));
+
+    expect(await screen.findByTestId('client-portal-home')).toBeTruthy();
+    expect(screen.getByText(/Welcome back, Raka Band Manual/i)).toBeTruthy();
+    expect(authMockState.createUserWithEmailAndPassword).toHaveBeenCalledWith(
+      authMockState.auth,
+      'raka.manual@gmail.com',
+      'secret123',
+    );
+    expect(authMockState.updateProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'client-pw-signup-1' }),
+      { displayName: 'Raka Band Manual' },
+    );
+
+    const state = clientAdapter._inspectState();
+    const acct = state.clientAccounts.get('client-pw-signup-1');
+    expect(acct).toMatchObject({
+      uid: 'client-pw-signup-1',
+      role: 'client',
+      status: CLIENT_ACCOUNT_STATUS.ACTIVE,
+      profileSource: CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE,
+      customerId: 'client_client-pw-signup-1',
+      emailNormalized: 'raka.manual@gmail.com',
+      authProvider: 'password',
+      emailVerified: false,
+    });
+    cleanup();
+
+    // Verify My Profile accurately reflects Email & Password + Unverified status
+    renderPortalRouter({ initialEntries: ['/portal/profile'] });
+    expect(await screen.findByTestId('client-profile-page')).toBeTruthy();
+    expect(screen.getByText('Email & Password')).toBeTruthy();
+    expect(screen.getByText('Unverified')).toBeTruthy();
+  });
+
+  it('prevents manual Email & Password sign-up from hijacking an existing studio customer email', async () => {
+    const user = userEvent.setup();
+
+    const existingCustomer = await createManualCustomer({
+      actorUid: 'owner-1',
+      input: {
+        displayName: 'Existing Studio VIP',
+        phone: '081299988877',
+        email: 'vip.band@gmail.com',
+        notes: 'VIP notes',
+      },
+      adapter: customerAdapter,
+    });
+
+    authMockState.createUserWithEmailAndPassword.mockImplementation(async (_auth, email) => {
+      const created = makeMockPasswordUser({
+        uid: 'client-pw-hijack-attempt',
+        email,
+        displayName: 'Imposter Manual',
+        emailVerified: true, // even if true, password provider MUST NOT auto-link
+      });
+      emitFirebaseUser(created);
+      return { user: created };
+    });
+
+    renderPortalRouter({ initialEntries: ['/portal/login'] });
+
+    await user.click(await screen.findByTestId('client-auth-tab-signup'));
+    await user.type(screen.getByTestId('client-signup-name-input'), 'Imposter Manual');
+    await user.type(screen.getByTestId('client-auth-email-input'), 'vip.band@gmail.com');
+    await user.type(screen.getByTestId('client-auth-password-input'), 'pass1234');
+    await user.type(screen.getByTestId('client-signup-confirm-password-input'), 'pass1234');
+    await user.click(screen.getByTestId('client-email-submit-button'));
+
+    expect(await screen.findByTestId('client-portal-home')).toBeTruthy();
+
+    const state = clientAdapter._inspectState();
+    const acct = state.clientAccounts.get('client-pw-hijack-attempt');
+    expect(acct.profileSource).toBe(CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE);
+    expect(acct.customerId).toBe('client_client-pw-hijack-attempt');
+    expect(acct.customerId).not.toBe(existingCustomer.id);
+    expect(state.clientCustomerLinks.get(existingCustomer.id)).toBeUndefined();
+  });
+
+  it('validates sign-up/sign-in inputs, handles Firebase email/password errors, signs in existing password users, and blocks staff/suspended users', async () => {
+    const user = userEvent.setup();
+
+    renderPortalRouter({ initialEntries: ['/portal/login'] });
+
+    // 1. Client-side validation on Sign-Up: weak password & mismatch confirm password
+    await user.click(await screen.findByTestId('client-auth-tab-signup'));
+    await user.type(screen.getByTestId('client-signup-name-input'), 'Test Band');
+    await user.type(screen.getByTestId('client-auth-email-input'), 'testband@gmail.com');
+    await user.type(screen.getByTestId('client-auth-password-input'), '123');
+    await user.type(screen.getByTestId('client-signup-confirm-password-input'), '123');
+    await user.click(screen.getByTestId('client-email-submit-button'));
+    expect((await screen.findByTestId('client-login-error-alert')).textContent).toMatch(
+      /minimal.*6 karakter/i,
+    );
+
+    await user.clear(screen.getByTestId('client-auth-password-input'));
+    await user.type(screen.getByTestId('client-auth-password-input'), 'secret123');
+    await user.clear(screen.getByTestId('client-signup-confirm-password-input'));
+    await user.type(screen.getByTestId('client-signup-confirm-password-input'), 'different123');
+    await user.click(screen.getByTestId('client-email-submit-button'));
+    expect((await screen.findByTestId('client-login-error-alert')).textContent).toMatch(
+      /belum sama/i,
+    );
+
+    // 2. Duplicate email error from Firebase
+    authMockState.createUserWithEmailAndPassword.mockRejectedValueOnce({
+      code: 'auth/email-already-in-use',
+    });
+    await user.clear(screen.getByTestId('client-signup-confirm-password-input'));
+    await user.type(screen.getByTestId('client-signup-confirm-password-input'), 'secret123');
+    await user.click(screen.getByTestId('client-email-submit-button'));
+    expect((await screen.findByTestId('client-login-error-alert')).textContent).toMatch(
+      /sudah terdaftar/i,
+    );
+
+    // 3. Switch to Sign-In -> wrong credential error -> then Staff credential blocked -> then valid password login succeeds
+    await user.click(screen.getByTestId('client-auth-tab-signin'));
+    authMockState.signInWithEmailAndPassword.mockRejectedValueOnce({
+      code: 'auth/invalid-credential',
+    });
+    await user.type(screen.getByTestId('client-auth-password-input'), 'wrongpass');
+    await user.click(screen.getByTestId('client-email-submit-button'));
+    expect((await screen.findByTestId('client-login-error-alert')).textContent).toMatch(
+      /Email atau password tidak sesuai/i,
+    );
+
+    // Staff account entering email/password on /portal/login MUST be blocked and signed out
+    clientAdapter._seedStaffProfile('staff-pw-uid', {
+      displayName: 'Studio Staff',
+      email: 'staff@37studio.id',
+      role: 'staff',
+      active: true,
+    });
+    authMockState.signInWithEmailAndPassword.mockImplementationOnce(async () => {
+      const staffUser = makeMockPasswordUser({
+        uid: 'staff-pw-uid',
+        email: 'staff@37studio.id',
+        displayName: 'Studio Staff',
+        emailVerified: true,
+      });
+      authMockState.auth.currentUser = staffUser;
+      return { user: staffUser };
+    });
+    await user.clear(screen.getByTestId('client-auth-email-input'));
+    await user.type(screen.getByTestId('client-auth-email-input'), 'staff@37studio.id');
+    await user.clear(screen.getByTestId('client-auth-password-input'));
+    await user.type(screen.getByTestId('client-auth-password-input'), 'staffpass123');
+    await user.click(screen.getByTestId('client-email-submit-button'));
+    expect((await screen.findByTestId('client-login-error-alert')).textContent).toContain(
+      CLIENT_ADMIN_ACCOUNT_NOTICE,
+    );
+    expect(authMockState.signOut).toHaveBeenCalled();
+
+    // Suspended client blocked
+    const suspendedPwUser = makeMockPasswordUser({
+      uid: 'client-pw-suspended',
+      email: 'susp@gmail.com',
+      displayName: 'Suspended User',
+    });
+    clientAdapter._seedClientProfile('client_client-pw-suspended', {
+      customerId: 'client_client-pw-suspended',
+      ownerUid: 'client-pw-suspended',
+      profileSource: CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE,
+      displayName: 'Suspended User',
+      emailNormalized: 'susp@gmail.com',
+      status: 'active',
+    });
+    clientAdapter._seedClientCustomerLink('client_client-pw-suspended', {
+      customerId: 'client_client-pw-suspended',
+      ownerUid: 'client-pw-suspended',
+      emailNormalized: 'susp@gmail.com',
+      profileSource: CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE,
+    });
+    clientAdapter._seedClientAccount('client-pw-suspended', {
+      uid: 'client-pw-suspended',
+      role: 'client',
+      status: CLIENT_ACCOUNT_STATUS.SUSPENDED,
+      customerId: 'client_client-pw-suspended',
+      profileSource: CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE,
+      emailNormalized: 'susp@gmail.com',
+      displayName: 'Suspended User',
+      authProvider: 'password',
+      emailVerified: false,
+    });
+    authMockState.signInWithEmailAndPassword.mockImplementationOnce(async () => ({
+      user: suspendedPwUser,
+    }));
+    await user.clear(screen.getByTestId('client-auth-email-input'));
+    await user.type(screen.getByTestId('client-auth-email-input'), 'susp@gmail.com');
+    await user.click(screen.getByTestId('client-email-submit-button'));
+    expect((await screen.findByTestId('client-login-error-alert')).textContent).toContain(
+      CLIENT_SUSPENDED_MESSAGE,
+    );
+
+    // Valid existing active password client signs in cleanly to /portal
+    const activePwUser = makeMockPasswordUser({
+      uid: 'client-pw-active-1',
+      email: 'activepw@gmail.com',
+      displayName: 'Active Manual Band',
+    });
+    authMockState.signInWithEmailAndPassword.mockImplementationOnce(async () => {
+      emitFirebaseUser(activePwUser);
+      return { user: activePwUser };
+    });
+    await user.clear(screen.getByTestId('client-auth-email-input'));
+    await user.type(screen.getByTestId('client-auth-email-input'), 'activepw@gmail.com');
+    await user.click(screen.getByTestId('client-email-submit-button'));
+    expect(await screen.findByTestId('client-portal-home')).toBeTruthy();
+    expect(screen.getByText(/Welcome back, Active Manual Band/i)).toBeTruthy();
+  });
+
+  it('supports Forgot Password reset flow without disclosing whether an email exists', async () => {
+    const user = userEvent.setup();
+
+    authMockState.sendPasswordResetEmail.mockRejectedValueOnce({ code: 'auth/user-not-found' });
+
+    renderPortalRouter({ initialEntries: ['/portal/login'] });
+
+    await user.type(await screen.findByTestId('client-auth-email-input'), 'forgot.client@gmail.com');
+    await user.click(screen.getByTestId('client-forgot-password-trigger'));
+
+    const resetForm = await screen.findByTestId('client-reset-password-form');
+    expect(within(resetForm).getByTestId('client-reset-email-input').value).toBe(
+      'forgot.client@gmail.com',
+    );
+
+    await user.click(screen.getByTestId('client-reset-submit-button'));
+
+    expect(authMockState.sendPasswordResetEmail).toHaveBeenCalledWith(
+      authMockState.auth,
+      'forgot.client@gmail.com',
+    );
+    expect((await screen.findByTestId('client-reset-success-alert')).textContent).toContain(
+      CLIENT_PASSWORD_RESET_CONFIRMATION,
+    );
+
+    await user.click(screen.getByTestId('client-back-to-signin-button'));
+    expect(await screen.findByTestId('client-email-auth-form')).toBeTruthy();
   });
 });

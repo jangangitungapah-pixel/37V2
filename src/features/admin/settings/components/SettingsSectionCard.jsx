@@ -12,8 +12,8 @@ export function SettingsStatusToggle({ isActive, label, onToggle, disabled = fal
       aria-label={`Toggle status ${label}`}
       className={
         isActive
-          ? 'sa-control inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-[#8BAD12]/40 bg-[#EDF8C2] px-3 py-1 text-xs font-semibold text-[#243300] disabled:cursor-not-allowed disabled:opacity-55'
-          : 'sa-control inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-[#151515]/12 bg-[#151515]/[0.04] px-3 py-1 text-xs font-medium text-[#666159] disabled:cursor-not-allowed disabled:opacity-55'
+          ? 'sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border-[#8BAD12]/40 bg-[#EDF8C2] px-3 py-1 text-xs font-semibold text-[#243300] disabled:cursor-not-allowed disabled:opacity-55'
+          : 'sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border-[#151515]/12 bg-[#151515]/[0.04] px-3 py-1 text-xs font-medium text-[#666159] disabled:cursor-not-allowed disabled:opacity-55'
       }
     >
       <span
@@ -44,7 +44,7 @@ export function SettingsItemActions({
         disabled={isEditDisabled}
         onClick={onEdit}
         aria-label={`Edit ${itemName}`}
-        className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+        className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Pencil className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
         <span>Edit</span>
@@ -56,7 +56,7 @@ export function SettingsItemActions({
         disabled={isDeleteDisabled}
         title={deleteTitle || `Delete ${itemName}`}
         aria-label={`Delete ${itemName}`}
-        className="sa-control inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[#FF4B22]/20 bg-[#FFEDE8]/80 px-3 py-1.5 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+        className="sa-control inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-[10px] border border-[#FF4B22]/20 bg-[#FFEDE8]/80 px-3 py-1.5 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
         <span>Delete</span>

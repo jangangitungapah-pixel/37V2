@@ -110,7 +110,7 @@ export function AdminMetricCard({
         className={cn(
           'min-w-0 font-mono font-bold tracking-tight break-words tabular-nums',
           compactMobile
-            ? 'mt-1 text-base min-[375px]:text-[17px] sm:mt-2 sm:text-xl'
+            ? 'mt-1 text-[15px] min-[375px]:text-[17px] sm:mt-2 sm:text-xl'
             : 'mt-2 text-lg sm:text-xl',
           styles.value,
           valueClassName,

@@ -131,7 +131,7 @@ export function BookkeepingEntryDetailDrawer({
         <Dialog.Popup
           data-admin-portal-layer="true"
           aria-label={`Detail transaksi ${item.description}`}
-          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-xl flex-col outline-none"
+          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-xl flex-col outline-none"
         >
           {/* Sticky Header */}
           <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3.5 sm:px-5 sm:py-4">
@@ -149,27 +149,27 @@ export function BookkeepingEntryDetailDrawer({
                   </AdminStatusBadge>
                 </div>
 
-                <Dialog.Title className="mt-2 text-base font-bold text-[#151515] sm:text-lg">
+                <Dialog.Title className="mt-2 text-base font-bold break-words text-[#151515] sm:text-lg">
                   {item.description}
                 </Dialog.Title>
-                <Dialog.Description className="mt-0.5 font-mono text-[11px] text-[#666159]">
+                <Dialog.Description className="mt-0.5 font-mono text-[11px] break-all text-[#666159]">
                   ID: {item.recordId} • {item.recordCollection}
                 </Dialog.Description>
               </div>
 
               <Dialog.Close
                 aria-label="Tutup detail transaksi"
-                className="sa-control inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-[#FAF8F3] text-[#46433D] hover:text-[#151515]"
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-[#FAF8F3] text-[#46433D] hover:text-[#151515]"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                <X className="h-4.5 w-4.5" aria-hidden="true" />
               </Dialog.Close>
             </div>
           </div>
 
           {/* Scrollable Body */}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+          <div className="sa-safe-bottom min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
             {/* Core Amount Card */}
-            <div className="sa-panel-ivory flex items-center justify-between gap-3 p-4">
+            <div className="sa-panel-ivory flex flex-col items-stretch justify-between gap-3 p-4 min-[400px]:flex-row min-[400px]:items-center">
               <div>
                 <p className="text-[11px] font-semibold text-[#666159] uppercase">
                   Nominal Tercatat
@@ -188,6 +188,7 @@ export function BookkeepingEntryDetailDrawer({
                   variant="orange"
                   size="sm"
                   onClick={() => onOpenSettleDialog(entryObj)}
+                  className="min-h-10 w-full justify-center min-[400px]:w-auto"
                 >
                   <Banknote className="h-4 w-4" aria-hidden="true" />
                   <span>Settle Payment</span>
@@ -196,7 +197,7 @@ export function BookkeepingEntryDetailDrawer({
             </div>
 
             {/* Metadata Grid */}
-            <div className="sa-subcard grid grid-cols-2 gap-3 p-3.5 text-xs">
+            <div className="sa-subcard grid grid-cols-1 gap-3 p-3.5 text-xs min-[380px]:grid-cols-2">
               <div>
                 <span className="text-[11px] text-[#666159]">Category</span>
                 <p className="mt-0.5 font-semibold text-[#151515]">{item.categoryLabel}</p>
@@ -291,7 +292,7 @@ export function BookkeepingEntryDetailDrawer({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 rounded-xl bg-[#F8F6EF] p-2.5 text-[11px]">
+                <div className="grid grid-cols-1 gap-2 rounded-xl bg-[#F8F6EF] p-2.5 text-[11px] min-[400px]:grid-cols-3">
                   <div>
                     <span className="text-[#666159]">Original</span>
                     <p className="font-mono font-bold text-[#151515] tabular-nums">
@@ -321,19 +322,19 @@ export function BookkeepingEntryDetailDrawer({
                     {entrySettlements.map((s) => (
                       <li
                         key={s.id}
-                        className="flex items-center justify-between gap-2 py-2 text-xs"
+                        className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-semibold text-[#151515]">
                             {getBookkeepingPaymentMethodLabel(s.paymentMethod)} •{' '}
                             {formatBookkeepingDateTime(s.paidAt)}
                           </p>
-                          <p className="font-mono text-[10.5px] text-[#666159]">
+                          <p className="font-mono text-[10.5px] break-all text-[#666159]">
                             {s.referenceNumber ? `Ref: ${s.referenceNumber} • ` : ''}
                             {s.notes || s.id}
                           </p>
                         </div>
-                        <span className="font-mono font-bold text-[#B92B0C] tabular-nums">
+                        <span className="shrink-0 font-mono font-bold text-[#B92B0C] tabular-nums">
                           {formatBookkeepingRupiah(s.amount)}
                         </span>
                       </li>
@@ -346,8 +347,8 @@ export function BookkeepingEntryDetailDrawer({
             {/* Owner-only Reversal / Correction Workflow (Unsettled Manual Entries Only) */}
             {canReverseManual ? (
               <div className="sa-subcard space-y-2.5 p-3.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <h4 className="text-xs font-bold text-[#151515]">
                       Koreksi / Reversal Catatan Manual
                     </h4>
@@ -359,8 +360,9 @@ export function BookkeepingEntryDetailDrawer({
                   {!reversalOpen ? (
                     <AdminButton
                       variant="secondary"
-                      size="xs"
+                      size="sm"
                       onClick={() => setReversalOpen(true)}
+                      className="min-h-10 shrink-0"
                     >
                       <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Koreksi</span>
@@ -394,16 +396,23 @@ export function BookkeepingEntryDetailDrawer({
                       />
                     </label>
 
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-col-reverse gap-2 min-[380px]:flex-row min-[380px]:justify-end">
                       <AdminButton
                         variant="secondary"
-                        size="xs"
+                        size="sm"
                         disabled={isReversing}
                         onClick={() => setReversalOpen(false)}
+                        className="min-h-10 flex-1 min-[380px]:flex-initial"
                       >
                         Batal
                       </AdminButton>
-                      <AdminButton type="submit" variant="danger" size="xs" disabled={isReversing}>
+                      <AdminButton
+                        type="submit"
+                        variant="danger"
+                        size="sm"
+                        disabled={isReversing}
+                        className="min-h-10 flex-1 min-[380px]:flex-initial"
+                      >
                         {isReversing ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                         ) : null}

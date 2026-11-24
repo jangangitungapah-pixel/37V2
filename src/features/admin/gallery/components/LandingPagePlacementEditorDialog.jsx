@@ -117,17 +117,23 @@ export function LandingPagePlacementEditorDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/65 backdrop-blur-[1px]" />
-        <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
-          <Dialog.Popup className="sa-card max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-white p-4 sm:rounded-2xl sm:p-6">
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-50"
+        />
+        <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <Dialog.Popup
+            data-admin-portal-layer="true"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none bg-white p-0 outline-none sm:rounded-2xl"
+          >
             {def ? (
-              <div>
-                <div className="flex items-start justify-between gap-3 border-b border-[#151515]/10 pb-3">
-                  <div>
+              <>
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/8 bg-white px-4 py-3.5 sm:px-6 sm:py-4">
+                  <div className="min-w-0">
                     <p className="font-mono text-[10px] font-semibold tracking-wider text-[#756F65] uppercase">
                       {def.sectionLabel}
                     </p>
-                    <Dialog.Title className="text-lg font-bold text-[#151515]">
+                    <Dialog.Title className="text-lg font-bold wrap-break-word text-[#151515]">
                       {def.label}
                     </Dialog.Title>
                     <Dialog.Description className="text-xs text-[#666159]">
@@ -137,284 +143,294 @@ export function LandingPagePlacementEditorDialog({
 
                   <Dialog.Close
                     aria-label="Tutup editor penempatan"
-                    className="sa-control sa-btn-secondary inline-flex h-8.5 w-8.5 shrink-0 cursor-pointer items-center justify-center rounded-full"
+                    className="sa-control sa-btn-secondary inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </Dialog.Close>
                 </div>
 
-                <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
-                  {submitError ? (
-                    <div
-                      role="alert"
-                      className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs font-medium text-red-800"
-                    >
-                      {submitError}
-                    </div>
-                  ) : null}
-
-                  {/* Selected Photo Preview & Change Action */}
-                  <div className="space-y-2 rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-[#151515]">Foto Terpilih</span>
-                      <AdminButton
-                        type="button"
-                        variant="secondary"
-                        size="xs"
-                        onClick={onOpenPhotoPicker}
-                        disabled={isSaving}
+                <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-1 flex-col">
+                  <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+                    {submitError ? (
+                      <div
+                        role="alert"
+                        className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs font-medium text-red-800"
                       >
-                        <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>Pilih Foto Lain</span>
-                      </AdminButton>
+                        {submitError}
+                      </div>
+                    ) : null}
+
+                    {/* Selected Photo Preview & Change Action */}
+                    <div className="space-y-2 rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-[#151515]">Foto Terpilih</span>
+                        <AdminButton
+                          type="button"
+                          variant="secondary"
+                          size="xs"
+                          onClick={onOpenPhotoPicker}
+                          disabled={isSaving}
+                          className="min-h-9.5"
+                        >
+                          <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>Pilih Foto Lain</span>
+                        </AdminButton>
+                      </div>
+
+                      <div className="overflow-hidden rounded-lg border border-[#151515]/10 bg-[#151515]">
+                        <StudioImage
+                          src={activePhoto?.thumbnailUrl || activePhoto?.secureUrl || ''}
+                          alt={altText || def.defaultAltText}
+                          width={activePhoto?.width || 960}
+                          height={activePhoto?.height || 640}
+                          fallbackLabel="Belum ada foto dipilih"
+                          className={`${def.aspectClass} max-h-48 w-full`}
+                        />
+                      </div>
                     </div>
 
-                    <div className="overflow-hidden rounded-lg border border-[#151515]/10 bg-[#151515]">
-                      <StudioImage
-                        src={activePhoto?.thumbnailUrl || activePhoto?.secureUrl || ''}
-                        alt={altText || def.defaultAltText}
-                        width={activePhoto?.width || 960}
-                        height={activePhoto?.height || 640}
-                        fallbackLabel="Belum ada foto dipilih"
-                        className={`${def.aspectClass} max-h-48 w-full`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Hero Copywriting Controls */}
-                  {isHero ? (
-                    <>
-                      <div>
-                        <label
-                          htmlFor="placement-hero-sticker"
-                          className="block text-xs font-semibold text-[#151515]"
-                        >
-                          Label Sticker Atas
-                        </label>
-                        <input
-                          id="placement-hero-sticker"
-                          type="text"
-                          value={topSticker}
-                          onChange={(e) => setTopSticker(e.target.value)}
-                          maxLength={LANDING_PAGE_PLACEMENT_LIMITS.stickerMax}
-                          className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="placement-hero-title"
-                          className="block text-xs font-semibold text-[#151515]"
-                        >
-                          Judul Foto Hero <span className="text-[#FF4B22]">*</span>
-                        </label>
-                        <input
-                          id="placement-hero-title"
-                          type="text"
-                          value={captionTitle}
-                          onChange={(e) => setCaptionTitle(e.target.value)}
-                          maxLength={LANDING_PAGE_PLACEMENT_LIMITS.titleMax}
-                          className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="placement-hero-subtitle"
-                          className="block text-xs font-semibold text-[#151515]"
-                        >
-                          Subjudul Foto Hero
-                        </label>
-                        <input
-                          id="placement-hero-subtitle"
-                          type="text"
-                          value={captionSubtitle}
-                          onChange={(e) => setCaptionSubtitle(e.target.value)}
-                          maxLength={LANDING_PAGE_PLACEMENT_LIMITS.subtitleMax}
-                          className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {/* Hero Copywriting Controls */}
+                    {isHero ? (
+                      <>
                         <div>
                           <label
-                            htmlFor="placement-hero-badge-title"
+                            htmlFor="placement-hero-sticker"
                             className="block text-xs font-semibold text-[#151515]"
                           >
-                            Judul Badge Melayang
+                            Label Sticker Atas
                           </label>
                           <input
-                            id="placement-hero-badge-title"
+                            id="placement-hero-sticker"
                             type="text"
-                            value={floatingBadgeTitle}
-                            onChange={(e) => setFloatingBadgeTitle(e.target.value)}
-                            maxLength={LANDING_PAGE_PLACEMENT_LIMITS.floatingTitleMax}
+                            value={topSticker}
+                            onChange={(e) => setTopSticker(e.target.value)}
+                            maxLength={LANDING_PAGE_PLACEMENT_LIMITS.stickerMax}
                             className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
                           />
                         </div>
 
                         <div>
                           <label
-                            htmlFor="placement-hero-badge-subtitle"
+                            htmlFor="placement-hero-title"
                             className="block text-xs font-semibold text-[#151515]"
                           >
-                            Subjudul Badge Melayang
+                            Judul Foto Hero <span className="text-[#FF4B22]">*</span>
                           </label>
                           <input
-                            id="placement-hero-badge-subtitle"
+                            id="placement-hero-title"
                             type="text"
-                            value={floatingBadgeSubtitle}
-                            onChange={(e) => setFloatingBadgeSubtitle(e.target.value)}
-                            maxLength={LANDING_PAGE_PLACEMENT_LIMITS.floatingSubtitleMax}
+                            value={captionTitle}
+                            onChange={(e) => setCaptionTitle(e.target.value)}
+                            maxLength={LANDING_PAGE_PLACEMENT_LIMITS.titleMax}
                             className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
                           />
                         </div>
-                      </div>
-                    </>
-                  ) : null}
 
-                  {/* Room A / Room B Copywriting Controls */}
-                  {isRoom ? (
-                    <>
+                        <div>
+                          <label
+                            htmlFor="placement-hero-subtitle"
+                            className="block text-xs font-semibold text-[#151515]"
+                          >
+                            Subjudul Foto Hero
+                          </label>
+                          <input
+                            id="placement-hero-subtitle"
+                            type="text"
+                            value={captionSubtitle}
+                            onChange={(e) => setCaptionSubtitle(e.target.value)}
+                            maxLength={LANDING_PAGE_PLACEMENT_LIMITS.subtitleMax}
+                            className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <label
+                              htmlFor="placement-hero-badge-title"
+                              className="block text-xs font-semibold text-[#151515]"
+                            >
+                              Judul Badge Melayang
+                            </label>
+                            <input
+                              id="placement-hero-badge-title"
+                              type="text"
+                              value={floatingBadgeTitle}
+                              onChange={(e) => setFloatingBadgeTitle(e.target.value)}
+                              maxLength={LANDING_PAGE_PLACEMENT_LIMITS.floatingTitleMax}
+                              className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
+                            />
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor="placement-hero-badge-subtitle"
+                              className="block text-xs font-semibold text-[#151515]"
+                            >
+                              Subjudul Badge Melayang
+                            </label>
+                            <input
+                              id="placement-hero-badge-subtitle"
+                              type="text"
+                              value={floatingBadgeSubtitle}
+                              onChange={(e) => setFloatingBadgeSubtitle(e.target.value)}
+                              maxLength={LANDING_PAGE_PLACEMENT_LIMITS.floatingSubtitleMax}
+                              className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
+
+                    {/* Room A / Room B Copywriting Controls */}
+                    {isRoom ? (
+                      <>
+                        <div>
+                          <label
+                            htmlFor="placement-room-sticker"
+                            className="block text-xs font-semibold text-[#151515]"
+                          >
+                            Label Sticker Ruangan
+                          </label>
+                          <input
+                            id="placement-room-sticker"
+                            type="text"
+                            value={sticker}
+                            onChange={(e) => setSticker(e.target.value)}
+                            maxLength={LANDING_PAGE_PLACEMENT_LIMITS.stickerMax}
+                            className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="placement-room-name"
+                            className="block text-xs font-semibold text-[#151515]"
+                          >
+                            Nama Ruangan <span className="text-[#FF4B22]">*</span>
+                          </label>
+                          <input
+                            id="placement-room-name"
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            maxLength={LANDING_PAGE_PLACEMENT_LIMITS.titleMax}
+                            className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="placement-room-capacity"
+                            className="block text-xs font-semibold text-[#151515]"
+                          >
+                            Deskripsi Singkat / Kapasitas <span className="text-[#FF4B22]">*</span>
+                          </label>
+                          <textarea
+                            id="placement-room-capacity"
+                            rows={2}
+                            value={capacityLabel}
+                            onChange={(e) => setCapacityLabel(e.target.value)}
+                            maxLength={LANDING_PAGE_PLACEMENT_LIMITS.capacityMax}
+                            className="sa-control mt-1 w-full resize-y border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="placement-room-tags"
+                            className="block text-xs font-semibold text-[#151515]"
+                          >
+                            Highlight Tags (pisahkan dengan koma){' '}
+                            <span className="text-[#FF4B22]">*</span>
+                          </label>
+                          <input
+                            id="placement-room-tags"
+                            type="text"
+                            value={tagsText}
+                            onChange={(e) => setTagsText(e.target.value)}
+                            placeholder="Full band rehearsal, Live tracking, Backline ready"
+                            className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="placement-room-cta"
+                            className="block text-xs font-semibold text-[#151515]"
+                          >
+                            Teks Tombol Booking <span className="text-[#FF4B22]">*</span>
+                          </label>
+                          <input
+                            id="placement-room-cta"
+                            type="text"
+                            value={ctaLabel}
+                            onChange={(e) => setCtaLabel(e.target.value)}
+                            maxLength={LANDING_PAGE_PLACEMENT_LIMITS.ctaLabelMax}
+                            className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
+                          />
+                        </div>
+                      </>
+                    ) : null}
+
+                    {/* Studio Exterior Copywriting Control */}
+                    {isExterior ? (
                       <div>
                         <label
-                          htmlFor="placement-room-sticker"
+                          htmlFor="placement-exterior-caption"
                           className="block text-xs font-semibold text-[#151515]"
                         >
-                          Label Sticker Ruangan
+                          Caption Foto Lokasi (Opsional)
                         </label>
                         <input
-                          id="placement-room-sticker"
+                          id="placement-exterior-caption"
                           type="text"
-                          value={sticker}
-                          onChange={(e) => setSticker(e.target.value)}
-                          maxLength={LANDING_PAGE_PLACEMENT_LIMITS.stickerMax}
+                          value={exteriorCaption}
+                          onChange={(e) => setExteriorCaption(e.target.value)}
+                          maxLength={LANDING_PAGE_PLACEMENT_LIMITS.exteriorCaptionMax}
+                          placeholder="Contoh: Tampak depan area parkir 37 Music Studio"
                           className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
                         />
                       </div>
+                    ) : null}
 
-                      <div>
-                        <label
-                          htmlFor="placement-room-name"
-                          className="block text-xs font-semibold text-[#151515]"
-                        >
-                          Nama Ruangan <span className="text-[#FF4B22]">*</span>
-                        </label>
-                        <input
-                          id="placement-room-name"
-                          type="text"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          maxLength={LANDING_PAGE_PLACEMENT_LIMITS.titleMax}
-                          className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="placement-room-capacity"
-                          className="block text-xs font-semibold text-[#151515]"
-                        >
-                          Deskripsi Singkat / Kapasitas <span className="text-[#FF4B22]">*</span>
-                        </label>
-                        <textarea
-                          id="placement-room-capacity"
-                          rows={2}
-                          value={capacityLabel}
-                          onChange={(e) => setCapacityLabel(e.target.value)}
-                          maxLength={LANDING_PAGE_PLACEMENT_LIMITS.capacityMax}
-                          className="sa-control mt-1 w-full resize-y border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="placement-room-tags"
-                          className="block text-xs font-semibold text-[#151515]"
-                        >
-                          Highlight Tags (pisahkan dengan koma){' '}
-                          <span className="text-[#FF4B22]">*</span>
-                        </label>
-                        <input
-                          id="placement-room-tags"
-                          type="text"
-                          value={tagsText}
-                          onChange={(e) => setTagsText(e.target.value)}
-                          placeholder="Full band rehearsal, Live tracking, Backline ready"
-                          className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="placement-room-cta"
-                          className="block text-xs font-semibold text-[#151515]"
-                        >
-                          Teks Tombol Booking <span className="text-[#FF4B22]">*</span>
-                        </label>
-                        <input
-                          id="placement-room-cta"
-                          type="text"
-                          value={ctaLabel}
-                          onChange={(e) => setCtaLabel(e.target.value)}
-                          maxLength={LANDING_PAGE_PLACEMENT_LIMITS.ctaLabelMax}
-                          className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
-                        />
-                      </div>
-                    </>
-                  ) : null}
-
-                  {/* Studio Exterior Copywriting Control */}
-                  {isExterior ? (
+                    {/* Accessibility Description */}
                     <div>
                       <label
-                        htmlFor="placement-exterior-caption"
+                        htmlFor="placement-alt-text"
                         className="block text-xs font-semibold text-[#151515]"
                       >
-                        Caption Foto Lokasi (Opsional)
+                        Deskripsi Foto <span className="text-[#FF4B22]">*</span>
                       </label>
                       <input
-                        id="placement-exterior-caption"
+                        id="placement-alt-text"
                         type="text"
-                        value={exteriorCaption}
-                        onChange={(e) => setExteriorCaption(e.target.value)}
-                        maxLength={LANDING_PAGE_PLACEMENT_LIMITS.exteriorCaptionMax}
-                        placeholder="Contoh: Tampak depan area parkir 37 Music Studio"
+                        value={altText}
+                        onChange={(e) => setAltText(e.target.value)}
+                        maxLength={LANDING_PAGE_PLACEMENT_LIMITS.altTextMax}
+                        placeholder="Deskripsi singkat isi foto..."
                         className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
                       />
                     </div>
-                  ) : null}
-
-                  {/* Accessibility Description */}
-                  <div>
-                    <label
-                      htmlFor="placement-alt-text"
-                      className="block text-xs font-semibold text-[#151515]"
-                    >
-                      Deskripsi Foto <span className="text-[#FF4B22]">*</span>
-                    </label>
-                    <input
-                      id="placement-alt-text"
-                      type="text"
-                      value={altText}
-                      onChange={(e) => setAltText(e.target.value)}
-                      maxLength={LANDING_PAGE_PLACEMENT_LIMITS.altTextMax}
-                      placeholder="Deskripsi singkat isi foto..."
-                      className="sa-control mt-1 min-h-10 w-full border-[#151515]/15 bg-white px-3 py-1.5 text-sm text-[#151515]"
-                    />
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#151515]/10 pt-3.5">
+                  <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/8 bg-white p-3.5 sm:flex-row sm:items-center sm:justify-end sm:px-6">
                     <AdminButton
                       type="button"
                       variant="secondary"
                       size="sm"
                       onClick={() => onOpenChange?.(false)}
                       disabled={isSaving}
+                      className="min-h-10.5 w-full sm:w-auto"
                     >
                       <span>Batal</span>
                     </AdminButton>
-                    <AdminButton type="submit" variant="primary" size="sm" disabled={isSaving}>
+                    <AdminButton
+                      type="submit"
+                      variant="primary"
+                      size="sm"
+                      disabled={isSaving}
+                      className="min-h-10.5 w-full sm:w-auto"
+                    >
                       {isSaving ? (
                         <Loader2
                           className="h-3.5 w-3.5 animate-spin text-[#C8F13A]"
@@ -427,7 +443,7 @@ export function LandingPagePlacementEditorDialog({
                     </AdminButton>
                   </div>
                 </form>
-              </div>
+              </>
             ) : null}
           </Dialog.Popup>
         </Dialog.Viewport>

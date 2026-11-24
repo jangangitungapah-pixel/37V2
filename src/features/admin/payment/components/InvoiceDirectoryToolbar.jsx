@@ -54,7 +54,7 @@ export function InvoiceDirectoryToolbar({
           <div
             role="group"
             aria-label="Filter status pembayaran invoice"
-            className="sa-pill-track flex flex-nowrap gap-1 overflow-x-auto sm:inline-flex sm:w-auto sm:flex-wrap sm:overflow-visible"
+            className="sa-pill-track sa-scroll-x flex flex-nowrap gap-1 sm:inline-flex sm:w-auto sm:flex-wrap sm:overflow-visible"
           >
             {INVOICE_PAYMENT_STATUS_OPTIONS.map((option) => {
               const isSelected = paymentStatus === option.id;
@@ -66,8 +66,8 @@ export function InvoiceDirectoryToolbar({
                   aria-pressed={isSelected}
                   className={
                     isSelected
-                      ? 'inline-flex min-h-8.5 shrink-0 cursor-pointer items-center justify-center rounded-[10px] bg-white px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-9.5 sm:px-3.5 sm:py-1.5'
-                      : 'inline-flex min-h-8.5 shrink-0 cursor-pointer items-center justify-center rounded-[10px] px-2.5 py-1 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:min-h-9.5 sm:px-3.5 sm:py-1.5'
+                      ? 'inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-3.5'
+                      : 'inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:px-3.5'
                   }
                 >
                   {option.compactLabel || option.label}
@@ -97,14 +97,14 @@ export function InvoiceDirectoryToolbar({
                 onChange={(event) => onSearchQueryChange(event.target.value)}
                 aria-label="Cari nomor invoice, pelanggan, nomor HP, atau band"
                 placeholder="Cari no. invoice, pelanggan, no. HP, atau band..."
-                className="sa-input h-9.5 w-full py-2 pr-9 pl-9.5 text-xs font-medium sm:h-10 sm:text-[13px]"
+                className="sa-input h-10.5 w-full py-2 pr-10 pl-9.5 text-xs font-medium sm:text-[13px]"
               />
               {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => onSearchQueryChange('')}
                   aria-label="Bersihkan pencarian invoice"
-                  className="absolute top-1/2 right-1.5 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
+                  className="absolute top-1/2 right-1 inline-flex h-8.5 w-8.5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -115,7 +115,7 @@ export function InvoiceDirectoryToolbar({
               type="button"
               aria-expanded={mobileFiltersOpen}
               onClick={() => setMobileFiltersOpen((prev) => !prev)}
-              className="sa-control sa-btn-secondary inline-flex h-9.5 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 text-xs font-semibold sm:hidden"
+              className="sa-control sa-btn-secondary inline-flex h-10.5 shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs font-semibold sm:hidden"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Filter</span>
@@ -131,7 +131,7 @@ export function InvoiceDirectoryToolbar({
 
       {/* Row 2: Invoice Status, Room, Date Range & Clear Filters (Collapsed on Mobile by Default) */}
       <div
-        className={`${mobileFiltersOpen ? 'grid' : 'hidden sm:grid'} grid-cols-1 gap-2.5 border-t border-[#151515]/[0.07] pt-3 min-[320px]:grid-cols-2 sm:pt-3.5 lg:flex lg:flex-wrap lg:items-end`}
+        className={`${mobileFiltersOpen ? 'grid' : 'hidden sm:grid'} grid-cols-1 gap-2.5 border-t border-[#151515]/[0.07] pt-3 min-[420px]:grid-cols-2 sm:pt-3.5 lg:flex lg:flex-wrap lg:items-end`}
       >
         <div className="min-w-0 lg:w-44">
           <label
@@ -144,7 +144,7 @@ export function InvoiceDirectoryToolbar({
             id="invoice-status-filter"
             value={invoiceStatus}
             onChange={(event) => onInvoiceStatusChange(event.target.value)}
-            className="sa-input h-10 w-full cursor-pointer px-3 text-xs font-medium"
+            className="sa-input h-10.5 w-full cursor-pointer px-3 text-xs font-medium"
           >
             {INVOICE_STATUS_OPTIONS.map((opt) => (
               <option key={opt.id} value={opt.id}>
@@ -165,7 +165,7 @@ export function InvoiceDirectoryToolbar({
             id="invoice-room-filter"
             value={studioId}
             onChange={(event) => onStudioIdChange(event.target.value)}
-            className="sa-input h-10 w-full cursor-pointer px-3 text-xs font-medium"
+            className="sa-input h-10.5 w-full cursor-pointer px-3 text-xs font-medium"
           >
             {ROOM_FILTER_OPTIONS.map((room) => (
               <option key={room.id} value={room.id}>
@@ -187,7 +187,7 @@ export function InvoiceDirectoryToolbar({
             type="date"
             value={dateFrom}
             onChange={(event) => onDateFromChange(event.target.value)}
-            className="sa-input h-10 w-full min-w-0 px-3 font-mono text-xs font-medium"
+            className="sa-input h-10.5 w-full min-w-0 px-3 font-mono text-xs font-medium"
           />
         </div>
 
@@ -203,16 +203,16 @@ export function InvoiceDirectoryToolbar({
             type="date"
             value={dateTo}
             onChange={(event) => onDateToChange(event.target.value)}
-            className="sa-input h-10 w-full min-w-0 px-3 font-mono text-xs font-medium"
+            className="sa-input h-10.5 w-full min-w-0 px-3 font-mono text-xs font-medium"
           />
         </div>
 
         {hasActiveFilters ? (
-          <div className="min-[320px]:col-span-2 lg:ml-auto">
+          <div className="min-[420px]:col-span-2 lg:ml-auto">
             <button
               type="button"
               onClick={onClearFilters}
-              className="sa-control sa-btn-secondary inline-flex h-10 w-full cursor-pointer items-center justify-center gap-1.5 px-3.5 text-xs font-semibold lg:w-auto"
+              className="sa-control sa-btn-secondary inline-flex h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 px-3.5 text-xs font-semibold lg:w-auto"
             >
               <RotateCcw className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
               <span>Clear Filters</span>

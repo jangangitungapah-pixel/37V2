@@ -83,7 +83,7 @@ export function BookkeepingTransactionTable({
               value={searchQuery}
               onChange={(e) => onSearchQueryChange?.(e.target.value)}
               placeholder="Cari deskripsi, referensi, atau nomor invoice..."
-              className="sa-input min-h-10 w-full py-2 pr-3 pl-9 text-xs text-[#151515] sm:text-[13px]"
+              className="sa-input min-h-10.5 w-full py-2 pr-3 pl-9 text-xs text-[#151515] sm:text-[13px]"
             />
           </div>
 
@@ -93,7 +93,7 @@ export function BookkeepingTransactionTable({
               size="sm"
               aria-expanded={mobileFiltersOpen}
               onClick={() => setMobileFiltersOpen((prev) => !prev)}
-              className="sm:hidden"
+              className="min-h-10.5 sm:hidden"
             >
               <Filter className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Filter</span>
@@ -105,13 +105,23 @@ export function BookkeepingTransactionTable({
             </AdminButton>
 
             {hasActiveFilters ? (
-              <AdminButton variant="ghost" size="sm" onClick={onClearFilters}>
+              <AdminButton
+                variant="ghost"
+                size="sm"
+                onClick={onClearFilters}
+                className="min-h-10.5"
+              >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Reset</span>
               </AdminButton>
             ) : null}
 
-            <AdminButton variant="secondary" size="sm" onClick={handleExportCsv}>
+            <AdminButton
+              variant="secondary"
+              size="sm"
+              onClick={handleExportCsv}
+              className="min-h-10.5"
+            >
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Export CSV</span>
             </AdminButton>
@@ -127,7 +137,7 @@ export function BookkeepingTransactionTable({
             aria-label="Filter arah transaksi"
             value={directionFilter}
             onChange={(e) => onDirectionFilterChange?.(e.target.value)}
-            className="sa-input min-h-9 px-2.5 py-1.5 text-xs text-[#151515]"
+            className="sa-input min-h-10.5 w-full px-2.5 py-1.5 text-xs text-[#151515]"
           >
             <option value="all">Semua Tipe (Income &amp; Expense)</option>
             <option value="income">Income (Masuk)</option>
@@ -138,7 +148,7 @@ export function BookkeepingTransactionTable({
             aria-label="Filter kategori transaksi"
             value={categoryFilter}
             onChange={(e) => onCategoryFilterChange?.(e.target.value)}
-            className="sa-input min-h-9 px-2.5 py-1.5 text-xs text-[#151515]"
+            className="sa-input min-h-10.5 w-full px-2.5 py-1.5 text-xs text-[#151515]"
           >
             <option value="all">Semua Kategori</option>
             {ALL_BOOKKEEPING_CATEGORIES.map((cat) => (
@@ -152,7 +162,7 @@ export function BookkeepingTransactionTable({
             aria-label="Filter sumber transaksi"
             value={sourceFilter}
             onChange={(e) => onSourceFilterChange?.(e.target.value)}
-            className="sa-input min-h-9 px-2.5 py-1.5 text-xs text-[#151515]"
+            className="sa-input min-h-10.5 w-full px-2.5 py-1.5 text-xs text-[#151515]"
           >
             <option value="all">Semua Sumber</option>
             <option value="invoice">Invoice / Customer</option>
@@ -164,7 +174,7 @@ export function BookkeepingTransactionTable({
             aria-label="Filter status transaksi"
             value={statusFilter}
             onChange={(e) => onStatusFilterChange?.(e.target.value)}
-            className="sa-input min-h-9 px-2.5 py-1.5 text-xs text-[#151515]"
+            className="sa-input min-h-10.5 w-full px-2.5 py-1.5 text-xs text-[#151515]"
           >
             <option value="all">Semua Status</option>
             <option value="recorded">Recorded</option>
@@ -179,7 +189,7 @@ export function BookkeepingTransactionTable({
             aria-label="Filter dari tanggal"
             value={dateFrom}
             onChange={(e) => onDateFromChange?.(e.target.value)}
-            className="sa-input min-h-9 px-2.5 py-1.5 font-mono text-xs text-[#151515]"
+            className="sa-input min-h-10.5 w-full px-2.5 py-1.5 font-mono text-xs text-[#151515]"
           />
 
           <input
@@ -187,7 +197,7 @@ export function BookkeepingTransactionTable({
             aria-label="Filter sampai tanggal"
             value={dateTo}
             onChange={(e) => onDateToChange?.(e.target.value)}
-            className="sa-input min-h-9 px-2.5 py-1.5 font-mono text-xs text-[#151515]"
+            className="sa-input min-h-10.5 w-full px-2.5 py-1.5 font-mono text-xs text-[#151515]"
           />
         </div>
 

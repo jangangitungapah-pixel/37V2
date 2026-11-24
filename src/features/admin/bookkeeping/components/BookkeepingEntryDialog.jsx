@@ -135,21 +135,21 @@ export function BookkeepingEntryDialog({
       <Dialog.Portal>
         <Dialog.Backdrop
           data-admin-portal-layer="true"
-          className="sa-overlay-backdrop fixed inset-0 z-50"
+          className="sa-overlay-backdrop fixed inset-0 z-[60]"
         />
 
         <div
           data-admin-portal-layer="true"
-          className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+          className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4"
         >
           <Dialog.Popup
             aria-label={isIncome ? 'Record Manual Income' : 'Record Manual Expense'}
-            className="sa-dialog flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[20px] rounded-b-none sm:rounded-[20px]"
+            className="sa-dialog flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-[20px]"
           >
             {/* Header */}
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3.5 sm:px-5 sm:py-4">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <AdminStatusBadge
                     tone={isIncome ? 'lime' : 'orange'}
                     icon={isIncome ? ArrowDownLeft : ArrowUpRight}
@@ -174,9 +174,9 @@ export function BookkeepingEntryDialog({
               <Dialog.Close
                 aria-label="Tutup form catatan manual"
                 disabled={isSubmitting}
-                className="sa-control inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-white text-[#46433D] hover:text-[#151515]"
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-white text-[#46433D] hover:text-[#151515]"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                <X className="h-4.5 w-4.5" aria-hidden="true" />
               </Dialog.Close>
             </div>
 
@@ -438,13 +438,13 @@ export function BookkeepingEntryDialog({
               </div>
 
               {/* Sticky Footer */}
-              <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:flex-row sm:justify-end sm:px-5">
+              <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:flex-row sm:justify-end sm:px-5">
                 <AdminButton
                   variant="secondary"
                   size="md"
                   onClick={handleClose}
                   disabled={isSubmitting}
-                  className="min-h-11"
+                  className="min-h-11 flex-1 sm:flex-initial"
                 >
                   Batal
                 </AdminButton>
@@ -453,7 +453,7 @@ export function BookkeepingEntryDialog({
                   variant={isIncome ? 'primary' : 'orange'}
                   size="md"
                   disabled={isSubmitting}
-                  className="min-h-11"
+                  className="min-h-11 flex-1 sm:flex-initial"
                 >
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

@@ -117,14 +117,16 @@ export function InternalFeeEditor({
               type="button"
               onClick={() => toggleRole(role.key)}
               aria-expanded={isExpanded}
-              className="flex min-h-12 w-full cursor-pointer items-center justify-between gap-2 px-3.5 py-2.5 text-left transition-colors hover:bg-white/60"
+              className="flex min-h-12 w-full cursor-pointer flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 text-left transition-colors hover:bg-white/60"
             >
-              <div className="min-w-0">
+              <div className="min-w-[140px] flex-1">
                 <span className="block text-xs font-semibold text-[#151515]">{role.label}</span>
-                <span className="block truncate text-[11px] text-[#666159]">{role.subtitle}</span>
+                <span className="block text-[11px] leading-snug text-[#666159]">
+                  {role.subtitle}
+                </span>
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-2">
                 <AdminStatusBadge
                   tone={rule.mode === FEE_MODES.NONE ? 'neutral' : 'lime'}
                   size="sm"
@@ -159,7 +161,7 @@ export function InternalFeeEditor({
                           type="button"
                           aria-pressed={isSelected}
                           onClick={() => handleModeChange(role.key, choice.id)}
-                          className={`min-h-9.5 cursor-pointer rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors ${
+                          className={`min-h-10 cursor-pointer rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors ${
                             isSelected
                               ? 'border-[#151515] bg-[#151515] text-[#C8F13A]'
                               : 'border-[#151515]/12 bg-[#FAF8F3] text-[#151515] hover:bg-white'

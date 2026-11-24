@@ -423,9 +423,9 @@ export function AdminInventoryPage() {
         actions={
           <AdminButton
             variant="orange"
-            size="xs"
+            size="sm"
             onClick={openCreateDialog}
-            className="gap-1.5 px-2.5 py-1 text-xs sm:min-h-10 sm:gap-2 sm:px-4 sm:py-2 sm:text-[13px]"
+            className="min-h-10 gap-1.5 px-3 text-xs sm:gap-2 sm:px-4 sm:text-[13px]"
           >
             <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
             <span>Add Item</span>

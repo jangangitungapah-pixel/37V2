@@ -14,7 +14,7 @@ export function GalleryItemGrid({
     <div
       role="list"
       aria-label="Studio gallery photograph library"
-      className="grid grid-cols-3 gap-1.5 sm:gap-3 md:grid-cols-4 lg:grid-cols-5"
+      className="grid grid-cols-2 gap-2.5 min-[420px]:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5"
     >
       {items.map((item) => {
         const pubIndex = publishedOrderIds.indexOf(item.id);

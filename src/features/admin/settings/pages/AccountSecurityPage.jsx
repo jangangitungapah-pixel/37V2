@@ -240,7 +240,7 @@ export function AccountSecurityPage() {
                 size="md"
                 onClick={() => setConfirmOpen(true)}
                 disabled={!canSendReset}
-                className="w-full"
+                className="min-h-11 w-full sm:w-auto"
               >
                 {isSendingReset ? (
                   <Loader2 className="h-4 w-4 animate-spin text-[#C8F13A]" aria-hidden="true" />

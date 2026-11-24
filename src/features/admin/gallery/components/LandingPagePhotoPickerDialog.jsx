@@ -55,31 +55,38 @@ export function LandingPagePhotoPickerDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/65 backdrop-blur-[1px]" />
-        <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
-          <Dialog.Popup className="sa-card max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-4 sm:rounded-2xl sm:p-6">
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="flex items-start justify-between gap-3 border-b border-[#151515]/10 pb-3">
-                <div>
-                  <Dialog.Title className="text-lg font-bold text-[#151515]">
-                    Pilih Foto — {def?.label || 'Landing Page'}
-                  </Dialog.Title>
-                  <Dialog.Description className="text-xs text-[#666159]">
-                    Pilih salah satu foto dari galeri atau unggah foto baru.
-                  </Dialog.Description>
-                </div>
-
-                <Dialog.Close
-                  aria-label="Tutup pemilih foto"
-                  className="sa-control sa-btn-secondary inline-flex h-8.5 w-8.5 shrink-0 cursor-pointer items-center justify-center rounded-full"
-                >
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </Dialog.Close>
+        <Dialog.Backdrop
+          data-admin-portal-layer="true"
+          className="sa-overlay-backdrop fixed inset-0 z-50"
+        />
+        <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
+          <Dialog.Popup
+            data-admin-portal-layer="true"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl rounded-b-none bg-white p-0 outline-none sm:rounded-2xl"
+          >
+            {/* Sticky Header */}
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/8 bg-white px-4 py-3.5 sm:px-6 sm:py-4">
+              <div className="min-w-0">
+                <Dialog.Title className="text-lg font-bold wrap-break-word text-[#151515]">
+                  Pilih Foto — {def?.label || 'Landing Page'}
+                </Dialog.Title>
+                <Dialog.Description className="text-xs text-[#666159]">
+                  Pilih salah satu foto dari galeri atau unggah foto baru.
+                </Dialog.Description>
               </div>
 
+              <Dialog.Close
+                aria-label="Tutup pemilih foto"
+                className="sa-control sa-btn-secondary inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Dialog.Close>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
               {/* Upload New Photo Action */}
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-3">
+              <div className="flex flex-col gap-2.5 rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs font-medium text-[#46433D]">
                   Ingin memakai foto yang belum ada di galeri?
                 </p>
@@ -100,6 +107,7 @@ export function LandingPagePhotoPickerDialog({
                   size="xs"
                   disabled={isUploading}
                   onClick={() => fileInputRef.current?.click()}
+                  className="min-h-9.5 w-full shrink-0 sm:w-auto"
                 >
                   {isUploading ? (
                     <Loader2
@@ -132,7 +140,7 @@ export function LandingPagePhotoPickerDialog({
                 <div
                   role="listbox"
                   aria-label="Pilihan foto galeri"
-                  className="grid grid-cols-3 gap-2 sm:grid-cols-4"
+                  className="grid grid-cols-2 gap-2.5 min-[380px]:grid-cols-3 sm:grid-cols-4"
                 >
                   {selectablePhotos.map((photo) => {
                     const isSelected = photo.id === selectedPhotoId;
@@ -169,6 +177,19 @@ export function LandingPagePhotoPickerDialog({
                   })}
                 </div>
               )}
+            </div>
+
+            {/* Sticky Footer */}
+            <div className="sa-safe-bottom flex shrink-0 items-center justify-end border-t border-[#151515]/8 bg-white p-3.5 sm:px-6">
+              <AdminButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => onOpenChange?.(false)}
+                className="min-h-10.5 w-full sm:w-auto"
+              >
+                <span>Tutup</span>
+              </AdminButton>
             </div>
           </Dialog.Popup>
         </Dialog.Viewport>

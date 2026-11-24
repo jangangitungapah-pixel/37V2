@@ -72,7 +72,7 @@ export function BookkeepingOverviewMetrics({ metrics, periodLabel, onOpenPayable
               <button
                 type="button"
                 onClick={onOpenPayables}
-                className="cursor-pointer text-[11px] font-semibold text-[#8A4B08] underline decoration-amber-500/40 underline-offset-2 hover:text-[#151515]"
+                className="inline-flex min-h-8 cursor-pointer items-center rounded-lg bg-amber-500/15 px-2.5 py-1 text-[11px] font-semibold text-[#8A4B08] transition-colors hover:bg-amber-500/25 hover:text-[#151515]"
               >
                 Lunasi →
               </button>
@@ -102,7 +102,7 @@ export function BookkeepingOverviewMetrics({ metrics, periodLabel, onOpenPayable
           type="button"
           aria-expanded={showSecondaryMobile}
           onClick={() => setShowSecondaryMobile((prev) => !prev)}
-          className="sa-control sa-btn-secondary flex min-h-9.5 w-full cursor-pointer items-center justify-between px-3 py-1.5 text-xs font-semibold text-[#46433D]"
+          className="sa-control sa-btn-secondary flex min-h-10 w-full cursor-pointer items-center justify-between px-3 py-1.5 text-xs font-semibold text-[#46433D]"
         >
           <span className="inline-flex items-center gap-1.5">
             <Receipt className="h-3.5 w-3.5" aria-hidden="true" />

@@ -137,7 +137,7 @@ export function BookingDetailDrawer({
           aria-label={`Detail booking ${booking.customerName}`}
           data-calendar-scoped="true"
           data-admin-portal-layer="true"
-          className={`sa-drawer fixed inset-y-0 right-0 flex h-[100dvh] w-full max-w-xl flex-col ${overlayZIndexClass || 'z-50'}`}
+          className={`sa-drawer fixed inset-y-0 right-0 flex h-dvh w-full max-w-xl flex-col ${overlayZIndexClass || 'z-50'}`}
         >
           {/* Sticky Drawer Header */}
           <div className="shrink-0 border-b border-white/10 bg-[#151515] px-4 py-3 text-[#F1EEE4] sm:px-6 sm:py-5">
@@ -171,9 +171,9 @@ export function BookingDetailDrawer({
 
               <Dialog.Close
                 aria-label="Tutup detail booking"
-                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-8.5 w-8.5 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-white/12 bg-white/6 text-white transition-colors sm:h-10 sm:w-10 sm:rounded-xl"
+                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/12 bg-white/6 text-white transition-colors"
               >
-                <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
+                <X className="h-4.5 w-4.5" aria-hidden="true" />
               </Dialog.Close>
             </div>
 
@@ -185,7 +185,7 @@ export function BookingDetailDrawer({
                     type="button"
                     disabled={!capabilities.canEditOrReschedule || Boolean(actionLoading)}
                     onClick={() => onEditBooking(booking)}
-                    className="text-studio-ink hover:bg-studio-lime inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9.5 sm:rounded-xl sm:px-3.5 sm:py-1.5 sm:text-xs"
+                    className="text-studio-ink hover:bg-studio-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:px-3.5"
                   >
                     <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Edit Booking</span>
@@ -197,7 +197,7 @@ export function BookingDetailDrawer({
                     type="button"
                     disabled={!capabilities.canEditOrReschedule || Boolean(actionLoading)}
                     onClick={() => onRescheduleBooking(booking)}
-                    className="bg-studio-lime text-studio-ink inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors hover:bg-[#d3f752] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9.5 sm:rounded-xl sm:px-3.5 sm:py-1.5 sm:text-xs"
+                    className="bg-studio-lime text-studio-ink inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-[#d3f752] disabled:cursor-not-allowed disabled:opacity-50 sm:px-3.5"
                   >
                     <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Reschedule</span>
@@ -209,7 +209,7 @@ export function BookingDetailDrawer({
                     type="button"
                     disabled={!capabilities.canCancel || Boolean(actionLoading)}
                     onClick={() => setShowCancelConfirm((prev) => !prev)}
-                    className="bg-studio-orange hover:bg-studio-orange-hover inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9.5 sm:rounded-xl sm:px-3.5 sm:py-1.5 sm:text-xs"
+                    className="bg-studio-orange hover:bg-studio-orange-hover inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:px-3.5"
                   >
                     <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Cancel Booking</span>
@@ -220,7 +220,7 @@ export function BookingDetailDrawer({
           </div>
 
           {/* Scrollable Drawer Content */}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3.5 py-3.5 pb-8 sm:space-y-5 sm:px-6 sm:py-5">
+          <div className="sa-safe-bottom min-h-0 flex-1 space-y-4 overflow-y-auto px-3.5 pt-3.5 sm:space-y-5 sm:px-6 sm:pt-5 sm:pb-6">
             {actionError ? (
               <div
                 role="alert"
@@ -385,7 +385,7 @@ export function BookingDetailDrawer({
                     </div>
                     <Link
                       to={`/admin/payment-and-bill?invoiceId=${encodeURIComponent(latestPayment.invoiceId)}`}
-                      className="sa-control sa-btn-primary hover:bg-studio-orange inline-flex h-8.5 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold"
+                      className="sa-control sa-btn-primary hover:bg-studio-orange inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
                     >
                       <span>Lihat Invoice</span>
                       <ExternalLink className="h-3 w-3" aria-hidden="true" />
@@ -649,7 +649,7 @@ export function BookingDetailDrawer({
                     <button
                       type="button"
                       onClick={() => setShowNoShowConfirm(false)}
-                      className="sa-control sa-btn-secondary min-h-9 cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold"
+                      className="sa-control sa-btn-secondary min-h-10 cursor-pointer rounded-xl px-3.5 py-2 text-xs font-semibold"
                     >
                       Batal
                     </button>
@@ -657,7 +657,7 @@ export function BookingDetailDrawer({
                       type="button"
                       disabled={Boolean(actionLoading)}
                       onClick={() => handleRunAction('mark_no_show', noShowReason)}
-                      className="sa-control sa-btn-orange inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold"
+                      className="sa-control sa-btn-orange inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold"
                     >
                       {actionLoading === 'mark_no_show' ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />

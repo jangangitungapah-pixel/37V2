@@ -60,7 +60,7 @@ export function CalendarToolbar({
           type="button"
           onClick={() => onOpenNewBooking()}
           aria-label="New Booking"
-          className="sa-control sa-btn-orange inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold sm:min-h-10.5 sm:gap-2 sm:px-5 sm:py-2 sm:text-sm"
+          className="sa-control sa-btn-orange inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold sm:min-h-10.5 sm:gap-2 sm:px-5 sm:py-2 sm:text-sm"
         >
           <Plus className="h-4 w-4 stroke-[2.25]" aria-hidden="true" />
           <span>
@@ -77,7 +77,7 @@ export function CalendarToolbar({
               type="button"
               onClick={onPreviousPeriod}
               aria-label="Periode sebelumnya"
-              className="sa-control sa-btn-secondary inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-xl sm:h-10 sm:w-10"
+              className="sa-control sa-btn-secondary inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl"
             >
               <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -89,8 +89,8 @@ export function CalendarToolbar({
               aria-pressed={isTodaySelected}
               className={
                 isTodaySelected
-                  ? 'sa-control sa-btn-lime inline-flex h-9.5 cursor-pointer items-center justify-center rounded-xl px-3.5 text-xs font-semibold whitespace-nowrap sm:h-10 sm:px-4'
-                  : 'sa-control sa-btn-secondary inline-flex h-9.5 cursor-pointer items-center justify-center rounded-xl px-3.5 text-xs font-semibold whitespace-nowrap text-[#46433D] sm:h-10 sm:px-4'
+                  ? 'sa-control sa-btn-lime inline-flex h-10 min-h-10 cursor-pointer items-center justify-center rounded-xl px-3.5 text-xs font-semibold whitespace-nowrap sm:px-4'
+                  : 'sa-control sa-btn-secondary inline-flex h-10 min-h-10 cursor-pointer items-center justify-center rounded-xl px-3.5 text-xs font-semibold whitespace-nowrap text-[#46433D] sm:px-4'
               }
             >
               Hari Ini
@@ -100,7 +100,7 @@ export function CalendarToolbar({
               type="button"
               onClick={onNextPeriod}
               aria-label="Periode berikutnya"
-              className="sa-control sa-btn-secondary inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-xl sm:h-10 sm:w-10"
+              className="sa-control sa-btn-secondary inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl"
             >
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -116,7 +116,7 @@ export function CalendarToolbar({
               aria-label="Pilih tanggal kalender"
               value={activeDate}
               onChange={handleDateInputChange}
-              className="sa-input h-9.5 w-full min-w-0 rounded-xl px-3 py-1.5 font-mono text-xs font-medium sm:h-10 sm:w-auto"
+              className="sa-input h-10 w-full min-w-0 rounded-xl px-3 py-1.5 font-mono text-xs font-medium sm:w-auto"
             />
           </div>
         </div>

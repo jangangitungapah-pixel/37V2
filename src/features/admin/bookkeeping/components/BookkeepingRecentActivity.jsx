@@ -40,7 +40,12 @@ export function BookkeepingRecentActivity({
         </div>
 
         {onViewAllTransactions ? (
-          <AdminButton variant="secondary" size="xs" onClick={onViewAllTransactions}>
+          <AdminButton
+            variant="secondary"
+            size="sm"
+            onClick={onViewAllTransactions}
+            className="min-h-9.5 px-3"
+          >
             <span>Lihat Semua</span>
             <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
           </AdminButton>
@@ -68,25 +73,26 @@ export function BookkeepingRecentActivity({
                 key={item.id}
                 type="button"
                 onClick={() => onSelectActivity?.(item)}
-                className="flex w-full cursor-pointer items-start justify-between gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#FAF8F3] sm:items-center sm:px-3"
+                className="flex w-full cursor-pointer items-start gap-2.5 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#FAF8F3] sm:items-center sm:px-3"
               >
-                <div className="flex min-w-0 items-start gap-2.5 sm:items-center">
-                  <span
-                    className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:mt-0 ${isPositive ? 'bg-[#EDF8C2] text-[#243300]' : 'bg-[#FFEDE8] text-[#B92B0C]'
-                      }`}
-                  >
-                    {isPositive ? (
-                      <ArrowDownLeft className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </span>
+                <span
+                  className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:mt-0 ${
+                    isPositive ? 'bg-[#EDF8C2] text-[#243300]' : 'bg-[#FFEDE8] text-[#B92B0C]'
+                  }`}
+                >
+                  {isPositive ? (
+                    <ArrowDownLeft className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </span>
 
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5 min-[360px]:flex-row min-[360px]:items-center min-[360px]:justify-between min-[360px]:gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-[#151515] sm:text-sm">
+                    <p className="text-xs font-semibold break-words text-[#151515] sm:truncate sm:text-sm">
                       {item.description}
                     </p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[#666159]">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-[#666159]">
                       <span>{item.categoryLabel}</span>
                       <span aria-hidden="true">•</span>
                       <span>{formatBookkeepingDateTime(item.date)}</span>
@@ -102,22 +108,23 @@ export function BookkeepingRecentActivity({
                       </AdminStatusBadge>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span
-                    className={`font-mono text-xs font-bold tabular-nums sm:text-sm ${item.status === 'reversed'
-                      ? 'text-[#666159] line-through'
-                      : isPositive
-                        ? 'text-[#243300]'
-                        : 'text-[#B92B0C]'
+                  <div className="flex shrink-0 items-center justify-between gap-2 min-[360px]:flex-col min-[360px]:items-end min-[360px]:gap-1">
+                    <span
+                      className={`font-mono text-xs font-bold tabular-nums sm:text-sm ${
+                        item.status === 'reversed'
+                          ? 'text-[#666159] line-through'
+                          : isPositive
+                            ? 'text-[#243300]'
+                            : 'text-[#B92B0C]'
                       }`}
-                  >
-                    {formatBookkeepingRupiah(item.signedAmount, { showPositiveSign: true })}
-                  </span>
-                  <AdminStatusBadge tone={statusMeta.tone} size="sm">
-                    {statusMeta.label}
-                  </AdminStatusBadge>
+                    >
+                      {formatBookkeepingRupiah(item.signedAmount, { showPositiveSign: true })}
+                    </span>
+                    <AdminStatusBadge tone={statusMeta.tone} size="sm">
+                      {statusMeta.label}
+                    </AdminStatusBadge>
+                  </div>
                 </div>
               </button>
             );

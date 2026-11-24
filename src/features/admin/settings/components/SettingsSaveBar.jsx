@@ -19,12 +19,17 @@ export function SettingsSaveBar({
 }) {
   const canSave =
     !readOnly && (isDirty || !isPersisted || migratedFromV1) && !isSaving && !isLoading;
+  const shouldStickOnMobile = canSave || hasRemoteVersionConflict || Boolean(errorMessage);
 
   return (
     <div
       role="region"
       aria-label="Kontrol penyimpanan Price and Fee Settings"
-      className="sticky bottom-2 z-10 rounded-2xl border border-[#151515]/12 bg-white/92 p-2.5 shadow-[0_14px_34px_-10px_rgba(21,21,21,0.16)] backdrop-blur-md sm:bottom-3 sm:p-4"
+      className={`rounded-2xl border border-[#151515]/12 bg-white/92 p-2.5 shadow-[0_14px_34px_-10px_rgba(21,21,21,0.16)] backdrop-blur-md sm:p-4 ${
+        shouldStickOnMobile
+          ? 'sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 lg:sticky lg:bottom-3'
+          : 'lg:sticky lg:bottom-3'
+      }`}
     >
       {hasRemoteVersionConflict ? (
         <div
@@ -41,7 +46,7 @@ export function SettingsSaveBar({
           <button
             type="button"
             onClick={onReloadRemote}
-            className="sa-control sa-btn-secondary min-h-9 shrink-0 cursor-pointer px-3 py-1 text-xs font-semibold"
+            className="sa-control sa-btn-secondary min-h-10 shrink-0 cursor-pointer px-3 py-1 text-xs font-semibold"
           >
             Muat Versi Terbaru
           </button>
@@ -98,13 +103,13 @@ export function SettingsSaveBar({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-col-reverse gap-2 min-[400px]:flex-row sm:items-center sm:gap-2.5">
           {isDirty ? (
             <button
               type="button"
               disabled={isSaving}
               onClick={onReset}
-              className="sa-control sa-btn-secondary inline-flex min-h-10.5 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial"
+              className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 min-[400px]:flex-1 sm:w-auto sm:flex-initial"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Reset Draft</span>
@@ -115,7 +120,7 @@ export function SettingsSaveBar({
             type="button"
             disabled={!canSave}
             onClick={onSave}
-            className="sa-control sa-btn-orange inline-flex min-h-10.5 flex-1 cursor-pointer items-center justify-center gap-2 px-5 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial"
+            className="sa-control sa-btn-orange inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-2 px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 min-[400px]:flex-1 sm:w-auto sm:flex-initial sm:px-5"
           >
             {isSaving ? (
               <>

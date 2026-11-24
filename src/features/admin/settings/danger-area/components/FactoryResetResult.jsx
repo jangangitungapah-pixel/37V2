@@ -51,8 +51,8 @@ export function FactoryResetResult({ operation, onDoneResetView }) {
         </div>
       </div>
 
-      <dl className="mt-4 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3">
+      <dl className="mt-4 grid grid-cols-2 gap-2.5 text-xs sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
+        <div className="min-w-0 rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3">
           <dt className="font-mono text-[10px] font-semibold text-[#756F65] uppercase">
             Operation Reference
           </dt>
@@ -61,30 +61,32 @@ export function FactoryResetResult({ operation, onDoneResetView }) {
           </dd>
         </div>
 
-        <div className="rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3">
+        <div className="min-w-0 rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3">
           <dt className="font-mono text-[10px] font-semibold text-[#756F65] uppercase">
             Waktu Mulai — Selesai (WIB)
           </dt>
-          <dd className="mt-1 font-semibold text-[#151515]">
+          <dd className="mt-1 font-semibold break-words text-[#151515]">
             {formatIndonesianTimestamp(operation?.startedAt)} →{' '}
             {formatIndonesianTimestamp(operation?.completedAt)}
           </dd>
         </div>
 
-        <div className="rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3">
+        <div className="min-w-0 rounded-xl border border-[#151515]/10 bg-[#FAF8F3] p-3">
           <dt className="font-mono text-[10px] font-semibold text-[#756F65] uppercase">
             Total Dokumen Dihapus
           </dt>
-          <dd className="mt-1 text-base font-bold text-[#151515]">
+          <dd className="mt-1 text-base font-bold break-words text-[#151515]">
             {operation?.totalDeletedCount || 0} dokumen ({nestedDeletedTotal} subkoleksi)
           </dd>
         </div>
 
-        <div className="rounded-xl border border-[#8BAD12]/35 bg-[#F4FBE0] p-3">
+        <div className="min-w-0 rounded-xl border border-[#8BAD12]/35 bg-[#F4FBE0] p-3">
           <dt className="font-mono text-[10px] font-semibold text-[#243300] uppercase">
             Status Kalender Publik
           </dt>
-          <dd className="mt-1 font-bold text-[#151515]">Siap &amp; Kosong (isReady: true)</dd>
+          <dd className="mt-1 font-bold break-words text-[#151515]">
+            Siap &amp; Kosong (isReady: true)
+          </dd>
         </div>
       </dl>
 
@@ -110,14 +112,23 @@ export function FactoryResetResult({ operation, onDoneResetView }) {
           Periksa Kalender Publik (/availability) →
         </Link>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Link to="/admin/settings">
-            <AdminButton variant="secondary" size="md">
+        <div className="flex w-full flex-col-reverse gap-2.5 sm:w-auto sm:flex-row sm:items-center">
+          <Link to="/admin/settings" className="w-full sm:w-auto">
+            <AdminButton
+              variant="secondary"
+              size="md"
+              className="min-h-11 w-full justify-center sm:w-auto"
+            >
               Kembali ke Settings
             </AdminButton>
           </Link>
           {onDoneResetView ? (
-            <AdminButton variant="primary" size="md" onClick={onDoneResetView}>
+            <AdminButton
+              variant="primary"
+              size="md"
+              onClick={onDoneResetView}
+              className="min-h-11 w-full justify-center sm:w-auto"
+            >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Muat Pratinjau Baru</span>
             </AdminButton>

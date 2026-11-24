@@ -13,8 +13,8 @@ export function ReviewRatingDistribution({ overview }) {
       className="p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.08] pb-3">
-        <div>
-          <h3 className="text-sm font-bold tracking-tight text-[#151515]">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold tracking-tight break-words text-[#151515]">
             Distribusi Bintang Publik (`publicReviewStats/summary`)
           </h3>
           <p className="text-xs text-[#666159]">Dihitung atomik dari ulasan berstatus Published.</p>

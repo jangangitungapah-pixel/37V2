@@ -22,18 +22,18 @@ export function DashboardHeader({
       as="section"
       variant="hero"
       aria-labelledby="dashboard-command-center-heading"
-      className="relative overflow-hidden p-4 sm:p-6"
+      className="relative overflow-hidden p-3.5 sm:p-6"
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <AdminStatusBadge tone="ink" dot>
               Studio Command Center
             </AdminStatusBadge>
-            <AdminStatusBadge tone={isOwner ? 'lime' : 'ivory'}>
+            <AdminStatusBadge tone={isOwner ? 'lime' : 'ivory'} className="hidden sm:inline-flex">
               AKSES: {String(roleLabel || 'Staff').toUpperCase()}
             </AdminStatusBadge>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#151515]/10 bg-white/80 px-2.5 py-0.5 font-mono text-[11px] font-medium text-[#46433D]">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#151515]/10 bg-white/80 px-2 py-0.5 font-mono text-[10.5px] font-medium text-[#46433D] sm:px-2.5 sm:text-[11px]">
               <Clock className="h-3 w-3 text-[#658800]" aria-hidden="true" />
               <span>{formattedDate} • WIB</span>
             </span>
@@ -53,10 +53,10 @@ export function DashboardHeader({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 lg:shrink-0">
+        <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2.5 lg:shrink-0">
           <Link
             to="/admin/calendar?action=new-booking"
-            className="sa-btn-primary inline-flex min-h-10 flex-1 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:flex-initial sm:text-[13px]"
+            className="sa-btn-primary inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:flex-initial sm:text-[13px]"
           >
             <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>Booking Baru</span>
@@ -64,7 +64,7 @@ export function DashboardHeader({
 
           <Link
             to="/admin/calendar"
-            className="sa-btn-secondary inline-flex min-h-10 flex-1 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:flex-initial sm:text-[13px]"
+            className="sa-btn-secondary inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:flex-initial sm:text-[13px]"
           >
             <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>Buka Kalender</span>

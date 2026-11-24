@@ -67,8 +67,8 @@ export function CustomerDirectoryToolbar({
                   aria-pressed={isSelected}
                   className={
                     isSelected
-                      ? 'inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-9.5 sm:px-3.5'
-                      : 'inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:min-h-9.5 sm:px-3.5'
+                      ? 'inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-3.5'
+                      : 'inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:px-3.5'
                   }
                 >
                   <span className="sm:hidden">{option.compactLabel || option.label}</span>
@@ -114,14 +114,14 @@ export function CustomerDirectoryToolbar({
                   onChange={(event) => onSearchQueryChange(event.target.value)}
                   aria-label="Cari nama customer, nomor HP / WhatsApp, atau band"
                   placeholder="Cari nama, no. HP / WA, atau band..."
-                  className="sa-input h-9.5 w-full py-2 pr-9 pl-9.5 text-xs font-medium sm:h-10 sm:text-[13px]"
+                  className="sa-input h-10.5 w-full py-2 pr-10 pl-9.5 text-xs font-medium sm:text-[13px]"
                 />
                 {searchQuery ? (
                   <button
                     type="button"
                     onClick={() => onSearchQueryChange('')}
                     aria-label="Bersihkan pencarian pelanggan"
-                    className="absolute top-1/2 right-1.5 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
+                    className="absolute top-1/2 right-1 inline-flex h-8.5 w-8.5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-[#666159] hover:bg-[#151515]/[0.05] hover:text-[#151515]"
                   >
                     <X className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
@@ -132,7 +132,7 @@ export function CustomerDirectoryToolbar({
                 type="button"
                 aria-expanded={mobileFiltersOpen}
                 onClick={() => setMobileFiltersOpen((prev) => !prev)}
-                className="sa-control sa-btn-secondary inline-flex h-9.5 shrink-0 cursor-pointer items-center gap-1.5 px-2.5 text-xs font-semibold sm:hidden"
+                className="sa-control sa-btn-secondary inline-flex h-10.5 shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs font-semibold sm:hidden"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Filter</span>
@@ -159,7 +159,7 @@ export function CustomerDirectoryToolbar({
                 aria-label="Urutkan daftar customer"
                 value={sortBy}
                 onChange={(event) => onSortChange(event.target.value)}
-                className="sa-input h-9.5 w-full cursor-pointer px-3 text-xs font-medium sm:h-10"
+                className="sa-input h-10.5 w-full cursor-pointer px-3 text-xs font-medium"
               >
                 {CUSTOMER_SORT_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>

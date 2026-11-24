@@ -137,7 +137,7 @@ export function DashboardNeedsAttention({
                 <div className="mt-3 flex items-center justify-end border-t border-[#151515]/[0.06] pt-2.5">
                   <Link
                     to={item.href}
-                    className="inline-flex items-center gap-1 rounded-lg bg-[#151515] px-3 py-1.5 text-xs font-semibold text-[#F8F6EF] transition-colors hover:bg-[#2B2A27]"
+                    className="inline-flex min-h-10 w-full items-center justify-center gap-1 rounded-lg bg-[#151515] px-3 py-1.5 text-xs font-semibold text-[#F8F6EF] transition-colors hover:bg-[#2B2A27] sm:w-auto"
                   >
                     <span>{item.actionLabel}</span>
                     <ArrowUpRight className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
@@ -160,7 +160,7 @@ export function DashboardNeedsAttention({
             </p>
             <Link
               to="/admin/booking-requests"
-              className="text-[11px] font-semibold text-[#B92B0C] hover:underline"
+              className="inline-flex min-h-11 items-center rounded-lg px-1.5 text-[11px] font-semibold text-[#B92B0C] hover:underline"
             >
               Semua Inbox →
             </Link>
@@ -170,7 +170,7 @@ export function DashboardNeedsAttention({
               <li key={req.id}>
                 <Link
                   to={`/admin/booking-requests?requestId=${encodeURIComponent(req.id)}`}
-                  className="flex items-center justify-between gap-2 rounded-xl border border-[#151515]/[0.08] bg-[#FAF8F1] px-3 py-2 text-xs transition-colors hover:bg-white"
+                  className="flex min-h-11 items-center justify-between gap-2 rounded-xl border border-[#151515]/[0.08] bg-[#FAF8F1] px-3 py-2 text-xs transition-colors hover:bg-white"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-[#151515]">

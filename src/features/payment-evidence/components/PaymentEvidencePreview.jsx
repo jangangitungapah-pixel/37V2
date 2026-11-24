@@ -95,7 +95,7 @@ export function PaymentEvidencePreview({
           href={secureUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 font-semibold text-[#151515] underline-offset-2 hover:text-[#FF4B22] hover:underline"
+          className="inline-flex min-h-9 items-center gap-1 font-semibold text-[#151515] underline-offset-2 hover:text-[#FF4B22] hover:underline"
         >
           <span>{isId ? 'Buka Gambar Asli' : 'Open Original'}</span>
           <ExternalLink className="h-3 w-3" aria-hidden="true" />

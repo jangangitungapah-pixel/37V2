@@ -82,16 +82,16 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
       <Dialog.Portal>
         <Dialog.Backdrop
           data-admin-portal-layer="true"
-          className="sa-overlay-backdrop fixed inset-0 z-50"
+          className="sa-overlay-backdrop fixed inset-0 z-[60]"
         />
 
         <div
           data-admin-portal-layer="true"
-          className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+          className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4"
         >
           <Dialog.Popup
             aria-label="Settle Payment Kewajiban"
-            className="sa-dialog flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[20px] rounded-b-none sm:rounded-[20px]"
+            className="sa-dialog flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-[20px]"
           >
             {/* Header */}
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3.5 sm:px-5 sm:py-4">
@@ -116,9 +116,9 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
               <Dialog.Close
                 aria-label="Tutup modal pelunasan"
                 disabled={isSubmitting}
-                className="sa-control inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-white text-[#46433D] hover:text-[#151515]"
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-white text-[#46433D] hover:text-[#151515]"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                <X className="h-4.5 w-4.5" aria-hidden="true" />
               </Dialog.Close>
             </div>
 
@@ -126,8 +126,10 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
               <div className="space-y-3.5 overflow-y-auto px-4 py-4 sm:px-5">
                 {/* Payable Summary */}
                 <div className="sa-panel-ivory space-y-2 p-3">
-                  <p className="text-xs font-bold text-[#151515]">{entry.description}</p>
-                  <div className="grid grid-cols-3 gap-2 text-[11px]">
+                  <p className="text-xs font-bold break-words text-[#151515]">
+                    {entry.description}
+                  </p>
+                  <div className="grid grid-cols-1 gap-2 text-[11px] min-[400px]:grid-cols-3">
                     <div>
                       <span className="text-[#666159]">Original</span>
                       <p className="font-mono font-semibold text-[#151515] tabular-nums">
@@ -160,7 +162,7 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
                 ) : null}
 
                 <div>
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <label
                       htmlFor="settlement-amount-input"
                       className="text-xs font-semibold text-[#151515]"
@@ -172,7 +174,7 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
                         <button
                           type="button"
                           onClick={() => setAmount(String(Math.floor(entry.remainingAmount / 2)))}
-                          className="cursor-pointer rounded-md bg-[#F8F6EF] px-2 py-0.5 text-[10.5px] font-semibold text-[#46433D] hover:bg-[#EDE8D8]"
+                          className="inline-flex min-h-9 cursor-pointer items-center rounded-lg bg-[#F8F6EF] px-3 py-1 text-xs font-semibold text-[#46433D] hover:bg-[#EDE8D8]"
                         >
                           50%
                         </button>
@@ -180,7 +182,7 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
                       <button
                         type="button"
                         onClick={() => setAmount(String(entry.remainingAmount))}
-                        className="cursor-pointer rounded-md bg-[#EDF8C2] px-2 py-0.5 text-[10.5px] font-semibold text-[#243300] hover:bg-[#DCF09A]"
+                        className="inline-flex min-h-9 cursor-pointer items-center rounded-lg bg-[#EDF8C2] px-3 py-1 text-xs font-semibold text-[#243300] hover:bg-[#DCF09A]"
                       >
                         Bayar Penuh
                       </button>
@@ -268,13 +270,13 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
                 </div>
               </div>
 
-              <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:flex-row sm:justify-end sm:px-5">
+              <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:flex-row sm:justify-end sm:px-5">
                 <AdminButton
                   variant="secondary"
                   size="md"
                   onClick={handleClose}
                   disabled={isSubmitting}
-                  className="min-h-11"
+                  className="min-h-11 flex-1 sm:flex-initial"
                 >
                   Batal
                 </AdminButton>
@@ -283,7 +285,7 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
                   variant="orange"
                   size="md"
                   disabled={isSubmitting}
-                  className="min-h-11"
+                  className="min-h-11 flex-1 sm:flex-initial"
                 >
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

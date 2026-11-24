@@ -179,44 +179,46 @@ export function CustomerFormDialog({
           className="sa-overlay-backdrop fixed inset-0 z-[60]"
         />
 
-        <Dialog.Popup
-          data-admin-portal-layer="true"
-          aria-label={title}
-          data-customer-scoped="true"
-          className="sa-dialog fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
-        >
-          {/* Header */}
-          <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 sm:gap-3 sm:px-6 sm:py-4">
-            <div className="min-w-0">
-              <AdminStatusBadge tone="lime" size="sm" className="uppercase">
-                {eyebrow}
-              </AdminStatusBadge>
-              <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
-                {title}
-              </Dialog.Title>
-              <Dialog.Description className="sr-only sm:not-sr-only sm:mt-0.5 sm:block sm:text-xs sm:text-[#666159]">
-                {mode === 'phone'
-                  ? `Nomor lama ${formatPhoneDisplay(customer?.phoneNormalized)} tetap tersimpan di riwayat nomor lama.`
-                  : mode === 'edit'
-                    ? 'Mengubah nama akan menyimpan nama sebelumnya ke catatan nama lain tanpa mengubah data booking lama.'
-                    : 'Tambahkan data pelanggan baru ke daftar studio.'}
-              </Dialog.Description>
+        <Dialog.Viewport className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4">
+          <Dialog.Popup
+            data-admin-portal-layer="true"
+            aria-label={title}
+            data-customer-scoped="true"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+          >
+            {/* Header */}
+            <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
+              <div className="min-w-0">
+                <AdminStatusBadge tone="lime" size="sm" className="uppercase">
+                  {eyebrow}
+                </AdminStatusBadge>
+                <Dialog.Title className="mt-1 truncate text-base font-bold tracking-tight text-[#151515] sm:mt-2 sm:text-xl">
+                  {title}
+                </Dialog.Title>
+                <Dialog.Description className="sr-only sm:not-sr-only sm:mt-0.5 sm:block sm:text-xs sm:text-[#666159]">
+                  {mode === 'phone'
+                    ? `Nomor lama ${formatPhoneDisplay(customer?.phoneNormalized)} tetap tersimpan di riwayat nomor lama.`
+                    : mode === 'edit'
+                      ? 'Mengubah nama akan menyimpan nama sebelumnya ke catatan nama lain tanpa mengubah data booking lama.'
+                      : 'Tambahkan data pelanggan baru ke daftar studio.'}
+                </Dialog.Description>
+              </div>
+
+              <Dialog.Close
+                aria-label="Tutup dialog customer"
+                disabled={isSubmitting}
+                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] disabled:opacity-50"
+              >
+                <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
+              </Dialog.Close>
             </div>
 
-            <Dialog.Close
-              aria-label="Tutup dialog customer"
-              disabled={isSubmitting}
-              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] disabled:opacity-50 sm:h-9 sm:w-9 sm:rounded-xl"
+            <form
+              id="customer-form"
+              onSubmit={handleSubmit}
+              noValidate
+              className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-white px-4 py-3.5 sm:space-y-4 sm:px-6 sm:py-5"
             >
-              <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
-            </Dialog.Close>
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            noValidate
-            className="min-h-0 flex-1 space-y-3.5 overflow-y-auto bg-white px-4 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:space-y-4 sm:px-6 sm:py-5"
-          >
             {submitError ? (
               <div
                 role="alert"
@@ -258,7 +260,7 @@ export function CustomerFormDialog({
                     onClick={() => {
                       setDuplicateCheck((prev) => ({ ...prev, confirmedSeparate: true }));
                     }}
-                    className="sa-control sa-btn-lime inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                    className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                   >
                     <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Konfirmasi Buat Profil Terpisah</span>
@@ -266,7 +268,7 @@ export function CustomerFormDialog({
                   <button
                     type="button"
                     onClick={() => setDuplicateCheck(null)}
-                    className="sa-control sa-btn-secondary min-h-9.5 cursor-pointer px-3 py-1.5 text-xs font-semibold"
+                    className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-3 py-1.5 text-xs font-semibold"
                   >
                     Periksa Ulang
                   </button>
@@ -300,7 +302,7 @@ export function CustomerFormDialog({
                         });
                         onOpenChange?.(false);
                       }}
-                      className="sa-control sa-btn-lime inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                      className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                     >
                       <GitMerge className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Merge ke {conflictTarget.displayName}</span>
@@ -309,7 +311,7 @@ export function CustomerFormDialog({
                   <button
                     type="button"
                     onClick={() => setPhoneConflict(null)}
-                    className="sa-control sa-btn-secondary min-h-9.5 cursor-pointer px-3 py-1.5 text-xs font-semibold"
+                    className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-3 py-1.5 text-xs font-semibold"
                   >
                     Batal
                   </button>
@@ -434,19 +436,22 @@ export function CustomerFormDialog({
               </div>
             ) : null}
 
-            <div className="flex items-center justify-end gap-2.5 border-t border-[#151515]/[0.08] pt-4">
+            </form>
+
+            <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-6 sm:py-3.5">
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleClose}
-                className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-4 py-2 text-xs font-semibold"
+                className="sa-control sa-btn-secondary min-h-11 flex-1 cursor-pointer px-4 py-2 text-xs font-semibold sm:flex-initial"
               >
                 Batal
               </button>
               <button
                 type="submit"
+                form="customer-form"
                 disabled={isSubmitting}
-                className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-2 px-5 py-2 text-xs font-semibold disabled:opacity-60"
+                className="sa-control sa-btn-lime inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 px-5 py-2 text-xs font-semibold disabled:opacity-60 sm:flex-initial"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -464,8 +469,8 @@ export function CustomerFormDialog({
                 </span>
               </button>
             </div>
-          </form>
-        </Dialog.Popup>
+          </Dialog.Popup>
+        </Dialog.Viewport>
       </Dialog.Portal>
     </Dialog.Root>
   );

@@ -148,9 +148,9 @@ export function InventoryAdjustmentDialog({
             <Dialog.Close
               aria-label="Tutup dialog stock adjustment"
               disabled={isSubmitting}
-              className="sa-control inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:h-9 sm:w-9 sm:rounded-xl"
+              className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
             >
-              <X className="h-4 w-4" aria-hidden="true" />
+              <X className="h-4.5 w-4.5" aria-hidden="true" />
             </Dialog.Close>
           </div>
 
@@ -287,12 +287,12 @@ export function InventoryAdjustmentDialog({
             </div>
           </form>
 
-          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-2.5 sm:px-5 sm:py-3.5">
+          <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-5 sm:py-3.5">
             <button
               type="button"
               disabled={isSubmitting}
               onClick={handleClose}
-              className="sa-control sa-btn-secondary min-h-10 cursor-pointer px-4 py-2 text-xs font-semibold"
+              className="sa-control sa-btn-secondary min-h-11 flex-1 cursor-pointer px-4 py-2 text-xs font-semibold sm:flex-initial"
             >
               Batal
             </button>
@@ -300,7 +300,7 @@ export function InventoryAdjustmentDialog({
               type="submit"
               form="inventory-adjustment-form"
               disabled={!isOwner || isSubmitting || !preview.ok}
-              className="sa-control sa-btn-orange inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-50"
+              className="sa-control sa-btn-orange inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold disabled:opacity-50 sm:flex-initial"
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

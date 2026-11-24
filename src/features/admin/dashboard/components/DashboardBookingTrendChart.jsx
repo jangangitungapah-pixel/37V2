@@ -74,6 +74,7 @@ export function DashboardBookingTrendChart({
       },
       tooltip: {
         trigger: 'axis',
+        confine: true,
         axisPointer: { type: 'shadow' },
         backgroundColor: '#151515',
         borderColor: 'rgba(255,255,255,0.12)',
@@ -206,7 +207,7 @@ export function DashboardBookingTrendChart({
                 type="button"
                 onClick={() => onPeriodChange?.(opt.id)}
                 aria-pressed={isActive}
-                className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                className={`min-h-9.5 cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                   isActive
                     ? 'bg-[#151515] text-[#F8F6EF] shadow-2xs'
                     : 'text-[#46433D] hover:text-[#151515]'
@@ -256,7 +257,7 @@ export function DashboardBookingTrendChart({
         />
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 gap-2 min-[420px]:grid-cols-3 sm:gap-3">
             <div className="sa-subcard p-2.5 sm:p-3">
               <p className="text-[11px] font-medium text-[#666159]">Room A</p>
               <p className="mt-0.5 font-mono text-sm font-bold text-[#151515] tabular-nums sm:text-base">
@@ -269,7 +270,7 @@ export function DashboardBookingTrendChart({
                 {bookingTrend.totalRoomBBookings} Sesi
               </p>
             </div>
-            <div className="sa-subcard p-2.5 sm:p-3">
+            <div className="sa-subcard col-span-2 p-2.5 min-[420px]:col-span-1 sm:p-3">
               <p className="text-[11px] font-medium text-[#666159]">Total Durasi</p>
               <p className="mt-0.5 font-mono text-sm font-bold text-[#151515] tabular-nums sm:text-base">
                 {bookingTrend.totalHoursBooked} Jam

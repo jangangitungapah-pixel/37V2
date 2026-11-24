@@ -25,9 +25,14 @@ export function AdminPageHeader({
       >
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1.5 sm:items-start sm:gap-x-4 sm:gap-y-2">
           {(eyebrow || meta) && (
-            <div className="hidden flex-wrap items-center gap-1.5 sm:col-span-1 sm:col-start-1 sm:flex sm:gap-2">
+            <div
+              className={cn(
+                'flex-wrap items-center gap-1.5 sm:col-span-1 sm:col-start-1 sm:flex sm:gap-2',
+                meta ? 'col-span-2 flex' : 'hidden',
+              )}
+            >
               {eyebrow ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#151515] px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-[#F1EEE4] sm:text-[10.5px]">
+                <span className="hidden items-center gap-1.5 rounded-full bg-[#151515] px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-[#F1EEE4] sm:inline-flex sm:text-[10.5px]">
                   {Icon ? <Icon className="h-3 w-3 text-[#C8F13A]" aria-hidden="true" /> : null}
                   <span>{eyebrow}</span>
                 </span>
@@ -74,9 +79,14 @@ export function AdminPageHeader({
       <div className="flex flex-col gap-2.5 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1 sm:space-y-2.5">
           {(eyebrow || meta) && (
-            <div className="hidden flex-wrap items-center gap-2 sm:flex">
+            <div
+              className={cn(
+                'flex-wrap items-center gap-1.5 sm:flex sm:gap-2',
+                meta ? 'flex' : 'hidden',
+              )}
+            >
               {eyebrow ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#151515] px-2.5 py-0.5 font-mono text-[10.5px] font-semibold tracking-wide text-[#F1EEE4]">
+                <span className="hidden items-center gap-1.5 rounded-full bg-[#151515] px-2.5 py-0.5 font-mono text-[10.5px] font-semibold tracking-wide text-[#F1EEE4] sm:inline-flex">
                   {Icon ? <Icon className="h-3 w-3 text-[#C8F13A]" aria-hidden="true" /> : null}
                   <span>{eyebrow}</span>
                 </span>

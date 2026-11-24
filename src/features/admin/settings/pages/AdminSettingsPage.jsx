@@ -30,6 +30,7 @@ export function AdminSettingsPage() {
   return (
     <div data-calendar-scoped="true" className="space-y-4 sm:space-y-7">
       <AdminPageHeader
+        compactMobile
         eyebrow="Settings Center"
         icon={SlidersHorizontal}
         titleId="settings-overview-heading"
@@ -40,6 +41,7 @@ export function AdminSettingsPage() {
             {isActiveOwner ? '4 Modul Aktif' : '3 Modul Aktif'}
           </AdminStatusBadge>
         }
+        className="[&>div:last-child]:mt-0 sm:[&>div:last-child]:mt-5"
       >
         <SettingsBreadcrumb
           items={[{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Settings' }]}
@@ -246,7 +248,7 @@ export function AdminSettingsPage() {
 
             <Link
               to="/admin/settings/danger-area"
-              className="inline-flex min-h-10.5 shrink-0 items-center justify-between gap-3 rounded-[10px] border border-red-300 bg-red-50 px-4 py-2 text-xs font-semibold text-red-800 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white"
+              className="inline-flex min-h-10.5 w-full shrink-0 items-center justify-center gap-2.5 rounded-[10px] border border-red-300 bg-red-50 px-4 py-2 text-xs font-semibold text-red-800 transition-colors hover:border-red-600 hover:bg-red-600 hover:text-white sm:w-auto sm:justify-between sm:gap-3"
             >
               <span>Open Danger Area</span>
               <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />

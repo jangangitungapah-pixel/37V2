@@ -29,17 +29,36 @@ export function BookkeepingCategoryChart({ data = [] }) {
     });
 
     const reversed = [...data].reverse();
+    const getResponsiveLayout = (width) => {
+      const isCompact = width > 0 && width < 420;
+      return {
+        grid: {
+          left: isCompact ? 92 : 132,
+          right: isCompact ? 12 : 24,
+          top: 12,
+          bottom: 24,
+        },
+        yAxis: {
+          axisLabel: {
+            color: '#151515',
+            fontSize: isCompact ? 10 : 11,
+            width: isCompact ? 80 : 118,
+            overflow: 'truncate',
+          },
+        },
+      };
+    };
+
+    const initialLayout = getResponsiveLayout(initialWidth);
+    let lastCompact = initialWidth > 0 && initialWidth < 420;
+
     chart.setOption({
       animation: false,
-      grid: {
-        left: 132,
-        right: 24,
-        top: 12,
-        bottom: 24,
-      },
+      grid: initialLayout.grid,
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
+        confine: true,
         formatter(params) {
           const item = Array.isArray(params) ? params[0] : params;
           if (!item) return '';
@@ -63,12 +82,7 @@ export function BookkeepingCategoryChart({ data = [] }) {
         type: 'category',
         data: reversed.map((d) => d.label),
         axisLine: { lineStyle: { color: 'rgba(21,21,21,0.16)' } },
-        axisLabel: {
-          color: '#151515',
-          fontSize: 11,
-          width: 118,
-          overflow: 'truncate',
-        },
+        axisLabel: initialLayout.yAxis.axisLabel,
       },
       series: [
         {
@@ -90,7 +104,13 @@ export function BookkeepingCategoryChart({ data = [] }) {
     if (typeof ResizeObserver !== 'undefined') {
       observer = new ResizeObserver(() => {
         if (el.clientWidth > 0) {
-          chart.resize({ width: el.clientWidth, height: chartHeight });
+          const nextWidth = el.clientWidth;
+          const nextCompact = nextWidth > 0 && nextWidth < 420;
+          chart.resize({ width: nextWidth, height: chartHeight });
+          if (nextCompact !== lastCompact) {
+            lastCompact = nextCompact;
+            chart.setOption(getResponsiveLayout(nextWidth));
+          }
         }
       });
       observer.observe(el);

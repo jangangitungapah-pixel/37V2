@@ -40,8 +40,8 @@ export function BookkeepingWorkspaceTabs({
             onClick={() => onTabChange?.(tab.id)}
             className={
               isActive
-                ? 'inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-[10px] bg-white px-2 py-1 text-[11px] font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:min-h-10 sm:gap-1.5 sm:px-3.5 sm:py-1.5 sm:text-xs'
-                : 'inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-[10px] px-2 py-1 text-[11px] font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:min-h-10 sm:gap-1.5 sm:px-3.5 sm:py-1.5 sm:text-xs'
+                ? 'inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] bg-white px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-3.5'
+                : 'inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:px-3.5'
             }
           >
             <Icon

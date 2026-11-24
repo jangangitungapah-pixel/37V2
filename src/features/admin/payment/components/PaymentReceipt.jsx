@@ -180,58 +180,60 @@ export function PaymentReceipt({ open, transaction, invoice, onOpenChange }) {
             className="no-print sa-overlay-backdrop fixed inset-0 z-[70]"
           />
 
-          <Dialog.Popup
-            data-admin-portal-layer="true"
-            aria-label={`Receipt transaksi ${transaction.id}`}
-            data-payment-scoped="true"
-            className="no-print sa-dialog fixed inset-x-0 bottom-0 z-[80] mx-auto flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none outline-none sm:inset-x-4 sm:top-1/2 sm:bottom-auto sm:w-[calc(100%-2rem)] sm:-translate-y-1/2 sm:rounded-2xl"
-          >
-            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-5 py-3.5">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#EDF8C2] text-[#243300]">
-                  <ReceiptText className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <Dialog.Title className="truncate text-base font-bold text-[#151515]">
-                  Bukti Pembayaran
-                </Dialog.Title>
+          <Dialog.Viewport className="no-print fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4">
+            <Dialog.Popup
+              data-admin-portal-layer="true"
+              aria-label={`Receipt transaksi ${transaction.id}`}
+              data-payment-scoped="true"
+              className="no-print sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-5 sm:py-3.5">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#EDF8C2] text-[#243300]">
+                    <ReceiptText className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <Dialog.Title className="truncate text-base font-bold text-[#151515]">
+                    Bukti Pembayaran
+                  </Dialog.Title>
+                </div>
+
+                <Dialog.Close
+                  aria-label="Tutup receipt pembayaran"
+                  className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </Dialog.Close>
               </div>
 
-              <Dialog.Close
-                aria-label="Tutup receipt pembayaran"
-                className="sa-control inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </Dialog.Close>
-            </div>
+              <div className="min-h-0 flex-1 overflow-y-auto bg-[#EBE7DC]/70 p-4">
+                <PaymentReceiptSheet transaction={transaction} invoice={invoice} />
+              </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[#EBE7DC]/70 p-4">
-              <PaymentReceiptSheet transaction={transaction} invoice={invoice} />
-            </div>
+              <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-5 sm:py-3.5">
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="sa-control sa-btn-secondary inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold sm:flex-initial"
+                >
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
+                  )}
+                  <span>{copied ? 'Disalin' : 'Salin ke WhatsApp'}</span>
+                </button>
 
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-5 py-3.5">
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-2 text-xs font-semibold"
-              >
-                {copied ? (
-                  <Check className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
-                )}
-                <span>{copied ? 'Disalin' : 'Salin ke WhatsApp'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
-              >
-                <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Cetak Bukti</span>
-              </button>
-            </div>
-          </Dialog.Popup>
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="sa-control sa-btn-lime inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold sm:flex-initial"
+                >
+                  <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Cetak Bukti</span>
+                </button>
+              </div>
+            </Dialog.Popup>
+          </Dialog.Viewport>
         </Dialog.Portal>
       </Dialog.Root>
 

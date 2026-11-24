@@ -14,9 +14,9 @@ export function RequireOwner({ children }) {
       <div
         role="status"
         aria-live="polite"
-        className="bg-studio-ivory text-studio-ink flex min-h-[60vh] flex-col items-center justify-center p-4"
+        className="bg-studio-ivory text-studio-ink flex min-h-[60dvh] flex-col items-center justify-center p-4"
       >
-        <div className="brutal-card-lg bg-studio-white w-full max-w-md p-6 text-center sm:p-8">
+        <div className="brutal-card-lg bg-studio-white w-full max-w-md p-5 text-center sm:p-8">
           <div className="mx-auto flex h-12 w-12 items-center justify-center border-2 border-[#151515] bg-[#C8F13A]">
             <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
           </div>
@@ -48,13 +48,13 @@ export function RequireOwner({ children }) {
 
   if (!isAuthorizedOwner) {
     return (
-      <div className="mx-auto max-w-xl py-8">
+      <div className="mx-auto max-w-xl py-4 sm:py-8">
         <AdminSurface
           as="section"
           variant="card"
           role="alert"
           data-testid="require-owner-denied"
-          className="border-red-200 bg-white p-6 text-center sm:p-8"
+          className="border-red-200 bg-white p-5 text-center sm:p-8"
         >
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-red-200 bg-red-50 text-red-700">
             <ShieldAlert className="h-6 w-6" aria-hidden="true" />
@@ -66,13 +66,12 @@ export function RequireOwner({ children }) {
             Akses Ditolak — Khusus Owner Studio
           </h1>
           <p className="mt-2 text-xs leading-relaxed text-[#666159] sm:text-sm">
-            Danger Area dan operasi Factory Reset hanya dapat diakses oleh akun dengan peran Owner
-            aktif. Akun Staff tidak diizinkan membuka atau menjalankan tindakan penghapusan data
-            operasional.
+            Halaman dan kontrol sensitif ini hanya dapat diakses oleh akun dengan peran Owner
+            aktif. Akun Staff tidak diizinkan membuka atau menjalankan aksi di halaman tersebut.
           </p>
           <div className="mt-6 flex justify-center">
-            <Link to="/admin/settings">
-              <AdminButton variant="secondary" size="md">
+            <Link to="/admin/settings" className="w-full sm:w-auto">
+              <AdminButton variant="secondary" size="md" className="w-full justify-center sm:w-auto">
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 <span>Kembali ke Settings</span>
               </AdminButton>

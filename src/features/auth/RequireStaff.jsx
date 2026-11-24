@@ -13,9 +13,9 @@ export function RequireStaff({ children }) {
       <div
         role="status"
         aria-live="polite"
-        className="bg-studio-ivory text-studio-ink flex min-h-screen flex-col items-center justify-center p-4"
+        className="bg-studio-ivory text-studio-ink flex min-h-dvh flex-col items-center justify-center p-4"
       >
-        <div className="brutal-card-lg bg-studio-white w-full max-w-md p-6 text-center sm:p-8">
+        <div className="brutal-card-lg bg-studio-white w-full max-w-md p-5 text-center sm:p-8">
           <div className="mx-auto flex h-12 w-12 items-center justify-center border-2 border-[#151515] bg-[#C8F13A]">
             <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
           </div>

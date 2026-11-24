@@ -47,7 +47,7 @@ export function CommissionReviewTable({
             <button
               type="button"
               onClick={allVisibleSelected ? onClearSelection : onSelectAllEligible}
-              className="sa-control sa-btn-secondary inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+              className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
             >
               {allVisibleSelected ? (
                 <>

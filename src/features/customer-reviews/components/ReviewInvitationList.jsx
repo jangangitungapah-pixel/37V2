@@ -51,14 +51,14 @@ export function ReviewInvitationList({ invitations = [], reviewsByBookingId = ne
                 <span>Dibuat: {formatIndonesianTimestamp(inv.issuedAt)}</span>
                 <span>Kedaluwarsa: {formatIndonesianTimestamp(inv.expiresAt)}</span>
               </div>
-              <p className="mt-1 font-mono text-[10.5px] text-[#8B857B]">
+              <p className="mt-1 font-mono text-[10.5px] break-words text-[#8B857B]">
                 Token Hash Prefix: {inv.id.slice(0, 12)}… (token mentah tidak pernah disimpan)
               </p>
             </div>
 
             <Link
               to={`/admin/calendar?bookingId=${encodeURIComponent(inv.bookingId)}`}
-              className="sa-control sa-btn-secondary inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold"
+              className="sa-control sa-btn-secondary inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-semibold sm:w-auto"
             >
               <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Buka Booking di Calendar</span>

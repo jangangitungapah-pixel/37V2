@@ -32,10 +32,10 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
           data-admin-portal-layer="true"
           data-testid="review-detail-drawer"
           aria-label={`Detail ulasan ${review.displayName}`}
-          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-lg flex-col"
+          className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-lg flex-col"
         >
           {/* Sticky Header */}
-          <div className="shrink-0 border-b border-white/10 bg-[#151515] px-5 py-4 text-[#F1EEE4] sm:px-6">
+          <div className="shrink-0 border-b border-white/10 bg-[#151515] px-4 py-3.5 text-[#F1EEE4] sm:px-6 sm:py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -54,7 +54,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
 
               <Dialog.Close
                 aria-label="Tutup detail ulasan"
-                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/12 bg-white/6 text-white transition-colors"
+                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/12 bg-white/6 text-white transition-colors"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
@@ -62,7 +62,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
           </div>
 
           {/* Scrollable Body */}
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5 sm:p-6">
+          <div className="sa-safe-bottom min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
             {/* Rating + Immutable Written Content */}
             <section className="sa-card p-4 sm:p-5">
               <div className="flex items-center justify-between gap-2 border-b border-[#151515]/10 pb-3">
@@ -130,7 +130,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
               <div className="pt-1">
                 <Link
                   to={`/admin/calendar?bookingId=${encodeURIComponent(review.bookingId)}`}
-                  className="sa-control sa-btn-secondary inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold"
+                  className="sa-control sa-btn-secondary inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold"
                 >
                   <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Lihat Booking di Calendar</span>
@@ -152,6 +152,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
                     variant="primary"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.PUBLISHED)}
+                    className="min-h-10.5 w-full sm:w-auto"
                   >
                     Publish to Website
                   </AdminButton>
@@ -162,6 +163,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
                     variant="secondary"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.ARCHIVED)}
+                    className="min-h-10.5 w-full sm:w-auto"
                   >
                     Archive Review
                   </AdminButton>
@@ -172,6 +174,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
                     variant="secondary"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.PENDING)}
+                    className="min-h-10.5 w-full sm:w-auto"
                   >
                     Restore to Pending
                   </AdminButton>
@@ -182,6 +185,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
                     variant="danger"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.REJECTED)}
+                    className="min-h-10.5 w-full sm:w-auto"
                   >
                     Reject Review
                   </AdminButton>

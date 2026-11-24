@@ -141,7 +141,7 @@ export function StaffLoginPage() {
   };
 
   return (
-    <div className="bg-studio-ivory text-studio-ink flex min-h-screen flex-col justify-between">
+    <div className="bg-studio-ivory text-studio-ink flex min-h-dvh flex-col justify-between">
       {/* Top Bar */}
       <header className="border-studio-ink bg-studio-ivory border-b-2">
         <div className="mx-auto flex max-w-[1680px] items-center justify-between gap-2 px-3 py-2.5 sm:px-6 lg:px-8">
@@ -229,6 +229,15 @@ export function StaffLoginPage() {
 
           {/* Right Panel: Authentication Form */}
           <div className="bg-studio-white text-studio-ink flex flex-col justify-between p-4 sm:p-8 lg:col-span-7 lg:p-10">
+            <div className="border-studio-ink bg-studio-ink text-studio-white -mx-4 -mt-4 mb-4 flex items-center justify-between gap-2 border-b-2 px-4 py-2.5 lg:hidden">
+              <span className="bg-studio-lime text-studio-ink inline-flex items-center gap-1.5 px-2 py-0.5 font-mono text-[10px] font-extrabold tracking-wider uppercase">
+                <Lock className="h-3 w-3" aria-hidden="true" />
+                <span>STAFF &amp; OWNER ACCESS</span>
+              </span>
+              <span className="font-mono text-[10px] font-bold tracking-wider text-neutral-300 uppercase">
+                STUDIO OS • AUTH
+              </span>
+            </div>
             {mode === 'signin' ? (
               <div>
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -285,7 +294,7 @@ export function StaffLoginPage() {
                           if (localError) setLocalError('');
                         }}
                         placeholder="owner@37studio.com"
-                        className="border-studio-ink bg-studio-ivory min-h-12 w-full border-2 py-2.5 pr-3 pl-10 text-sm font-medium placeholder:text-neutral-500 disabled:opacity-60"
+                        className="border-studio-ink bg-studio-ivory min-h-12 w-full border-2 py-2.5 pr-3 pl-10 text-base font-medium placeholder:text-neutral-500 disabled:opacity-60 sm:text-sm"
                       />
                       <Mail
                         className="text-studio-muted-ink pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2"
@@ -319,7 +328,7 @@ export function StaffLoginPage() {
                           if (localError) setLocalError('');
                         }}
                         placeholder="Enter your password"
-                        className="border-studio-ink bg-studio-ivory min-h-12 w-full border-2 py-2.5 pr-12 pl-10 text-sm font-medium placeholder:text-neutral-500 disabled:opacity-60"
+                        className="border-studio-ink bg-studio-ivory min-h-12 w-full border-2 py-2.5 pr-12 pl-10 text-base font-medium placeholder:text-neutral-500 disabled:opacity-60 sm:text-sm"
                       />
                       <KeyRound
                         className="text-studio-muted-ink pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2"
@@ -440,7 +449,7 @@ export function StaffLoginPage() {
                           if (resetError) setResetError('');
                         }}
                         placeholder="owner@37studio.com"
-                        className="border-studio-ink bg-studio-ivory min-h-12 w-full border-2 py-2.5 pr-3 pl-10 text-sm font-medium placeholder:text-neutral-500 disabled:opacity-60"
+                        className="border-studio-ink bg-studio-ivory min-h-12 w-full border-2 py-2.5 pr-3 pl-10 text-base font-medium placeholder:text-neutral-500 disabled:opacity-60 sm:text-sm"
                       />
                       <Mail
                         className="text-studio-muted-ink pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2"
@@ -482,7 +491,7 @@ export function StaffLoginPage() {
             )}
 
             {/* Bottom Security & Public Website Notice */}
-            <div className="border-studio-ink mt-8 hidden border-t-2 pt-4 sm:block">
+            <div className="border-studio-ink mt-6 border-t-2 pt-3.5 sm:mt-8 sm:pt-4">
               <p className="text-studio-muted-ink text-xs leading-relaxed">
                 <strong>Note for studio visitors:</strong> This page is reserved for internal 37
                 Music Studio staff and owners. Looking to book a rehearsal or recording session?{' '}

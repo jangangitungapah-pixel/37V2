@@ -145,7 +145,7 @@ export function InvoiceDirectoryTable({
                       <button
                         type="button"
                         onClick={() => onSelectInvoice?.(invoice)}
-                        className="block max-w-full cursor-pointer truncate text-left font-mono text-xs font-semibold text-[#151515] transition-colors hover:text-[#FF4B22]"
+                        className="block max-w-full cursor-pointer truncate py-1 text-left font-mono text-xs font-semibold text-[#151515] transition-colors hover:text-[#FF4B22]"
                       >
                         {invoice.invoiceNumber}
                       </button>
@@ -279,7 +279,7 @@ export function InvoiceDirectoryTable({
                             type="button"
                             onClick={() => onQuickRecordPayment?.(invoice)}
                             aria-label={`Catat pembayaran ${invoice.invoiceNumber}`}
-                            className="sa-control sa-btn-lime inline-flex h-8 cursor-pointer items-center justify-center gap-1 px-2.5 text-xs font-semibold"
+                            className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold"
                           >
                             <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>Bayar</span>
@@ -289,7 +289,7 @@ export function InvoiceDirectoryTable({
                             type="button"
                             onClick={() => onReviewInvoiceEvidence?.(pendingEvidence, invoice)}
                             aria-label={`Tinjau bukti pembayaran ${invoice.invoiceNumber}`}
-                            className="sa-control sa-btn-lime inline-flex h-8 cursor-pointer items-center justify-center gap-1 px-2.5 text-xs font-semibold"
+                            className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold"
                           >
                             <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>Tinjau Bukti</span>
@@ -300,7 +300,7 @@ export function InvoiceDirectoryTable({
                           type="button"
                           onClick={() => onSelectInvoice?.(invoice)}
                           aria-label={`Buka detail invoice ${invoice.invoiceNumber}`}
-                          className="sa-control sa-btn-secondary inline-flex h-8 cursor-pointer items-center justify-center gap-1 px-3 text-xs font-semibold hover:bg-[#C8F13A]"
+                          className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold hover:bg-[#C8F13A]"
                         >
                           <span>Detail</span>
                           <ChevronRight className="h-3.5 w-3.5 text-[#666159]" aria-hidden="true" />
@@ -320,7 +320,7 @@ export function InvoiceDirectoryTable({
           <button
             type="button"
             onClick={onLoadMore}
-            className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold"
+            className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold sm:w-auto"
           >
             Muat Lebih Banyak Invoice
           </button>

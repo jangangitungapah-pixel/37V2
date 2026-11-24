@@ -111,7 +111,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
                     type="button"
                     aria-pressed={rule.isActive}
                     onClick={() => handleToggleRule(rule.id)}
-                    className={`min-h-8.5 cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                    className={`min-h-10 cursor-pointer rounded-full border px-3 py-1 text-[11px] font-semibold ${
                       rule.isActive
                         ? 'border-[#8BAD12]/35 bg-[#EDF8C2] text-[#243300]'
                         : 'border-[#151515]/12 bg-white text-[#666159]'
@@ -123,7 +123,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
                     type="button"
                     aria-label={`Hapus aturan diskon ${rule.name}`}
                     onClick={() => handleRemoveRule(rule.id)}
-                    className="inline-flex h-8.5 w-8.5 cursor-pointer items-center justify-center rounded-lg border border-[#FF4B22]/20 bg-[#FFEDE8] text-[#B92B0C] transition-colors hover:bg-[#FF4B22] hover:text-white"
+                    className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg border border-[#FF4B22]/20 bg-[#FFEDE8] text-[#B92B0C] transition-colors hover:bg-[#FF4B22] hover:text-white"
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
@@ -160,7 +160,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
                       : 'Promo Durasi',
                 }));
               }}
-              className="sa-input mt-1 min-h-9.5 w-full px-2.5 py-1.5 text-xs font-medium"
+              className="sa-input mt-1 min-h-10 w-full px-2.5 py-1.5 text-xs font-medium"
             >
               <option value={DISCOUNT_RULE_MODES.PER_COMPLETED_BLOCK}>
                 Per Completed Block (Kelipatan)
@@ -182,7 +182,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
               value={draftRule.name}
               onChange={(e) => setDraftRule((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="Diskon Durasi"
-              className="sa-input mt-1 min-h-9.5 w-full px-2.5 py-1.5 text-xs"
+              className="sa-input mt-1 min-h-10 w-full px-2.5 py-1.5 text-xs"
             />
           </div>
 
@@ -209,7 +209,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
               onChange={(e) =>
                 setDraftRule((prev) => ({ ...prev, durationMinutes: e.target.value }))
               }
-              className="sa-input mt-1 min-h-9.5 w-full px-2.5 py-1.5 font-mono text-xs font-semibold tabular-nums"
+              className="sa-input mt-1 min-h-10 w-full px-2.5 py-1.5 font-mono text-xs font-semibold tabular-nums"
             />
           </div>
 
@@ -236,7 +236,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
                   discountAmount: e.target.value.replace(/\D/g, ''),
                 }))
               }
-              className="sa-input mt-1 min-h-9.5 w-full px-2.5 py-1.5 font-mono text-xs font-semibold tabular-nums"
+              className="sa-input mt-1 min-h-10 w-full px-2.5 py-1.5 font-mono text-xs font-semibold tabular-nums"
             />
           </div>
         </div>
@@ -250,7 +250,7 @@ export function DiscountRulesEditor({ discountRules = [], errors = {}, onChangeR
         <button
           type="button"
           onClick={handleAddRule}
-          className="sa-control sa-btn-lime inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+          className="sa-control sa-btn-lime inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold sm:w-auto"
         >
           <Plus className="h-3.5 w-3.5" aria-hidden="true" />
           <span>Tambah Aturan Diskon</span>

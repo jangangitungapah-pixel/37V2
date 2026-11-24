@@ -58,7 +58,7 @@ export function AdminTopbar({
 
   return (
     <header className="sa-topbar sticky top-0 z-20">
-      <div className="mx-auto flex min-h-[52px] w-full max-w-[1440px] items-center justify-between gap-1.5 px-2.5 py-1.5 sm:min-h-[60px] sm:gap-2.5 sm:px-6 sm:py-2.5 lg:px-8">
+      <div className="mx-auto flex min-h-[54px] w-full max-w-[1440px] items-center justify-between gap-2 px-3 py-1.5 sm:min-h-[60px] sm:gap-2.5 sm:px-6 sm:py-2.5 lg:px-8">
         {/* Left: Mobile Drawer Button / Desktop Sidebar Toggle + Breadcrumb + Dynamic Page Title */}
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
           {/* Mobile & Tablet Off-Canvas Drawer Trigger */}
@@ -68,7 +68,7 @@ export function AdminTopbar({
             onClick={onOpenMobileDrawer}
             aria-expanded={isMobileDrawerOpen}
             aria-label="Open navigation drawer"
-            className="sa-control sa-btn-secondary inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center sm:h-10 sm:w-10 lg:hidden"
+            className="sa-control sa-btn-secondary inline-flex h-10.5 w-10.5 shrink-0 cursor-pointer items-center justify-center sm:h-10 sm:w-10 lg:hidden"
           >
             <Menu className="h-4.5 w-4.5 text-[#151515]" aria-hidden="true" />
           </button>
@@ -163,7 +163,7 @@ export function AdminTopbar({
             disabled={isSigningOut}
             aria-label="Sign out of studio session"
             title="Sign Out"
-            className="sa-control inline-flex h-9.5 w-9.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[#FF4B22]/25 bg-[#FFEDE8]/90 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white disabled:cursor-not-allowed disabled:opacity-60 sm:h-9.5 sm:w-auto sm:px-3.5 sm:py-1.5"
+            className="sa-control inline-flex h-10.5 w-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[#FF4B22]/25 bg-[#FFEDE8]/90 text-xs font-semibold text-[#B92B0C] transition-colors hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white disabled:cursor-not-allowed disabled:opacity-60 sm:h-9.5 sm:w-auto sm:px-3.5 sm:py-1.5"
           >
             {isSigningOut ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />

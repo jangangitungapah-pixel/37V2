@@ -125,7 +125,7 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
           <Dialog.Popup
             data-admin-portal-layer="true"
             aria-label="Detail Booking Request"
-            className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-[#FAF8F1] shadow-[-16px_0_48px_-12px_rgba(21,21,21,0.3)] outline-none"
+            className="flex h-dvh w-full max-w-2xl flex-col overflow-hidden bg-[#FAF8F1] shadow-[-16px_0_48px_-12px_rgba(21,21,21,0.3)] outline-none"
           >
             {/* Header */}
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 bg-[#151515] px-4 py-4 text-[#F1EEE4] sm:px-6">
@@ -151,14 +151,14 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
 
               <Dialog.Close
                 aria-label="Tutup detail request"
-                className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white hover:text-[#C8F13A]"
+                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white hover:text-[#C8F13A]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
             </div>
 
             {/* Body */}
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+            <div className="sa-safe-bottom min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pt-4 sm:px-6 sm:pt-6 sm:pb-6">
               {isLoading ? (
                 <div className="flex items-center gap-2 rounded-2xl border border-[#151515]/10 bg-white p-5 text-sm text-[#46433D]">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -244,7 +244,7 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
                         </div>
                         <Link
                           to={`/admin/calendar?date=${encodeURIComponent(request.confirmedBookingSnapshot.date)}&bookingId=${encodeURIComponent(request.linkedBookingId)}`}
-                          className="inline-flex items-center gap-1 rounded-lg bg-[#151515] px-2.5 py-1 font-semibold text-white hover:bg-[#2B2A27]"
+                          className="inline-flex min-h-10 items-center gap-1 rounded-lg bg-[#151515] px-3 py-1.5 font-semibold text-white hover:bg-[#2B2A27]"
                         >
                           <span>Lihat di Calendar</span>
                           <ArrowUpRight className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
@@ -389,6 +389,7 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
                               size="sm"
                               disabled={isUpdatingStatus}
                               onClick={() => handleTransitionClick(targetStatus)}
+                              className="min-h-10"
                             >
                               {btnMeta.label}
                             </AdminButton>
@@ -425,18 +426,20 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
                         <div className="flex justify-end gap-2">
                           <AdminButton
                             variant="secondary"
-                            size="xs"
+                            size="sm"
                             onClick={() => setPendingReasonTarget('')}
+                            className="min-h-10"
                           >
                             Batal
                           </AdminButton>
                           <AdminButton
                             variant="danger"
-                            size="xs"
+                            size="sm"
                             disabled={isUpdatingStatus || reasonInput.trim().length < 3}
                             onClick={() =>
                               executeStatusTransition(pendingReasonTarget, reasonInput.trim())
                             }
+                            className="min-h-10"
                           >
                             Konfirmasi{' '}
                             {pendingReasonTarget === BOOKING_REQUEST_STATUS.DECLINED
