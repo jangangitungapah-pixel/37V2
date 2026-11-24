@@ -104,64 +104,83 @@ export function DashboardTodayOverview({
   }
 
   return (
-    <section
-      aria-label="Ringkasan operasional hari ini"
-      className="grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4"
-    >
-      <AdminMetricCard
-        label="Booking Hari Ini"
-        value={`${activeCount} Sesi`}
-        hint={`${completedCount} selesai • ${upcomingCount} akan datang`}
-        icon={CalendarCheck2}
-        tone="neutral"
-        compactMobile
-      />
+    <section aria-label="Ringkasan operasional hari ini" className="space-y-2.5">
+      <div className="flex items-end justify-between gap-3 px-0.5">
+        <div className="min-w-0">
+          <p className="font-mono text-[9px] font-bold tracking-[0.16em] text-[#8B857B] uppercase">
+            01 / Today at a glance
+          </p>
+          <h3 className="mt-0.5 text-sm font-bold tracking-tight text-[#151515] sm:text-[15px]">
+            Aktivitas Operasional
+          </h3>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#8BAD12]/20 bg-[#EDF8C2]/65 px-2.5 py-1 font-mono text-[9px] font-bold tracking-[0.08em] text-[#405700]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#8BAD12]" />
+          LIVE · WIB
+        </span>
+      </div>
 
-      <AdminMetricCard
-        label="Sesi Berlangsung"
-        value={`${inProgressCount} Sesi`}
-        hint={
-          inProgressCount > 0
-            ? 'Sesi sedang aktif di ruang studio'
-            : 'Tidak ada sesi yang sedang berlangsung'
-        }
-        icon={Radio}
-        tone={inProgressCount > 0 ? 'lime' : 'neutral'}
-        compactMobile
-      />
-
-      <AdminMetricCard
-        label="Booking Belum Lunas"
-        value={`${unpaidCount} Sesi`}
-        hint={unpaidHint}
-        icon={CreditCard}
-        tone={unpaidCount > 0 ? 'orange' : unverifiedCount > 0 ? 'amber' : 'emerald'}
-        compactMobile
-      />
-
-      {isOwner ? (
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         <AdminMetricCard
-          label="Kas Masuk Hari Ini"
-          value={formatDashboardRupiah(cashInNet)}
-          hint={cashInHint}
-          icon={Wallet}
-          tone="ink"
+          label="Booking Hari Ini"
+          value={`${activeCount} Sesi`}
+          hint={`${completedCount} selesai • ${upcomingCount} akan datang`}
+          icon={CalendarCheck2}
+          tone="neutral"
           compactMobile
+          className="min-h-[102px] sm:min-h-[116px]"
         />
-      ) : (
+
         <AdminMetricCard
-          label="Sesi Akan Datang"
-          value={`${upcomingCount} Sesi`}
+          label="Sesi Berlangsung"
+          value={`${inProgressCount} Sesi`}
           hint={
-            upcomingCount > 0
-              ? 'Menunggu kedatangan & check-in pelanggan hari ini'
-              : 'Tidak ada antrian sesi berikutnya hari ini'
+            inProgressCount > 0
+              ? 'Sesi sedang aktif di ruang studio'
+              : 'Tidak ada sesi yang sedang berlangsung'
           }
-          icon={Clock}
-          tone={upcomingCount > 0 ? 'amber' : 'neutral'}
+          icon={Radio}
+          tone={inProgressCount > 0 ? 'lime' : 'neutral'}
           compactMobile
+          className="min-h-[102px] sm:min-h-[116px]"
         />
-      )}
+
+        <AdminMetricCard
+          label="Booking Belum Lunas"
+          value={`${unpaidCount} Sesi`}
+          hint={unpaidHint}
+          icon={CreditCard}
+          tone={unpaidCount > 0 ? 'orange' : unverifiedCount > 0 ? 'amber' : 'emerald'}
+          compactMobile
+          className="min-h-[102px] sm:min-h-[116px]"
+        />
+
+        {isOwner ? (
+          <AdminMetricCard
+            label="Kas Masuk Hari Ini"
+            value={formatDashboardRupiah(cashInNet)}
+            hint={cashInHint}
+            icon={Wallet}
+            tone="ink"
+            compactMobile
+            className="min-h-[102px] sm:min-h-[116px]"
+          />
+        ) : (
+          <AdminMetricCard
+            label="Sesi Akan Datang"
+            value={`${upcomingCount} Sesi`}
+            hint={
+              upcomingCount > 0
+                ? 'Menunggu kedatangan & check-in pelanggan hari ini'
+                : 'Tidak ada antrian sesi berikutnya hari ini'
+            }
+            icon={Clock}
+            tone={upcomingCount > 0 ? 'amber' : 'neutral'}
+            compactMobile
+            className="min-h-[102px] sm:min-h-[116px]"
+          />
+        )}
+      </div>
     </section>
   );
 }

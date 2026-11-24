@@ -56,14 +56,14 @@ export function DashboardOwnerFinancials({
       variant="card"
       aria-labelledby="dashboard-owner-financial-heading"
       data-testid="dashboard-owner-financial-section"
-      className="space-y-4 p-4 sm:p-5"
+      className="space-y-3.5 p-3.5 sm:p-4 lg:p-5"
     >
       <div className="flex flex-col gap-3 border-b border-[#151515]/[0.07] pb-3.5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3
               id="dashboard-owner-financial-heading"
-              className="text-base font-bold tracking-tight text-[#151515]"
+              className="text-[15px] font-bold tracking-tight text-[#151515]"
             >
               Ringkasan Arus Kas &amp; Kewajiban (Owner)
             </h3>
@@ -145,7 +145,7 @@ export function DashboardOwnerFinancials({
         </div>
       ) : isLoading ? (
         <div className="space-y-4" aria-label="Memuat ringkasan keuangan Owner">
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
             {[0, 1, 2, 3].map((idx) => (
               <div
                 key={idx}

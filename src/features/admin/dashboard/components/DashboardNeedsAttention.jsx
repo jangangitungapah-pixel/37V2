@@ -43,14 +43,14 @@ export function DashboardNeedsAttention({
       as="section"
       variant="card"
       aria-labelledby="dashboard-needs-attention-heading"
-      className="space-y-3.5 p-4 sm:p-5"
+      className="space-y-3 p-3.5 sm:p-4 lg:p-5"
     >
       <div className="flex items-center justify-between gap-2 border-b border-[#151515]/[0.07] pb-3">
         <div>
           <div className="flex items-center gap-2">
             <h3
               id="dashboard-needs-attention-heading"
-              className="text-base font-bold tracking-tight text-[#151515]"
+              className="text-[15px] font-bold tracking-tight text-[#151515]"
             >
               Perlu Perhatian
             </h3>
@@ -79,7 +79,7 @@ export function DashboardNeedsAttention({
           ) : null}
         </div>
       ) : isLoading ? (
-        <div className="space-y-2.5" aria-label="Memuat antrian tindak lanjut">
+        <div className="space-y-2" aria-label="Memuat antrian tindak lanjut">
           {[0, 1, 2].map((idx) => (
             <div
               key={idx}
@@ -104,18 +104,18 @@ export function DashboardNeedsAttention({
           </p>
         </div>
       ) : (
-        <ul className="space-y-2.5" aria-label="Daftar item yang memerlukan perhatian">
+        <ul className="space-y-2" aria-label="Daftar item yang memerlukan perhatian">
           {items.map((item) => {
             const Icon = ICON_BY_TYPE[item.type] || AlertTriangle;
             return (
               <li
                 key={item.id}
                 data-testid={`attention-item-${item.type}`}
-                className="rounded-xl border border-[#151515]/[0.075] bg-[#FAF8F2]/80 p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/16 hover:bg-white hover:shadow-sm"
+                className="rounded-xl border border-[#151515]/[0.075] bg-[#FAF8F2]/80 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/16 hover:bg-white hover:shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2.5">
                   <div className="flex min-w-0 items-start gap-2.5">
-                    <span className="mt-0.5 inline-flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-xl border border-[#151515]/[0.06] bg-white text-[#151515] shadow-2xs">
+                    <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#151515]/[0.06] bg-white text-[#151515] shadow-2xs">
                       <Icon className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <div className="min-w-0">
@@ -134,10 +134,10 @@ export function DashboardNeedsAttention({
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center justify-end border-t border-[#151515]/[0.06] pt-2.5">
+                <div className="mt-2 flex items-center justify-end border-t border-[#151515]/[0.06] pt-2">
                   <Link
                     to={item.href}
-                    className="sa-btn-primary inline-flex min-h-8.5 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-[#F8F6EF]"
+                    className="sa-btn-primary inline-flex min-h-8 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#F8F6EF]"
                   >
                     <span>{item.actionLabel}</span>
                     <ArrowUpRight className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
@@ -152,7 +152,7 @@ export function DashboardNeedsAttention({
       {!isLoading && recentBookingRequests.length > 0 ? (
         <div
           data-testid="dashboard-recent-booking-requests"
-          className="space-y-2 border-t border-[#151515]/[0.08] pt-3"
+          className="space-y-2 border-t border-[#151515]/[0.08] pt-2.5"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="font-mono text-[10.5px] font-bold tracking-wider text-[#46433D] uppercase">

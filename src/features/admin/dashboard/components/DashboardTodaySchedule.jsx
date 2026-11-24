@@ -48,14 +48,14 @@ export function DashboardTodaySchedule({
       as="section"
       variant="card"
       aria-labelledby="dashboard-today-schedule-heading"
-      className="space-y-4 p-4 sm:p-5"
+      className="space-y-3.5 p-3.5 sm:p-4 lg:p-5"
     >
-      <div className="flex flex-col gap-2 border-b border-[#151515]/[0.07] pb-3.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 border-b border-[#151515]/[0.07] pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3
               id="dashboard-today-schedule-heading"
-              className="text-base font-bold tracking-tight text-[#151515]"
+              className="text-[15px] font-bold tracking-tight text-[#151515]"
             >
               Jadwal Studio Hari Ini
             </h3>
@@ -172,7 +172,7 @@ export function DashboardTodaySchedule({
               <div
                 key={room.id}
                 data-testid={`dashboard-schedule-${room.id}`}
-                className={`flex flex-col rounded-2xl border border-[#151515]/[0.08] bg-[#F8F6EF]/75 p-3.5 sm:p-4 ${
+                className={`flex flex-col rounded-2xl border border-[#151515]/[0.08] bg-[#F8F6EF]/75 p-3 ${
                   mobileRoomTab !== 'all' && mobileRoomTab !== room.id ? 'max-md:hidden' : ''
                 }`}
               >
@@ -215,11 +215,11 @@ export function DashboardTodaySchedule({
                     </Link>
                   </div>
                 ) : (
-                  <ul className="mt-3 space-y-2.5" aria-label={`Daftar sesi ${room.label} hari ini`}>
+                  <ul className="mt-2.5 space-y-2" aria-label={`Daftar sesi ${room.label} hari ini`}>
                     {room.sessions.map((session) => (
                       <li
                         key={session.id}
-                        className="group rounded-xl border border-[#151515]/[0.075] bg-white p-3.5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/18 hover:shadow-sm"
+                        className="group rounded-xl border border-[#151515]/[0.075] bg-white p-3 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/18 hover:shadow-sm"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#151515] px-2.5 py-1 font-mono text-xs font-bold text-[#F8F6EF] tabular-nums">

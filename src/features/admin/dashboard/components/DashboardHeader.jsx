@@ -1,12 +1,9 @@
-import { Calendar, Clock, Plus } from 'lucide-react';
+import { CalendarDays, Clock3, Plus, RadioTower } from 'lucide-react';
 import { Link } from 'react-router';
 
-import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
-
 /**
- * SECTION A — Header & Quick Actions
- * Displays time-sensitive Asia/Jakarta greeting, formatted Indonesian date,
- * operational subtitle, and direct actions (`Booking Baru` and `Buka Kalender`).
+ * SECTION A — Command header and primary actions.
+ * Keeps the studio identity prominent without pushing operational data below the fold.
  */
 export function DashboardHeader({
   displayName = 'Studio Team',
@@ -18,59 +15,85 @@ export function DashboardHeader({
   const formattedDate = greetingInfo?.formattedDateFull || '-';
 
   return (
-    <AdminSurface
-      as="section"
-      variant="hero"
+    <section
       aria-labelledby="dashboard-command-center-heading"
-      className="relative overflow-hidden p-3.5 sm:p-6"
+      className="relative isolate overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#151515] px-4 py-4 text-[#F8F6EF] shadow-[0_18px_42px_-22px_rgba(21,21,21,0.48)] sm:px-5 sm:py-5 lg:px-6 lg:py-5.5"
     >
-      <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 space-y-1.5">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-28 right-[-3rem] h-72 w-72 rounded-full bg-[#C8F13A]/[0.13] blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-36 left-[34%] h-64 w-64 rounded-full bg-[#FF4B22]/[0.08] blur-3xl"
+      />
+
+      <div className="relative z-10 grid gap-5 lg:grid-cols-[minmax(0,1fr)_190px] lg:items-end lg:gap-8">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <AdminStatusBadge tone="ink" dot>
-              Studio Command Center
-            </AdminStatusBadge>
-            <AdminStatusBadge tone={isOwner ? 'lime' : 'ivory'} className="hidden sm:inline-flex">
-              AKSES: {String(roleLabel || 'Staff').toUpperCase()}
-            </AdminStatusBadge>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#151515]/10 bg-white/80 px-2 py-0.5 font-mono text-[10.5px] font-medium text-[#46433D] sm:px-2.5 sm:text-[11px]">
-              <Clock className="h-3 w-3 text-[#658800]" aria-hidden="true" />
-              <span>{formattedDate} • WIB</span>
+            <span className="inline-flex min-h-6 items-center gap-1.5 rounded-full bg-[#C8F13A] px-2.5 py-1 font-mono text-[9px] font-extrabold tracking-[0.12em] text-[#151515]">
+              <RadioTower className="h-3 w-3" aria-hidden="true" />
+              37 / STUDIO OPERATIONS
+            </span>
+            <span className="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 font-mono text-[9px] font-semibold tracking-[0.1em] text-neutral-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#C8F13A] shadow-[0_0_10px_rgba(200,241,58,0.85)]" />
+              LIVE WORKSPACE
+            </span>
+            <span
+              className={
+                isOwner
+                  ? 'inline-flex min-h-6 items-center rounded-full border border-[#C8F13A]/25 bg-[#C8F13A]/10 px-2.5 py-1 font-mono text-[9px] font-bold tracking-[0.1em] text-[#D8F67A]'
+                  : 'inline-flex min-h-6 items-center rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 font-mono text-[9px] font-bold tracking-[0.1em] text-neutral-300'
+              }
+            >
+              {String(roleLabel || 'Staff').toUpperCase()} ACCESS
             </span>
           </div>
 
           <h2
             id="dashboard-command-center-heading"
-            className="text-lg font-extrabold tracking-tight text-[#151515] sm:text-2xl"
+            className="mt-3 text-[clamp(1.45rem,3.2vw,2.15rem)] leading-[1.08] font-extrabold tracking-[-0.045em] text-white"
           >
-            {greeting}, {displayName}
+            {greeting},{' '}
+            <span className="text-[#C8F13A]">{displayName}</span>
             <span className="sr-only"> — Welcome back, {displayName}.</span>
           </h2>
 
-          <p className="max-w-2xl text-xs leading-relaxed text-[#5C5850] sm:text-sm">
-            Pantau jadwal sesi Room A &amp; Room B hari ini, status pelunasan tagihan, antrian
-            tindak lanjut operasional, dan performa studio secara real-time.
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium text-neutral-300 sm:text-xs">
+            <span className="inline-flex items-center gap-1.5">
+              <Clock3 className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
+              {formattedDate}
+            </span>
+            <span className="text-white/25" aria-hidden="true">/</span>
+            <span className="font-mono text-[10px] tracking-[0.12em] text-neutral-400">WIB · UTC+7</span>
+          </div>
+
+          <p className="mt-3 max-w-2xl text-[11.5px] leading-relaxed text-neutral-300 sm:text-xs">
+            Pantau aktivitas Room A dan Room B, tindak lanjut pelanggan, serta performa studio
+            dari satu ruang kendali.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 lg:shrink-0">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
           <Link
             to="/admin/calendar?action=new-booking"
-            className="sa-btn-primary inline-flex min-h-10 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:text-[13px]"
+            className="sa-btn-lime inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-[11px] font-bold sm:text-xs"
           >
-            <Plus className="h-4 w-4 shrink-0 text-[#C8F13A]" aria-hidden="true" />
+            <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>Booking Baru</span>
           </Link>
 
           <Link
             to="/admin/calendar"
-            className="sa-btn-secondary inline-flex min-h-10 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:text-[13px]"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:border-white/25 hover:bg-white/[0.11] sm:text-xs"
           >
-            <Calendar className="h-4 w-4 shrink-0 text-[#46433D]" aria-hidden="true" />
+            <CalendarDays className="h-4 w-4 shrink-0 text-[#C8F13A]" aria-hidden="true" />
             <span>Buka Kalender</span>
           </Link>
         </div>
       </div>
-    </AdminSurface>
+    </section>
   );
 }
+
+export default DashboardHeader;

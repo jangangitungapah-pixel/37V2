@@ -174,14 +174,14 @@ export function DashboardBookingTrendChart({
       variant="card"
       aria-labelledby="dashboard-booking-trend-heading"
       data-testid="dashboard-booking-trend-section"
-      className="space-y-4 p-4 sm:p-5"
+      className="space-y-3.5 p-3.5 sm:p-4 lg:p-5"
     >
       <div className="flex flex-col gap-3 border-b border-[#151515]/[0.07] pb-3.5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3
               id="dashboard-booking-trend-heading"
-              className="text-base font-bold tracking-tight text-[#151515]"
+              className="text-[15px] font-bold tracking-tight text-[#151515]"
             >
               Tren Volume Booking Studio
             </h3>

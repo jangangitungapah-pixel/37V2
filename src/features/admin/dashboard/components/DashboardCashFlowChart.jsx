@@ -240,7 +240,7 @@ export function DashboardCashFlowChart({ cashFlowTrend }) {
           description="Tidak ada transaksi pembayaran masuk maupun pelunasan pengeluaran aktual pada rentang tanggal yang dipilih."
         />
       ) : (
-        <div className="rounded-2xl border border-[#151515]/[0.08] bg-white p-3.5 sm:p-4">
+        <div className="rounded-xl border border-[#151515]/[0.08] bg-white p-2.5 sm:p-3.5">
           <div
             ref={containerRef}
             data-testid="cash-flow-echarts-container"

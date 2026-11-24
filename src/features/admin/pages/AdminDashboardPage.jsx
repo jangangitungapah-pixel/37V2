@@ -54,7 +54,7 @@ export function AdminDashboardPage({ now } = {}) {
   });
 
   return (
-    <div data-testid="studio-operations-command-center" className="space-y-4 sm:space-y-5">
+    <div data-testid="studio-operations-command-center" className="space-y-3.5 sm:space-y-4 lg:space-y-5">
       {/* SECTION A — Header & Quick Actions */}
       <DashboardHeader
         displayName={displayName}
@@ -73,8 +73,8 @@ export function AdminDashboardPage({ now } = {}) {
       />
 
       {/* Primary Operational Grid: SECTION C (Today's Studio Schedule) + SECTION D (Needs Attention) */}
-      <div className="grid grid-cols-1 items-start gap-4 sm:gap-5 xl:grid-cols-12">
-        <div className="min-w-0 xl:col-span-7 2xl:col-span-8">
+      <div className="grid grid-cols-1 items-start gap-3.5 sm:gap-4 xl:grid-cols-12">
+        <div className="min-w-0 xl:col-span-8 2xl:col-span-8">
           <DashboardTodaySchedule
             todaySchedule={todaySchedule}
             formattedDateFull={greetingInfo.formattedDateFull}
@@ -86,7 +86,7 @@ export function AdminDashboardPage({ now } = {}) {
           />
         </div>
 
-        <aside className="min-w-0 xl:col-span-5 2xl:col-span-4">
+        <aside className="min-w-0 xl:col-span-4 2xl:col-span-4">
           <DashboardNeedsAttention
             items={needsAttentionItems}
             recentBookingRequests={recentBookingRequests}
