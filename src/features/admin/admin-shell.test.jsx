@@ -291,7 +291,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
     mockAuthenticatedRole('owner');
     const { container } = renderAdminAt('/admin/dashboard');
 
-    await screen.findByRole('heading', { name: /welcome back, 37 music studio owner\\./i });
+    await screen.findByRole('heading', { name: /welcome back, 37 music studio owner\./i });
 
     expect(screen.queryByRole('navigation', { name: /pintasan navigasi mobile/i })).toBeNull();
     expect(container.querySelector('main')?.className).not.toContain('pb-[calc(5.75rem');
