@@ -157,7 +157,7 @@ export function DashboardOwnerFinancials({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
             <AdminMetricCard
               label="Kas Masuk"
               value={formatDashboardRupiah(cashIn)}

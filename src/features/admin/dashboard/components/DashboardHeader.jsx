@@ -17,7 +17,7 @@ export function DashboardHeader({
   return (
     <section
       aria-labelledby="dashboard-command-center-heading"
-      className="relative isolate overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#151515] px-4 py-4 text-[#F8F6EF] shadow-[0_18px_42px_-22px_rgba(21,21,21,0.48)] sm:px-5 sm:py-5 lg:px-6 lg:py-5.5"
+      className="relative isolate overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#151515] px-4 py-4 text-[#F8F6EF] shadow-[0_18px_42px_-22px_rgba(21,21,21,0.48)] sm:px-5 sm:py-5 lg:px-6 lg:py-5"
     >
       <div
         aria-hidden="true"

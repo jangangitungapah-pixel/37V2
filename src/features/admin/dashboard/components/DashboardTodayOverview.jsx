@@ -58,7 +58,7 @@ export function DashboardTodayOverview({
     return (
       <section
         aria-label="Memuat ringkasan operasional hari ini"
-        className="grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4"
+        className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4"
       >
         {[0, 1, 2, 3].map((idx) => (
           <div
