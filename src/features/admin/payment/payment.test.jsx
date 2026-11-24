@@ -62,6 +62,11 @@ import {
   resetPricingSettingsRepositoryAdapter,
   setPricingSettingsRepositoryAdapter,
 } from '@/features/admin/settings/pricing/repositories/pricing-settings-repository';
+import {
+  createInMemoryPaymentEvidenceRepositoryAdapter,
+  resetPaymentEvidenceRepositoryAdapter,
+  setPaymentEvidenceRepositoryAdapter,
+} from '@/features/payment-evidence/repositories/payment-evidence-repository';
 
 import {
   createInMemoryPaymentRepositoryAdapter,
@@ -162,6 +167,9 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
     setBookingRepositoryAdapter(bookingAdapter);
     setCustomerRepositoryAdapter(customerAdapter);
     setPaymentRepositoryAdapter(paymentAdapter);
+    setPaymentEvidenceRepositoryAdapter(
+      createInMemoryPaymentEvidenceRepositoryAdapter({ bookingAdapter }),
+    );
     setPricingSettingsRepositoryAdapter(pricingAdapter);
   });
 
@@ -170,6 +178,7 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
     resetBookingRepositoryAdapter();
     resetCustomerRepositoryAdapter();
     resetPaymentRepositoryAdapter();
+    resetPaymentEvidenceRepositoryAdapter();
     resetPricingSettingsRepositoryAdapter();
   });
 

@@ -30,6 +30,7 @@ export const PAYMENT_SOURCE = {
   BOOKING_INITIAL_PAYMENT: 'booking_initial_payment',
   MANUAL: 'manual',
   LEGACY_INITIAL_SNAPSHOT: 'legacy_initial_snapshot',
+  CLIENT_EVIDENCE_VERIFIED: 'client_evidence_verified',
   REVERSAL: 'reversal',
 };
 
@@ -199,6 +200,12 @@ export function getPaymentSourceMeta(source) {
         id: source,
         label: 'Pembayaran Awal (Data Lama)',
         shortLabel: 'Data Lama',
+      };
+    case PAYMENT_SOURCE.CLIENT_EVIDENCE_VERIFIED:
+      return {
+        id: source,
+        label: 'Bukti Pembayaran Client Portal',
+        shortLabel: 'Bukti Client Portal',
       };
     case PAYMENT_SOURCE.REVERSAL:
       return {

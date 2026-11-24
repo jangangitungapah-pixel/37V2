@@ -2,10 +2,10 @@
 
 ## 37 Music Studio — Invoice Generation & Customer Payment Ledger
 
-**Module Route:** `/admin/payment-and-bill` (supports `?invoiceId=<id>` and `?tab=invoices|transactions`)  
-**Firestore Collections:** `invoices`, `paymentTransactions`  
+**Module Route:** `/admin/payment-and-bill` (supports `?invoiceId=<id>` and `?tab=invoices|transactions|evidence`)  
+**Firestore Collections:** `invoices`, `paymentTransactions`, `paymentEvidence`  
 **Related Collections:** `bookings`, `customers`  
-**Core Model:** `Booking → Invoice → Payment Transactions → Outstanding Balance`
+**Core Model:** `Booking → Invoice → (Optional/Mandatory Payment Evidence) → Payment Transactions → Outstanding Balance`
 
 ---
 
@@ -35,9 +35,10 @@ Implemented in `src/features/admin/payment/utils/invoice-number.js`:
 
 ## 3. Firestore Data Model
 
-### A. `invoices/{invoiceId}` (20 fields)
+### A. `invoices/{invoiceId}` (20–21 fields)
 
 - Identity: `invoiceNumber`, `bookingId`, `customerId`, `invoiceStatus` (`draft` | `issued` | `void`), `currency` (`IDR`).
+- Payment Evidence Policy: `clientPaymentEvidenceRequired` (`boolean`, immutable; `true` strictly for invoices created from `publicBookingRequests.source === 'client_portal'`, defaulting safely to `false` on Admin-managed and 20-field legacy invoices).
 - Immutable Snapshots:
   - `customerSnapshot`: `{ name, phone, bandName }`
   - `bookingSnapshot`: `{ serviceTypeName, serviceOptionName, studioId, bookingDate, startMinute, endMinute, durationMinutes }`
@@ -49,7 +50,13 @@ Implemented in `src/features/admin/payment/utils/invoice-number.js`:
 
 - References: `invoiceId`, `invoiceNumber`, `bookingId`, `customerId`.
 - Ledger Entry: `transactionType` (`payment` | `reversal`), `amount` (int > 0), `currency` (`IDR`), `paymentMethod` (`cash` | `transfer` | `qris` | `other`), `receivedAt`, `referenceNumber`, `notes`.
-- Provenance: `source` (`booking_initial_payment` | `manual` | `legacy_initial_snapshot` | `reversal`), `reversalOfTransactionId` (`null` or original tx ID), `recordedByUid`, `createdAt`.
+- Provenance: `source` (`booking_initial_payment` | `manual` | `legacy_initial_snapshot` | `client_evidence_verified` | `reversal`), `reversalOfTransactionId` (`null` or original tx ID), `recordedByUid`, `createdAt`.
+- Deterministic Verified Evidence ID: `pay_evidence_{evidenceId}` (created atomically during Staff/Owner verification of a Client Portal evidence submission).
+
+### C. `paymentEvidence/{evidenceId}` (23 fields)
+
+- Full architecture documented in [PAYMENT-EVIDENCE-AND-VERIFICATION.md](./PAYMENT-EVIDENCE-AND-VERIFICATION.md).
+- Stores Client Portal mandatory submissions (`evidenceSource: 'client_portal'`, `status: 'pending_review' | 'verified' | 'rejected'`) and optional Admin-attached proof images (`evidenceSource: 'admin_manual'`, `status: 'attached'`).
 
 ### Single-Field Index Strategy (Zero Custom Composite Indexes)
 
@@ -124,16 +131,27 @@ Implemented in `src/features/admin/payment/services/payment-service.js` and `uti
 
 ---
 
-## 10. Firestore Security Rules (`firestore.rules`)
+## 10. Payment Evidence Review & Optional Admin Attachments (v1)
 
-Verified live on the Firebase Firestore Emulator (`22/22` Phase 8 checks + `21/21` Phase 7 checks passed):
-
-- `invoices/{invoiceId}`: active Owner/Staff read/create/controlled-update; permanent delete denied; immutable snapshot & `invoiceNumber` locked; aggregate `amountPaid`/`balanceDue` verified via `getAfter()` against the transaction created in the same atomic commit; void requires `amountPaid == 0` and `voidReason.size() >= 3`.
-- `paymentTransactions/{transactionId}`: active Owner/Staff read/create; update & delete strictly denied; positive integer IDR amount; enum method; `recordedByUid == request.auth.uid`; verifies `getAfter()` target invoice is `issued` with matching `bookingId`, `customerId`, and `invoiceNumber`; reversals strictly enforce deterministic `pay_rev_{originalTxId}` and matching original payment via `get()`.
+- **3rd Workspace Tab (`Payment Evidence`, `?tab=evidence`):** Displays pending review count badge, prioritizes `pending_review` submissions with filters (`pending_review`, `verified`, `rejected`, `attached`, `all`) and search, and opens `PaymentEvidenceReviewDrawer` with validated Cloudinary image preview, editable `verifiedAmount` (<= live `balanceDue`), deliberate verification confirmation (`verifyClientPaymentEvidence`), and rejection with mandatory reason (`rejectClientPaymentEvidence`).
+- **Policy Enforcement:** Invoices with `clientPaymentEvidenceRequired === true` cannot be paid via generic manual `recordInvoicePayment()` (`payment/client-evidence-required`) or via initial DP/Paid during Client Portal request conversion (`booking/client-evidence-required`); both UI (`InvoiceDirectoryTable`, `InvoiceDetailDrawer`, `BookingFormDialog`) and `firestore.rules` enforce verified evidence.
+- **Optional Admin Attachments:** `RecordPaymentDialog` and Admin-managed `BookingFormDialog` create flows (when initial payment > 0) include an optional Cloudinary image upload field (`admin_manual`, `status: 'attached'`) without ever requiring an image for cash or manual studio payments.
+- **Shared Transactional Payment Core:** `applyValidatedPaymentInTransaction()` in `payment-service.js` is shared between `recordInvoicePayment()` and `verifyClientPaymentEvidence()`.
 
 ---
 
-## 11. Known Limitations
+## 11. Firestore Security Rules (`firestore.rules`)
+
+Verified live on the Firebase Firestore Emulator (`scripts/test-firestore-rules.mjs`):
+
+- `invoices/{invoiceId}`: active Owner/Staff read/create/controlled-update (plus scoped Client read on `issued`/`void`); permanent delete denied except Factory Reset; immutable snapshot, `invoiceNumber`, and `clientPaymentEvidenceRequired` locked; `clientPaymentEvidenceRequired == true` requires `amountPaid == 0` on create; aggregate `amountPaid`/`balanceDue` verified via `getAfter()` against the transaction created in the same atomic commit; void requires `amountPaid == 0` and `voidReason.size() >= 3`.
+- `paymentTransactions/{transactionId}`: active Owner/Staff read/create (plus scoped Client read on parent `issued`/`void` invoice); update & delete strictly denied except Factory Reset; positive integer IDR amount; enum method; `recordedByUid == request.auth.uid`; enforces `source == 'client_evidence_verified'` with matching `getAfter()` verified `paymentEvidence/{evidenceId}` for `clientPaymentEvidenceRequired == true` invoices; reversals strictly enforce deterministic `pay_rev_{originalTxId}` and matching original payment via `get()`.
+- `paymentEvidence/{evidenceId}`: active Client create (`pending_review` only for own eligible invoice) & scoped read; active Staff/Owner read, atomic verify/reject transitions, and `admin_manual` `attached` creation linked to valid transactions; delete strictly limited to Factory Reset (`21` operational deletion targets).
+
+---
+
+## 12. Known Limitations
 
 - Updated `firestore.rules` has been verified locally on the Firestore Emulator and NOT deployed to production Firebase (`studio37classic`) per no-deployment rules.
-- Full accounting/bookkeeping ledgers, P&L/cash-flow reports, staff/owner/operator commission payouts, tax/PPN calculation, online payment gateways, public invoice links, automated WhatsApp sending, payment proof file uploads (Firebase Storage), physical refund settlements, and multi-booking consolidated invoices are strictly outside Phase 8 scope.
+- Uploaded Cloudinary payment evidence uses public delivery URLs (mitigated with a dedicated unsigned preset `37payment-evidence`, randomized `pe_*` filenames, 5 MB / JPG-PNG-WEBP caps, and UI privacy notices; see [CLOUDINARY-PAYMENT-EVIDENCE-SETUP.md](../setup/CLOUDINARY-PAYMENT-EVIDENCE-SETUP.md)).
+- Online payment gateways, automated QRIS settlement, tax/PPN calculation, public unauthenticated invoice links, automated WhatsApp sending, Firebase Storage / private signed asset delivery, physical refund settlements, and multi-booking consolidated invoices remain outside scope.

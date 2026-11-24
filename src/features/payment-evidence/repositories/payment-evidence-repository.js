@@ -1,0 +1,725 @@
+/**
+ * Payment Evidence Repository Adapter (Cloud Firestore + Shared In-Memory Test Adapter)
+ * for 37 Music Studio (Payment Evidence & Verification v1).
+ *
+ * Query & Security Guarantees:
+ * - Zero custom composite indexes required (uses equality / single-field indexes + client-side sort).
+ * - Client queries ALWAYS bind `customerId` (and `invoiceId` when viewing invoice detail)
+ *   so Firestore Security Rules can statically prove ownership.
+ * - Admin queries are bounded (`limit(maxLimit + 1)`) and Staff/Owner gated by Firestore Rules.
+ * - Shared transactional adapter coordinates `invoices`, `paymentTransactions`, and `paymentEvidence`
+ *   in a single atomic Firestore transaction without nested transactions.
+ */
+
+import { FIRESTORE_COLLECTIONS } from '@/features/admin/calendar/repositories/calendar-booking-repository';
+import {
+  normalizeInvoiceRecord,
+  normalizePaymentTransactionRecord,
+} from '@/features/admin/payment/schemas/payment-schema';
+
+import {
+  PAYMENT_EVIDENCE_ADMIN_QUEUE_LIMIT,
+  PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT,
+  PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT,
+} from '../config/payment-evidence-config';
+import {
+  normalizePaymentEvidenceRecord,
+  projectClientPaymentEvidenceRecord,
+} from '../schemas/payment-evidence-schema';
+import { sortPaymentEvidenceRecords } from '../utils/payment-evidence-utils';
+
+function createRepositoryError(code, message) {
+  const err = new Error(message);
+  err.code = code;
+  return err;
+}
+
+export function createFirestorePaymentEvidenceRepositoryAdapter() {
+  return {
+    async runAtomicTransaction(transactionWork) {
+      const [{ doc, runTransaction, serverTimestamp, Timestamp }, { getFirebaseDb }] =
+        await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+      const db = getFirebaseDb();
+
+      return runTransaction(db, async (tx) => {
+        const txContext = {
+          nowValue: () => serverTimestamp(),
+          timestampFromDate: (date) => Timestamp.fromDate(date instanceof Date ? date : new Date()),
+          async getInvoice(invoiceId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.INVOICES, invoiceId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizeInvoiceRecord(snap.id, snap.data()) : null;
+          },
+          async getPaymentTransaction(transactionId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS, transactionId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizePaymentTransactionRecord(snap.id, snap.data()) : null;
+          },
+          async getPaymentEvidence(evidenceId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizePaymentEvidenceRecord(snap.id, snap.data()) : null;
+          },
+          updateInvoice(invoiceId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.INVOICES, invoiceId);
+            tx.update(ref, data);
+          },
+          setPaymentTransaction(transactionId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS, transactionId);
+            tx.set(ref, data);
+          },
+          setPaymentEvidence(evidenceId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
+            tx.set(ref, data);
+          },
+          updatePaymentEvidence(evidenceId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
+            tx.update(ref, data);
+          },
+        };
+
+        return transactionWork(txContext);
+      });
+    },
+
+    async getPaymentEvidenceById(evidenceId) {
+      const cleanId = String(evidenceId || '').trim();
+      if (!cleanId) return null;
+      const [{ doc, getDoc }, { getFirebaseDb }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@/lib/firebase/firestore'),
+      ]);
+      const db = getFirebaseDb();
+      const snap = await getDoc(doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, cleanId));
+      return snap.exists() ? normalizePaymentEvidenceRecord(snap.id, snap.data()) : null;
+    },
+
+    /**
+     * Client-scoped subscription to payment evidence for ONE specific invoice.
+     * Binds both `customerId` and `invoiceId` (single-field zigzag merge; zero composite index).
+     */
+    subscribeClientInvoiceEvidence({
+      customerId,
+      invoiceId,
+      maxLimit = PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT,
+      onData,
+      onError,
+    }) {
+      const cleanCustomerId = String(customerId || '').trim();
+      const cleanInvoiceId = String(invoiceId || '').trim();
+      if (!cleanCustomerId || !cleanInvoiceId) {
+        queueMicrotask(() => {
+          onError?.(
+            createRepositoryError(
+              'permission-denied',
+              'Missing customer or invoice identity for payment evidence subscription.',
+            ),
+          );
+        });
+        return () => {};
+      }
+
+      const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT);
+      let unsubscribe = null;
+      let isCancelled = false;
+
+      (async () => {
+        try {
+          const [{ collection, limit, onSnapshot, query, where }, { getFirebaseDb }] =
+            await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+          if (isCancelled) return;
+          if (typeof onSnapshot !== 'function') {
+            throw createRepositoryError('unavailable', 'Realtime Firestore listener unavailable.');
+          }
+
+          const db = getFirebaseDb();
+          const ref = collection(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE);
+          const q = query(
+            ref,
+            where('customerId', '==', cleanCustomerId),
+            where('invoiceId', '==', cleanInvoiceId),
+            limit(safeLimit + 1),
+          );
+
+          unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+              if (isCancelled) return;
+              const projected = snapshot.docs
+                .map((docSnap) => {
+                  const raw = docSnap.data();
+                  if (!raw || raw.customerId !== cleanCustomerId) return null;
+                  return projectClientPaymentEvidenceRecord(docSnap.id, raw);
+                })
+                .filter(Boolean);
+
+              const sorted = sortPaymentEvidenceRecords(projected);
+              const hasMore = snapshot.docs.length > safeLimit || sorted.length > safeLimit;
+              onData?.({
+                items: sorted.slice(0, safeLimit),
+                hasMore,
+                isTruncated: hasMore,
+                maxLimit: safeLimit,
+              });
+            },
+            (err) => {
+              if (!isCancelled) onError?.(err);
+            },
+          );
+        } catch (err) {
+          if (!isCancelled) onError?.(err);
+        }
+      })();
+
+      return () => {
+        isCancelled = true;
+        if (typeof unsubscribe === 'function') unsubscribe();
+      };
+    },
+
+    /**
+     * Client-scoped single-listener subscription to all payment evidence belonging
+     * to the authenticated customer (`where('customerId', '==', customerId)`).
+     * Avoids N+1 listeners on `/portal/invoices`.
+     */
+    subscribeClientCustomerEvidence({
+      customerId,
+      maxLimit = PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT,
+      onData,
+      onError,
+    }) {
+      const cleanCustomerId = String(customerId || '').trim();
+      if (!cleanCustomerId) {
+        queueMicrotask(() => {
+          onError?.(
+            createRepositoryError(
+              'permission-denied',
+              'Missing customer identity for payment evidence subscription.',
+            ),
+          );
+        });
+        return () => {};
+      }
+
+      const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT);
+      let unsubscribe = null;
+      let isCancelled = false;
+
+      (async () => {
+        try {
+          const [{ collection, limit, onSnapshot, query, where }, { getFirebaseDb }] =
+            await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+          if (isCancelled) return;
+          if (typeof onSnapshot !== 'function') {
+            throw createRepositoryError('unavailable', 'Realtime Firestore listener unavailable.');
+          }
+
+          const db = getFirebaseDb();
+          const ref = collection(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE);
+          const q = query(ref, where('customerId', '==', cleanCustomerId), limit(safeLimit + 1));
+
+          unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+              if (isCancelled) return;
+              const projected = snapshot.docs
+                .map((docSnap) => {
+                  const raw = docSnap.data();
+                  if (!raw || raw.customerId !== cleanCustomerId) return null;
+                  return projectClientPaymentEvidenceRecord(docSnap.id, raw);
+                })
+                .filter(Boolean);
+
+              const sorted = sortPaymentEvidenceRecords(projected);
+              const hasMore = snapshot.docs.length > safeLimit || sorted.length > safeLimit;
+              onData?.({
+                items: sorted.slice(0, safeLimit),
+                hasMore,
+                isTruncated: hasMore,
+                maxLimit: safeLimit,
+              });
+            },
+            (err) => {
+              if (!isCancelled) onError?.(err);
+            },
+          );
+        } catch (err) {
+          if (!isCancelled) onError?.(err);
+        }
+      })();
+
+      return () => {
+        isCancelled = true;
+        if (typeof unsubscribe === 'function') unsubscribe();
+      };
+    },
+
+    /**
+     * Staff/Owner bounded subscription to `paymentEvidence` ordered newest-first by `submittedAt`.
+     * Uses built-in single-field index (zero custom composite index).
+     */
+    subscribeAdminPaymentEvidence({
+      maxLimit = PAYMENT_EVIDENCE_ADMIN_QUEUE_LIMIT,
+      onData,
+      onError,
+    }) {
+      const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_ADMIN_QUEUE_LIMIT);
+      let unsubscribe = null;
+      let isCancelled = false;
+
+      (async () => {
+        try {
+          const [{ collection, limit, onSnapshot, orderBy, query }, { getFirebaseDb }] =
+            await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+          if (isCancelled) return;
+          if (typeof onSnapshot !== 'function') {
+            throw createRepositoryError('unavailable', 'Realtime Firestore listener unavailable.');
+          }
+
+          const db = getFirebaseDb();
+          const ref = collection(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE);
+          const q = query(ref, orderBy('submittedAt', 'desc'), limit(safeLimit + 1));
+
+          unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+              if (isCancelled) return;
+              const hasMore = snapshot.docs.length > safeLimit;
+              const docs = hasMore ? snapshot.docs.slice(0, safeLimit) : snapshot.docs;
+              const items = sortPaymentEvidenceRecords(
+                docs.map((docSnap) => normalizePaymentEvidenceRecord(docSnap.id, docSnap.data())),
+              );
+              onData?.({ items, hasMore, isTruncated: hasMore, maxLimit: safeLimit });
+            },
+            (err) => {
+              if (!isCancelled) onError?.(err);
+            },
+          );
+        } catch (err) {
+          if (!isCancelled) onError?.(err);
+        }
+      })();
+
+      return () => {
+        isCancelled = true;
+        if (typeof unsubscribe === 'function') unsubscribe();
+      };
+    },
+
+    /**
+     * Staff/Owner bounded subscription to all evidence linked to one `invoiceId`.
+     */
+    subscribeAdminInvoiceEvidence({
+      invoiceId,
+      maxLimit = PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT,
+      onData,
+      onError,
+    }) {
+      const cleanInvoiceId = String(invoiceId || '').trim();
+      if (!cleanInvoiceId) {
+        queueMicrotask(() => {
+          onData?.({ items: [], hasMore: false, isTruncated: false, maxLimit });
+        });
+        return () => {};
+      }
+
+      const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT);
+      let unsubscribe = null;
+      let isCancelled = false;
+
+      (async () => {
+        try {
+          const [{ collection, limit, onSnapshot, query, where }, { getFirebaseDb }] =
+            await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+          if (isCancelled) return;
+          if (typeof onSnapshot !== 'function') {
+            throw createRepositoryError('unavailable', 'Realtime Firestore listener unavailable.');
+          }
+
+          const db = getFirebaseDb();
+          const ref = collection(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE);
+          const q = query(ref, where('invoiceId', '==', cleanInvoiceId), limit(safeLimit + 1));
+
+          unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+              if (isCancelled) return;
+              const hasMore = snapshot.docs.length > safeLimit;
+              const docs = hasMore ? snapshot.docs.slice(0, safeLimit) : snapshot.docs;
+              const items = sortPaymentEvidenceRecords(
+                docs.map((docSnap) => normalizePaymentEvidenceRecord(docSnap.id, docSnap.data())),
+              );
+              onData?.({ items, hasMore, isTruncated: hasMore, maxLimit: safeLimit });
+            },
+            (err) => {
+              if (!isCancelled) onError?.(err);
+            },
+          );
+        } catch (err) {
+          if (!isCancelled) onError?.(err);
+        }
+      })();
+
+      return () => {
+        isCancelled = true;
+        if (typeof unsubscribe === 'function') unsubscribe();
+      };
+    },
+  };
+}
+
+/**
+ * Shared In-Memory Payment Evidence Repository Adapter for Vitest unit & integration suites.
+ * Connects directly to `_sharedStore` from `bookingAdapter` or `paymentAdapter` so Admin and
+ * Client Portal stay 100% transactionally synchronized in realtime tests.
+ */
+export function createInMemoryPaymentEvidenceRepositoryAdapter({
+  bookingAdapter = null,
+  paymentAdapter = null,
+  initialInvoices = [],
+  initialTransactions = [],
+  initialEvidence = [],
+} = {}) {
+  const sharedStore = bookingAdapter?._sharedStore || paymentAdapter?._sharedStore || null;
+  const invoices = sharedStore?.invoices || new Map();
+  const paymentTransactions = sharedStore?.paymentTransactions || new Map();
+  const paymentEvidence = sharedStore?.paymentEvidence || new Map();
+  const paymentEvidenceSubscribers = sharedStore?.paymentEvidenceSubscribers || new Set();
+
+  let localQueue = Promise.resolve();
+  const enqueue =
+    sharedStore?.enqueueTransaction ||
+    ((work) => {
+      const next = localQueue.then(work);
+      localQueue = next.catch(() => {});
+      return next;
+    });
+
+  let simulatedReadError = null;
+  let simulatedWriteError = null;
+
+  for (const inv of initialInvoices) {
+    const norm = normalizeInvoiceRecord(inv.id, inv);
+    if (norm?.id) invoices.set(norm.id, norm);
+  }
+  for (const tx of initialTransactions) {
+    const norm = normalizePaymentTransactionRecord(tx.id, tx);
+    if (norm?.id) paymentTransactions.set(norm.id, norm);
+  }
+  for (const ev of initialEvidence) {
+    const norm = normalizePaymentEvidenceRecord(ev.id, ev);
+    if (norm?.id) paymentEvidence.set(norm.id, norm);
+  }
+
+  function notifyAllEvidence() {
+    if (sharedStore?.notifyPaymentEvidence) {
+      sharedStore.notifyPaymentEvidence();
+      return;
+    }
+    for (const listener of paymentEvidenceSubscribers) {
+      listener();
+    }
+  }
+
+  return {
+    _inspectState() {
+      return {
+        invoices: new Map(invoices),
+        paymentTransactions: new Map(paymentTransactions),
+        paymentEvidence: new Map(paymentEvidence),
+      };
+    },
+
+    _setSimulatedReadError(error) {
+      simulatedReadError = error || null;
+    },
+
+    _setSimulatedWriteError(error) {
+      simulatedWriteError = error || null;
+    },
+
+    _seedEvidence(rawEvidence) {
+      const norm = normalizePaymentEvidenceRecord(rawEvidence.id, rawEvidence);
+      if (norm?.id) {
+        paymentEvidence.set(norm.id, norm);
+        notifyAllEvidence();
+      }
+      return norm;
+    },
+
+    runAtomicTransaction(transactionWork) {
+      return enqueue(async () => {
+        if (simulatedWriteError) {
+          throw simulatedWriteError;
+        }
+
+        const stagedInvoices = new Map(invoices);
+        const stagedTransactions = new Map(paymentTransactions);
+        const stagedEvidence = new Map(paymentEvidence);
+        let writeStarted = false;
+
+        const txContext = {
+          nowValue: () => ({ seconds: Math.floor(Date.now() / 1000) }),
+          timestampFromDate: (date) => ({
+            seconds: Math.floor((date instanceof Date ? date.getTime() : Date.now()) / 1000),
+          }),
+          async getInvoice(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedInvoices.get(id);
+            return item ? normalizeInvoiceRecord(id, item) : null;
+          },
+          async getPaymentTransaction(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedTransactions.get(id);
+            return item ? normalizePaymentTransactionRecord(id, item) : null;
+          },
+          async getPaymentEvidence(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedEvidence.get(id);
+            return item ? normalizePaymentEvidenceRecord(id, item) : null;
+          },
+          updateInvoice(id, data) {
+            writeStarted = true;
+            const prev = stagedInvoices.get(id) || {};
+            stagedInvoices.set(id, normalizeInvoiceRecord(id, { ...prev, ...data }));
+          },
+          setPaymentTransaction(id, data) {
+            writeStarted = true;
+            stagedTransactions.set(id, normalizePaymentTransactionRecord(id, data));
+          },
+          setPaymentEvidence(id, data) {
+            writeStarted = true;
+            stagedEvidence.set(id, normalizePaymentEvidenceRecord(id, data));
+          },
+          updatePaymentEvidence(id, data) {
+            writeStarted = true;
+            const prev = stagedEvidence.get(id) || {};
+            stagedEvidence.set(id, normalizePaymentEvidenceRecord(id, { ...prev, ...data }));
+          },
+        };
+
+        const result = await transactionWork(txContext);
+
+        invoices.clear();
+        for (const [k, v] of stagedInvoices) invoices.set(k, v);
+        paymentTransactions.clear();
+        for (const [k, v] of stagedTransactions) paymentTransactions.set(k, v);
+        paymentEvidence.clear();
+        for (const [k, v] of stagedEvidence) paymentEvidence.set(k, v);
+
+        sharedStore?.notifyInvoices?.();
+        sharedStore?.notifyTransactions?.();
+        notifyAllEvidence();
+
+        return result;
+      });
+    },
+
+    async getPaymentEvidenceById(evidenceId) {
+      const item = paymentEvidence.get(String(evidenceId || '').trim());
+      return item ? normalizePaymentEvidenceRecord(item.id, item) : null;
+    },
+
+    subscribeClientInvoiceEvidence({
+      customerId,
+      invoiceId,
+      maxLimit = PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT,
+      onData,
+      onError,
+    }) {
+      const cleanCustomerId = String(customerId || '').trim();
+      const cleanInvoiceId = String(invoiceId || '').trim();
+      const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT);
+
+      if (!cleanCustomerId || !cleanInvoiceId) {
+        queueMicrotask(() => {
+          onError?.(createRepositoryError('permission-denied', 'Missing customer or invoice ID.'));
+        });
+        return () => {};
+      }
+
+      let active = true;
+      const push = () => {
+        if (!active) return;
+        if (simulatedReadError) {
+          onError?.(simulatedReadError);
+          return;
+        }
+        const matching = sortPaymentEvidenceRecords(
+          Array.from(paymentEvidence.values())
+            .filter(
+              (ev) => ev && ev.customerId === cleanCustomerId && ev.invoiceId === cleanInvoiceId,
+            )
+            .map((ev) => projectClientPaymentEvidenceRecord(ev.id, ev))
+            .filter(Boolean),
+        );
+        const hasMore = matching.length > safeLimit;
+        onData?.({
+          items: matching.slice(0, safeLimit),
+          hasMore,
+          isTruncated: hasMore,
+          maxLimit: safeLimit,
+        });
+      };
+
+      paymentEvidenceSubscribers.add(push);
+      queueMicrotask(push);
+
+      return () => {
+        active = false;
+        paymentEvidenceSubscribers.delete(push);
+      };
+    },
+
+    subscribeClientCustomerEvidence({
+      customerId,
+      maxLimit = PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT,
+      onData,
+      onError,
+    }) {
+      const cleanCustomerId = String(customerId || '').trim();
+      const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT);
+
+      if (!cleanCustomerId) {
+        queueMicrotask(() => {
+          onError?.(createRepositoryError('permission-denied', 'Missing customer ID.'));
+        });
+        return () => {};
+      }
+
+      let active = true;
+      const push = () => {
+        if (!active) return;
+        if (simulatedReadError) {
+          onError?.(simulatedReadError);
+          return;
+        }
+        const matching = sortPaymentEvidenceRecords(
+          Array.from(paymentEvidence.values())
+            .filter((ev) => ev && ev.customerId === cleanCustomerId)
+            .map((ev) => projectClientPaymentEvidenceRecord(ev.id, ev))
+            .filter(Boolean),
+        );
+        const hasMore = matching.length > safeLimit;
+        onData?.({
+          items: matching.slice(0, safeLimit),
+          hasMore,
+          isTruncated: hasMore,
+          maxLimit: safeLimit,
+        });
+      };
+
+      paymentEvidenceSubscribers.add(push);
+      queueMicrotask(push);
+
+      return () => {
+        active = false;
+        paymentEvidenceSubscribers.delete(push);
+      };
+    },
+
+    subscribeAdminPaymentEvidence({
+      maxLimit = PAYMENT_EVIDENCE_ADMIN_QUEUE_LIMIT,
+      onData,
+      onError,
+    }) {
+      const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_ADMIN_QUEUE_LIMIT);
+      let active = true;
+      const push = () => {
+        if (!active) return;
+        if (simulatedReadError) {
+          onError?.(simulatedReadError);
+          return;
+        }
+        const sorted = sortPaymentEvidenceRecords(
+          Array.from(paymentEvidence.values()).map((ev) =>
+            normalizePaymentEvidenceRecord(ev.id, ev),
+          ),
+        );
+        const hasMore = sorted.length > safeLimit;
+        onData?.({
+          items: sorted.slice(0, safeLimit),
+          hasMore,
+          isTruncated: hasMore,
+          maxLimit: safeLimit,
+        });
+      };
+
+      paymentEvidenceSubscribers.add(push);
+      queueMicrotask(push);
+
+      return () => {
+        active = false;
+        paymentEvidenceSubscribers.delete(push);
+      };
+    },
+
+    subscribeAdminInvoiceEvidence({
+      invoiceId,
+      maxLimit = PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT,
+      onData,
+      onError,
+    }) {
+      const cleanInvoiceId = String(invoiceId || '').trim();
+      const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT);
+      if (!cleanInvoiceId) {
+        queueMicrotask(() => {
+          onData?.({ items: [], hasMore: false, isTruncated: false, maxLimit: safeLimit });
+        });
+        return () => {};
+      }
+
+      let active = true;
+      const push = () => {
+        if (!active) return;
+        if (simulatedReadError) {
+          onError?.(simulatedReadError);
+          return;
+        }
+        const sorted = sortPaymentEvidenceRecords(
+          Array.from(paymentEvidence.values())
+            .filter((ev) => ev && ev.invoiceId === cleanInvoiceId)
+            .map((ev) => normalizePaymentEvidenceRecord(ev.id, ev)),
+        );
+        const hasMore = sorted.length > safeLimit;
+        onData?.({
+          items: sorted.slice(0, safeLimit),
+          hasMore,
+          isTruncated: hasMore,
+          maxLimit: safeLimit,
+        });
+      };
+
+      paymentEvidenceSubscribers.add(push);
+      queueMicrotask(push);
+
+      return () => {
+        active = false;
+        paymentEvidenceSubscribers.delete(push);
+      };
+    },
+  };
+}
+
+let activePaymentEvidenceAdapter = null;
+
+export function getPaymentEvidenceRepositoryAdapter() {
+  if (!activePaymentEvidenceAdapter) {
+    activePaymentEvidenceAdapter = createFirestorePaymentEvidenceRepositoryAdapter();
+  }
+  return activePaymentEvidenceAdapter;
+}
+
+export function setPaymentEvidenceRepositoryAdapter(adapter) {
+  activePaymentEvidenceAdapter = adapter;
+}
+
+export function resetPaymentEvidenceRepositoryAdapter() {
+  activePaymentEvidenceAdapter = null;
+}

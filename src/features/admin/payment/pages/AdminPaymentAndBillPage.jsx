@@ -7,6 +7,7 @@ import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
 import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
 import { AdminEmptyState, AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 import { useAuth } from '@/features/auth/AuthContext';
+import { useAdminPaymentEvidence } from '@/features/payment-evidence/hooks/useAdminPaymentEvidence';
 
 import { InvoiceDetailDrawer } from '../components/InvoiceDetailDrawer';
 import { InvoiceDirectoryTable } from '../components/InvoiceDirectoryTable';
@@ -14,6 +15,8 @@ import { InvoiceDirectoryToolbar } from '../components/InvoiceDirectoryToolbar';
 import { InvoicePrintable } from '../components/InvoicePrintable';
 import { LegacyInvoiceImportDialog } from '../components/LegacyInvoiceImportDialog';
 import { PaymentCorrectionDialog } from '../components/PaymentCorrectionDialog';
+import { PaymentEvidenceQueue } from '../components/PaymentEvidenceQueue';
+import { PaymentEvidenceReviewDrawer } from '../components/PaymentEvidenceReviewDrawer';
 import { PaymentOverviewMetrics } from '../components/PaymentOverviewMetrics';
 import { PaymentReceipt } from '../components/PaymentReceipt';
 import { PaymentTransactionList } from '../components/PaymentTransactionList';
@@ -40,10 +43,22 @@ export function AdminPaymentAndBillPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlInvoiceId = searchParams.get('invoiceId') || '';
-  const initialTabParam = searchParams.get('tab') === 'transactions' ? 'transactions' : 'invoices';
+  const urlTabParam = searchParams.get('tab');
+  const initialTabParam =
+    urlTabParam === 'transactions'
+      ? 'transactions'
+      : urlTabParam === 'evidence'
+        ? 'evidence'
+        : 'invoices';
 
   const [activeTab, setActiveTab] = useState(initialTabParam);
   const [selectedInvoiceIdState, setSelectedInvoiceIdState] = useState('');
+  const [evidenceReviewState, setEvidenceReviewState] = useState({
+    sessionKey: 0,
+    open: false,
+    evidence: null,
+    invoice: null,
+  });
 
   // Invoices tab filters
   const [invoiceSearch, setInvoiceSearch] = useState('');
@@ -108,6 +123,18 @@ export function AdminPaymentAndBillPage() {
     error: transactionsError,
     loadMoreTransactions,
   } = usePaymentTransactions();
+
+  const {
+    items: evidenceItems,
+    evidenceByInvoiceId,
+    counts: evidenceCounts,
+    pendingReviewCount,
+    isLoading: isEvidenceLoading,
+    hasMore: hasMoreEvidence,
+    error: evidenceError,
+    retry: retryEvidence,
+    loadMore: loadMoreEvidence,
+  } = useAdminPaymentEvidence();
 
   const todayIso = getJakartaTodayIso();
   const activeInvoiceId = selectedInvoiceIdState || urlInvoiceId;
@@ -305,7 +332,33 @@ export function AdminPaymentAndBillPage() {
     }
   };
 
-  const activeError = activeTab === 'transactions' ? transactionsError : invoicesError;
+  const handleTabChange = (nextTab) => {
+    setActiveTab(nextTab);
+    const next = new URLSearchParams(searchParams);
+    if (nextTab === 'invoices') {
+      next.delete('tab');
+    } else {
+      next.set('tab', nextTab);
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  const handleOpenEvidenceReview = (ev, inv = null) => {
+    if (!ev) return;
+    setEvidenceReviewState((prev) => ({
+      sessionKey: prev.sessionKey + 1,
+      open: true,
+      evidence: ev,
+      invoice: inv || invoicesById.get(ev.invoiceId) || null,
+    }));
+  };
+
+  const activeError =
+    activeTab === 'transactions'
+      ? transactionsError
+      : activeTab === 'evidence'
+        ? ''
+        : invoicesError;
 
   return (
     <div data-payment-scoped="true" className="relative isolate z-0 space-y-3 sm:space-y-5">
@@ -340,9 +393,10 @@ export function AdminPaymentAndBillPage() {
 
           <PaymentWorkspaceTabs
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={handleTabChange}
             invoicesCount={invoices.length}
             transactionsCount={transactions.length}
+            pendingEvidenceCount={pendingReviewCount}
           />
         </div>
 
@@ -468,6 +522,7 @@ export function AdminPaymentAndBillPage() {
           ) : (
             <InvoiceDirectoryTable
               invoices={filteredInvoices}
+              evidenceByInvoiceId={evidenceByInvoiceId}
               onSelectInvoice={(inv) => handleOpenInvoice(inv)}
               onQuickRecordPayment={(inv) =>
                 setRecordPaymentState((prev) => ({
@@ -476,11 +531,25 @@ export function AdminPaymentAndBillPage() {
                   invoice: inv,
                 }))
               }
+              onReviewInvoiceEvidence={(ev, inv) => handleOpenEvidenceReview(ev, inv)}
               hasMore={hasMoreInvoices}
               onLoadMore={loadMoreInvoices}
             />
           )}
         </div>
+      ) : activeTab === 'evidence' ? (
+        <PaymentEvidenceQueue
+          items={evidenceItems}
+          counts={evidenceCounts}
+          invoicesById={invoicesById}
+          reversedTransactionIds={reversedTransactionIds}
+          isLoading={isEvidenceLoading}
+          hasMore={hasMoreEvidence}
+          error={evidenceError}
+          onRetry={retryEvidence}
+          onLoadMore={loadMoreEvidence}
+          onSelectEvidence={(ev, inv) => handleOpenEvidenceReview(ev, inv)}
+        />
       ) : isTransactionsLoading ? (
         <AdminSurface
           role="status"
@@ -536,6 +605,10 @@ export function AdminPaymentAndBillPage() {
             invoice: inv,
           }))
         }
+        onOpenEvidenceReview={(ev, inv) => {
+          handleCloseInvoiceDrawer();
+          handleOpenEvidenceReview(ev, inv);
+        }}
         onOpenPrintPreview={(inv, txs) =>
           setPrintPreviewState({
             open: true,
@@ -566,6 +639,30 @@ export function AdminPaymentAndBillPage() {
           }))
         }
         onSaveDueDate={handleSaveDueDate}
+      />
+
+      {/* Payment Evidence Review Drawer (Sibling Modal) */}
+      <PaymentEvidenceReviewDrawer
+        key={`evidence-review-${evidenceReviewState.sessionKey}-${evidenceReviewState.evidence?.id || 'none'}`}
+        open={evidenceReviewState.open}
+        evidence={
+          evidenceReviewState.evidence
+            ? evidenceItems.find((item) => item.id === evidenceReviewState.evidence.id) ||
+              evidenceReviewState.evidence
+            : null
+        }
+        fallbackInvoice={
+          evidenceReviewState.evidence
+            ? invoicesById.get(evidenceReviewState.evidence.invoiceId) ||
+              evidenceReviewState.invoice
+            : null
+        }
+        actorUid={actorUid}
+        reversedTransactionIds={reversedTransactionIds}
+        onOpenChange={(nextOpen) =>
+          setEvidenceReviewState((prev) => ({ ...prev, open: nextOpen }))
+        }
+        onOpenInvoice={(invId) => handleOpenInvoice(invId)}
       />
 
       {/* Record Payment Modal */}

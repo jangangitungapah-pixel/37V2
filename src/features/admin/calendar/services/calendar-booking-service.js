@@ -40,6 +40,16 @@ import {
   TRANSACTION_TYPE,
 } from '@/features/admin/payment/utils/invoice-status';
 import {
+  PAYMENT_EVIDENCE_SCHEMA_VERSION,
+  PAYMENT_EVIDENCE_SOURCES,
+  PAYMENT_EVIDENCE_STATUSES,
+} from '@/features/payment-evidence/config/payment-evidence-config';
+import {
+  normalizePaymentEvidenceRecord,
+  validatePaymentEvidenceAsset,
+} from '@/features/payment-evidence/schemas/payment-evidence-schema';
+import { generatePaymentEvidenceId } from '@/features/payment-evidence/utils/payment-evidence-utils';
+import {
   DEFAULT_PRICING_SETTINGS,
   DELIVERY_MODES,
 } from '@/features/admin/settings/pricing/config/default-pricing-settings';
@@ -67,6 +77,7 @@ import {
   formatMinuteRange,
   isBookingNoShowEligible,
 } from '../utils/booking-time';
+import { getJakartaTodayIso } from '../utils/calendar-date';
 
 export function createBookingServiceError(code, message, details = null) {
   const error = new Error(message);
@@ -166,6 +177,9 @@ export async function createBooking({
   pricingSettings = DEFAULT_PRICING_SETTINGS,
   bookingRequestId = '',
   requestActivityEventId = generateOperationId('reqact'),
+  optionalInitialPaymentEvidence = null,
+  initialEvidenceId = '',
+  expectedCloudName = '',
   adapter = getBookingRepositoryAdapter(),
 }) {
   const cleanActorUid = assertAuthenticatedStaffActor(actorUid);
@@ -222,6 +236,24 @@ export async function createBooking({
     String(customerResolution?.customerId || '').trim() || generateOperationId('cust');
   const deterministicInvoiceId = buildInvoiceId(cleanBookingId);
   const deterministicInitialPaymentId = buildInitialPaymentId(cleanBookingId);
+
+  let validatedInitialEvidence = null;
+  if (optionalInitialPaymentEvidence) {
+    const assetCheck = validatePaymentEvidenceAsset(
+      optionalInitialPaymentEvidence,
+      expectedCloudName,
+    );
+    if (!assetCheck.isValid) {
+      throw createBookingServiceError(
+        'booking/invalid-payment-evidence',
+        assetCheck.error || 'Lampiran bukti pembayaran awal tidak valid.',
+      );
+    }
+    validatedInitialEvidence = assetCheck.data;
+  }
+  const cleanInitialEvidenceId = validatedInitialEvidence
+    ? String(initialEvidenceId || '').trim() || generatePaymentEvidenceId('ev_init')
+    : '';
 
   return adapter.runAtomicTransaction(async (tx) => {
     // 1. ALL READS FIRST (Booking, Event, PhoneIndex, Invoice, Initial Payment, Optional Request, and Slots)
@@ -600,9 +632,22 @@ export async function createBooking({
       note: `Booking dibuat untuk ${payload.customerName} (${formatMinuteRange(payload.startMinute, payload.endMinute)})`,
     });
 
-    // 3. Automatic Invoice & Optional Initial Payment Transaction (Phase 8 — atomic with booking)
+    // 3. Automatic Invoice & Optional Initial Payment Transaction (Phase 8 + Payment Evidence v1)
+    const isClientPortalOrigin = Boolean(
+      cleanBookingRequestId &&
+        existingBookingRequest &&
+        existingBookingRequest.source === BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+    );
     const initialPaidInt = Math.max(0, Math.round(Number(payload.initialPaidAmount) || 0));
-    const hasInitialPayment = initialPaidInt > 0;
+
+    if (isClientPortalOrigin && initialPaidInt > 0) {
+      throw createBookingServiceError(
+        'booking/client-evidence-required',
+        'Booking dari Client Portal wajib melalui alur unggah dan verifikasi bukti pembayaran di Client Portal setelah invoice diterbitkan. Pilih status awal Belum Bayar.',
+      );
+    }
+
+    const hasInitialPayment = !isClientPortalOrigin && initialPaidInt > 0;
     const { invoiceId, invoiceNumber, invoiceDoc } = buildInvoiceDocumentFromBooking({
       bookingId: cleanBookingId,
       booking: bookingDoc,
@@ -612,7 +657,8 @@ export async function createBooking({
       invoiceDate: timestamp,
       dueDate: null,
       initialPaymentTransactionId: hasInitialPayment ? deterministicInitialPaymentId : null,
-      initialPaidAmount: initialPaidInt,
+      initialPaidAmount: hasInitialPayment ? initialPaidInt : 0,
+      clientPaymentEvidenceRequired: isClientPortalOrigin,
     });
 
     if (!existingInvoice) {
@@ -644,6 +690,38 @@ export async function createBooking({
         recordedByUid: cleanActorUid,
         createdAt: timestamp,
       });
+
+      if (
+        validatedInitialEvidence &&
+        cleanInitialEvidenceId &&
+        typeof tx.setPaymentEvidence === 'function'
+      ) {
+        tx.setPaymentEvidence(cleanInitialEvidenceId, {
+          schemaVersion: PAYMENT_EVIDENCE_SCHEMA_VERSION,
+          invoiceId,
+          invoiceNumber,
+          bookingId: cleanBookingId,
+          customerId: resolvedCustomerId,
+          clientUid: '',
+          evidenceSource: PAYMENT_EVIDENCE_SOURCES.ADMIN_MANUAL,
+          status: PAYMENT_EVIDENCE_STATUSES.ATTACHED,
+          claimedAmount: initialPaidInt,
+          paymentMethod: normalizedPaymentMethod,
+          claimedPaidAt: getJakartaTodayIso(),
+          referenceNumber: '',
+          evidence: validatedInitialEvidence,
+          submittedByUid: cleanActorUid,
+          submittedAt: timestamp,
+          reviewedAt: null,
+          reviewedByUid: '',
+          rejectionReason: '',
+          verifiedAmount: initialPaidInt,
+          linkedTransactionId: deterministicInitialPaymentId,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          version: 1,
+        });
+      }
     }
 
     // 4. Atomic Public Booking Request Confirmation (only after all slot locks, booking & invoice writes succeed)
@@ -1387,6 +1465,7 @@ export function createInMemoryBookingRepositoryAdapter(
   const phoneIndex = new Map();
   const invoices = new Map();
   const paymentTransactions = new Map();
+  const paymentEvidence = new Map();
   const commissionBatches = new Map();
   const commissionPostingItems = new Map();
   const commissionReviewResolutions = new Map();
@@ -1406,6 +1485,7 @@ export function createInMemoryBookingRepositoryAdapter(
   const invoiceRangeSubscribers = new Set();
   const transactionSubscribers = new Set();
   const invoiceTransactionSubscribers = new Map();
+  const paymentEvidenceSubscribers = new Set();
   const commissionSubscribers = new Set();
   const bookkeepingSubscribers = new Set();
   const bookingRequestNewSubscribers = new Set();
@@ -1721,6 +1801,7 @@ export function createInMemoryBookingRepositoryAdapter(
       phoneIndex,
       invoices,
       paymentTransactions,
+      paymentEvidence,
       commissionBatches,
       commissionPostingItems,
       commissionReviewResolutions,
@@ -1738,6 +1819,7 @@ export function createInMemoryBookingRepositoryAdapter(
       invoiceRangeSubscribers,
       transactionSubscribers,
       invoiceTransactionSubscribers,
+      paymentEvidenceSubscribers,
       commissionSubscribers,
       bookkeepingSubscribers,
       bookingRequestNewSubscribers,
@@ -1753,6 +1835,11 @@ export function createInMemoryBookingRepositoryAdapter(
       notifyCustomers: notifyCustomerSubscribers,
       notifyInvoices: notifyInvoiceSubscribers,
       notifyTransactions: notifyTransactionSubscribers,
+      notifyPaymentEvidence() {
+        for (const listener of paymentEvidenceSubscribers) {
+          listener();
+        }
+      },
       notifyCommissions: notifyCommissionSubscribers,
       notifyBookkeeping: notifyBookkeepingSubscribers,
       notifyBookingRequests,
@@ -1769,6 +1856,7 @@ export function createInMemoryBookingRepositoryAdapter(
         phoneIndex: new Map(phoneIndex),
         invoices: new Map(invoices),
         paymentTransactions: new Map(paymentTransactions),
+        paymentEvidence: new Map(paymentEvidence),
         bookingRequests: new Map(bookingRequests),
         bookingRequestActivities: new Map(bookingRequestActivities),
         bookingRequestCommunications: new Map(bookingRequestCommunications),
@@ -1787,6 +1875,7 @@ export function createInMemoryBookingRepositoryAdapter(
         const stagedPhoneIndex = new Map(phoneIndex);
         const stagedInvoices = new Map(invoices);
         const stagedPaymentTransactions = new Map(paymentTransactions);
+        const stagedPaymentEvidence = new Map(paymentEvidence);
         const stagedBookingRequests = new Map(bookingRequests);
         const stagedBookingRequestActivities = new Map(bookingRequestActivities);
         const touchedBookingIds = new Set();
@@ -1908,6 +1997,10 @@ export function createInMemoryBookingRepositoryAdapter(
             writeStarted = true;
             stagedPaymentTransactions.set(id, normalizePaymentTransactionRecord(id, data));
           },
+          setPaymentEvidence(id, data) {
+            writeStarted = true;
+            stagedPaymentEvidence.set(id, normalizePaymentEvidenceRecord(id, data));
+          },
           setPublicAvailability(id, data) {
             writeStarted = true;
             const norm = normalizePublicAvailabilityRecord(id, data);
@@ -1974,6 +2067,8 @@ export function createInMemoryBookingRepositoryAdapter(
         for (const [k, v] of stagedInvoices) invoices.set(k, v);
         paymentTransactions.clear();
         for (const [k, v] of stagedPaymentTransactions) paymentTransactions.set(k, v);
+        paymentEvidence.clear();
+        for (const [k, v] of stagedPaymentEvidence) paymentEvidence.set(k, v);
         bookingRequests.clear();
         for (const [k, v] of stagedBookingRequests) bookingRequests.set(k, v);
         bookingRequestActivities.clear();
@@ -1984,6 +2079,9 @@ export function createInMemoryBookingRepositoryAdapter(
         notifyCustomerSubscribers();
         notifyInvoiceSubscribers();
         notifyTransactionSubscribers();
+        for (const listener of paymentEvidenceSubscribers) {
+          listener();
+        }
         notifyCommissionSubscribers();
         notifyBookkeepingSubscribers();
         for (const bId of touchedBookingIds) {

@@ -8,10 +8,12 @@ import {
   Check,
   Copy,
   ExternalLink,
+  FileCheck2,
   Loader2,
   Printer,
   ReceiptText,
   RotateCcw,
+  ShieldCheck,
   UserRound,
   X,
 } from 'lucide-react';
@@ -33,6 +35,13 @@ import {
 } from '@/features/admin/calendar/utils/calendar-date';
 import { formatPhoneDisplay } from '@/features/admin/customer/utils/phone-number';
 import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
+import { PaymentEvidencePreview } from '@/features/payment-evidence/components/PaymentEvidencePreview';
+import { PAYMENT_EVIDENCE_STATUSES } from '@/features/payment-evidence/config/payment-evidence-config';
+import { useAdminPaymentEvidence } from '@/features/payment-evidence/hooks/useAdminPaymentEvidence';
+import {
+  getPaymentEvidenceSourceLabel,
+  getPaymentEvidenceStatusMeta,
+} from '@/features/payment-evidence/utils/payment-evidence-utils';
 
 import { useInvoiceDetail } from '../hooks/useInvoiceDetail';
 import { buildWhatsAppInvoiceSummary } from '../utils/invoice-format';
@@ -52,6 +61,7 @@ export function InvoiceDetailDrawer({
   open,
   onOpenChange,
   onOpenRecordPayment,
+  onOpenEvidenceReview,
   onOpenPrintPreview,
   onOpenReceipt,
   onOpenCorrection,
@@ -65,6 +75,11 @@ export function InvoiceDetailDrawer({
     isLoading,
     error,
   } = useInvoiceDetail(open ? invoiceId : '');
+
+  const { items: invoiceEvidence, isLoading: isEvidenceLoading } = useAdminPaymentEvidence({
+    invoiceId: open ? invoiceId : '',
+    enabled: open && Boolean(invoiceId),
+  });
 
   const invoice = liveInvoice || fallbackInvoice;
 
@@ -80,7 +95,12 @@ export function InvoiceDetailDrawer({
   const paymentMeta = getPaymentStatusMeta(effectiveStatus);
   const invoiceMeta = getInvoiceStatusMeta(invoice?.invoiceStatus);
   const room = getStudioRoomById(invoice?.bookingSnapshot?.studioId);
-  const canRecordPayment = Boolean(invoice && !isVoid && invoice.balanceDue > 0);
+  const requiresClientEvidence = Boolean(invoice?.clientPaymentEvidenceRequired);
+  const pendingEvidence =
+    invoiceEvidence.find((ev) => ev.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW) || null;
+  const canRecordPayment = Boolean(
+    invoice && !isVoid && invoice.balanceDue > 0 && !requiresClientEvidence,
+  );
   const canVoid = Boolean(invoice && invoice.invoiceStatus === INVOICE_STATUS.ISSUED);
 
   const handleCopySummary = async () => {
@@ -179,6 +199,21 @@ export function InvoiceDetailDrawer({
                     <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Catat Pembayaran</span>
                   </button>
+                ) : requiresClientEvidence && !isVoid && invoice.balanceDue > 0 ? (
+                  pendingEvidence ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenEvidenceReview?.(pendingEvidence, invoice)}
+                      className="sa-control sa-btn-lime inline-flex min-h-8.5 cursor-pointer items-center gap-1.5 px-3 py-1 text-xs font-semibold"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Tinjau Bukti Pembayaran</span>
+                    </button>
+                  ) : (
+                    <AdminStatusBadge tone="orange" size="sm">
+                      Menunggu Bukti Pembayaran Client
+                    </AdminStatusBadge>
+                  )
                 ) : null}
 
                 <button
@@ -491,8 +526,17 @@ export function InvoiceDetailDrawer({
                         Belum Ada Pembayaran Tercatat
                       </p>
                       <p className="mt-1 text-xs text-[#666159]">
-                        Klik <strong>Catat Pembayaran</strong> untuk mencatat DP, cicilan, atau
-                        pelunasan.
+                        {requiresClientEvidence ? (
+                          <>
+                            Invoice ini berasal dari Client Portal dan wajib melalui unggah serta
+                            verifikasi bukti pembayaran pelanggan.
+                          </>
+                        ) : (
+                          <>
+                            Klik <strong>Catat Pembayaran</strong> untuk mencatat DP, cicilan, atau
+                            pelunasan.
+                          </>
+                        )}
                       </p>
                     </div>
                   ) : (
@@ -602,6 +646,133 @@ export function InvoiceDetailDrawer({
                     </ul>
                   )}
                 </AdminSurface>
+
+                {/* 5. Linked Payment Evidence History (Client-Submitted & Admin-Attached) */}
+                {(requiresClientEvidence || invoiceEvidence.length > 0) ? (
+                  <AdminSurface
+                    as="section"
+                    variant="card"
+                    aria-labelledby="invoice-evidence-heading"
+                    data-testid="admin-invoice-evidence-section"
+                    className="p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.07] pb-2.5">
+                      <h3
+                        id="invoice-evidence-heading"
+                        className="flex items-center gap-1.5 text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
+                      >
+                        <FileCheck2 className="h-4 w-4 text-[#666159]" aria-hidden="true" />
+                        <span>Bukti Pembayaran ({invoiceEvidence.length})</span>
+                      </h3>
+                      {requiresClientEvidence ? (
+                        <AdminStatusBadge tone="orange" size="sm">
+                          Wajib Bukti Client Portal
+                        </AdminStatusBadge>
+                      ) : (
+                        <span className="text-[11px] text-[#666159]">Lampiran Opsional</span>
+                      )}
+                    </div>
+
+                    {isEvidenceLoading && invoiceEvidence.length === 0 ? (
+                      <div className="mt-3 flex items-center gap-2 text-xs text-[#666159]">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                        <span>Memuat bukti pembayaran...</span>
+                      </div>
+                    ) : invoiceEvidence.length === 0 ? (
+                      <div className="sa-panel mt-3 border-dashed p-4 text-center">
+                        <p className="text-xs font-semibold text-[#151515]">
+                          Belum Ada Bukti Pembayaran Diunggah
+                        </p>
+                        <p className="mt-1 text-xs text-[#666159]">
+                          Pelanggan dapat mengunggah bukti transfer melalui Client Portal pada detail
+                          invoice ini.
+                        </p>
+                      </div>
+                    ) : (
+                      <ul className="mt-3 space-y-2.5">
+                        {invoiceEvidence.map((ev) => {
+                          const evStatusMeta = getPaymentEvidenceStatusMeta(ev.status, 'id');
+                          const evSourceLabel = getPaymentEvidenceSourceLabel(
+                            ev.evidenceSource,
+                            'id',
+                          );
+                          const isEvPending =
+                            ev.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW;
+                          const isEvReversed = Boolean(
+                            ev.linkedTransactionId &&
+                            reversedTransactionIds.has(ev.linkedTransactionId),
+                          );
+
+                          return (
+                            <li
+                              key={ev.id}
+                              data-testid={`admin-invoice-evidence-item-${ev.id}`}
+                              className="flex items-start gap-3 rounded-xl border border-[#151515]/10 bg-[#FAF8F3]/75 p-3 text-xs"
+                            >
+                              <div className="shrink-0">
+                                <PaymentEvidencePreview
+                                  evidence={ev.evidence}
+                                  size="sm"
+                                  locale="id"
+                                  alt={`Bukti ${ev.invoiceNumber}`}
+                                />
+                              </div>
+
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <AdminStatusBadge
+                                    tone={evStatusMeta.tone}
+                                    size="sm"
+                                    dot={isEvPending}
+                                  >
+                                    {evStatusMeta.label}
+                                  </AdminStatusBadge>
+                                  <AdminStatusBadge tone="ivory" size="sm">
+                                    {evSourceLabel}
+                                  </AdminStatusBadge>
+                                  {isEvReversed ? (
+                                    <AdminStatusBadge tone="neutral" size="sm">
+                                      Dibatalkan
+                                    </AdminStatusBadge>
+                                  ) : null}
+                                </div>
+
+                                <p className="font-mono font-bold text-[#151515] tabular-nums">
+                                  {formatRupiah(ev.verifiedAmount ?? ev.claimedAmount)}
+                                  {ev.verifiedAmount != null &&
+                                  ev.verifiedAmount !== ev.claimedAmount
+                                    ? ` (Klaim: ${formatRupiah(ev.claimedAmount)})`
+                                    : ''}
+                                </p>
+                                <p className="text-[11px] text-[#666159]">
+                                  {getPaymentMethodLabel(ev.paymentMethod)} •{' '}
+                                  {formatIndonesianTimestamp(ev.submittedAt)}
+                                </p>
+                                {ev.rejectionReason ? (
+                                  <p className="text-[11px] text-[#B92B0C]">
+                                    Alasan ditolak: {ev.rejectionReason}
+                                  </p>
+                                ) : null}
+                              </div>
+
+                              {onOpenEvidenceReview ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenEvidenceReview(ev, invoice)}
+                                  className={`sa-control shrink-0 cursor-pointer px-2.5 py-1 text-[11px] font-semibold ${
+                                    isEvPending ? 'sa-btn-lime' : 'sa-btn-secondary'
+                                  }`}
+                                >
+                                  {isEvPending ? 'Tinjau' : 'Lihat'}
+                                </button>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </AdminSurface>
+                ) : null}
               </>
             )}
           </div>

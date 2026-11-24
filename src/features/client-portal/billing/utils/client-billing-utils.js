@@ -68,6 +68,7 @@ export function projectClientInvoiceRecord(idOrRecord, maybeRawData = undefined)
     bookingId: normalized.bookingId,
     invoiceStatus: normalized.invoiceStatus,
     currency: 'IDR',
+    clientPaymentEvidenceRequired: Boolean(normalized.clientPaymentEvidenceRequired),
     customerSnapshot: {
       name: normalized.customerSnapshot.name,
       phone: normalized.customerSnapshot.phone,

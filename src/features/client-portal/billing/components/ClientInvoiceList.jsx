@@ -5,6 +5,7 @@ import {
   formatIndonesianTimestamp,
 } from '@/features/admin/calendar/utils/calendar-date';
 import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
+import { getClientInvoiceEvidenceIndicator } from '@/features/payment-evidence/utils/payment-evidence-utils';
 
 import {
   CLIENT_INVOICE_FILTERS,
@@ -28,6 +29,7 @@ export function ClientInvoiceList({
   searchQuery = '',
   onSearchQueryChange,
   referenceDateIso,
+  evidenceByInvoiceId = null,
   isLoading = false,
   hasMore = false,
   isTruncated = false,
@@ -194,6 +196,11 @@ export function ClientInvoiceList({
               <tbody className="divide-y divide-[#151515]/[0.07]">
                 {invoices.map((invoice) => {
                   const statusDisplay = getClientInvoiceStatusDisplay(invoice, referenceDateIso);
+                  const invoiceEvidence = evidenceByInvoiceId?.get?.(invoice.id) || [];
+                  const evidenceIndicator = getClientInvoiceEvidenceIndicator(
+                    invoice,
+                    invoiceEvidence,
+                  );
                   const serviceTitle = formatClientInvoiceServiceTitle(invoice.bookingSnapshot);
                   const bookingDateLabel = invoice.bookingSnapshot?.bookingDate
                     ? formatIndonesianDateMedium(invoice.bookingSnapshot.bookingDate)
@@ -253,13 +260,24 @@ export function ClientInvoiceList({
                       </td>
 
                       <td className="px-3.5 py-3.5 align-middle whitespace-nowrap">
-                        <AdminStatusBadge
-                          tone={statusDisplay.tone}
-                          dot={!statusDisplay.isCancelled}
-                          size="sm"
-                        >
-                          {statusDisplay.label}
-                        </AdminStatusBadge>
+                        <div className="flex flex-col items-start gap-1">
+                          <AdminStatusBadge
+                            tone={statusDisplay.tone}
+                            dot={!statusDisplay.isCancelled}
+                            size="sm"
+                          >
+                            {statusDisplay.label}
+                          </AdminStatusBadge>
+                          {evidenceIndicator ? (
+                            <AdminStatusBadge
+                              tone={evidenceIndicator.tone}
+                              size="sm"
+                              data-testid={`client-invoice-evidence-indicator-${invoice.id}`}
+                            >
+                              {evidenceIndicator.label}
+                            </AdminStatusBadge>
+                          ) : null}
+                        </div>
                       </td>
 
                       <td
@@ -290,6 +308,7 @@ export function ClientInvoiceList({
                 key={invoice.id}
                 invoice={invoice}
                 referenceDateIso={referenceDateIso}
+                evidenceItems={evidenceByInvoiceId?.get?.(invoice.id) || []}
                 onSelect={onSelectInvoice}
               />
             ))}

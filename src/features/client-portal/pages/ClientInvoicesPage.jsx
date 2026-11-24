@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { AdminPageHeader, AdminStatusBadge } from '@/features/admin/design-system';
+import { useClientPaymentEvidence } from '@/features/payment-evidence/hooks/useClientPaymentEvidence';
 import { usePublicSiteSettings } from '@/features/public-site-settings/hooks/usePublicSiteSettings';
 
 import { ClientBillingOverview } from '../billing/components/ClientBillingOverview';
@@ -9,7 +10,12 @@ import { ClientInvoiceList } from '../billing/components/ClientInvoiceList';
 import { useClientInvoices } from '../billing/hooks/useClientInvoices';
 import { filterClientInvoices } from '../billing/utils/client-billing-utils';
 
-export function ClientInvoicesPage({ now, customAdapter = null } = {}) {
+export function ClientInvoicesPage({
+  now,
+  customAdapter = null,
+  customEvidenceAdapter = null,
+  cloudinaryConfig = null,
+} = {}) {
   const {
     invoices,
     metrics,
@@ -21,6 +27,10 @@ export function ClientInvoicesPage({ now, customAdapter = null } = {}) {
     retry,
     loadMore,
   } = useClientInvoices({ now, customAdapter });
+
+  const { evidenceByInvoiceId } = useClientPaymentEvidence({
+    customAdapter: customEvidenceAdapter,
+  });
 
   const { settings: siteSettings } = usePublicSiteSettings();
   const studioName = siteSettings?.studioName || '37 Music Studio';
@@ -82,6 +92,7 @@ export function ClientInvoicesPage({ now, customAdapter = null } = {}) {
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         referenceDateIso={referenceDateIso}
+        evidenceByInvoiceId={evidenceByInvoiceId}
         isLoading={isLoading}
         hasMore={hasMore}
         isTruncated={isTruncated}
@@ -91,7 +102,7 @@ export function ClientInvoicesPage({ now, customAdapter = null } = {}) {
         onSelectInvoice={(invoice) => setSelectedInvoiceId(invoice?.id || '')}
       />
 
-      {/* Module C, D, E, F: Invoice Detail Drawer, Payment Timeline, Print & WhatsApp CTA */}
+      {/* Module C, D, E, F: Invoice Detail Drawer, Payment Timeline, Evidence Upload, Print & WhatsApp CTA */}
       <ClientInvoiceDetailDrawer
         open={Boolean(selectedInvoiceId)}
         onOpenChange={(nextOpen) => {
@@ -103,6 +114,8 @@ export function ClientInvoicesPage({ now, customAdapter = null } = {}) {
         studioName={studioName}
         publicWhatsappNumber={publicWhatsappNumber}
         customAdapter={customAdapter}
+        customEvidenceAdapter={customEvidenceAdapter}
+        cloudinaryConfig={cloudinaryConfig}
       />
     </div>
   );

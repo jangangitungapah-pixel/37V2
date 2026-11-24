@@ -40,6 +40,7 @@ import {
   ClientPaymentReceiptSheet,
   ClientPrintPortalHost,
 } from './ClientInvoicePrintable';
+import { ClientPaymentEvidencePanel } from './ClientPaymentEvidencePanel';
 import { ClientPaymentTimeline } from './ClientPaymentTimeline';
 
 /**
@@ -63,6 +64,8 @@ export function ClientInvoiceDetailDrawer({
   studioName = '37 Music Studio',
   publicWhatsappNumber = '',
   customAdapter = null,
+  customEvidenceAdapter = null,
+  cloudinaryConfig = null,
 }) {
   const {
     invoice,
@@ -347,6 +350,13 @@ export function ClientInvoiceDetailDrawer({
                       </p>
                     ) : null}
                   </section>
+
+                  {/* Payment Evidence & Verification Panel */}
+                  <ClientPaymentEvidencePanel
+                    invoice={invoice}
+                    customEvidenceAdapter={customEvidenceAdapter}
+                    cloudinaryConfig={cloudinaryConfig}
+                  />
 
                   {/* C4: Financial Breakdown */}
                   <section className="rounded-2xl border border-[#151515]/10 bg-white p-4">

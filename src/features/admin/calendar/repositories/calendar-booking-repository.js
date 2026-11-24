@@ -30,6 +30,7 @@ export const FIRESTORE_COLLECTIONS = {
   CLIENT_PROFILES: 'clientProfiles',
   INVOICES: 'invoices',
   PAYMENT_TRANSACTIONS: 'paymentTransactions',
+  PAYMENT_EVIDENCE: 'paymentEvidence',
   COMMISSION_BATCHES: 'commissionBatches',
   COMMISSION_POSTING_ITEMS: 'commissionPostingItems',
   COMMISSION_REVIEW_RESOLUTIONS: 'commissionReviewResolutions',
@@ -344,6 +345,10 @@ export function createFirestoreBookingRepositoryAdapter() {
           },
           setPaymentTransaction(transactionId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS, transactionId);
+            tx.set(ref, data);
+          },
+          setPaymentEvidence(evidenceId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
             tx.set(ref, data);
           },
           setPublicAvailability(bookingId, data) {

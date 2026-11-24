@@ -47,6 +47,9 @@ import {
   isOptionBookableForStudio,
   normalizePricingSettings,
 } from '@/features/admin/settings/pricing/utils/normalize-pricing-settings';
+import { PaymentEvidenceUploadField } from '@/features/payment-evidence/components/PaymentEvidenceUploadField';
+import { usePaymentEvidenceUpload } from '@/features/payment-evidence/hooks/usePaymentEvidenceUpload';
+import { generatePaymentEvidenceId } from '@/features/payment-evidence/utils/payment-evidence-utils';
 
 import {
   DURATION_PRESET_OPTIONS,
@@ -157,20 +160,20 @@ function buildInitialFormValues({ mode, initialSlot, editingBooking, normalizedS
   const defaultService = manualServiceRequired
     ? null
     : studioServices.find((svc) => svc.id === initialSlot?.defaultServiceId) ||
-      studioServices[0] ||
-      null;
+    studioServices[0] ||
+    null;
 
   const defaultOption = manualServiceRequired
     ? null
     : defaultService?.bookableOptions?.find((opt) => opt.id === initialSlot?.defaultOptionId) ||
-      defaultService?.bookableOptions?.find((opt) => opt.pricing?.mode === PRICING_MODES.HOURLY) ||
-      defaultService?.bookableOptions?.[0] ||
-      null;
+    defaultService?.bookableOptions?.find((opt) => opt.pricing?.mode === PRICING_MODES.HOURLY) ||
+    defaultService?.bookableOptions?.[0] ||
+    null;
 
   const explicitInitialDuration = Number(initialSlot?.durationMinutes);
   const fixedBaseDuration =
     defaultOption?.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
-    Number(defaultOption.pricing.durationMinutes) > 0
+      Number(defaultOption.pricing.durationMinutes) > 0
       ? Number(defaultOption.pricing.durationMinutes)
       : 0;
   const defaultExtensionHourlyRate = findServiceExtensionHourlyRate(defaultService);
@@ -222,6 +225,7 @@ export function BookingFormDialog({
   onOpenChange,
   onSubmitBooking,
   returnFocusRef = null,
+  cloudinaryConfig = null,
 }) {
   const normalizedSettings = useMemo(
     () => normalizePricingSettings(pricingSettings),
@@ -249,7 +253,10 @@ export function BookingFormDialog({
     bookingId: editingBooking?.id || generateOperationId('bkg'),
     eventId: generateOperationId('evt'),
     customerId: generateOperationId('cust'),
+    initialEvidenceId: generatePaymentEvidenceId(),
   }));
+
+  const initialEvidenceUpload = usePaymentEvidenceUpload({ cloudinaryConfig });
 
   const [lookupState, setLookupState] = useState({
     status: 'idle', // 'idle' | 'loading' | 'resolved' | 'error'
@@ -262,6 +269,10 @@ export function BookingFormDialog({
   const lookupSeqRef = useRef(0);
 
   const isEditingOrRescheduling = mode === 'edit' || mode === 'reschedule';
+  const isClientPortalSourceRequest = Boolean(
+    !isEditingOrRescheduling &&
+    sourceBookingRequest?.source === BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+  );
   const editingBookingId = isEditingOrRescheduling ? editingBooking?.id || '' : '';
 
   const currentPhoneNormalized = useMemo(
@@ -478,7 +489,7 @@ export function BookingFormDialog({
 
   const selectedFixedShiftBaseMinutes =
     selectedOption?.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
-    Number(selectedOption?.pricing?.durationMinutes) > 0
+      Number(selectedOption?.pricing?.durationMinutes) > 0
       ? Number(selectedOption.pricing.durationMinutes)
       : 0;
   const selectedExtensionHourlyRate = findServiceExtensionHourlyRate(selectedServiceType);
@@ -689,7 +700,7 @@ export function BookingFormDialog({
 
     const nextDurationPreset =
       nextDefaultOption?.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
-      nextDefaultOption.pricing.durationMinutes > 0
+        nextDefaultOption.pricing.durationMinutes > 0
         ? PRESET_MINUTE_SET.has(nextDefaultOption.pricing.durationMinutes)
           ? String(nextDefaultOption.pricing.durationMinutes)
           : 'custom'
@@ -710,7 +721,7 @@ export function BookingFormDialog({
       durationPreset: nextDurationPreset,
       customDurationMinutes:
         nextDefaultOption?.pricing?.mode === PRICING_MODES.FIXED_SHIFT &&
-        nextDefaultOption.pricing.durationMinutes > 0
+          nextDefaultOption.pricing.durationMinutes > 0
           ? String(nextDefaultOption.pricing.durationMinutes)
           : prev.customDurationMinutes,
     }));
@@ -858,18 +869,60 @@ export function BookingFormDialog({
     }
 
     setIsSubmitting(true);
+    let optionalInitialPaymentEvidence = null;
+    const hasInitialPaidOnAdminCreate =
+      !isEditingOrRescheduling &&
+      !isClientPortalSourceRequest &&
+      (formValues.initialPaymentStatus === INITIAL_PAYMENT_STATUS.PARTIAL ||
+        formValues.initialPaymentStatus === INITIAL_PAYMENT_STATUS.PAID);
+
     try {
+      if (
+        hasInitialPaidOnAdminCreate &&
+        (initialEvidenceUpload.selectedFile || initialEvidenceUpload.uploadedAsset)
+      ) {
+        const asset = await initialEvidenceUpload.ensureUploaded();
+        if (!asset) {
+          handleStepSelect('payment');
+          return;
+        }
+        optionalInitialPaymentEvidence = asset;
+        initialEvidenceUpload.markSavingMetadata();
+      }
+
+      const submissionFormValues = isClientPortalSourceRequest
+        ? {
+          ...formValues,
+          initialPaymentStatus: INITIAL_PAYMENT_STATUS.UNPAID,
+          dpAmount: '',
+        }
+        : formValues;
+
       await onSubmitBooking({
         mode,
         bookingId: operationIds.bookingId,
         eventId: operationIds.eventId,
         expectedVersion: editingBooking?.version,
-        formValues,
+        formValues: submissionFormValues,
         customerResolution,
         bookingRequestId: sourceBookingRequest?.id || '',
+        ...(optionalInitialPaymentEvidence
+          ? {
+            optionalInitialPaymentEvidence,
+            initialEvidenceId: operationIds.initialEvidenceId,
+          }
+          : {}),
       });
+      if (optionalInitialPaymentEvidence) {
+        initialEvidenceUpload.markCompleted();
+      }
       handleDialogOpenChange(false);
     } catch (err) {
+      if (optionalInitialPaymentEvidence) {
+        initialEvidenceUpload.markMetadataFailed(
+          err?.message || 'Gagal menyimpan booking.',
+        );
+      }
       if (
         err?.code === 'booking/stale-customer-identity' ||
         err?.code === 'booking/customer-identity-conflict'
@@ -1012,11 +1065,10 @@ export function BookingFormDialog({
                       onClick={() => handleStepSelect(step.id)}
                       aria-label={`${step.order}. ${step.label}`}
                       aria-current={isStepActive ? 'step' : undefined}
-                      className={`flex min-h-8 cursor-pointer items-center justify-center gap-1 rounded-lg border px-1.5 py-1 text-center transition-all sm:min-h-10.5 sm:justify-between sm:gap-2 sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-left ${
-                        isStepActive
-                          ? 'border-studio-lime bg-studio-lime text-studio-ink font-semibold shadow-xs'
-                          : 'border-white/10 bg-white/6 text-neutral-200 hover:border-white/20 hover:bg-white/10'
-                      }`}
+                      className={`flex min-h-8 cursor-pointer items-center justify-center gap-1 rounded-lg border px-1.5 py-1 text-center transition-all sm:min-h-10.5 sm:justify-between sm:gap-2 sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-left ${isStepActive
+                        ? 'border-studio-lime bg-studio-lime text-studio-ink font-semibold shadow-xs'
+                        : 'border-white/10 bg-white/6 text-neutral-200 hover:border-white/20 hover:bg-white/10'
+                        }`}
                     >
                       <div className="flex min-w-0 items-center gap-1.5">
                         <StepIcon
@@ -1034,11 +1086,10 @@ export function BookingFormDialog({
                       {isStepValid ? (
                         <span
                           title={`Tahap ${step.label} lengkap`}
-                          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full sm:h-4 sm:w-4 ${
-                            isStepActive
-                              ? 'bg-studio-ink text-studio-lime'
-                              : 'bg-studio-lime text-studio-ink'
-                          }`}
+                          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full sm:h-4 sm:w-4 ${isStepActive
+                            ? 'bg-studio-ink text-studio-lime'
+                            : 'bg-studio-lime text-studio-ink'
+                            }`}
                         >
                           <Check
                             className="h-2 w-2 stroke-[3] sm:h-2.5 sm:w-2.5"
@@ -1452,29 +1503,26 @@ export function BookingFormDialog({
                             type="button"
                             onClick={() => handleSelectServiceType(service.id)}
                             aria-pressed={isSelected}
-                            className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${
-                              isSelected
-                                ? 'border-[#8BAD12]/50 bg-[#EDF8C2] text-[#243300] shadow-xs'
-                                : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
-                            }`}
+                            className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${isSelected
+                              ? 'border-[#8BAD12]/50 bg-[#EDF8C2] text-[#243300] shadow-xs'
+                              : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
+                              }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-base font-bold tracking-tight">
                                 {service.name}
                               </span>
                               <span
-                                className={`font-mono text-[11px] font-semibold ${
-                                  isSelected ? 'text-[#243300]' : 'text-[#666159]'
-                                }`}
+                                className={`font-mono text-[11px] font-semibold ${isSelected ? 'text-[#243300]' : 'text-[#666159]'
+                                  }`}
                               >
                                 {service.bookableOptions.length} opsi
                               </span>
                             </div>
                             {service.description ? (
                               <span
-                                className={`mt-1 text-xs ${
-                                  isSelected ? 'text-[#243300]/80' : 'text-[#666159]'
-                                }`}
+                                className={`mt-1 text-xs ${isSelected ? 'text-[#243300]/80' : 'text-[#666159]'
+                                  }`}
                               >
                                 {service.description}
                               </span>
@@ -1520,18 +1568,16 @@ export function BookingFormDialog({
                             type="button"
                             onClick={() => handleSelectSubcategory(option.id)}
                             aria-pressed={isSelected}
-                            className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${
-                              isSelected
-                                ? 'border-studio-ink bg-studio-ink text-white shadow-sm'
-                                : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
-                            }`}
+                            className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${isSelected
+                              ? 'border-studio-ink bg-studio-ink text-white shadow-sm'
+                              : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
+                              }`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <span className="text-sm font-semibold">{option.name}</span>
                               <span
-                                className={`shrink-0 font-mono text-xs font-semibold ${
-                                  isSelected ? 'text-studio-lime' : 'text-studio-ink'
-                                }`}
+                                className={`shrink-0 font-mono text-xs font-semibold ${isSelected ? 'text-studio-lime' : 'text-studio-ink'
+                                  }`}
                               >
                                 {summary.primary}
                               </span>
@@ -1539,9 +1585,8 @@ export function BookingFormDialog({
 
                             {option.description ? (
                               <span
-                                className={`mt-1 text-xs ${
-                                  isSelected ? 'text-neutral-300' : 'text-[#666159]'
-                                }`}
+                                className={`mt-1 text-xs ${isSelected ? 'text-neutral-300' : 'text-[#666159]'
+                                  }`}
                               >
                                 {option.description}
                               </span>
@@ -1549,9 +1594,8 @@ export function BookingFormDialog({
 
                             {activeBlockRule ? (
                               <span
-                                className={`mt-2 inline-block font-mono text-[11px] font-medium ${
-                                  isSelected ? 'text-studio-lime' : 'text-[#0F6246]'
-                                }`}
+                                className={`mt-2 inline-block font-mono text-[11px] font-medium ${isSelected ? 'text-studio-lime' : 'text-[#0F6246]'
+                                  }`}
                               >
                                 Diskon Durasi -{formatRupiah(activeBlockRule.discountAmount)} /{' '}
                                 {formatDurationMinutes(activeBlockRule.intervalMinutes)}
@@ -1742,11 +1786,10 @@ export function BookingFormDialog({
                             type="button"
                             onClick={() => handleFieldChange('studioId', room.id)}
                             aria-pressed={isSelected}
-                            className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${
-                              isSelected
-                                ? 'border-studio-ink bg-studio-ink text-studio-lime shadow-sm'
-                                : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
-                            }`}
+                            className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${isSelected
+                              ? 'border-studio-ink bg-studio-ink text-studio-lime shadow-sm'
+                              : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
+                              }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-base font-bold tracking-tight">
@@ -1759,9 +1802,8 @@ export function BookingFormDialog({
                               </span>
                             </div>
                             <span
-                              className={`mt-1 text-xs ${
-                                isSelected ? 'text-neutral-300' : 'text-[#666159]'
-                              }`}
+                              className={`mt-1 text-xs ${isSelected ? 'text-neutral-300' : 'text-[#666159]'
+                                }`}
                             >
                               {room.subtitle}
                             </span>
@@ -1884,11 +1926,10 @@ export function BookingFormDialog({
                             disabled={isPresetDisabled}
                             onClick={() => handleFieldChange('durationPreset', option.key)}
                             aria-pressed={isSelected}
-                            className={`min-h-10.5 cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
-                              isSelected
-                                ? 'border-[#8BAD12]/50 bg-[#EDF8C2] text-[#243300] shadow-xs'
-                                : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
-                            }`}
+                            className={`min-h-10.5 cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${isSelected
+                              ? 'border-[#8BAD12]/50 bg-[#EDF8C2] text-[#243300] shadow-xs'
+                              : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
+                              }`}
                           >
                             {option.label}
                           </button>
@@ -1936,8 +1977,8 @@ export function BookingFormDialog({
                   {/* Live Slot Availability & Conflict Banner */}
                   <div className="mt-4">
                     {liveValidation.errors.scheduleConflict ||
-                    liveValidation.errors.startMinute ||
-                    liveValidation.errors.durationMinutes ? (
+                      liveValidation.errors.startMinute ||
+                      liveValidation.errors.durationMinutes ? (
                       <div
                         role="alert"
                         className="flex items-start gap-2.5 rounded-2xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3.5 text-[#B92B0C] shadow-xs"
@@ -2028,6 +2069,22 @@ export function BookingFormDialog({
                         ) hanya diubah lewat halaman Payment and Bill, bukan dari ubah jadwal.
                       </p>
                     </div>
+                  ) : isClientPortalSourceRequest ? (
+                    <div
+                      data-testid="booking-client-portal-evidence-policy-notice"
+                      className="sa-panel-ivory mt-4 space-y-1.5 rounded-2xl border border-[#8BAD12]/35 bg-[#EDF8C2]/45 p-4"
+                    >
+                      <p className="text-studio-ink text-xs font-semibold">
+                        Status Awal Dikunci ke Belum Bayar (Kebijakan Bukti Client Portal)
+                      </p>
+                      <p className="text-xs leading-relaxed text-[#46433D]">
+                        Booking ini berasal dari <strong>Client Portal</strong>. Setelah booking
+                        disimpan dan invoice diterbitkan, pelanggan wajib mengunggah bukti
+                        pembayaran melalui halaman <strong>Invoices &amp; Payments</strong> di
+                        Client Portal untuk diverifikasi Admin di tab{' '}
+                        <strong>Payment Evidence</strong>.
+                      </p>
+                    </div>
                   ) : (
                     <>
                       {/* Initial Payment Status Selector */}
@@ -2051,11 +2108,10 @@ export function BookingFormDialog({
                                   handleFieldChange('initialPaymentStatus', statusOption.id)
                                 }
                                 aria-pressed={isSelected}
-                                className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${
-                                  isSelected
-                                    ? 'border-[#8BAD12]/50 bg-[#EDF8C2] text-[#243300] shadow-xs'
-                                    : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
-                                }`}
+                                className={`flex min-h-14 cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all ${isSelected
+                                  ? 'border-[#8BAD12]/50 bg-[#EDF8C2] text-[#243300] shadow-xs'
+                                  : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
+                                  }`}
                               >
                                 <span className="text-base font-bold tracking-tight">
                                   {statusOption.shortLabel}
@@ -2073,58 +2129,74 @@ export function BookingFormDialog({
 
                       {/* Payment Method & DP Nominal */}
                       {formValues.initialPaymentStatus === INITIAL_PAYMENT_STATUS.PARTIAL ||
-                      formValues.initialPaymentStatus === INITIAL_PAYMENT_STATUS.PAID ? (
-                        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          <div>
-                            <label
-                              htmlFor="booking-payment-method"
-                              className="text-studio-ink block text-xs font-semibold"
-                            >
-                              Metode Pembayaran <span className="text-studio-orange">*</span>
-                            </label>
-                            <select
-                              id="booking-payment-method"
-                              value={formValues.paymentMethod}
-                              onChange={(e) => handleFieldChange('paymentMethod', e.target.value)}
-                              className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
-                            >
-                              {PAYMENT_METHOD_OPTIONS.map((method) => (
-                                <option key={method.id} value={method.id}>
-                                  {method.label} — {method.description}
-                                </option>
-                              ))}
-                            </select>
-                            {shouldShowFieldError('paymentMethod') ? (
-                              <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
-                                {liveValidation.errors.paymentMethod}
-                              </p>
-                            ) : null}
-                          </div>
-
-                          {formValues.initialPaymentStatus === INITIAL_PAYMENT_STATUS.PARTIAL ? (
+                        formValues.initialPaymentStatus === INITIAL_PAYMENT_STATUS.PAID ? (
+                        <div className="mt-4 space-y-4">
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                               <label
-                                htmlFor="booking-dp-amount"
+                                htmlFor="booking-payment-method"
                                 className="text-studio-ink block text-xs font-semibold"
                               >
-                                Nominal DP (IDR) <span className="text-studio-orange">*</span>
+                                Metode Pembayaran <span className="text-studio-orange">*</span>
                               </label>
-                              <input
-                                id="booking-dp-amount"
-                                type="text"
-                                inputMode="numeric"
-                                value={formValues.dpAmount}
-                                onChange={(e) => handleFieldChange('dpAmount', e.target.value)}
-                                placeholder="Contoh: 50000"
-                                className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
-                              />
-                              {shouldShowFieldError('dpAmount') ? (
+                              <select
+                                id="booking-payment-method"
+                                value={formValues.paymentMethod}
+                                onChange={(e) => handleFieldChange('paymentMethod', e.target.value)}
+                                className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
+                              >
+                                {PAYMENT_METHOD_OPTIONS.map((method) => (
+                                  <option key={method.id} value={method.id}>
+                                    {method.label} — {method.description}
+                                  </option>
+                                ))}
+                              </select>
+                              {shouldShowFieldError('paymentMethod') ? (
                                 <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
-                                  {liveValidation.errors.dpAmount}
+                                  {liveValidation.errors.paymentMethod}
                                 </p>
                               ) : null}
                             </div>
-                          ) : null}
+
+                            {formValues.initialPaymentStatus === INITIAL_PAYMENT_STATUS.PARTIAL ? (
+                              <div>
+                                <label
+                                  htmlFor="booking-dp-amount"
+                                  className="text-studio-ink block text-xs font-semibold"
+                                >
+                                  Nominal DP (IDR) <span className="text-studio-orange">*</span>
+                                </label>
+                                <input
+                                  id="booking-dp-amount"
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={formValues.dpAmount}
+                                  onChange={(e) => handleFieldChange('dpAmount', e.target.value)}
+                                  placeholder="Contoh: 50000"
+                                  className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
+                                />
+                                {shouldShowFieldError('dpAmount') ? (
+                                  <p
+                                    role="alert"
+                                    className="mt-1 text-xs font-medium text-[#B92B0C]"
+                                  >
+                                    {liveValidation.errors.dpAmount}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {/* Optional Initial Payment Proof Attachment (Admin-managed create flow only) */}
+                          <PaymentEvidenceUploadField
+                            upload={initialEvidenceUpload}
+                            required={false}
+                            disabled={isSubmitting}
+                            locale="id"
+                            inputId="booking-initial-payment-evidence"
+                            label="Lampirkan Bukti Pembayaran Awal (Opsional)"
+                            helperText="Opsional untuk pembayaran DP/Lunas saat pembuatan booking. Pembayaran tunai tetap bisa disimpan tanpa bukti gambar."
+                          />
                         </div>
                       ) : null}
                     </>
@@ -2249,8 +2321,8 @@ export function BookingFormDialog({
                       </dl>
 
                       {displayedPricing.durationDiscountConfig?.enabled &&
-                      displayedPricing.durationDiscountConfig?.intervalMinutes > 0 &&
-                      displayedPricing.durationDiscountConfig?.discountAmount > 0 ? (
+                        displayedPricing.durationDiscountConfig?.intervalMinutes > 0 &&
+                        displayedPricing.durationDiscountConfig?.discountAmount > 0 ? (
                         <p className="sa-subcard mt-3 px-3 py-2 text-xs leading-relaxed text-[#46433D]">
                           Diskon Durasi otomatis:{' '}
                           <strong className="text-[#0F6246]">

@@ -3,9 +3,10 @@
 ## 37 Music Studio — Customer Billing Workspace (`/portal/invoices`)
 
 **Primary Route:** `/portal/invoices`  
-**Firestore Collections Read:** `invoices`, `paymentTransactions`, `publicSiteSettings`  
+**Firestore Collections Read:** `invoices`, `paymentTransactions`, `paymentEvidence`, `publicSiteSettings`  
+**Firestore Collections Written (Client):** `paymentEvidence` (create `pending_review` only for own eligible invoices)  
 **Ownership Identity Collections:** `clientAccounts`, `clientCustomerLinks`, `clientProfiles`  
-**Core Principle:** *One Source of Data, Two User Experiences* — Staff/Owner manage invoices and record append-only payments in Admin Portal; authenticated Clients inspect their own billing statements, balances, and verified payment history in real time inside Client Portal.
+**Core Principle:** *One Source of Data, Two User Experiences* — Staff/Owner manage invoices, verify payment evidence, and record append-only payments in Admin Portal; authenticated Clients inspect their own billing statements, upload mandatory payment proof for Client Portal bookings, and track verified payment history in real time inside Client Portal.
 
 ---
 
@@ -22,7 +23,7 @@ Normalized via `normalizeInvoiceRecord()` (`src/features/admin/payment/schemas/p
   - `customerSnapshot`: `{ name, phone, bandName }`.
   - `bookingSnapshot`: `{ serviceTypeName, serviceOptionName, studioId, bookingDate, startMinute, endMinute, durationMinutes }`.
   - `financialSnapshot`: `{ subtotal, discountAmount, totalAmount }` (integer IDR).
-  - `amountPaid`, `balanceDue`, `paymentStatus` (`unpaid` | `partial` | `paid`), `invoiceDate`, `dueDate`, `createdAt`, `updatedAt`.
+  - `amountPaid`, `balanceDue`, `paymentStatus` (`unpaid` | `partial` | `paid`), `clientPaymentEvidenceRequired` (`boolean`, defaults safely to `false`), `invoiceDate`, `dueDate`, `createdAt`, `updatedAt`.
 - **Explicitly Stripped Fields:**
   - `customerId`, `createdByUid`, `updatedByUid`, `lastPaymentTransactionId`, `voidReason`, and any internal commission/fee structures (`booking.commissionSnapshot` is never stored on or read for client invoices).
 
@@ -131,15 +132,28 @@ Located under `src/features/client-portal/billing/`:
 
 ---
 
-## 9. Known Limitations & Scope Boundaries
+## 9. Payment Evidence & Verification Integration (v1)
 
-- **Spark-Only Manual Verification:** By design, Phase 4 provides read-only billing visibility and WhatsApp confirmation links; online payment gateways, `Pay Now` checkout, automatic QRIS settlement, and payment proof file uploads are intentionally excluded.
+Extended in **Payment Evidence & Verification v1** (see [PAYMENT-EVIDENCE-AND-VERIFICATION.md](./PAYMENT-EVIDENCE-AND-VERIFICATION.md)):
+
+- **Directory Indicators (`ClientInvoiceList` & `ClientInvoiceCard`):** Eligible invoices with `clientPaymentEvidenceRequired === true` display a secondary indicator badge (`Payment Evidence Required`, `Under Review`, or `Evidence Rejected`) alongside — never replacing — the official financial payment status (`Unpaid`, `Partial Payment`, `Overdue`, `Paid`).
+- **Detail Drawer Panel (`ClientPaymentEvidencePanel`, `ClientPaymentEvidenceForm`, `ClientPaymentEvidenceTimeline`):**
+  - Renders the mandatory proof submission form strictly when `invoiceStatus === 'issued' && clientPaymentEvidenceRequired === true && balanceDue > 0` and no `pending_review` submission is currently awaiting studio review.
+  - Hidden for `draft`, `void`, fully `paid`, and Admin-managed (`clientPaymentEvidenceRequired === false`) invoices while preserving historical evidence timelines when present.
+  - Uploads directly to Cloudinary using dedicated unsigned preset `VITE_CLOUDINARY_PAYMENT_UPLOAD_PRESET` (`37payment-evidence`), preserves uploaded asset metadata on Firestore write failure to prevent duplicate uploads on retry, displays rejection reasons from studio staff, and allows resubmission when rejected.
+  - Submitting evidence **never** modifies `invoices` or creates `paymentTransactions`; balances update in real time only after Staff/Owner atomic verification.
+
+---
+
+## 10. Known Limitations & Scope Boundaries
+
+- **Spark-Only Manual Verification:** Payment proof images use direct unsigned Cloudinary uploads with public delivery URLs (with random non-identifying filenames, 5 MB / JPG-PNG-WEBP caps, and explicit UI privacy notices). Online payment gateways, `Pay Now` checkout, automatic QRIS settlement, and server-side private storage signing remain intentionally excluded.
 - **Historical Unlinked Bookings:** Client billing visibility relies on the authenticated Client's linked `customerId` (`clientAccounts/{uid}.customerId`). Legacy bookings belonging to a separate unmerged phone-only customer record will only appear if linked to the same `customerId`.
 - **Not Yet Deployed:** Updated `firestore.rules` and frontend bundle are verified locally and have **not** been committed or deployed to Firebase Hosting / Cloud Firestore per workflow rules.
 
 ---
 
-## 10. Verification & Testing Coverage
+## 11. Verification & Testing Coverage
 
-- **Unit & Integration Suite (`src/features/client-portal/billing/client-billing.test.jsx`):** Covers invoice/transaction privacy allow-lists, integer Rupiah formatting, status & `Asia/Jakarta` overdue calculation, KPI aggregation, reversal display, timestamp sorting, local search/filtering, query constraint enforcement, missing `customerId` / suspended client guards, UID switch isolation, live realtime Admin payment/reversal updates, and `#studio-print-portal` printing.
-- **Real Firestore Emulator Security Suite (`scripts/test-firestore-rules.mjs` — Section `2F`):** Verifies all invoice & paymentTransaction read/query/write scenarios across Owner, Active Staff, Active Client A, Active Client B, Suspended Client, and Anonymous users, plus full regression checks for Admin payment recording, reversals, invoice immutability, Client Booking rules, and Factory Reset.
+- **Unit & Integration Suites (`client-billing.test.jsx` & `src/features/payment-evidence/payment-evidence.test.jsx`):** Cover invoice/transaction privacy allow-lists, integer Rupiah formatting, status & `Asia/Jakarta` overdue calculation, KPI aggregation, reversal display, timestamp sorting, local search/filtering, query constraint enforcement, missing `customerId` / suspended client guards, UID switch isolation, Cloudinary upload validation & no-reupload retry, Client Portal eligibility/resubmission, live realtime Admin verification/rejection/reversal updates, and `#studio-print-portal` printing.
+- **Real Firestore Emulator Security Suite (`scripts/test-firestore-rules.mjs` — Sections `2F` & `2G`):** Verifies all `invoices`, `paymentTransactions`, and `paymentEvidence` rules across Owner, Active Staff, Active Client A, Active Client B, Suspended Client, and Anonymous users, plus full regression checks for Admin payment recording, reversals, invoice immutability, manual bypass prevention, Client Booking rules, and Factory Reset (21 targets).

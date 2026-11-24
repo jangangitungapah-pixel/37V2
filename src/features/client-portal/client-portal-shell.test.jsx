@@ -111,6 +111,11 @@ import {
   resetPublicPricingCatalogRepositoryAdapter,
   setPublicPricingCatalogRepositoryAdapter,
 } from '@/features/public-pricing/repositories/public-pricing-repository';
+import {
+  createInMemoryPaymentEvidenceRepositoryAdapter,
+  resetPaymentEvidenceRepositoryAdapter,
+  setPaymentEvidenceRepositoryAdapter,
+} from '@/features/payment-evidence/repositories/payment-evidence-repository';
 import { buildPublicPricingProjection } from '@/features/public-pricing/utils/public-pricing-projection';
 import { queryClient } from '@/lib/query-client';
 
@@ -239,6 +244,7 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
     );
     setBookingRequestRepositoryAdapter(createInMemoryBookingRequestRepositoryAdapter());
     setClientBillingRepositoryAdapter(createInMemoryClientBillingRepositoryAdapter());
+    setPaymentEvidenceRepositoryAdapter(createInMemoryPaymentEvidenceRepositoryAdapter());
     setPublicAvailabilityRepositoryAdapter(
       createInMemoryPublicAvailabilityRepositoryAdapter({
         initialMetadata: { isReady: true, backfilledFromDate: '2026-01-01' },
@@ -262,6 +268,7 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
     cleanup();
     resetClientPortalRepositoryAdapter();
     resetClientBillingRepositoryAdapter();
+    resetPaymentEvidenceRepositoryAdapter();
     resetBookingRequestRepositoryAdapter();
     resetPublicPricingCatalogRepositoryAdapter();
     resetPublicAvailabilityRepositoryAdapter();

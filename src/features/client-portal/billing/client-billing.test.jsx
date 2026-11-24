@@ -68,6 +68,11 @@ import {
 } from '@/features/admin/payment/services/payment-service';
 import { buildInvoiceNumber } from '@/features/admin/payment/utils/invoice-number';
 import { AuthContext } from '@/features/auth/AuthContext';
+import {
+  createInMemoryPaymentEvidenceRepositoryAdapter,
+  resetPaymentEvidenceRepositoryAdapter,
+  setPaymentEvidenceRepositoryAdapter,
+} from '@/features/payment-evidence/repositories/payment-evidence-repository';
 
 import { ClientInvoicesPage } from '../pages/ClientInvoicesPage';
 import {
@@ -205,11 +210,13 @@ describe('Client Portal Phase 4 — Customer Billing & Payments', () => {
     billingTestMocks.whereCalls = [];
     billingTestMocks.limitCalls = [];
     billingTestMocks.onSnapshotImpl = null;
+    setPaymentEvidenceRepositoryAdapter(createInMemoryPaymentEvidenceRepositoryAdapter());
   });
 
   afterEach(() => {
     cleanup();
     resetClientBillingRepositoryAdapter();
+    resetPaymentEvidenceRepositoryAdapter();
     document.body.removeAttribute('data-studio-print-mode');
     const portal = document.getElementById('studio-print-portal');
     if (portal) portal.remove();

@@ -380,6 +380,42 @@ async function seedOperationalSampleData() {
     amount: 50000,
     recordedByUid: 'owner-1',
   });
+  await adminSetDoc('paymentEvidence/ev_reset_1', {
+    schemaVersion: 1,
+    invoiceId: 'inv_bkg_1',
+    invoiceNumber: '37MS-20261125-ABCDEF123456',
+    bookingId: 'bkg_1',
+    customerId: 'cust_1',
+    clientUid: '',
+    evidenceSource: 'admin_manual',
+    status: 'attached',
+    claimedAmount: 50000,
+    paymentMethod: 'cash',
+    claimedPaidAt: '2026-11-25',
+    referenceNumber: '',
+    evidence: {
+      provider: 'cloudinary',
+      cloudName: 'demo37',
+      cloudinaryPublicId: 'payment-evidence/pe_reset1',
+      cloudinaryAssetId: 'asset_reset1',
+      secureUrl: 'https://res.cloudinary.com/demo37/image/upload/v1/payment-evidence/pe_reset1.jpg',
+      resourceType: 'image',
+      format: 'jpg',
+      width: 800,
+      height: 1200,
+      bytes: 120000,
+    },
+    submittedByUid: 'owner-1',
+    submittedAt: SERVER_TS,
+    reviewedAt: null,
+    reviewedByUid: '',
+    rejectionReason: '',
+    verifiedAmount: 50000,
+    linkedTransactionId: 'pay_1',
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
   await adminSetDoc('commissionBatches/cb_1', {
     status: 'posted',
     postedByUid: 'owner-1',
@@ -483,6 +519,7 @@ async function runTests() {
     'customers/cust_1',
     'customerPhoneIndex/hash_1',
     'invoices/inv_bkg_1',
+    'paymentEvidence/ev_reset_1',
     'paymentTransactions/pay_1',
     'commissionBatches/cb_1',
     'commissionPostingItems/bkg_1',
@@ -520,6 +557,7 @@ async function runTests() {
     'bookings/bkg_1',
     'customers/cust_1',
     'invoices/inv_bkg_1',
+    'paymentEvidence/ev_reset_1',
     'publicBookingRequests/req_1',
   ]) {
     assert.equal((await userRequest('DELETE', `/${p}`, null)).status, 403, `anon delete ${p}`);
@@ -1743,6 +1781,7 @@ async function runTests() {
     'customers/cust_email_matched',
     'bookings/bkg_1',
     'invoices/inv_bkg_1',
+    'paymentEvidence/ev_reset_1',
     'paymentTransactions/pay_1',
     'bookkeepingEntries/bk_1',
     'publicBookingRequests/req_1',
@@ -3992,6 +4031,919 @@ async function runTests() {
     '✓ Client Portal Phase 4 rules (Client Billing invoices & paymentTransactions ownership, isolation & Admin regression) passed',
   );
 
+  // 2G. Payment Evidence & Verification v1 Rules (`paymentEvidence`, `invoices`, `paymentTransactions`)
+  const validCloudinaryEvidenceAsset = {
+    provider: 'cloudinary',
+    cloudName: 'demo37',
+    cloudinaryPublicId: 'payment-evidence/pe_abcd1234',
+    cloudinaryAssetId: 'asset_ev_1',
+    secureUrl: 'https://res.cloudinary.com/demo37/image/upload/v1/payment-evidence/pe_abcd1234.jpg',
+    resourceType: 'image',
+    format: 'jpg',
+    width: 1080,
+    height: 1920,
+    bytes: 245000,
+  };
+
+  // Seed Client A eligible Client Portal invoice (clientPaymentEvidenceRequired: true, balanceDue: 360000)
+  const evEligibleInvNumber = '37MS-20261128-EVCLIENTA001';
+  const evNonRequiredInvNumber = '37MS-20261128-EVADMIN00001';
+  const evPaidInvNumber = '37MS-20261128-EVPAID000001';
+  const evVoidInvNumber = '37MS-20261128-EVVOID000001';
+  const evClientBInvNumber = '37MS-20261128-EVCLIENTB001';
+
+  await adminSetDoc('bookings/bkg_ev_client_a', {
+    customerId: 'cust_email_matched',
+    customerName: 'Matched Client',
+    date: '2026-11-28',
+    studioId: 'room-a',
+  });
+  await adminSetDoc('bookings/bkg_ev_admin_manual', {
+    customerId: 'cust_email_matched',
+    customerName: 'Matched Client',
+    date: '2026-11-28',
+    studioId: 'room-b',
+  });
+
+  await adminSetDoc('invoices/inv_bkg_ev_client_a', {
+    invoiceNumber: evEligibleInvNumber,
+    bookingId: 'bkg_ev_client_a',
+    customerId: 'cust_email_matched',
+    invoiceStatus: 'issued',
+    currency: 'IDR',
+    customerSnapshot: { name: 'Matched Client', phone: '+6281234567890', bandName: 'Matched Band' },
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      studioId: 'room-a',
+      bookingDate: '2026-11-28',
+      startMinute: 600,
+      endMinute: 780,
+      durationMinutes: 180,
+    },
+    financialSnapshot: { subtotal: 360000, discountAmount: 0, totalAmount: 360000 },
+    amountPaid: 0,
+    balanceDue: 360000,
+    paymentStatus: 'unpaid',
+    invoiceDate: SERVER_TS,
+    dueDate: '2026-11-29',
+    lastPaymentTransactionId: null,
+    voidReason: '',
+    clientPaymentEvidenceRequired: true,
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  });
+
+  await adminSetDoc('invoices/inv_bkg_ev_admin_manual', {
+    invoiceNumber: evNonRequiredInvNumber,
+    bookingId: 'bkg_ev_admin_manual',
+    customerId: 'cust_email_matched',
+    invoiceStatus: 'issued',
+    currency: 'IDR',
+    customerSnapshot: { name: 'Matched Client', phone: '+6281234567890', bandName: '' },
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      studioId: 'room-b',
+      bookingDate: '2026-11-28',
+      startMinute: 840,
+      endMinute: 960,
+      durationMinutes: 120,
+    },
+    financialSnapshot: { subtotal: 240000, discountAmount: 0, totalAmount: 240000 },
+    amountPaid: 0,
+    balanceDue: 240000,
+    paymentStatus: 'unpaid',
+    invoiceDate: SERVER_TS,
+    dueDate: null,
+    lastPaymentTransactionId: null,
+    voidReason: '',
+    clientPaymentEvidenceRequired: false,
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  });
+
+  await adminSetDoc('invoices/inv_bkg_ev_paid', {
+    invoiceNumber: evPaidInvNumber,
+    bookingId: 'bkg_ev_paid',
+    customerId: 'cust_email_matched',
+    invoiceStatus: 'issued',
+    currency: 'IDR',
+    customerSnapshot: { name: 'Matched Client', phone: '+6281234567890', bandName: '' },
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      studioId: 'room-a',
+      bookingDate: '2026-11-28',
+      startMinute: 600,
+      endMinute: 660,
+      durationMinutes: 60,
+    },
+    financialSnapshot: { subtotal: 120000, discountAmount: 0, totalAmount: 120000 },
+    amountPaid: 120000,
+    balanceDue: 0,
+    paymentStatus: 'paid',
+    invoiceDate: SERVER_TS,
+    dueDate: null,
+    lastPaymentTransactionId: 'pay_ev_paid_1',
+    voidReason: '',
+    clientPaymentEvidenceRequired: true,
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 2,
+  });
+
+  await adminSetDoc('invoices/inv_bkg_ev_void', {
+    invoiceNumber: evVoidInvNumber,
+    bookingId: 'bkg_ev_void',
+    customerId: 'cust_email_matched',
+    invoiceStatus: 'void',
+    currency: 'IDR',
+    customerSnapshot: { name: 'Matched Client', phone: '+6281234567890', bandName: '' },
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      studioId: 'room-a',
+      bookingDate: '2026-11-28',
+      startMinute: 600,
+      endMinute: 660,
+      durationMinutes: 60,
+    },
+    financialSnapshot: { subtotal: 120000, discountAmount: 0, totalAmount: 120000 },
+    amountPaid: 0,
+    balanceDue: 120000,
+    paymentStatus: 'unpaid',
+    invoiceDate: SERVER_TS,
+    dueDate: null,
+    lastPaymentTransactionId: null,
+    voidReason: 'Cancelled session',
+    clientPaymentEvidenceRequired: true,
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 2,
+  });
+
+  await adminSetDoc('invoices/inv_bkg_ev_client_b', {
+    invoiceNumber: evClientBInvNumber,
+    bookingId: 'bkg_ev_client_b',
+    customerId: 'client_client-b-1',
+    invoiceStatus: 'issued',
+    currency: 'IDR',
+    customerSnapshot: { name: 'Client B Musician', phone: '+6281200000000', bandName: '' },
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      studioId: 'room-a',
+      bookingDate: '2026-11-28',
+      startMinute: 600,
+      endMinute: 720,
+      durationMinutes: 120,
+    },
+    financialSnapshot: { subtotal: 240000, discountAmount: 0, totalAmount: 240000 },
+    amountPaid: 0,
+    balanceDue: 240000,
+    paymentStatus: 'unpaid',
+    invoiceDate: SERVER_TS,
+    dueDate: null,
+    lastPaymentTransactionId: null,
+    voidReason: '',
+    clientPaymentEvidenceRequired: true,
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  });
+
+  function makeClientEvidenceCreateWrite(evidenceId, overrides = {}) {
+    return {
+      writes: [
+        {
+          update: {
+            name: `${DB_ROOT}/paymentEvidence/${evidenceId}`,
+            fields: toFsFields({
+              schemaVersion: 1,
+              invoiceId: 'inv_bkg_ev_client_a',
+              invoiceNumber: evEligibleInvNumber,
+              bookingId: 'bkg_ev_client_a',
+              customerId: 'cust_email_matched',
+              clientUid: 'client-matched-1',
+              evidenceSource: 'client_portal',
+              status: 'pending_review',
+              claimedAmount: 180000,
+              paymentMethod: 'transfer',
+              claimedPaidAt: '2026-11-28',
+              referenceNumber: 'TRF-BCA-001',
+              evidence: validCloudinaryEvidenceAsset,
+              submittedByUid: 'client-matched-1',
+              reviewedAt: null,
+              reviewedByUid: '',
+              rejectionReason: '',
+              verifiedAmount: null,
+              linkedTransactionId: null,
+              version: 1,
+              ...overrides,
+            }),
+          },
+          currentDocument: { exists: false },
+          updateTransforms: [
+            { fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' },
+            { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+            { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+          ],
+        },
+      ],
+    };
+  }
+
+  // 1. Active Client A creates valid `pending_review` evidence on own eligible invoice -> ALLOW
+  const clientValidEvCreate = await userRequest(
+    'POST',
+    ':commit',
+    TOKEN_CLIENT_MATCHED,
+    makeClientEvidenceCreateWrite('ev_client_a_1'),
+  );
+  assert.equal(
+    clientValidEvCreate.status,
+    200,
+    `Client A valid evidence create failed: ${JSON.stringify(clientValidEvCreate.body)}`,
+  );
+
+  // Create second evidence to test rejection flow later
+  const clientValidEvCreate2 = await userRequest(
+    'POST',
+    ':commit',
+    TOKEN_CLIENT_MATCHED,
+    makeClientEvidenceCreateWrite('ev_client_a_reject', { claimedAmount: 180000 }),
+  );
+  assert.equal(clientValidEvCreate2.status, 200, 'Client A second evidence create allowed');
+
+  // 2. Client A creates evidence for Client B's invoice -> DENY
+  assert.equal(
+    (
+      await userRequest(
+        'POST',
+        ':commit',
+        TOKEN_CLIENT_MATCHED,
+        makeClientEvidenceCreateWrite('ev_cross_customer', {
+          invoiceId: 'inv_bkg_ev_client_b',
+          invoiceNumber: evClientBInvNumber,
+          bookingId: 'bkg_ev_client_b',
+          customerId: 'client_client-b-1',
+        }),
+      )
+    ).status,
+    403,
+    'Client A denied submitting evidence for Client B invoice',
+  );
+
+  // 3. Client A creates evidence for non-eligible (`clientPaymentEvidenceRequired: false`), paid, void, or over-balance invoice -> DENY
+  assert.equal(
+    (
+      await userRequest(
+        'POST',
+        ':commit',
+        TOKEN_CLIENT_MATCHED,
+        makeClientEvidenceCreateWrite('ev_non_required', {
+          invoiceId: 'inv_bkg_ev_admin_manual',
+          invoiceNumber: evNonRequiredInvNumber,
+          bookingId: 'bkg_ev_admin_manual',
+        }),
+      )
+    ).status,
+    403,
+    'Client A denied submitting evidence for admin-managed non-required invoice',
+  );
+  assert.equal(
+    (
+      await userRequest(
+        'POST',
+        ':commit',
+        TOKEN_CLIENT_MATCHED,
+        makeClientEvidenceCreateWrite('ev_paid_inv', {
+          invoiceId: 'inv_bkg_ev_paid',
+          invoiceNumber: evPaidInvNumber,
+          bookingId: 'bkg_ev_paid',
+          claimedAmount: 10000,
+        }),
+      )
+    ).status,
+    403,
+    'Client A denied submitting evidence for already-paid invoice',
+  );
+  assert.equal(
+    (
+      await userRequest(
+        'POST',
+        ':commit',
+        TOKEN_CLIENT_MATCHED,
+        makeClientEvidenceCreateWrite('ev_void_inv', {
+          invoiceId: 'inv_bkg_ev_void',
+          invoiceNumber: evVoidInvNumber,
+          bookingId: 'bkg_ev_void',
+          claimedAmount: 10000,
+        }),
+      )
+    ).status,
+    403,
+    'Client A denied submitting evidence for void invoice',
+  );
+  assert.equal(
+    (
+      await userRequest(
+        'POST',
+        ':commit',
+        TOKEN_CLIENT_MATCHED,
+        makeClientEvidenceCreateWrite('ev_over_balance', { claimedAmount: 500000 }),
+      )
+    ).status,
+    403,
+    'Client A denied submitting evidence exceeding balanceDue',
+  );
+
+  // 4. Client A creates forged `verified`, `rejected`, `attached`, or non-Cloudinary / HTTP URL -> DENY
+  for (const [label, patch] of [
+    ['forged verified', { status: 'verified', verifiedAmount: 180000, reviewedByUid: 'client-matched-1' }],
+    ['forged rejected', { status: 'rejected', rejectionReason: 'forged' }],
+    ['forged attached', { status: 'attached', evidenceSource: 'admin_manual' }],
+    [
+      'non-cloudinary url',
+      {
+        evidence: {
+          ...validCloudinaryEvidenceAsset,
+          secureUrl: 'https://evil.example.com/demo37/image/upload/v1/x.jpg',
+        },
+      },
+    ],
+    [
+      'insecure http cloudinary url',
+      {
+        evidence: {
+          ...validCloudinaryEvidenceAsset,
+          secureUrl: 'http://res.cloudinary.com/demo37/image/upload/v1/x.jpg',
+        },
+      },
+    ],
+    [
+      'mismatched cloudName url',
+      {
+        evidence: {
+          ...validCloudinaryEvidenceAsset,
+          cloudName: 'othercloud',
+        },
+      },
+    ],
+  ]) {
+    assert.equal(
+      (
+        await userRequest(
+          'POST',
+          ':commit',
+          TOKEN_CLIENT_MATCHED,
+          makeClientEvidenceCreateWrite(`ev_bad_${label.replace(/\W+/g, '_')}`, patch),
+        )
+      ).status,
+      403,
+      `Client A denied creating evidence with ${label}`,
+    );
+  }
+
+  // 5. Suspended Client & Anonymous denied creating or reading evidence
+  assert.equal(
+    (
+      await userRequest(
+        'POST',
+        ':commit',
+        TOKEN_CLIENT_NEW,
+        makeClientEvidenceCreateWrite('ev_suspended_create', {
+          clientUid: 'client-new-1',
+          submittedByUid: 'client-new-1',
+        }),
+      )
+    ).status,
+    403,
+    'Suspended Client denied creating evidence',
+  );
+  assert.equal(
+    (
+      await userRequest(
+        'POST',
+        ':commit',
+        null,
+        makeClientEvidenceCreateWrite('ev_anon_create'),
+      )
+    ).status,
+    403,
+    'Anonymous user denied creating evidence',
+  );
+
+  // 6. Client A reads own evidence (GET + scoped LIST), Client B / Suspended / Anon DENIED
+  assert.equal(
+    (await userRequest('GET', '/paymentEvidence/ev_client_a_1', TOKEN_CLIENT_MATCHED)).status,
+    200,
+    'Client A can GET own paymentEvidence',
+  );
+  const clientAListEv = await userRequest('POST', ':runQuery', TOKEN_CLIENT_MATCHED, {
+    structuredQuery: {
+      from: [{ collectionId: 'paymentEvidence' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'customerId' },
+          op: 'EQUAL',
+          value: { stringValue: 'cust_email_matched' },
+        },
+      },
+    },
+  });
+  assert.equal(clientAListEv.status, 200, 'Client A can LIST own scoped paymentEvidence');
+  assert.equal(
+    (await userRequest('GET', '/paymentEvidence/ev_client_a_1', TOKEN_CLIENT_B)).status,
+    403,
+    'Client B denied reading Client A paymentEvidence',
+  );
+  assert.equal(
+    (await userRequest('GET', '/paymentEvidence/ev_client_a_1', TOKEN_CLIENT_NEW)).status,
+    403,
+    'Suspended Client denied reading paymentEvidence',
+  );
+  assert.equal(
+    (await userRequest('GET', '/paymentEvidence/ev_client_a_1', null)).status,
+    403,
+    'Anonymous user denied reading paymentEvidence',
+  );
+  assert.equal(
+    (await userRequest('GET', '/paymentEvidence', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client A denied unscoped paymentEvidence collection list',
+  );
+
+  // 7. Client A denied updating or deleting paymentEvidence
+  assert.equal(
+    (await userRequest('DELETE', '/paymentEvidence/ev_client_a_1', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client A denied deleting paymentEvidence',
+  );
+  const clientEvDocRes = await userRequest('GET', '/paymentEvidence/ev_client_a_1', TOKEN_STAFF);
+  assert.equal(clientEvDocRes.status, 200, 'Staff can read Client A paymentEvidence');
+  const evSubmittedTs = { _ts: clientEvDocRes.body.fields.submittedAt.timestampValue };
+
+  const clientUpdateEvAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_client_a_1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_ev_client_a',
+            invoiceNumber: evEligibleInvNumber,
+            bookingId: 'bkg_ev_client_a',
+            customerId: 'cust_email_matched',
+            clientUid: 'client-matched-1',
+            evidenceSource: 'client_portal',
+            status: 'verified',
+            claimedAmount: 180000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-11-28',
+            referenceNumber: 'TRF-BCA-001',
+            evidence: validCloudinaryEvidenceAsset,
+            submittedByUid: 'client-matched-1',
+            submittedAt: evSubmittedTs,
+            reviewedAt: SERVER_TS,
+            reviewedByUid: 'client-matched-1',
+            rejectionReason: '',
+            verifiedAmount: 180000,
+            linkedTransactionId: 'pay_evidence_ev_client_a_1',
+            createdAt: evSubmittedTs,
+            updatedAt: SERVER_TS,
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(clientUpdateEvAttempt.status, 403, 'Client A denied updating paymentEvidence');
+
+  // 8. Staff CANNOT bypass clientPaymentEvidenceRequired invoice with manual payment transaction!
+  const staffManualBypassRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_bypass_attempt`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_ev_client_a',
+            invoiceNumber: evEligibleInvNumber,
+            bookingId: 'bkg_ev_client_a',
+            customerId: 'cust_email_matched',
+            transactionType: 'payment',
+            amount: 180000,
+            currency: 'IDR',
+            paymentMethod: 'transfer',
+            receivedAt: SERVER_TS,
+            referenceNumber: '',
+            notes: 'Bypass attempt',
+            source: 'manual',
+            reversalOfTransactionId: null,
+            recordedByUid: 'staff-1',
+            createdAt: SERVER_TS,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_ev_client_a`,
+          fields: toFsFields({
+            invoiceNumber: evEligibleInvNumber,
+            bookingId: 'bkg_ev_client_a',
+            customerId: 'cust_email_matched',
+            invoiceStatus: 'issued',
+            currency: 'IDR',
+            customerSnapshot: {
+              name: 'Matched Client',
+              phone: '+6281234567890',
+              bandName: 'Matched Band',
+            },
+            bookingSnapshot: {
+              serviceTypeName: 'Rehearsal',
+              serviceOptionName: 'Reguler',
+              studioId: 'room-a',
+              bookingDate: '2026-11-28',
+              startMinute: 600,
+              endMinute: 780,
+              durationMinutes: 180,
+            },
+            financialSnapshot: { subtotal: 360000, discountAmount: 0, totalAmount: 360000 },
+            amountPaid: 180000,
+            balanceDue: 180000,
+            paymentStatus: 'partial',
+            invoiceDate: SERVER_TS,
+            dueDate: '2026-11-29',
+            lastPaymentTransactionId: 'pay_bypass_attempt',
+            voidReason: '',
+            clientPaymentEvidenceRequired: true,
+            createdAt: SERVER_TS,
+            createdByUid: 'staff-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    staffManualBypassRes.status,
+    403,
+    'Staff denied bypassing clientPaymentEvidenceRequired invoice with manual payment',
+  );
+
+  // 9. Staff atomically verifies Client A's pending evidence (updates evidence + creates pay_evidence_* tx + updates invoice) -> ALLOW
+  const staffVerifyCommit = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_client_a_1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_ev_client_a',
+            invoiceNumber: evEligibleInvNumber,
+            bookingId: 'bkg_ev_client_a',
+            customerId: 'cust_email_matched',
+            clientUid: 'client-matched-1',
+            evidenceSource: 'client_portal',
+            status: 'verified',
+            claimedAmount: 180000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-11-28',
+            referenceNumber: 'TRF-BCA-001',
+            evidence: validCloudinaryEvidenceAsset,
+            submittedByUid: 'client-matched-1',
+            submittedAt: evSubmittedTs,
+            reviewedAt: SERVER_TS,
+            reviewedByUid: 'staff-1',
+            rejectionReason: '',
+            verifiedAmount: 180000,
+            linkedTransactionId: 'pay_evidence_ev_client_a_1',
+            createdAt: evSubmittedTs,
+            updatedAt: SERVER_TS,
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_evidence_ev_client_a_1`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_ev_client_a',
+            invoiceNumber: evEligibleInvNumber,
+            bookingId: 'bkg_ev_client_a',
+            customerId: 'cust_email_matched',
+            transactionType: 'payment',
+            amount: 180000,
+            currency: 'IDR',
+            paymentMethod: 'transfer',
+            receivedAt: SERVER_TS,
+            referenceNumber: 'TRF-BCA-001',
+            notes: 'Verified transfer proof',
+            source: 'client_evidence_verified',
+            reversalOfTransactionId: null,
+            recordedByUid: 'staff-1',
+            createdAt: SERVER_TS,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_ev_client_a`,
+          fields: toFsFields({
+            invoiceNumber: evEligibleInvNumber,
+            bookingId: 'bkg_ev_client_a',
+            customerId: 'cust_email_matched',
+            invoiceStatus: 'issued',
+            currency: 'IDR',
+            customerSnapshot: {
+              name: 'Matched Client',
+              phone: '+6281234567890',
+              bandName: 'Matched Band',
+            },
+            bookingSnapshot: {
+              serviceTypeName: 'Rehearsal',
+              serviceOptionName: 'Reguler',
+              studioId: 'room-a',
+              bookingDate: '2026-11-28',
+              startMinute: 600,
+              endMinute: 780,
+              durationMinutes: 180,
+            },
+            financialSnapshot: { subtotal: 360000, discountAmount: 0, totalAmount: 360000 },
+            amountPaid: 180000,
+            balanceDue: 180000,
+            paymentStatus: 'partial',
+            invoiceDate: SERVER_TS,
+            dueDate: '2026-11-29',
+            lastPaymentTransactionId: 'pay_evidence_ev_client_a_1',
+            voidReason: '',
+            clientPaymentEvidenceRequired: true,
+            createdAt: SERVER_TS,
+            createdByUid: 'staff-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    staffVerifyCommit.status,
+    200,
+    `Staff atomic evidence verification failed: ${JSON.stringify(staffVerifyCommit.body)}`,
+  );
+
+  // 10. Staff rejects pending evidence with valid reason (ALLOW) and without reason (DENY)
+  const evRejectDoc = await userRequest('GET', '/paymentEvidence/ev_client_a_reject', TOKEN_STAFF);
+  const evRejectSubmittedTs = { _ts: evRejectDoc.body.fields.submittedAt.timestampValue };
+  const staffBadReject = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_client_a_reject`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_ev_client_a',
+            invoiceNumber: evEligibleInvNumber,
+            bookingId: 'bkg_ev_client_a',
+            customerId: 'cust_email_matched',
+            clientUid: 'client-matched-1',
+            evidenceSource: 'client_portal',
+            status: 'rejected',
+            claimedAmount: 180000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-11-28',
+            referenceNumber: 'TRF-BCA-001',
+            evidence: validCloudinaryEvidenceAsset,
+            submittedByUid: 'client-matched-1',
+            submittedAt: evRejectSubmittedTs,
+            reviewedAt: SERVER_TS,
+            reviewedByUid: 'staff-1',
+            rejectionReason: 'x',
+            verifiedAmount: null,
+            linkedTransactionId: null,
+            createdAt: evRejectSubmittedTs,
+            updatedAt: SERVER_TS,
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(staffBadReject.status, 403, 'Staff denied rejecting without >= 3 char reason');
+
+  const staffGoodReject = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_client_a_reject`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_ev_client_a',
+            invoiceNumber: evEligibleInvNumber,
+            bookingId: 'bkg_ev_client_a',
+            customerId: 'cust_email_matched',
+            clientUid: 'client-matched-1',
+            evidenceSource: 'client_portal',
+            status: 'rejected',
+            claimedAmount: 180000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-11-28',
+            referenceNumber: 'TRF-BCA-001',
+            evidence: validCloudinaryEvidenceAsset,
+            submittedByUid: 'client-matched-1',
+            submittedAt: evRejectSubmittedTs,
+            reviewedAt: SERVER_TS,
+            reviewedByUid: 'staff-1',
+            rejectionReason: 'Bukti transfer buram, mohon unggah ulang.',
+            verifiedAmount: null,
+            linkedTransactionId: null,
+            createdAt: evRejectSubmittedTs,
+            updatedAt: SERVER_TS,
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    staffGoodReject.status,
+    200,
+    `Staff valid evidence rejection failed: ${JSON.stringify(staffGoodReject.body)}`,
+  );
+
+  // 11. Staff creates optional `admin_manual` `attached` evidence atomically with manual payment on non-Client-Portal invoice -> ALLOW
+  const staffAttachCommit = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_admin_attached_1`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_ev_admin_manual',
+            invoiceNumber: evNonRequiredInvNumber,
+            bookingId: 'bkg_ev_admin_manual',
+            customerId: 'cust_email_matched',
+            transactionType: 'payment',
+            amount: 120000,
+            currency: 'IDR',
+            paymentMethod: 'transfer',
+            receivedAt: SERVER_TS,
+            referenceNumber: 'TRF-STUDIO-77',
+            notes: 'Manual payment with optional proof',
+            source: 'manual',
+            reversalOfTransactionId: null,
+            recordedByUid: 'staff-1',
+            createdAt: SERVER_TS,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_ev_admin_manual`,
+          fields: toFsFields({
+            invoiceNumber: evNonRequiredInvNumber,
+            bookingId: 'bkg_ev_admin_manual',
+            customerId: 'cust_email_matched',
+            invoiceStatus: 'issued',
+            currency: 'IDR',
+            customerSnapshot: { name: 'Matched Client', phone: '+6281234567890', bandName: '' },
+            bookingSnapshot: {
+              serviceTypeName: 'Rehearsal',
+              serviceOptionName: 'Reguler',
+              studioId: 'room-b',
+              bookingDate: '2026-11-28',
+              startMinute: 840,
+              endMinute: 960,
+              durationMinutes: 120,
+            },
+            financialSnapshot: { subtotal: 240000, discountAmount: 0, totalAmount: 240000 },
+            amountPaid: 120000,
+            balanceDue: 120000,
+            paymentStatus: 'partial',
+            invoiceDate: SERVER_TS,
+            dueDate: null,
+            lastPaymentTransactionId: 'pay_admin_attached_1',
+            voidReason: '',
+            clientPaymentEvidenceRequired: false,
+            createdAt: SERVER_TS,
+            createdByUid: 'staff-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_admin_attached_1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_ev_admin_manual',
+            invoiceNumber: evNonRequiredInvNumber,
+            bookingId: 'bkg_ev_admin_manual',
+            customerId: 'cust_email_matched',
+            clientUid: '',
+            evidenceSource: 'admin_manual',
+            status: 'attached',
+            claimedAmount: 120000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-11-28',
+            referenceNumber: 'TRF-STUDIO-77',
+            evidence: validCloudinaryEvidenceAsset,
+            submittedByUid: 'staff-1',
+            submittedAt: SERVER_TS,
+            reviewedAt: null,
+            reviewedByUid: '',
+            rejectionReason: '',
+            verifiedAmount: 120000,
+            linkedTransactionId: 'pay_admin_attached_1',
+            createdAt: SERVER_TS,
+            updatedAt: SERVER_TS,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    staffAttachCommit.status,
+    200,
+    `Staff optional admin_manual evidence attach failed: ${JSON.stringify(staffAttachCommit.body)}`,
+  );
+
+  // 12. Staff denied attaching admin_manual evidence pointing to mismatched/non-existent transaction
+  const staffBadAttach = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_admin_bad_tx`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_ev_admin_manual',
+            invoiceNumber: evNonRequiredInvNumber,
+            bookingId: 'bkg_ev_admin_manual',
+            customerId: 'cust_email_matched',
+            clientUid: '',
+            evidenceSource: 'admin_manual',
+            status: 'attached',
+            claimedAmount: 120000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-11-28',
+            referenceNumber: '',
+            evidence: validCloudinaryEvidenceAsset,
+            submittedByUid: 'staff-1',
+            submittedAt: SERVER_TS,
+            reviewedAt: null,
+            reviewedByUid: '',
+            rejectionReason: '',
+            verifiedAmount: 120000,
+            linkedTransactionId: 'pay_does_not_exist',
+            createdAt: SERVER_TS,
+            updatedAt: SERVER_TS,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    staffBadAttach.status,
+    403,
+    'Staff denied creating admin_manual evidence linked to missing transaction',
+  );
+
+  console.log(
+    '✓ Payment Evidence & Verification v1 rules (Client upload/isolation, Staff atomic verify/reject, manual bypass block & admin optional attachment) passed',
+  );
+
   // 3. systemOperations/factoryReset read & start authorization
   assert.equal(
     (await userRequest('GET', '/systemOperations/factoryReset', TOKEN_STAFF)).status,
@@ -4196,7 +5148,7 @@ async function runTests() {
     const delRes = await userRequest('DELETE', `/${opPath}`, TOKEN_OWNER);
     assert.equal(delRes.status, 200, `Owner reset delete failed for ${opPath}: ${delRes.status}`);
   }
-  console.log('✓ Owner 10-doc batch delete & all 20 operational manifest targets passed');
+  console.log('✓ Owner 10-doc batch delete & all 21 operational manifest targets passed');
 
   // 7. Public site settings & public pricing catalog remain readable; publicBookingRequests inaccessible after deletion
   assert.equal((await userRequest('GET', '/publicSiteSettings/site', null)).status, 200);
@@ -4337,7 +5289,7 @@ async function runTests() {
         startedAt: opStartedAt,
         lastErrorCode: '',
         lastErrorMessage: '',
-        verificationSummary: { allZero: false, checkedCollectionsCount: 20, remainingTotal: 2 },
+        verificationSummary: { allZero: false, checkedCollectionsCount: 21, remainingTotal: 2 },
       },
       false,
     ),
@@ -4364,7 +5316,7 @@ async function runTests() {
         startedAt: opStartedAt,
         lastErrorCode: '',
         lastErrorMessage: '',
-        verificationSummary: { allZero: true, checkedCollectionsCount: 20, remainingTotal: 0 },
+        verificationSummary: { allZero: true, checkedCollectionsCount: 21, remainingTotal: 0 },
       },
       false,
     ),

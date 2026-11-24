@@ -5,6 +5,7 @@ import {
   formatIndonesianTimestamp,
 } from '@/features/admin/calendar/utils/calendar-date';
 import { AdminStatusBadge } from '@/features/admin/design-system';
+import { getClientInvoiceEvidenceIndicator } from '@/features/payment-evidence/utils/payment-evidence-utils';
 
 import {
   formatClientInvoiceServiceTitle,
@@ -17,8 +18,9 @@ import {
  * Keeps Invoice Number, Service, Total, Balance Due, Payment Status, and View Details
  * immediately scannable with zero horizontal overflow at 320px+.
  */
-export function ClientInvoiceCard({ invoice, referenceDateIso, onSelect }) {
+export function ClientInvoiceCard({ invoice, referenceDateIso, evidenceItems = [], onSelect }) {
   const statusDisplay = getClientInvoiceStatusDisplay(invoice, referenceDateIso);
+  const evidenceIndicator = getClientInvoiceEvidenceIndicator(invoice, evidenceItems);
   const serviceTitle = formatClientInvoiceServiceTitle(invoice.bookingSnapshot);
   const bookingDateLabel = invoice.bookingSnapshot?.bookingDate
     ? formatIndonesianDateMedium(invoice.bookingSnapshot.bookingDate)
@@ -41,9 +43,16 @@ export function ClientInvoiceCard({ invoice, referenceDateIso, onSelect }) {
           <h4 className="mt-1 text-sm font-bold text-[#151515]">{serviceTitle}</h4>
         </div>
 
-        <AdminStatusBadge tone={statusDisplay.tone} dot={!statusDisplay.isCancelled}>
-          {statusDisplay.label}
-        </AdminStatusBadge>
+        <div className="flex flex-col items-end gap-1">
+          <AdminStatusBadge tone={statusDisplay.tone} dot={!statusDisplay.isCancelled}>
+            {statusDisplay.label}
+          </AdminStatusBadge>
+          {evidenceIndicator ? (
+            <AdminStatusBadge tone={evidenceIndicator.tone} size="sm">
+              {evidenceIndicator.label}
+            </AdminStatusBadge>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#666159]">

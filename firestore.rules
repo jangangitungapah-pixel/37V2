@@ -713,7 +713,14 @@ service cloud.firestore {
     }
 
     function isValidInvoiceBase(data, invoiceId) {
-      return data.size() == 20
+      return (
+          data.size() == 20
+          || (
+            data.size() == 21
+            && 'clientPaymentEvidenceRequired' in data
+            && data.clientPaymentEvidenceRequired is bool
+          )
+        )
         && data.invoiceNumber is string
         && data.invoiceNumber.matches('^37MS-\\d{8}-[A-Z0-9]{12}$')
         && data.bookingId is string
@@ -762,7 +769,8 @@ service cloud.firestore {
         && reqData.financialSnapshot == resData.financialSnapshot
         && reqData.invoiceDate == resData.invoiceDate
         && reqData.createdAt == resData.createdAt
-        && reqData.createdByUid == resData.createdByUid;
+        && reqData.createdByUid == resData.createdByUid
+        && reqData.get('clientPaymentEvidenceRequired', false) == resData.get('clientPaymentEvidenceRequired', false);
     }
 
     function isInvoiceAggregateMatchingTxAfter(reqData, resData, invoiceId) {
@@ -829,6 +837,32 @@ service cloud.firestore {
         && invAfter.data.invoiceNumber == data.invoiceNumber;
     }
 
+    function isValidVerifiedEvidenceTxLinkAfter(data, transactionId) {
+      let evidenceId = transactionId[13:transactionId.size()];
+      let evAfter = getAfter(/databases/$(database)/documents/paymentEvidence/$(evidenceId));
+      return transactionId.matches('^pay_evidence_[A-Za-z0-9_-]{4,120}$')
+        && existsAfter(/databases/$(database)/documents/paymentEvidence/$(evidenceId))
+        && evAfter != null
+        && evAfter.data.evidenceSource == 'client_portal'
+        && evAfter.data.status == 'verified'
+        && evAfter.data.invoiceId == data.invoiceId
+        && evAfter.data.bookingId == data.bookingId
+        && evAfter.data.customerId == data.customerId
+        && evAfter.data.verifiedAmount == data.amount
+        && evAfter.data.linkedTransactionId == transactionId;
+    }
+
+    function isValidPaymentTxPolicyAfter(data, transactionId) {
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$(data.invoiceId));
+      return invAfter != null
+        && (
+          invAfter.data.get('clientPaymentEvidenceRequired', false) == true
+            ? (data.source == 'client_evidence_verified'
+                && isValidVerifiedEvidenceTxLinkAfter(data, transactionId))
+            : (data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot'])
+        );
+    }
+
     function isValidPaymentTransactionCreate(data, transactionId) {
       return data.size() == 15
         && data.invoiceId is string
@@ -848,7 +882,7 @@ service cloud.firestore {
         && data.referenceNumber.size() <= 120
         && data.notes is string
         && data.notes.size() <= 400
-        && data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot', 'reversal']
+        && data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot', 'client_evidence_verified', 'reversal']
         && data.recordedByUid == request.auth.uid
         && data.createdAt is timestamp
         && existsAfter(/databases/$(database)/documents/invoices/$(data.invoiceId))
@@ -856,7 +890,7 @@ service cloud.firestore {
         && (
           data.transactionType == 'payment'
             ? (data.reversalOfTransactionId == null
-                && data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot'])
+                && isValidPaymentTxPolicyAfter(data, transactionId))
             : (data.source == 'reversal'
                 && data.reversalOfTransactionId is string
                 && data.reversalOfTransactionId.size() > 0
@@ -864,6 +898,206 @@ service cloud.firestore {
                 && data.notes.size() >= 3
                 && isValidReversalOriginalPayment(data))
         );
+    }
+
+    // ------------------------------------------------------------------
+    // Payment Evidence & Verification v1 Helpers
+    // ------------------------------------------------------------------
+
+    function isValidPaymentEvidenceAsset(asset) {
+      return asset is map
+        && asset.size() == 10
+        && asset.provider == 'cloudinary'
+        && asset.cloudName is string
+        && asset.cloudName.matches('^[a-z0-9_-]{2,64}$')
+        && asset.cloudinaryPublicId is string
+        && asset.cloudinaryPublicId.trim().size() >= 1
+        && asset.cloudinaryPublicId.size() <= 255
+        && asset.cloudinaryAssetId is string
+        && asset.cloudinaryAssetId.size() <= 120
+        && asset.secureUrl is string
+        && asset.secureUrl.size() <= 500
+        && asset.secureUrl.matches('^https://res\\.cloudinary\\.com/' + asset.cloudName + '/image/upload/\\S+$')
+        && asset.resourceType == 'image'
+        && asset.format in ['jpg', 'jpeg', 'png', 'webp']
+        && asset.width is int
+        && asset.width >= 1
+        && asset.width <= 20000
+        && asset.height is int
+        && asset.height >= 1
+        && asset.height <= 20000
+        && asset.bytes is int
+        && asset.bytes >= 1
+        && asset.bytes <= 5242880;
+    }
+
+    function isValidPaymentEvidenceBase(data) {
+      return data.size() == 23
+        && data.schemaVersion == 1
+        && data.invoiceId is string
+        && data.invoiceId.size() >= 1
+        && data.invoiceId.size() <= 140
+        && data.invoiceNumber is string
+        && data.invoiceNumber.matches('^37MS-\\d{8}-[A-Z0-9]{12}$')
+        && data.bookingId is string
+        && data.bookingId.size() >= 1
+        && data.bookingId.size() <= 140
+        && data.customerId is string
+        && data.customerId.size() >= 1
+        && data.customerId.size() <= 140
+        && data.clientUid is string
+        && data.clientUid.size() <= 128
+        && data.evidenceSource in ['client_portal', 'admin_manual']
+        && data.status in ['pending_review', 'verified', 'rejected', 'attached']
+        && data.claimedAmount is int
+        && data.claimedAmount > 0
+        && data.paymentMethod in ['cash', 'transfer', 'qris', 'other']
+        && data.claimedPaidAt is string
+        && data.claimedPaidAt.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && isValidPaymentEvidenceAsset(data.evidence)
+        && data.submittedByUid is string
+        && data.submittedByUid.size() >= 1
+        && data.submittedByUid.size() <= 128
+        && data.submittedAt is timestamp
+        && (data.reviewedAt == null || data.reviewedAt is timestamp)
+        && data.reviewedByUid is string
+        && data.reviewedByUid.size() <= 128
+        && data.rejectionReason is string
+        && data.rejectionReason.size() <= 300
+        && (data.verifiedAmount == null || (data.verifiedAmount is int && data.verifiedAmount > 0))
+        && (data.linkedTransactionId == null
+          || (data.linkedTransactionId is string && data.linkedTransactionId.size() >= 1 && data.linkedTransactionId.size() <= 160))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidClientEvidenceParentInvoice(data) {
+      let inv = get(/databases/$(database)/documents/invoices/$(data.invoiceId));
+      return inv != null
+        && inv.data.customerId == data.customerId
+        && inv.data.bookingId == data.bookingId
+        && inv.data.invoiceNumber == data.invoiceNumber
+        && inv.data.invoiceStatus == 'issued'
+        && inv.data.get('clientPaymentEvidenceRequired', false) == true
+        && inv.data.balanceDue is int
+        && inv.data.balanceDue > 0
+        && data.claimedAmount <= inv.data.balanceDue;
+    }
+
+    function isValidClientEvidenceCreate(data, evidenceId) {
+      return evidenceId.matches('^[A-Za-z0-9_-]{4,120}$')
+        && data.evidenceSource == 'client_portal'
+        && data.status == 'pending_review'
+        && data.clientUid == request.auth.uid
+        && data.submittedByUid == request.auth.uid
+        && data.reviewedAt == null
+        && data.reviewedByUid == ''
+        && data.rejectionReason == ''
+        && data.verifiedAmount == null
+        && data.linkedTransactionId == null
+        && data.submittedAt == request.time
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.version == 1
+        && isValidPaymentEvidenceBase(data)
+        && isClientOwnerOfCustomer(data.customerId)
+        && exists(/databases/$(database)/documents/invoices/$(data.invoiceId))
+        && isValidClientEvidenceParentInvoice(data);
+    }
+
+    function isAdminAttachedEvidenceLinkedAfter(data) {
+      let txAfter = getAfter(/databases/$(database)/documents/paymentTransactions/$(data.linkedTransactionId));
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$(data.invoiceId));
+      return txAfter != null
+        && invAfter != null
+        && txAfter.data.transactionType == 'payment'
+        && txAfter.data.invoiceId == data.invoiceId
+        && txAfter.data.bookingId == data.bookingId
+        && txAfter.data.customerId == data.customerId
+        && txAfter.data.invoiceNumber == data.invoiceNumber
+        && txAfter.data.amount == data.claimedAmount
+        && invAfter.data.invoiceStatus == 'issued'
+        && invAfter.data.customerId == data.customerId
+        && invAfter.data.bookingId == data.bookingId
+        && invAfter.data.invoiceNumber == data.invoiceNumber;
+    }
+
+    function isValidAdminAttachedEvidenceCreate(data, evidenceId) {
+      return evidenceId.matches('^[A-Za-z0-9_-]{4,120}$')
+        && data.evidenceSource == 'admin_manual'
+        && data.status == 'attached'
+        && data.clientUid == ''
+        && data.submittedByUid == request.auth.uid
+        && data.reviewedAt == null
+        && data.reviewedByUid == ''
+        && data.rejectionReason == ''
+        && data.verifiedAmount is int
+        && data.verifiedAmount == data.claimedAmount
+        && data.linkedTransactionId is string
+        && data.linkedTransactionId.size() >= 1
+        && data.version == 1
+        && isValidPaymentEvidenceBase(data)
+        && existsAfter(/databases/$(database)/documents/paymentTransactions/$(data.linkedTransactionId))
+        && existsAfter(/databases/$(database)/documents/invoices/$(data.invoiceId))
+        && isAdminAttachedEvidenceLinkedAfter(data);
+    }
+
+    function isPaymentEvidenceImmutableFieldsUnchanged(reqData, resData) {
+      return reqData.schemaVersion == resData.schemaVersion
+        && reqData.invoiceId == resData.invoiceId
+        && reqData.invoiceNumber == resData.invoiceNumber
+        && reqData.bookingId == resData.bookingId
+        && reqData.customerId == resData.customerId
+        && reqData.clientUid == resData.clientUid
+        && reqData.evidenceSource == resData.evidenceSource
+        && reqData.claimedAmount == resData.claimedAmount
+        && reqData.paymentMethod == resData.paymentMethod
+        && reqData.claimedPaidAt == resData.claimedPaidAt
+        && reqData.referenceNumber == resData.referenceNumber
+        && reqData.evidence == resData.evidence
+        && reqData.submittedByUid == resData.submittedByUid
+        && reqData.submittedAt == resData.submittedAt
+        && reqData.createdAt == resData.createdAt;
+    }
+
+    function isVerifiedEvidenceLinkedAfter(reqData, expectedTxId) {
+      let txAfter = getAfter(/databases/$(database)/documents/paymentTransactions/$(expectedTxId));
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$(reqData.invoiceId));
+      return txAfter != null
+        && invAfter != null
+        && txAfter.data.transactionType == 'payment'
+        && txAfter.data.source == 'client_evidence_verified'
+        && txAfter.data.invoiceId == reqData.invoiceId
+        && txAfter.data.bookingId == reqData.bookingId
+        && txAfter.data.customerId == reqData.customerId
+        && txAfter.data.amount == reqData.verifiedAmount
+        && invAfter.data.invoiceStatus == 'issued'
+        && invAfter.data.lastPaymentTransactionId == expectedTxId;
+    }
+
+    function isValidStaffEvidenceVerifyUpdate(reqData, evidenceId) {
+      let expectedTxId = 'pay_evidence_' + evidenceId;
+      return reqData.status == 'verified'
+        && reqData.rejectionReason == ''
+        && reqData.verifiedAmount is int
+        && reqData.verifiedAmount > 0
+        && reqData.linkedTransactionId == expectedTxId
+        && existsAfter(/databases/$(database)/documents/paymentTransactions/$(expectedTxId))
+        && existsAfter(/databases/$(database)/documents/invoices/$(reqData.invoiceId))
+        && isVerifiedEvidenceLinkedAfter(reqData, expectedTxId);
+    }
+
+    function isValidStaffEvidenceRejectUpdate(reqData) {
+      return reqData.status == 'rejected'
+        && reqData.rejectionReason is string
+        && reqData.rejectionReason.trim().size() >= 3
+        && reqData.rejectionReason.size() <= 300
+        && reqData.verifiedAmount == null
+        && reqData.linkedTransactionId == null;
     }
 
     function isCommissionItemAmountsMatchingSnapshot(data, snap) {
@@ -1970,6 +2204,8 @@ service cloud.firestore {
         && request.resource.data.voidReason == ''
         && request.resource.data.createdByUid == request.auth.uid
         && request.resource.data.version == 1
+        && (request.resource.data.get('clientPaymentEvidenceRequired', false) == false
+          || request.resource.data.amountPaid == 0)
         && existsAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
         && isValidInitialInvoicePaymentLinkAfter(request.resource.data, invoiceId);
 
@@ -2006,6 +2242,47 @@ service cloud.firestore {
         && isValidPaymentTransactionCreate(request.resource.data, transactionId);
 
       allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /paymentEvidence/{evidenceId} {
+      allow get: if isActiveStaff()
+        || (
+          resource != null
+          && isClientOwnerOfCustomer(resource.data.customerId)
+          && isClientReadableParentInvoice(resource.data.invoiceId, resource.data.customerId)
+        );
+
+      allow list: if isActiveStaff()
+        || isClientOwnerOfCustomer(resource.data.customerId);
+
+      allow create: if !isFactoryResetLocked()
+        && (
+          (request.resource.data.evidenceSource == 'client_portal'
+            && isValidClientEvidenceCreate(request.resource.data, evidenceId))
+          || (request.resource.data.evidenceSource == 'admin_manual'
+            && isActiveStaff()
+            && isValidAdminAttachedEvidenceCreate(request.resource.data, evidenceId))
+        );
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && resource != null
+        && resource.data.evidenceSource == 'client_portal'
+        && resource.data.status == 'pending_review'
+        && isValidPaymentEvidenceBase(request.resource.data)
+        && isPaymentEvidenceImmutableFieldsUnchanged(request.resource.data, resource.data)
+        && request.resource.data.reviewedByUid == request.auth.uid
+        && request.resource.data.reviewedAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.version == resource.data.version + 1
+        && (
+          (request.resource.data.status == 'verified'
+            && isValidStaffEvidenceVerifyUpdate(request.resource.data, evidenceId))
+          || (request.resource.data.status == 'rejected'
+            && isValidStaffEvidenceRejectUpdate(request.resource.data))
+        );
+
       allow delete: if canFactoryResetDelete();
     }
 

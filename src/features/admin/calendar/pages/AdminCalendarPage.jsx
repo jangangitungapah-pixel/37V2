@@ -327,6 +327,8 @@ export function AdminCalendarPage() {
     formValues,
     customerResolution = null,
     bookingRequestId = '',
+    optionalInitialPaymentEvidence = null,
+    initialEvidenceId = '',
   }) => {
     try {
       if (mode === 'edit' || mode === 'reschedule') {
@@ -357,6 +359,8 @@ export function AdminCalendarPage() {
         customerResolution,
         pricingSettings,
         bookingRequestId,
+        optionalInitialPaymentEvidence,
+        initialEvidenceId,
       });
       const message = bookingRequestId
         ? `Booking resmi untuk "${created.customerName}" berhasil dibuat dan request dikonfirmasi.`

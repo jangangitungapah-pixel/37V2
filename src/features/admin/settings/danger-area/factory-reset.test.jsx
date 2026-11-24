@@ -110,6 +110,7 @@ function createFullOperationalSeed({ bookingsCount = 14 } = {}) {
       bookingEvents: [{ id: 'evt_001' }],
       bookingSlots: [{ id: '2026-11-22__room-a__600' }, { id: '2026-11-22__room-a__660' }],
       publicAvailability: [{ id: 'bkg_001' }],
+      paymentEvidence: [{ id: 'ev_001' }],
       paymentTransactions: [{ id: 'pay_001' }],
       invoices: [{ id: 'inv_001' }],
       commissionReviewResolutions: [{ id: 'res_001' }],
@@ -165,7 +166,7 @@ afterEach(() => {
 });
 
 describe('Danger Area & Operational Factory Reset Engine', () => {
-  it('1. Dry Run Preview accurately counts all 20 operational targets without mutating anything and blocks incomplete preflight', async () => {
+  it('1. Dry Run Preview accurately counts all 21 operational targets without mutating anything and blocks incomplete preflight', async () => {
     const adapter = createInMemoryFactoryResetRepositoryAdapter(
       createFullOperationalSeed({ bookingsCount: 14 }),
     );
@@ -173,10 +174,10 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
 
     const preflight = await previewFactoryReset({ actor: owner, adapter });
     expect(preflight.isComplete).toBe(true);
-    expect(preflight.items).toHaveLength(20);
-    expect(preflight.topLevelDocumentCount).toBe(31);
+    expect(preflight.items).toHaveLength(21);
+    expect(preflight.topLevelDocumentCount).toBe(32);
     expect(preflight.subcollectionDocumentCount).toBe(6);
-    expect(preflight.totalDeleteOperations).toBe(37);
+    expect(preflight.totalDeleteOperations).toBe(38);
 
     const byKey = Object.fromEntries(preflight.items.map((item) => [item.key, item.count]));
     expect(byKey.publicBookingRequests_communications).toBe(3);
@@ -347,7 +348,7 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     });
   });
 
-  it('5a. Deletion engine enforces <=10 batch limit, deletes subcollections before parent requests, empties all 20 targets, reinitializes availability, and preserves config/assets', async () => {
+  it('5a. Deletion engine enforces <=10 batch limit, deletes subcollections before parent requests, empties all 21 targets, reinitializes availability, and preserves config/assets', async () => {
     const adapter = createInMemoryFactoryResetRepositoryAdapter(
       createFullOperationalSeed({ bookingsCount: 25 }),
     );
@@ -368,10 +369,10 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     });
 
     expect(result.status).toBe(FACTORY_RESET_STATUS.COMPLETED);
-    expect(result.totalDeletedCount).toBe(48);
+    expect(result.totalDeletedCount).toBe(49);
     expect(result.verificationSummary).toEqual({
       allZero: true,
-      checkedCollectionsCount: 20,
+      checkedCollectionsCount: 21,
       remainingTotal: 0,
     });
 
@@ -417,8 +418,8 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     const adapter = createInMemoryFactoryResetRepositoryAdapter(
       createFullOperationalSeed({ bookingsCount: 15 }),
     );
-    // Batches 0..18 clean up earlier collections, batch 19 deletes bkg_001..bkg_010; fail on batch 20
-    adapter._setFailDeleteAtBatch(20);
+    // Batches 0..19 clean up earlier collections, batch 20 deletes bkg_001..bkg_010; fail on batch 21
+    adapter._setFailDeleteAtBatch(21);
 
     const owner = buildActor({ role: 'owner' });
     const preflight = await previewFactoryReset({ actor: owner, adapter });
@@ -618,7 +619,7 @@ describe('Danger Area UI & Routes (/admin/settings/danger-area)', () => {
   });
 
   it('6c. Surfaces Maintenance Banner on AdminLayout when locked and supports password-verified Resume after interrupted failure', async () => {
-    const completedEarlierSteps = FACTORY_RESET_DELETION_MANIFEST.slice(0, 19).map(
+    const completedEarlierSteps = FACTORY_RESET_DELETION_MANIFEST.slice(0, 20).map(
       (step) => step.key,
     );
     const seed = createFullOperationalSeed({ bookingsCount: 3 });

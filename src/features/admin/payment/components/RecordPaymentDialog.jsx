@@ -7,13 +7,23 @@ import { generateOperationId } from '@/features/admin/calendar/repositories/cale
 import { formatRupiah, parseMoneyInput } from '@/features/admin/calendar/utils/booking-pricing';
 import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
 import { AdminStatusBadge } from '@/features/admin/design-system';
+import { PaymentEvidenceUploadField } from '@/features/payment-evidence/components/PaymentEvidenceUploadField';
+import { usePaymentEvidenceUpload } from '@/features/payment-evidence/hooks/usePaymentEvidenceUpload';
+import { generatePaymentEvidenceId } from '@/features/payment-evidence/utils/payment-evidence-utils';
 
 import { validateRecordPaymentInput } from '../schemas/payment-schema';
 import { mapPaymentErrorToMessage } from '../services/invoice-service';
 
-export function RecordPaymentDialog({ open, invoice, onOpenChange, onSubmitPayment }) {
-  // Stable operation ID per dialog open -> safe idempotent retry on flaky networks
+export function RecordPaymentDialog({
+  open,
+  invoice,
+  onOpenChange,
+  onSubmitPayment,
+  cloudinaryConfig = null,
+}) {
+  // Stable operation IDs per dialog open -> safe idempotent retry on flaky networks
   const [operationTxId] = useState(() => generateOperationId('pay'));
+  const [operationEvidenceId] = useState(() => generatePaymentEvidenceId());
   const [amountInput, setAmountInput] = useState(() =>
     invoice?.balanceDue > 0 ? String(invoice.balanceDue) : '',
   );
@@ -24,6 +34,8 @@ export function RecordPaymentDialog({ open, invoice, onOpenChange, onSubmitPayme
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const evidenceUpload = usePaymentEvidenceUpload({ cloudinaryConfig });
 
   if (!invoice) return null;
 
@@ -66,7 +78,17 @@ export function RecordPaymentDialog({ open, invoice, onOpenChange, onSubmitPayme
     }
 
     setIsSubmitting(true);
+    let optionalEvidence = null;
     try {
+      if (evidenceUpload.selectedFile || evidenceUpload.uploadedAsset) {
+        const asset = await evidenceUpload.ensureUploaded();
+        if (!asset) {
+          return;
+        }
+        optionalEvidence = asset;
+        evidenceUpload.markSavingMetadata();
+      }
+
       await onSubmitPayment?.({
         transactionId: operationTxId,
         invoiceId: invoice.id,
@@ -76,10 +98,23 @@ export function RecordPaymentDialog({ open, invoice, onOpenChange, onSubmitPayme
         receivedDate: validation.data.receivedDate,
         referenceNumber: validation.data.referenceNumber,
         notes: validation.data.notes,
+        ...(optionalEvidence
+          ? {
+            optionalEvidence,
+            evidenceId: operationEvidenceId,
+          }
+          : {}),
       });
+      if (optionalEvidence) {
+        evidenceUpload.markCompleted();
+      }
       onOpenChange?.(false);
     } catch (err) {
-      setSubmitError(mapPaymentErrorToMessage(err));
+      const readableError = mapPaymentErrorToMessage(err);
+      if (optionalEvidence) {
+        evidenceUpload.markMetadataFailed(readableError);
+      }
+      setSubmitError(readableError);
     } finally {
       setIsSubmitting(false);
     }
@@ -278,6 +313,17 @@ export function RecordPaymentDialog({ open, invoice, onOpenChange, onSubmitPayme
               />
             </div>
 
+            {/* Optional Payment Proof Attachment */}
+            <PaymentEvidenceUploadField
+              upload={evidenceUpload}
+              required={false}
+              disabled={isSubmitting}
+              locale="id"
+              inputId="record-payment-optional-evidence"
+              label="Lampirkan Bukti Pembayaran (Opsional)"
+              helperText="Opsional untuk pembayaran tunai/transfer manual di studio. JPG, PNG, atau WEBP maksimal 5 MB."
+            />
+
             {/* Live Pre-Commit Payment Breakdown */}
             <div className="sa-panel-ivory p-3.5 text-xs">
               <p className="font-mono text-[10.5px] font-semibold tracking-wider text-[#666159] uppercase">
@@ -303,9 +349,8 @@ export function RecordPaymentDialog({ open, invoice, onOpenChange, onSubmitPayme
                 <div className="flex justify-between gap-2 border-t border-[#151515]/[0.08] pt-2 font-bold">
                   <dt className="text-[#151515]">Sisa Setelah Bayar</dt>
                   <dd
-                    className={`tabular-nums ${
-                      remainingAfterPayment === 0 ? 'text-[#0F6246]' : 'text-[#FF4B22]'
-                    }`}
+                    className={`tabular-nums ${remainingAfterPayment === 0 ? 'text-[#0F6246]' : 'text-[#FF4B22]'
+                      }`}
                   >
                     {formatRupiah(remainingAfterPayment)}
                   </dd>
@@ -327,7 +372,7 @@ export function RecordPaymentDialog({ open, invoice, onOpenChange, onSubmitPayme
             <button
               type="submit"
               form="record-payment-form"
-              disabled={isSubmitting || parsedAmount <= 0 || exceedsBalance}
+              disabled={isSubmitting || evidenceUpload.isUploading || parsedAmount <= 0 || exceedsBalance}
               className="sa-control sa-btn-lime inline-flex min-h-9.5 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:flex-initial sm:px-5 sm:py-2"
             >
               {isSubmitting ? (

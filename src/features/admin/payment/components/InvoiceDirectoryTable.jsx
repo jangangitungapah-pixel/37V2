@@ -1,4 +1,4 @@
-import { Banknote, CalendarDays, ChevronRight } from 'lucide-react';
+import { Banknote, CalendarDays, ChevronRight, ShieldCheck } from 'lucide-react';
 
 import { getStudioRoomById } from '@/features/admin/calendar/config/calendar-config';
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
@@ -6,6 +6,7 @@ import { formatMinuteRange } from '@/features/admin/calendar/utils/booking-time'
 import { formatIndonesianDateMedium } from '@/features/admin/calendar/utils/calendar-date';
 import { formatPhoneDisplay } from '@/features/admin/customer/utils/phone-number';
 import { AdminSurface } from '@/features/admin/design-system';
+import { PAYMENT_EVIDENCE_STATUSES } from '@/features/payment-evidence/config/payment-evidence-config';
 
 import {
   getEffectivePaymentStatus,
@@ -21,8 +22,10 @@ import {
  */
 export function InvoiceDirectoryTable({
   invoices = [],
+  evidenceByInvoiceId = null,
   onSelectInvoice,
   onQuickRecordPayment,
+  onReviewInvoiceEvidence,
   hasMore = false,
   onLoadMore,
 }) {
@@ -110,7 +113,16 @@ export function InvoiceDirectoryTable({
                 const paymentMeta = getPaymentStatusMeta(effectiveStatus);
                 const invoiceMeta = getInvoiceStatusMeta(invoice.invoiceStatus);
                 const room = getStudioRoomById(invoice.bookingSnapshot?.studioId);
-                const canRecordPayment = !isVoid && invoice.balanceDue > 0;
+                const requiresClientEvidence = Boolean(invoice.clientPaymentEvidenceRequired);
+                const invoiceEvidenceList = evidenceByInvoiceId?.get?.(invoice.id) || [];
+                const pendingEvidence =
+                  invoiceEvidenceList.find(
+                    (ev) => ev.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
+                  ) || null;
+                const canRecordManualPayment =
+                  !isVoid && invoice.balanceDue > 0 && !requiresClientEvidence;
+                const canReviewEvidence =
+                  !isVoid && invoice.balanceDue > 0 && requiresClientEvidence;
 
                 const serviceLabel = [
                   invoice.bookingSnapshot?.serviceTypeName,
@@ -199,6 +211,15 @@ export function InvoiceDirectoryTable({
                             Tempo {formatIndonesianDateMedium(invoice.dueDate)}
                           </span>
                         ) : null}
+                        {pendingEvidence ? (
+                          <span className="rounded-full border border-amber-500/30 bg-[#FEF4DD] px-2 py-0.2 font-mono text-[9.5px] font-semibold text-[#8A4B08]">
+                            Bukti Menunggu
+                          </span>
+                        ) : canReviewEvidence ? (
+                          <span className="rounded-full border border-[#FF4B22]/25 bg-[#FFEDE8] px-2 py-0.2 font-mono text-[9.5px] font-semibold text-[#B92B0C]">
+                            Wajib Bukti Client
+                          </span>
+                        ) : null}
                       </div>
                     </td>
 
@@ -253,7 +274,7 @@ export function InvoiceDirectoryTable({
                     {/* Col 7: Compact Row Actions */}
                     <td className="col-start-2 row-start-3 self-center justify-self-end pt-1 md:table-cell md:px-3.5 md:py-3 md:pt-3 md:text-right md:align-middle md:whitespace-nowrap">
                       <div className="inline-flex items-center justify-end gap-1.5">
-                        {canRecordPayment ? (
+                        {canRecordManualPayment ? (
                           <button
                             type="button"
                             onClick={() => onQuickRecordPayment?.(invoice)}
@@ -262,6 +283,16 @@ export function InvoiceDirectoryTable({
                           >
                             <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>Bayar</span>
+                          </button>
+                        ) : canReviewEvidence && pendingEvidence ? (
+                          <button
+                            type="button"
+                            onClick={() => onReviewInvoiceEvidence?.(pendingEvidence, invoice)}
+                            aria-label={`Tinjau bukti pembayaran ${invoice.invoiceNumber}`}
+                            className="sa-control sa-btn-lime inline-flex h-8 cursor-pointer items-center justify-center gap-1 px-2.5 text-xs font-semibold"
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>Tinjau Bukti</span>
                           </button>
                         ) : null}
 

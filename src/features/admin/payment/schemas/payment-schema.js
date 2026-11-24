@@ -158,6 +158,7 @@ export function normalizeInvoiceRecord(id, data = {}) {
     customerId: String(data.customerId || '').trim(),
     invoiceStatus,
     currency: 'IDR',
+    clientPaymentEvidenceRequired: data.clientPaymentEvidenceRequired === true,
     customerSnapshot: {
       name: String(data.customerSnapshot?.name || '').trim(),
       phone: String(data.customerSnapshot?.phone || '').trim(),
@@ -258,6 +259,7 @@ export function buildInvoiceDocumentFromBooking({
   dueDate = null,
   initialPaymentTransactionId = null,
   initialPaidAmount = 0,
+  clientPaymentEvidenceRequired = false,
 }) {
   const cleanBookingId = String(bookingId || booking?.id || '').trim();
   const invoiceId = buildInvoiceId(cleanBookingId);
@@ -288,6 +290,7 @@ export function buildInvoiceDocumentFromBooking({
     customerId: String(customerId ?? booking?.customerId ?? '').trim(),
     invoiceStatus: INVOICE_STATUS.ISSUED,
     currency: 'IDR',
+    clientPaymentEvidenceRequired: Boolean(clientPaymentEvidenceRequired),
     customerSnapshot: {
       name: String(booking?.customerName || '').trim() || 'Customer',
       phone: canonicalPhone,

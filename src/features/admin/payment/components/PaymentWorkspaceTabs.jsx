@@ -1,10 +1,11 @@
-import { ArrowLeftRight, FileText } from 'lucide-react';
+import { ArrowLeftRight, FileText, ShieldCheck } from 'lucide-react';
 
 export function PaymentWorkspaceTabs({
   activeTab,
   onTabChange,
   invoicesCount = 0,
   transactionsCount = 0,
+  pendingEvidenceCount = 0,
 }) {
   const tabs = [
     {
@@ -19,13 +20,20 @@ export function PaymentWorkspaceTabs({
       count: transactionsCount,
       icon: ArrowLeftRight,
     },
+    {
+      id: 'evidence',
+      label: 'Payment Evidence',
+      count: pendingEvidenceCount,
+      highlightPending: pendingEvidenceCount > 0,
+      icon: ShieldCheck,
+    },
   ];
 
   return (
     <div
       role="tablist"
       aria-label="Workspace Payment and Bill"
-      className="sa-pill-track grid w-full grid-cols-2 sm:inline-grid sm:w-auto"
+      className="sa-pill-track grid w-full grid-cols-1 gap-1 sm:inline-grid sm:w-auto sm:grid-cols-3"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -50,7 +58,11 @@ export function PaymentWorkspaceTabs({
             <span>{tab.label}</span>
             <span
               className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
-                isActive ? 'bg-[#C8F13A] text-[#151515]' : 'bg-[#151515]/[0.06] text-[#46433D]'
+                isActive
+                  ? 'bg-[#C8F13A] text-[#151515]'
+                  : tab.highlightPending
+                    ? 'bg-[#FF4B22] text-white'
+                    : 'bg-[#151515]/[0.06] text-[#46433D]'
               }`}
             >
               {tab.count}

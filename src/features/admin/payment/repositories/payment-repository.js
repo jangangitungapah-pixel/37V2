@@ -19,6 +19,7 @@ import {
   normalizeInvoiceRecord,
   normalizePaymentTransactionRecord,
 } from '../schemas/payment-schema';
+import { normalizePaymentEvidenceRecord } from '@/features/payment-evidence/schemas/payment-evidence-schema';
 import { getTimestampMillis } from '../utils/invoice-format';
 
 export const INVOICES_DEFAULT_QUERY_LIMIT = 200;
@@ -75,6 +76,11 @@ export function createFirestorePaymentRepositoryAdapter() {
             const snap = await tx.get(ref);
             return snap.exists() ? normalizeBookingRecord(snap.id, snap.data()) : null;
           },
+          async getPaymentEvidence(evidenceId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizePaymentEvidenceRecord(snap.id, snap.data()) : null;
+          },
           setInvoice(invoiceId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.INVOICES, invoiceId);
             tx.set(ref, data);
@@ -86,6 +92,14 @@ export function createFirestorePaymentRepositoryAdapter() {
           setPaymentTransaction(transactionId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS, transactionId);
             tx.set(ref, data);
+          },
+          setPaymentEvidence(evidenceId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
+            tx.set(ref, data);
+          },
+          updatePaymentEvidence(evidenceId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
+            tx.update(ref, data);
           },
         };
 
@@ -450,11 +464,13 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
   const bookings = sharedStore?.bookings || new Map();
   const invoices = sharedStore?.invoices || new Map();
   const paymentTransactions = sharedStore?.paymentTransactions || new Map();
+  const paymentEvidence = sharedStore?.paymentEvidence || new Map();
   const invoiceSubscribers = sharedStore?.invoiceSubscribers || new Set();
   const invoiceDocSubscribers = sharedStore?.invoiceDocSubscribers || new Map();
   const invoiceRangeSubscribers = sharedStore?.invoiceRangeSubscribers || new Set();
   const transactionSubscribers = sharedStore?.transactionSubscribers || new Set();
   const invoiceTransactionSubscribers = sharedStore?.invoiceTransactionSubscribers || new Map();
+  const paymentEvidenceSubscribers = sharedStore?.paymentEvidenceSubscribers || new Set();
 
   let localQueue = Promise.resolve();
   const enqueue =
@@ -547,10 +563,32 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
   }
 
   return {
+    _sharedStore: sharedStore || {
+      bookings,
+      invoices,
+      paymentTransactions,
+      paymentEvidence,
+      invoiceSubscribers,
+      invoiceDocSubscribers,
+      invoiceRangeSubscribers,
+      transactionSubscribers,
+      invoiceTransactionSubscribers,
+      paymentEvidenceSubscribers,
+      enqueueTransaction: enqueue,
+      notifyInvoices,
+      notifyTransactions,
+      notifyPaymentEvidence() {
+        for (const listener of paymentEvidenceSubscribers) {
+          listener();
+        }
+      },
+    },
+
     _inspectState() {
       return {
         invoices: new Map(invoices),
         paymentTransactions: new Map(paymentTransactions),
+        paymentEvidence: new Map(paymentEvidence),
         bookings: new Map(bookings),
       };
     },
@@ -559,6 +597,7 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
       return enqueue(async () => {
         const stagedInvoices = new Map(invoices);
         const stagedTransactions = new Map(paymentTransactions);
+        const stagedEvidence = new Map(paymentEvidence);
         let writeStarted = false;
 
         const txContext = {
@@ -587,6 +626,13 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
             const item = bookings.get(id);
             return item ? normalizeBookingRecord(id, item) : null;
           },
+          async getPaymentEvidence(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedEvidence.get(id);
+            return item ? normalizePaymentEvidenceRecord(id, item) : null;
+          },
           setInvoice(id, data) {
             writeStarted = true;
             stagedInvoices.set(id, normalizeInvoiceRecord(id, data));
@@ -600,6 +646,15 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
             writeStarted = true;
             stagedTransactions.set(id, normalizePaymentTransactionRecord(id, data));
           },
+          setPaymentEvidence(id, data) {
+            writeStarted = true;
+            stagedEvidence.set(id, normalizePaymentEvidenceRecord(id, data));
+          },
+          updatePaymentEvidence(id, data) {
+            writeStarted = true;
+            const prev = stagedEvidence.get(id) || {};
+            stagedEvidence.set(id, normalizePaymentEvidenceRecord(id, { ...prev, ...data }));
+          },
         };
 
         const result = await transactionWork(txContext);
@@ -608,9 +663,18 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
         for (const [k, v] of stagedInvoices) invoices.set(k, v);
         paymentTransactions.clear();
         for (const [k, v] of stagedTransactions) paymentTransactions.set(k, v);
+        paymentEvidence.clear();
+        for (const [k, v] of stagedEvidence) paymentEvidence.set(k, v);
 
         notifyInvoices();
         notifyTransactions();
+        if (sharedStore?.notifyPaymentEvidence) {
+          sharedStore.notifyPaymentEvidence();
+        } else {
+          for (const listener of paymentEvidenceSubscribers) {
+            listener();
+          }
+        }
 
         return result;
       });
