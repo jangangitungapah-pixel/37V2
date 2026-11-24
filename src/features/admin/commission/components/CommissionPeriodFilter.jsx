@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CalendarRange, Filter, Search, SlidersHorizontal, X } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 
 import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 
@@ -26,6 +27,7 @@ export function CommissionPeriodFilter({
   visibleCount = 0,
   onResetFilters,
 }) {
+  const prefersReducedMotion = useReducedMotion();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const dropdownFilterCount =
@@ -58,13 +60,27 @@ export function CommissionPeriodFilter({
                   type="button"
                   onClick={() => onPresetChange?.(opt.id)}
                   aria-pressed={isSelected}
-                  className={`${isCustom ? 'col-span-2 min-[420px]:col-span-1 ' : ''}${
+                  className={`${isCustom ? 'col-span-2 min-[420px]:col-span-1 ' : ''}relative min-h-9.5 cursor-pointer rounded-[10px] px-2.5 py-1.5 text-xs transition-colors duration-150 sm:px-3 ${
                     isSelected
-                      ? 'min-h-10 cursor-pointer rounded-[10px] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-3'
-                      : 'min-h-10 cursor-pointer rounded-[10px] px-2.5 py-1.5 text-xs font-medium text-[#666159] transition-colors hover:text-[#151515] sm:px-3'
+                      ? 'font-semibold text-[#151515]'
+                      : 'font-medium text-[#666159] hover:text-[#151515]'
                   }`}
                 >
-                  {opt.label}
+                  {isSelected ? (
+                    <motion.span
+                      layoutId={
+                        prefersReducedMotion ? undefined : 'commission-period-preset-pill'
+                      }
+                      transition={
+                        prefersReducedMotion
+                          ? { duration: 0 }
+                          : { type: 'spring', stiffness: 460, damping: 34 }
+                      }
+                      className="absolute inset-0 rounded-[10px] bg-white shadow-[0_1px_3px_rgba(21,21,21,0.08),0_0_0_1px_rgba(21,21,21,0.05)]"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <span className="relative z-10">{opt.label}</span>
                 </button>
               );
             })}

@@ -210,7 +210,7 @@ export function AdminCustomersPage() {
         as="section"
         variant="hero"
         aria-labelledby="customer-page-heading"
-        className="p-3.5 sm:p-6"
+        className="p-4 sm:p-6"
       >
         <div className="flex flex-row items-center justify-between gap-2.5 sm:gap-3">
           <div className="min-w-0">
@@ -225,11 +225,11 @@ export function AdminCustomersPage() {
 
             <h2
               id="customer-page-heading"
-              className="truncate text-lg font-bold tracking-[-0.025em] text-[#151515] sm:mt-2.5 sm:text-2xl lg:text-[28px]"
+              className="truncate text-xl leading-tight font-extrabold tracking-[-0.03em] text-[#151515] sm:mt-2.5 sm:text-2xl lg:text-[28px]"
             >
               Customer
             </h2>
-            <p className="mt-1 hidden text-xs leading-relaxed text-[#666159] sm:block sm:text-sm">
+            <p className="mt-1 hidden text-xs leading-relaxed text-[#666159] sm:block sm:text-[13.5px]">
               Daftar pelanggan &amp; riwayat booking berdasarkan nomor HP (mendukung nomor yang
               dipakai bersama maupun terpisah).
             </p>
@@ -239,7 +239,7 @@ export function AdminCustomersPage() {
             type="button"
             onClick={() => openFormDialog('create')}
             aria-label="Add Customer"
-            className="sa-control sa-btn-orange inline-flex min-h-10.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold sm:px-4"
+            className="sa-control sa-btn-orange inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold sm:px-4"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             <span>Tambah</span>
@@ -250,7 +250,7 @@ export function AdminCustomersPage() {
         {/* Metrics Row */}
         <dl
           aria-label="Ringkasan daftar pelanggan"
-          className="mt-3 grid grid-cols-3 gap-1.5 border-t border-[#151515]/[0.07] pt-3 min-[375px]:gap-2 sm:mt-5 sm:gap-3.5 sm:pt-5"
+          className="mt-3.5 grid grid-cols-3 gap-1.5 border-t border-[#151515]/[0.06] pt-3.5 min-[375px]:gap-2 sm:mt-4 sm:gap-3.5 sm:pt-4"
         >
           <AdminMetricCard
             label="Pelanggan"
@@ -260,7 +260,7 @@ export function AdminCustomersPage() {
             tone="neutral"
             compactMobile
             hideIconOnMobile
-            className="p-2.5 sm:p-4"
+            className="p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/15 hover:shadow-md sm:p-4"
             valueClassName="text-[15px] min-[375px]:text-base sm:text-xl"
           />
 
@@ -272,7 +272,7 @@ export function AdminCustomersPage() {
             tone="neutral"
             compactMobile
             hideIconOnMobile
-            className="p-2.5 sm:p-4"
+            className="p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/15 hover:shadow-md sm:p-4"
             valueClassName="text-[15px] min-[375px]:text-base sm:text-xl"
           />
 
@@ -288,7 +288,7 @@ export function AdminCustomersPage() {
             tone={metrics.sharedPhoneCount > 0 ? 'amber' : 'neutral'}
             compactMobile
             hideIconOnMobile
-            className="p-2.5 sm:p-4"
+            className="p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/15 hover:shadow-md sm:p-4"
             valueClassName="text-[15px] min-[375px]:text-base sm:text-xl"
           />
         </dl>
@@ -299,10 +299,10 @@ export function AdminCustomersPage() {
         <section
           role="region"
           aria-label="Lengkapi data pelanggan booking lama"
-          className="flex flex-col gap-3 rounded-2xl border border-[#8BAD12]/30 bg-[#EDF8C2]/55 p-3.5 shadow-[0_1px_2px_rgba(21,21,21,0.03)] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5"
+          className="flex flex-col gap-2.5 rounded-2xl border border-[#8BAD12]/28 bg-[#EDF8C2]/50 p-3.5 shadow-[0_1px_2px_rgba(21,21,21,0.03)] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3"
         >
           <div className="flex items-start gap-2.5">
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/80 text-[#243300]">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/85 text-[#243300] shadow-2xs">
               <Database className="h-4 w-4" aria-hidden="true" />
             </span>
             <div className="min-w-0">
@@ -323,7 +323,7 @@ export function AdminCustomersPage() {
           <button
             type="button"
             onClick={() => setLegacyImportOpen(true)}
-            className="sa-control sa-btn-primary inline-flex min-h-10.5 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold sm:w-auto"
+            className="sa-control sa-btn-primary inline-flex min-h-9.5 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold sm:w-auto"
           >
             <Database className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
             <span>Periksa &amp; Hubungkan</span>
@@ -386,7 +386,7 @@ export function AdminCustomersPage() {
                   <button
                     type="button"
                     onClick={() => openFormDialog('create')}
-                    className="sa-control sa-btn-lime inline-flex min-h-10.5 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                    className="sa-control sa-btn-lime inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold"
                   >
                     <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Add Customer</span>
@@ -395,7 +395,7 @@ export function AdminCustomersPage() {
                     <button
                       type="button"
                       onClick={() => setLegacyImportOpen(true)}
-                      className="sa-control sa-btn-secondary inline-flex min-h-10.5 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                      className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold"
                     >
                       <Database className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Review &amp; Import History</span>
@@ -422,7 +422,7 @@ export function AdminCustomersPage() {
               <button
                 type="button"
                 onClick={loadMoreCustomers}
-                className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold sm:w-auto"
+                className="sa-control sa-btn-secondary inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-full px-4 py-1.5 text-xs font-semibold sm:w-auto"
               >
                 Muat Lebih Banyak Customer
               </button>

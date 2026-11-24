@@ -273,8 +273,8 @@ export function AdminCommissionAndFeePage() {
   return (
     <div data-commission-scoped="true" className="space-y-3 sm:space-y-5">
       {/* Header & Workspace Summary */}
-      <AdminSurface as="header" variant="hero" className="p-3.5 sm:p-6">
-        <div className="flex flex-col justify-between gap-2.5 sm:gap-3.5 lg:flex-row lg:items-center">
+      <AdminSurface as="header" variant="hero" className="p-4 sm:p-6 lg:p-7">
+        <div className="flex flex-col justify-between gap-3 sm:gap-4 lg:flex-row lg:items-center">
           <div>
             <div className="hidden flex-wrap items-center gap-2 sm:flex">
               <AdminStatusBadge tone="ink" icon={HandCoins} size="sm" className="uppercase">
@@ -285,10 +285,10 @@ export function AdminCommissionAndFeePage() {
               </AdminStatusBadge>
             </div>
 
-            <h2 className="text-lg font-bold tracking-[-0.025em] text-[#151515] sm:mt-2.5 sm:text-2xl lg:text-[28px]">
+            <h2 className="text-xl font-extrabold tracking-[-0.03em] text-[#151515] sm:mt-2.5 sm:text-2xl lg:text-[28px]">
               Commission and Fee
             </h2>
-            <p className="mt-1 hidden text-xs leading-relaxed text-[#666159] sm:block sm:text-sm">
+            <p className="mt-1 hidden text-xs leading-relaxed text-[#666159] sm:block sm:text-[13.5px]">
               Review completed session fees before posting them to bookkeeping.
             </p>
           </div>

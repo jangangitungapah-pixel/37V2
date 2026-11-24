@@ -53,12 +53,12 @@ export function GalleryItemPreviewDialog({
         <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
           <Dialog.Popup
             data-admin-portal-layer="true"
-            className="sa-dialog flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl rounded-b-none bg-white p-0 outline-none sm:rounded-2xl"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[26px] rounded-b-none bg-white p-0 outline-none sm:rounded-[22px]"
           >
             {item ? (
               <>
                 {/* Sticky Header */}
-                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/8 bg-white px-4 py-3.5 sm:px-6 sm:py-4">
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.07] bg-white/95 px-4 py-3.5 backdrop-blur-md sm:px-6 sm:py-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       {isPublished ? (
@@ -91,7 +91,7 @@ export function GalleryItemPreviewDialog({
 
                   <Dialog.Close
                     aria-label="Tutup detail foto"
-                    className="sa-control sa-btn-secondary inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full"
+                    className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </Dialog.Close>
@@ -153,21 +153,21 @@ export function GalleryItemPreviewDialog({
                 </div>
 
                 {/* Sticky Footer Controls */}
-                <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/8 bg-white p-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:px-6">
+                <div className="sa-safe-bottom flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:gap-2.5 sm:px-6">
                   <AdminButton
                     type="button"
                     variant="secondary"
                     size="sm"
                     disabled={isBusy}
                     onClick={() => onEdit?.(item)}
-                    className="min-h-10.5 w-full sm:w-auto"
+                    className="min-h-9.5 flex-1 sm:flex-initial"
                   >
                     <Pencil className="h-4 w-4" aria-hidden="true" />
                     <span>Edit Foto</span>
                   </AdminButton>
 
                   {isPublished ? (
-                    <div className="flex w-full gap-2 sm:w-auto">
+                    <div className="flex flex-1 gap-2 sm:flex-initial">
                       <AdminButton
                         type="button"
                         variant="secondary"
@@ -175,7 +175,7 @@ export function GalleryItemPreviewDialog({
                         disabled={isBusy || !canMoveUp}
                         onClick={() => onMoveUp?.(item)}
                         aria-label={`Move ${item.title} up`}
-                        className="min-h-10.5 flex-1 sm:flex-none"
+                        className="min-h-9.5 flex-1 sm:flex-none"
                       >
                         <ArrowUp className="h-4 w-4" aria-hidden="true" />
                         <span>Geser Naik</span>
@@ -188,7 +188,7 @@ export function GalleryItemPreviewDialog({
                         disabled={isBusy || !canMoveDown}
                         onClick={() => onMoveDown?.(item)}
                         aria-label={`Move ${item.title} down`}
-                        className="min-h-10.5 flex-1 sm:flex-none"
+                        className="min-h-9.5 flex-1 sm:flex-none"
                       >
                         <ArrowDown className="h-4 w-4" aria-hidden="true" />
                         <span>Geser Turun</span>
@@ -203,7 +203,7 @@ export function GalleryItemPreviewDialog({
                       size="sm"
                       disabled={isBusy}
                       onClick={() => onPublish?.(item)}
-                      className="min-h-10.5 w-full sm:w-auto"
+                      className="min-h-9.5 flex-1 sm:flex-initial"
                     >
                       <Globe className="h-4 w-4 text-[#C8F13A]" aria-hidden="true" />
                       <span>Tampilkan di Galeri Website</span>
@@ -217,7 +217,7 @@ export function GalleryItemPreviewDialog({
                       size="sm"
                       disabled={isBusy}
                       onClick={() => onUnpublish?.(item)}
-                      className="min-h-10.5 w-full sm:w-auto"
+                      className="min-h-9.5 flex-1 sm:flex-initial"
                     >
                       <EyeOff className="h-4 w-4" aria-hidden="true" />
                       <span>Sembunyikan dari Galeri</span>
@@ -231,7 +231,7 @@ export function GalleryItemPreviewDialog({
                       size="sm"
                       disabled={isBusy}
                       onClick={() => onRestore?.(item)}
-                      className="min-h-10.5 w-full sm:w-auto"
+                      className="min-h-9.5 flex-1 sm:flex-initial"
                     >
                       <RotateCcw className="h-4 w-4 text-[#C8F13A]" aria-hidden="true" />
                       <span>Pulihkan Foto</span>

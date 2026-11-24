@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Loader2, ShieldCheck } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 
 import { AdminPageHeader, AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
@@ -25,6 +26,7 @@ const REVIEW_TABS = [
 ];
 
 export function AdminCustomerReviewsPage() {
+  const prefersReducedMotion = useReducedMotion();
   const { user, profile, role } = useAuth();
   const isOwner = Boolean(user?.uid && profile?.active === true && role === 'owner');
 
@@ -153,11 +155,11 @@ export function AdminCustomerReviewsPage() {
       <ReviewRatingDistribution overview={overview} />
 
       {/* Workspace Tabs */}
-      <AdminSurface variant="card" className="p-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div
           role="tablist"
           aria-label="Kategori moderasi ulasan pelanggan"
-          className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap"
+          className="sa-pill-track grid w-full grid-cols-2 gap-1 sm:inline-flex sm:w-auto sm:flex-wrap"
         >
           {REVIEW_TABS.map((tab) => {
             const isSelected = activeTab === tab.id;
@@ -177,16 +179,28 @@ export function AdminCustomerReviewsPage() {
                 role="tab"
                 aria-selected={isSelected}
                 onClick={() => setActiveTab(tab.id)}
-                className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-between gap-1.5 rounded-xl px-2.5 py-2 text-left text-[11.5px] leading-tight font-bold transition-colors sm:justify-start sm:gap-2 sm:px-3.5 sm:text-xs ${
-                  isSelected
-                    ? 'bg-[#151515] text-[#C8F13A]'
-                    : 'bg-[#FAF8F3] text-[#46433D] hover:bg-[#EFECE3]'
+                className={`relative inline-flex min-h-9.5 min-w-0 cursor-pointer items-center justify-between gap-1.5 rounded-[10px] px-2.5 py-1.5 text-left text-[11.5px] leading-tight font-bold transition-colors duration-150 sm:justify-start sm:gap-2 sm:px-3.5 sm:text-xs ${
+                  isSelected ? 'text-[#C8F13A]' : 'text-[#46433D] hover:text-[#151515]'
                 }`}
               >
-                <span className="truncate">{tab.label}</span>
+                {isSelected ? (
+                  <motion.span
+                    layoutId={prefersReducedMotion ? undefined : 'reviews-workspace-tab-pill'}
+                    transition={
+                      prefersReducedMotion
+                        ? { duration: 0 }
+                        : { type: 'spring', stiffness: 460, damping: 34 }
+                    }
+                    className="absolute inset-0 rounded-[10px] bg-[#151515] shadow-[0_6px_16px_-6px_rgba(21,21,21,0.32)]"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                <span className="relative z-10 truncate">{tab.label}</span>
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] ${
-                    isSelected ? 'bg-[#C8F13A] text-[#151515]' : 'bg-white text-[#151515]'
+                  className={`relative z-10 shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
+                    isSelected
+                      ? 'bg-[#C8F13A] text-[#151515]'
+                      : 'bg-[#151515]/[0.07] text-[#46433D]'
                   }`}
                 >
                   {badgeCount}
@@ -195,7 +209,7 @@ export function AdminCustomerReviewsPage() {
             );
           })}
         </div>
-      </AdminSurface>
+      </div>
 
       {isLoading ? (
         <AdminSurface

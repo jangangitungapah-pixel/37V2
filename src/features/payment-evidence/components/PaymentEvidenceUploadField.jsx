@@ -165,15 +165,15 @@ export function PaymentEvidenceUploadField({
             setIsDragging(false);
           }}
           onDrop={handleDrop}
-          className={`flex cursor-pointer items-center gap-3 rounded-xl border border-dashed px-3.5 py-3 transition-colors ${
+          className={`flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed px-3.5 py-3 transition-all ${
             disabled || isUnconfigured
               ? 'cursor-not-allowed border-[#151515]/12 bg-[#FAF8F3]/60 opacity-60'
               : isDragging
-                ? 'border-[#FF4B22] bg-[#FFEDE8]/55'
-                : 'border-[#151515]/20 bg-[#FAF8F3] hover:border-[#151515]/40 hover:bg-white'
+                ? 'border-[#FF4B22] bg-[#FFEDE8]/55 shadow-xs'
+                : 'border-[#151515]/18 bg-[#FAF8F3]/85 hover:border-[#151515]/35 hover:bg-white hover:shadow-xs'
           }`}
         >
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#151515]/10 bg-white text-[#46433D]">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#151515]/10 bg-white text-[#46433D] shadow-2xs">
             <ImagePlus className="h-4.5 w-4.5" aria-hidden="true" />
           </span>
 
@@ -188,14 +188,14 @@ export function PaymentEvidenceUploadField({
             </p>
           </div>
 
-          <span className="hidden shrink-0 rounded-lg border border-[#151515]/15 bg-white px-2.5 py-1 text-[11px] font-semibold text-[#151515] sm:inline-flex">
+          <span className="hidden shrink-0 rounded-full border border-[#151515]/12 bg-white px-3 py-1 text-[11px] font-semibold text-[#151515] shadow-2xs sm:inline-flex">
             {isId ? 'Pilih File' : 'Browse'}
           </span>
         </div>
       ) : (
         <div
           data-testid="payment-evidence-selected-card"
-          className="rounded-xl border border-[#151515]/14 bg-[#FAF8F3] p-3"
+          className="rounded-2xl border border-[#151515]/12 bg-[#FAF8F3]/85 p-3 shadow-2xs"
         >
           <div className="flex flex-col gap-2.5 min-[400px]:flex-row min-[400px]:items-start min-[400px]:gap-3">
             <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -270,7 +270,7 @@ export function PaymentEvidenceUploadField({
                   type="button"
                   onClick={cancelUpload}
                   aria-label={isId ? 'Batalkan unggahan' : 'Cancel upload'}
-                  className="inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[#151515]/15 bg-white px-3 text-[11px] font-semibold text-[#46433D] hover:text-[#151515] min-[400px]:flex-initial"
+                  className="inline-flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[#151515]/15 bg-white px-3.5 text-[11px] font-semibold text-[#46433D] transition-colors hover:text-[#151515] min-[400px]:flex-initial"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{isId ? 'Batal' : 'Cancel'}</span>
@@ -281,7 +281,7 @@ export function PaymentEvidenceUploadField({
                     type="button"
                     onClick={triggerFilePicker}
                     aria-label={isId ? 'Ganti gambar bukti pembayaran' : 'Replace payment proof image'}
-                    className="inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[#151515]/15 bg-white px-3 text-[11px] font-semibold text-[#46433D] hover:border-[#151515]/30 hover:text-[#151515] min-[400px]:flex-initial"
+                    className="inline-flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[#151515]/15 bg-white px-3.5 text-[11px] font-semibold text-[#46433D] transition-colors hover:border-[#151515]/30 hover:text-[#151515] min-[400px]:flex-initial"
                   >
                     <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{isId ? 'Ganti' : 'Replace'}</span>
@@ -290,7 +290,7 @@ export function PaymentEvidenceUploadField({
                     type="button"
                     onClick={reset}
                     aria-label={isId ? 'Hapus file dipilih' : 'Remove selected image'}
-                    className="inline-flex min-h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#151515]/12 bg-white text-[#666159] hover:border-[#FF4B22]/30 hover:text-[#B92B0C]"
+                    className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#151515]/12 bg-white text-[#666159] transition-colors hover:border-[#FF4B22]/30 hover:text-[#B92B0C]"
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>

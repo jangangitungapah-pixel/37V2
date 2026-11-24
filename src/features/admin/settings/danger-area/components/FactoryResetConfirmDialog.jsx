@@ -111,12 +111,12 @@ export function FactoryResetConfirmDialog({
           <Dialog.Popup
             data-admin-portal-layer="true"
             data-calendar-scoped="true"
-            className="sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[26px] rounded-b-none outline-none sm:rounded-[22px]"
           >
             {/* Sticky Header */}
-            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-red-100 bg-red-50/80 px-4 py-3.5 sm:px-5 sm:py-4">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-red-200/70 bg-white/95 px-4 py-3.5 backdrop-blur-md sm:px-5 sm:py-4">
               <div className="flex min-w-0 items-center gap-2.5">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-white text-red-700">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700">
                   <ShieldAlert className="h-4.5 w-4.5" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
@@ -132,7 +132,7 @@ export function FactoryResetConfirmDialog({
               <Dialog.Close
                 aria-label="Tutup dialog Factory Reset"
                 disabled={isReauthenticating || isSubmitting}
-                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] disabled:opacity-50"
+                className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515] disabled:opacity-50"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
@@ -170,18 +170,18 @@ export function FactoryResetConfirmDialog({
                   </dl>
                 </div>
 
-                <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-end sm:gap-2.5 sm:px-5">
+                <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-3.5">
                   <AdminButton
                     variant="secondary"
                     onClick={() => handleOpenChange(false)}
-                    className="min-h-11 w-full sm:w-auto"
+                    className="h-10 flex-1 sm:flex-initial"
                   >
                     Batal
                   </AdminButton>
                   <AdminButton
                     variant="danger"
                     onClick={() => setStep(2)}
-                    className="min-h-11 w-full sm:w-auto"
+                    className="h-10 flex-1 sm:flex-initial"
                   >
                     Lanjut: Verifikasi Password
                   </AdminButton>
@@ -228,12 +228,12 @@ export function FactoryResetConfirmDialog({
                   ) : null}
                 </div>
 
-                <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2.5 sm:px-5">
+                <div className="sa-safe-bottom flex shrink-0 items-center justify-between gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-3.5">
                   <AdminButton
                     variant="secondary"
                     onClick={() => setStep(1)}
                     disabled={isReauthenticating}
-                    className="min-h-11 w-full sm:w-auto"
+                    className="h-10 flex-1 sm:flex-initial"
                   >
                     Kembali
                   </AdminButton>
@@ -241,7 +241,7 @@ export function FactoryResetConfirmDialog({
                     type="submit"
                     variant="primary"
                     disabled={isReauthenticating || password.length === 0}
-                    className="min-h-11 w-full sm:w-auto"
+                    className="h-10 flex-1 sm:flex-initial"
                   >
                     {isReauthenticating ? (
                       <>
@@ -318,12 +318,12 @@ export function FactoryResetConfirmDialog({
                   ) : null}
                 </div>
 
-                <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2.5 sm:px-5">
+                <div className="sa-safe-bottom flex shrink-0 items-center justify-between gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-3.5">
                   <AdminButton
                     variant="secondary"
                     onClick={() => handleOpenChange(false)}
                     disabled={isSubmitting}
-                    className="min-h-11 w-full sm:w-auto"
+                    className="h-10 flex-1 sm:flex-initial"
                   >
                     Batal
                   </AdminButton>
@@ -331,7 +331,7 @@ export function FactoryResetConfirmDialog({
                     type="submit"
                     variant="danger"
                     disabled={!canExecuteFinal}
-                    className="min-h-11 w-full sm:w-auto"
+                    className="h-10 flex-1 sm:flex-initial"
                   >
                     {isSubmitting ? (
                       <>

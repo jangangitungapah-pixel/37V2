@@ -4,6 +4,7 @@ import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/compon
 import * as echarts from 'echarts/core';
 import { SVGRenderer } from 'echarts/renderers';
 import { AlertTriangle, BarChart3, RefreshCw } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 
 import {
   AdminButton,
@@ -29,6 +30,7 @@ export function DashboardBookingTrendChart({
   error = null,
   onRetry,
 }) {
+  const prefersReducedMotion = useReducedMotion();
   const containerRef = useRef(null);
   const points = useMemo(() => bookingTrend?.points || [], [bookingTrend?.points]);
   const hasActivity = Boolean(bookingTrend?.hasActivity);
@@ -197,7 +199,7 @@ export function DashboardBookingTrendChart({
         <div
           role="group"
           aria-label="Pilih rentang periode tren booking"
-          className="inline-flex self-start rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-1 sm:self-auto"
+          className="sa-pill-track inline-flex self-start sm:self-auto"
         >
           {DASHBOARD_PERIOD_OPTIONS.map((opt) => {
             const isActive = opt.id === periodId;
@@ -207,13 +209,25 @@ export function DashboardBookingTrendChart({
                 type="button"
                 onClick={() => onPeriodChange?.(opt.id)}
                 aria-pressed={isActive}
-                className={`min-h-9.5 cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                className={`relative min-h-8.5 cursor-pointer rounded-[10px] px-3 py-1 text-xs transition-colors ${
                   isActive
-                    ? 'bg-[#151515] text-[#F8F6EF] shadow-2xs'
-                    : 'text-[#46433D] hover:text-[#151515]'
+                    ? 'font-semibold text-[#F8F6EF]'
+                    : 'font-medium text-[#46433D] hover:text-[#151515]'
                 }`}
               >
-                {opt.label}
+                {isActive ? (
+                  <motion.span
+                    layoutId={prefersReducedMotion ? undefined : 'dash-trend-period-pill'}
+                    transition={
+                      prefersReducedMotion
+                        ? { duration: 0 }
+                        : { type: 'spring', stiffness: 460, damping: 34 }
+                    }
+                    className="absolute inset-0 rounded-[10px] bg-[#151515] shadow-xs"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                <span className="relative z-10">{opt.label}</span>
               </button>
             );
           })}

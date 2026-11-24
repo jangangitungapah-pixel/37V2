@@ -47,7 +47,7 @@ export function PaymentEvidencePreview({
         target="_blank"
         rel="noopener noreferrer"
         aria-label={isId ? 'Buka gambar bukti pembayaran asli' : 'Open original payment evidence image'}
-        className={`group relative block h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[#151515]/12 bg-[#F8F6EF] ${className}`}
+        className={`group relative block h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[#151515]/10 bg-[#F8F6EF] shadow-2xs transition-all hover:border-[#151515]/25 hover:shadow-xs ${className}`}
       >
         <img
           src={previewSrc}
@@ -64,18 +64,18 @@ export function PaymentEvidencePreview({
   return (
     <div
       data-testid="payment-evidence-preview"
-      className={`overflow-hidden rounded-xl border border-[#151515]/12 bg-[#FAF8F3] ${className}`}
+      className={`overflow-hidden rounded-2xl border border-[#151515]/10 bg-[#FAF8F3] shadow-2xs ${className}`}
     >
-      <div className="relative flex items-center justify-center bg-[#151515]/[0.03] p-2">
+      <div className="relative flex items-center justify-center bg-[#151515]/[0.025] p-2.5">
         <img
           src={previewSrc}
           alt={isId ? 'Pratinjau bukti pembayaran' : 'Payment proof preview'}
           loading="lazy"
-          className={`${maxHeightClass} w-auto max-w-full rounded-lg object-contain`}
+          className={`${maxHeightClass} w-auto max-w-full rounded-xl object-contain`}
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#151515]/[0.08] bg-white px-3 py-2 text-[11px] text-[#666159]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#151515]/[0.07] bg-white/95 px-3 py-2 text-[11px] text-[#666159] backdrop-blur-xs">
         {showMeta ? (
           <span className="inline-flex items-center gap-1.5 font-mono">
             <ImageIcon className="h-3.5 w-3.5 text-[#8B857B]" aria-hidden="true" />

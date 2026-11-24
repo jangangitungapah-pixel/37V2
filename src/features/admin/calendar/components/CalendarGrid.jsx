@@ -9,7 +9,6 @@ export function CalendarGrid({
   activeDate,
   focusRequestKey = 0,
   roomFilter,
-  onRoomFilterChange,
   bookings,
   isLoading,
   error,
@@ -65,7 +64,6 @@ export function CalendarGrid({
         <CalendarDayView
           activeDate={activeDate}
           roomFilter={roomFilter}
-          onRoomFilterChange={onRoomFilterChange}
           bookings={bookings}
           onSelectEmptySlot={onSelectEmptySlot}
           onSelectBooking={onSelectBooking}

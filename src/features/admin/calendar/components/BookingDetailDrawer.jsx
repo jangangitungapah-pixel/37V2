@@ -171,9 +171,9 @@ export function BookingDetailDrawer({
 
               <Dialog.Close
                 aria-label="Tutup detail booking"
-                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/12 bg-white/6 text-white transition-colors"
+                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/15 bg-white/8 text-white transition-colors"
               >
-                <X className="h-4.5 w-4.5" aria-hidden="true" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
             </div>
 

@@ -91,10 +91,10 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
         >
           <Dialog.Popup
             aria-label="Settle Payment Kewajiban"
-            className="sa-dialog flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-[20px]"
+            className="sa-dialog flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[26px] rounded-b-none outline-none sm:rounded-[22px]"
           >
             {/* Header */}
-            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3.5 sm:px-5 sm:py-4">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.07] bg-white/95 px-4 py-3.5 backdrop-blur-md sm:px-5 sm:py-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <AdminStatusBadge tone="orange" icon={Banknote} size="sm">
@@ -116,9 +116,9 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
               <Dialog.Close
                 aria-label="Tutup modal pelunasan"
                 disabled={isSubmitting}
-                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-white text-[#46433D] hover:text-[#151515]"
+                className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
               >
-                <X className="h-4.5 w-4.5" aria-hidden="true" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
             </div>
 
@@ -270,13 +270,13 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
                 </div>
               </div>
 
-              <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:flex-row sm:justify-end sm:px-5">
+              <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-3.5">
                 <AdminButton
                   variant="secondary"
                   size="md"
                   onClick={handleClose}
                   disabled={isSubmitting}
-                  className="min-h-11 flex-1 sm:flex-initial"
+                  className="min-h-10 flex-1 sm:flex-initial"
                 >
                   Batal
                 </AdminButton>
@@ -285,7 +285,7 @@ export function BookkeepingSettlementDialog({ open, entry, onOpenChange, onSubmi
                   variant="orange"
                   size="md"
                   disabled={isSubmitting}
-                  className="min-h-11 flex-1 sm:flex-initial"
+                  className="min-h-10 flex-1 sm:flex-initial"
                 >
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

@@ -34,7 +34,7 @@ export function ReviewInboxTable({
             key={review.bookingId}
             variant="card"
             data-testid={`admin-review-row-${review.bookingId}`}
-            className="p-4 sm:p-5"
+            className="p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 flex-1">

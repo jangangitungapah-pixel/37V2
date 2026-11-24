@@ -19,7 +19,7 @@ export function GalleryItemCard({ item, publishedPosition = null, usedPlacements
       type="button"
       onClick={() => onSelect?.(item)}
       aria-label={`Buka foto ${item.title}`}
-      className="group relative block aspect-square w-full cursor-pointer overflow-hidden rounded-xl border border-[#151515]/10 bg-[#151515] text-left shadow-xs transition-transform duration-150 hover:scale-[1.01] focus:ring-2 focus:ring-[#151515] focus:outline-none sm:rounded-2xl"
+      className="group relative block aspect-square w-full cursor-pointer overflow-hidden rounded-2xl border border-[#151515]/10 bg-[#151515] text-left shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/25 hover:shadow-md focus:ring-2 focus:ring-[#151515] focus:outline-none"
     >
       <StudioImage
         src={item.thumbnailUrl || item.secureUrl}
@@ -27,6 +27,7 @@ export function GalleryItemCard({ item, publishedPosition = null, usedPlacements
         width={item.width}
         height={item.height}
         className="h-full w-full"
+        imgClassName="transition-transform duration-300 group-hover:scale-[1.03]"
       />
 
       {/* Top tiny publication & Landing Page usage indicators */}

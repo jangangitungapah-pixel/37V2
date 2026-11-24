@@ -12,7 +12,7 @@ export function PaymentOverviewMetrics({ metrics, hasActivePeriodFilter = false 
   return (
     <dl
       aria-label="Ringkasan Payment and Bill"
-      className="mt-3 grid grid-cols-2 gap-2 border-t border-[#151515]/[0.07] pt-3 sm:mt-5 sm:gap-3 sm:pt-5 xl:grid-cols-4"
+      className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4"
     >
       <AdminMetricCard
         label="Total Sisa Tagihan"

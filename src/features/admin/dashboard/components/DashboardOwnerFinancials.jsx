@@ -8,6 +8,7 @@ import {
   Scale,
   ShieldCheck,
 } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Link } from 'react-router';
 
 import {
@@ -41,6 +42,7 @@ export function DashboardOwnerFinancials({
   error = null,
   onRetry,
 }) {
+  const prefersReducedMotion = useReducedMotion();
   const cashIn = financialSummary?.cashIn ?? 0;
   const cashOut = financialSummary?.cashOut ?? 0;
   const netCashMovement = financialSummary?.netCashMovement ?? 0;
@@ -79,7 +81,7 @@ export function DashboardOwnerFinancials({
           <div
             role="group"
             aria-label="Pilih rentang periode keuangan"
-            className="inline-flex rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-1"
+            className="sa-pill-track inline-flex items-center gap-0.5"
           >
             {DASHBOARD_PERIOD_OPTIONS.map((opt) => {
               const isActive = opt.id === periodId;
@@ -89,13 +91,25 @@ export function DashboardOwnerFinancials({
                   type="button"
                   onClick={() => onPeriodChange?.(opt.id)}
                   aria-pressed={isActive}
-                  className={`min-h-9.5 cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  className={`relative min-h-8.5 cursor-pointer rounded-[10px] px-3 py-1 text-xs transition-colors ${
                     isActive
-                      ? 'bg-[#151515] text-[#F8F6EF] shadow-2xs'
-                      : 'text-[#46433D] hover:text-[#151515]'
+                      ? 'font-semibold text-[#F8F6EF]'
+                      : 'font-medium text-[#46433D] hover:text-[#151515]'
                   }`}
                 >
-                  {opt.label}
+                  {isActive ? (
+                    <motion.span
+                      layoutId={prefersReducedMotion ? undefined : 'dash-fin-period-pill'}
+                      transition={
+                        prefersReducedMotion
+                          ? { duration: 0 }
+                          : { type: 'spring', stiffness: 460, damping: 34 }
+                      }
+                      className="absolute inset-0 rounded-[10px] bg-[#151515] shadow-xs"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <span className="relative z-10">{opt.label}</span>
                 </button>
               );
             })}
@@ -103,7 +117,7 @@ export function DashboardOwnerFinancials({
 
           <Link
             to="/admin/pembukuan"
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#151515]/12 bg-white px-3 py-1.5 text-xs font-semibold text-[#151515] transition-colors hover:bg-[#F8F6EF]"
+            className="sa-control sa-btn-secondary inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold text-[#151515]"
           >
             <FileSpreadsheet className="h-3.5 w-3.5 text-[#658800]" aria-hidden="true" />
             <span>Buka Pembukuan</span>

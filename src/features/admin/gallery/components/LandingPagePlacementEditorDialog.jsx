@@ -124,11 +124,11 @@ export function LandingPagePlacementEditorDialog({
         <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
           <Dialog.Popup
             data-admin-portal-layer="true"
-            className="sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none bg-white p-0 outline-none sm:rounded-2xl"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[26px] rounded-b-none bg-white p-0 outline-none sm:rounded-[22px]"
           >
             {def ? (
               <>
-                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/8 bg-white px-4 py-3.5 sm:px-6 sm:py-4">
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.07] bg-white/95 px-4 py-3.5 backdrop-blur-md sm:px-6 sm:py-4">
                   <div className="min-w-0">
                     <p className="font-mono text-[10px] font-semibold tracking-wider text-[#756F65] uppercase">
                       {def.sectionLabel}
@@ -143,7 +143,7 @@ export function LandingPagePlacementEditorDialog({
 
                   <Dialog.Close
                     aria-label="Tutup editor penempatan"
-                    className="sa-control sa-btn-secondary inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full"
+                    className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </Dialog.Close>
@@ -413,14 +413,14 @@ export function LandingPagePlacementEditorDialog({
                     </div>
                   </div>
 
-                  <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/8 bg-white p-3.5 sm:flex-row sm:items-center sm:justify-end sm:px-6">
+                  <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6">
                     <AdminButton
                       type="button"
                       variant="secondary"
                       size="sm"
                       onClick={() => onOpenChange?.(false)}
                       disabled={isSaving}
-                      className="min-h-10.5 w-full sm:w-auto"
+                      className="min-h-9.5 flex-1 sm:flex-initial"
                     >
                       <span>Batal</span>
                     </AdminButton>
@@ -429,7 +429,7 @@ export function LandingPagePlacementEditorDialog({
                       variant="primary"
                       size="sm"
                       disabled={isSaving}
-                      className="min-h-10.5 w-full sm:w-auto"
+                      className="min-h-9.5 flex-1 sm:flex-initial"
                     >
                       {isSaving ? (
                         <Loader2

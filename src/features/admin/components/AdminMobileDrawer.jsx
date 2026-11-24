@@ -42,9 +42,9 @@ export function AdminMobileDrawer({ open, onOpenChange, triggerRef, navBadges = 
             className="flex h-dvh w-[290px] max-w-[86vw] flex-col justify-between overflow-y-auto rounded-r-2xl border-r border-white/10 bg-[#151515] text-[#F1EEE4] shadow-[16px_0_48px_-12px_rgba(21,21,21,0.45)] outline-none"
           >
             <motion.div
-              initial={prefersReducedMotion ? false : { x: -24, opacity: 0.85 }}
+              initial={prefersReducedMotion ? false : { x: -28, opacity: 0.7 }}
               animate={{ x: 0, opacity: 1 }}
-              transition={{ duration: prefersReducedMotion ? 0 : 0.18, ease: 'easeOut' }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
               className="flex min-h-full flex-col justify-between bg-[radial-gradient(240px_220px_at_20%_0%,rgba(200,241,58,0.10),transparent_72%)]"
             >
               <div>

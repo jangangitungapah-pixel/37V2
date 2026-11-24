@@ -112,12 +112,12 @@ export function FactoryResetResult({ operation, onDoneResetView }) {
           Periksa Kalender Publik (/availability) →
         </Link>
 
-        <div className="flex w-full flex-col-reverse gap-2.5 sm:w-auto sm:flex-row sm:items-center">
-          <Link to="/admin/settings" className="w-full sm:w-auto">
+        <div className="flex w-full items-center justify-end gap-2.5 sm:w-auto">
+          <Link to="/admin/settings" className="flex-1 sm:flex-initial">
             <AdminButton
               variant="secondary"
               size="md"
-              className="min-h-11 w-full justify-center sm:w-auto"
+              className="min-h-10 w-full justify-center sm:w-auto"
             >
               Kembali ke Settings
             </AdminButton>
@@ -127,7 +127,7 @@ export function FactoryResetResult({ operation, onDoneResetView }) {
               variant="primary"
               size="md"
               onClick={onDoneResetView}
-              className="min-h-11 w-full justify-center sm:w-auto"
+              className="min-h-10 flex-1 justify-center sm:flex-initial"
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Muat Pratinjau Baru</span>

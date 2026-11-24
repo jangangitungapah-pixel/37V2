@@ -22,7 +22,7 @@ export function InventoryItemCard({ item, onSelectItem, onQuickMovement }) {
     <AdminSurface
       as="article"
       variant="card"
-      className={`p-3 ${item.isActive === false ? 'opacity-75' : ''}`}
+      className={`p-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${item.isActive === false ? 'opacity-75' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ImagePlus, Images, LayoutTemplate, Loader2, Plus } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 
 import {
@@ -55,6 +56,7 @@ const GALLERY_TABS = Object.freeze({
 });
 
 export function AdminGalleryPage() {
+  const prefersReducedMotion = useReducedMotion();
   const { user, profile, role } = useAuth();
   const actorUid = user?.uid || profile?.uid || '';
   const actorRole = String(role || profile?.role || '')
@@ -513,23 +515,40 @@ export function AdminGalleryPage() {
           <div
             role="tablist"
             aria-label="Mode pengelolaan galeri"
-            className="grid w-full grid-cols-2 rounded-xl border border-[#151515]/10 bg-[#F8F6EF] p-1 sm:inline-flex sm:w-auto"
+            className="sa-pill-track grid w-full grid-cols-2 gap-1 sm:inline-flex sm:w-auto"
           >
             <button
               type="button"
               role="tab"
               aria-selected={activeTab === GALLERY_TABS.PHOTOS}
               onClick={() => setActiveTab(GALLERY_TABS.PHOTOS)}
-              className={`inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors sm:px-3.5 ${
+              className={`relative inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-3 py-1.5 text-xs font-bold transition-colors duration-150 sm:px-4 ${
                 activeTab === GALLERY_TABS.PHOTOS
-                  ? 'bg-[#151515] text-[#F1EEE4] shadow-xs'
+                  ? 'text-[#F1EEE4]'
                   : 'text-[#46433D] hover:text-[#151515]'
               }`}
             >
-              <Images className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Photos</span>
+              {activeTab === GALLERY_TABS.PHOTOS ? (
+                <motion.span
+                  layoutId={prefersReducedMotion ? undefined : 'gallery-workspace-tab-pill'}
+                  transition={
+                    prefersReducedMotion
+                      ? { duration: 0 }
+                      : { type: 'spring', stiffness: 460, damping: 34 }
+                  }
+                  className="absolute inset-0 rounded-[10px] bg-[#151515] shadow-[0_6px_16px_-6px_rgba(21,21,21,0.32)]"
+                  aria-hidden="true"
+                />
+              ) : null}
+              <Images
+                className={`relative z-10 h-3.5 w-3.5 shrink-0 ${
+                  activeTab === GALLERY_TABS.PHOTOS ? 'text-[#C8F13A]' : 'text-[#666159]'
+                }`}
+                aria-hidden="true"
+              />
+              <span className="relative z-10">Photos</span>
               <span
-                className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
+                className={`relative z-10 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
                   activeTab === GALLERY_TABS.PHOTOS
                     ? 'bg-[#C8F13A] text-[#151515]'
                     : 'bg-[#151515]/10 text-[#46433D]'
@@ -544,14 +563,31 @@ export function AdminGalleryPage() {
               role="tab"
               aria-selected={activeTab === GALLERY_TABS.LANDING_PAGE}
               onClick={() => setActiveTab(GALLERY_TABS.LANDING_PAGE)}
-              className={`inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors sm:px-3.5 ${
+              className={`relative inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-3 py-1.5 text-xs font-bold transition-colors duration-150 sm:px-4 ${
                 activeTab === GALLERY_TABS.LANDING_PAGE
-                  ? 'bg-[#151515] text-[#F1EEE4] shadow-xs'
+                  ? 'text-[#F1EEE4]'
                   : 'text-[#46433D] hover:text-[#151515]'
               }`}
             >
-              <LayoutTemplate className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Landing Page</span>
+              {activeTab === GALLERY_TABS.LANDING_PAGE ? (
+                <motion.span
+                  layoutId={prefersReducedMotion ? undefined : 'gallery-workspace-tab-pill'}
+                  transition={
+                    prefersReducedMotion
+                      ? { duration: 0 }
+                      : { type: 'spring', stiffness: 460, damping: 34 }
+                  }
+                  className="absolute inset-0 rounded-[10px] bg-[#151515] shadow-[0_6px_16px_-6px_rgba(21,21,21,0.32)]"
+                  aria-hidden="true"
+                />
+              ) : null}
+              <LayoutTemplate
+                className={`relative z-10 h-3.5 w-3.5 shrink-0 ${
+                  activeTab === GALLERY_TABS.LANDING_PAGE ? 'text-[#C8F13A]' : 'text-[#666159]'
+                }`}
+                aria-hidden="true"
+              />
+              <span className="relative z-10">Landing Page</span>
             </button>
           </div>
         ) : null}

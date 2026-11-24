@@ -21,9 +21,9 @@ export function AdminPageHeader({
     return (
       <section
         aria-labelledby={titleId}
-        className={cn('sa-card-hero p-3.5 sm:p-6 lg:p-7', className)}
+        className={cn('sa-card-hero p-4 sm:p-6 lg:p-7', className)}
       >
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1.5 sm:items-start sm:gap-x-4 sm:gap-y-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 sm:items-start sm:gap-x-4 sm:gap-y-2.5">
           {(eyebrow || meta) && (
             <div
               className={cn(
@@ -32,7 +32,7 @@ export function AdminPageHeader({
               )}
             >
               {eyebrow ? (
-                <span className="hidden items-center gap-1.5 rounded-full bg-[#151515] px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-[#F1EEE4] sm:inline-flex sm:text-[10.5px]">
+                <span className="hidden items-center gap-1.5 rounded-full bg-[#151515] px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-[#F1EEE4] shadow-2xs sm:inline-flex sm:text-[10.5px]">
                   {Icon ? <Icon className="h-3 w-3 text-[#C8F13A]" aria-hidden="true" /> : null}
                   <span>{eyebrow}</span>
                 </span>
@@ -43,7 +43,7 @@ export function AdminPageHeader({
 
           <h2
             id={titleId}
-            className="col-start-1 self-center text-lg leading-tight font-bold tracking-[-0.025em] text-[#151515] sm:text-2xl lg:text-[28px] lg:leading-tight"
+            className="col-start-1 self-center text-xl leading-tight font-extrabold tracking-[-0.03em] text-[#151515] sm:text-2xl lg:text-[28px] lg:leading-tight"
           >
             {title}
           </h2>
@@ -57,7 +57,7 @@ export function AdminPageHeader({
           {description ? (
             <p
               className={cn(
-                'col-span-2 max-w-2xl text-[11.5px] leading-snug text-[#666159] sm:col-span-1 sm:col-start-1 sm:text-sm sm:leading-relaxed',
+                'col-span-2 max-w-2xl text-xs leading-relaxed text-[#666159] sm:col-span-1 sm:col-start-1 sm:text-[13.5px]',
                 keepDescriptionOnMobile ? 'block' : 'hidden sm:block',
               )}
             >
@@ -66,7 +66,11 @@ export function AdminPageHeader({
           ) : null}
         </div>
 
-        {children ? <div className="mt-3 sm:mt-5">{children}</div> : null}
+        {children ? (
+          <div className="mt-3.5 border-t border-[#151515]/[0.06] pt-3.5 sm:mt-5 sm:pt-4">
+            {children}
+          </div>
+        ) : null}
       </section>
     );
   }
@@ -74,9 +78,9 @@ export function AdminPageHeader({
   return (
     <section
       aria-labelledby={titleId}
-      className={cn('sa-card-hero p-3.5 sm:p-6 lg:p-7', className)}
+      className={cn('sa-card-hero p-4 sm:p-6 lg:p-7', className)}
     >
-      <div className="flex flex-col gap-2.5 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1 sm:space-y-2.5">
           {(eyebrow || meta) && (
             <div
@@ -86,7 +90,7 @@ export function AdminPageHeader({
               )}
             >
               {eyebrow ? (
-                <span className="hidden items-center gap-1.5 rounded-full bg-[#151515] px-2.5 py-0.5 font-mono text-[10.5px] font-semibold tracking-wide text-[#F1EEE4] sm:inline-flex">
+                <span className="hidden items-center gap-1.5 rounded-full bg-[#151515] px-2.5 py-0.5 font-mono text-[10.5px] font-semibold tracking-wide text-[#F1EEE4] shadow-2xs sm:inline-flex">
                   {Icon ? <Icon className="h-3 w-3 text-[#C8F13A]" aria-hidden="true" /> : null}
                   <span>{eyebrow}</span>
                 </span>
@@ -98,14 +102,14 @@ export function AdminPageHeader({
           <div>
             <h2
               id={titleId}
-              className="text-lg font-bold tracking-[-0.025em] text-[#151515] sm:text-2xl lg:text-[28px] lg:leading-tight"
+              className="text-xl font-extrabold tracking-[-0.03em] text-[#151515] sm:text-2xl lg:text-[28px] lg:leading-tight"
             >
               {title}
             </h2>
             {description ? (
               <p
                 className={cn(
-                  'mt-1.5 max-w-2xl text-xs leading-relaxed text-[#666159] sm:text-sm',
+                  'mt-1.5 max-w-2xl text-xs leading-relaxed text-[#666159] sm:text-[13.5px]',
                   keepDescriptionOnMobile ? 'block' : 'hidden sm:block',
                 )}
               >
@@ -120,7 +124,11 @@ export function AdminPageHeader({
         ) : null}
       </div>
 
-      {children ? <div className="mt-3 sm:mt-5">{children}</div> : null}
+      {children ? (
+        <div className="mt-3.5 border-t border-[#151515]/[0.06] pt-3.5 sm:mt-5 sm:pt-4">
+          {children}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -28,7 +28,7 @@ export function ReviewInvitationList({ invitations = [], reviewsByBookingId = ne
             key={inv.id}
             variant="card"
             data-testid={`admin-invitation-row-${inv.bookingId}`}
-            className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+            className="flex flex-col gap-3 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-5"
           >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">

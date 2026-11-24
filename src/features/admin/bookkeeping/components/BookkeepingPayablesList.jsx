@@ -82,7 +82,7 @@ export function BookkeepingPayablesList({
           <button
             type="button"
             onClick={() => setShowSettled((prev) => !prev)}
-            className="sa-control inline-flex min-h-10 w-full cursor-pointer items-center justify-center bg-white px-3 py-1.5 text-xs font-medium text-[#46433D] hover:text-[#151515] sm:w-auto"
+            className="sa-control inline-flex min-h-9.5 flex-1 cursor-pointer items-center justify-center bg-white px-3 py-1.5 text-xs font-medium text-[#46433D] hover:text-[#151515] sm:flex-initial"
           >
             {showSettled ? 'Sembunyikan yang Lunas' : 'Tampilkan yang Sudah Lunas'}
           </button>
@@ -91,7 +91,7 @@ export function BookkeepingPayablesList({
             variant="secondary"
             size="sm"
             onClick={handleExportPayables}
-            className="min-h-10 w-full justify-center sm:w-auto"
+            className="min-h-9.5 flex-1 justify-center sm:flex-initial"
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Export Payables CSV</span>
@@ -257,11 +257,11 @@ export function BookkeepingPayablesList({
                     {canSettle ? (
                       <AdminButton
                         variant="orange"
-                        size="md"
+                        size="sm"
                         onClick={() => onSettlePayable?.(entry)}
-                        className="min-h-11 w-full sm:w-auto"
+                        className="min-h-9.5 w-auto"
                       >
-                        <Banknote className="h-4 w-4" aria-hidden="true" />
+                        <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                         <span>Settle Payment</span>
                       </AdminButton>
                     ) : (
@@ -269,7 +269,7 @@ export function BookkeepingPayablesList({
                         variant="secondary"
                         size="sm"
                         onClick={() => onInspectPayable?.(entry)}
-                        className="min-h-10"
+                        className="min-h-9.5"
                       >
                         Lihat Detail
                       </AdminButton>

@@ -85,8 +85,13 @@ export function BookingRequestToolbar({
                 );
               }
             }}
-            className={`flex cursor-pointer flex-col items-start justify-between rounded-2xl border p-3 text-left transition-transform hover:-translate-y-0.5 sm:p-3.5 ${
+            className={`flex cursor-pointer flex-col items-start justify-between rounded-2xl border p-3.5 text-left shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ${
               idx === kpiCards.length - 1 ? 'col-span-2 sm:col-span-1' : ''
+            } ${
+              (card.targetStatus && statusFilter === card.targetStatus) ||
+              (card.targetType && requestTypeFilter === card.targetType)
+                ? 'ring-2 ring-[#151515]/80 ring-offset-1'
+                : ''
             } ${card.toneClass}`}
           >
             <span className="font-mono text-[10px] font-bold tracking-wider uppercase opacity-85">
@@ -196,10 +201,10 @@ export function BookingRequestToolbar({
                 onClick={onResetFilters}
                 aria-label="Reset semua filter"
                 title="Reset filter"
-                className="min-h-10 w-full shrink-0 sm:min-h-9 sm:w-auto"
+                className="shrink-0"
               >
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="sm:hidden">Reset Filter</span>
+                <span className="sm:hidden">Reset</span>
               </AdminButton>
             ) : null}
           </div>

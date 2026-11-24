@@ -61,7 +61,11 @@ export function SettingsModuleCard({
   }
 
   return (
-    <AdminSurface as="article" variant="card" className="flex flex-col justify-between p-4 sm:p-6">
+    <AdminSurface
+      as="article"
+      variant="card"
+      className="flex flex-col justify-between p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-6"
+    >
       <div>
         <div className="flex items-center justify-between gap-2">
           <span className="hidden font-mono text-xs font-semibold text-[#8B857B] sm:inline">

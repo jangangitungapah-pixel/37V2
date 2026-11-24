@@ -77,7 +77,7 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
           className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-xl flex-col outline-none"
         >
           {/* Sticky Header */}
-          <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3.5 sm:px-5 sm:py-4">
+          <div className="sticky top-0 z-10 shrink-0 border-b border-[#151515]/[0.07] bg-[#FAF8F3]/92 px-4 py-3.5 backdrop-blur-md sm:px-5 sm:py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <AdminStatusBadge tone="lime" icon={CheckCircle2} size="sm">
@@ -94,9 +94,9 @@ export function CommissionBatchDetailDrawer({ batch, open, onOpenChange }) {
 
               <Dialog.Close
                 aria-label="Tutup detail batch komisi"
-                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
+                className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
               >
-                <X className="h-4.5 w-4.5" aria-hidden="true" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
             </div>
           </div>

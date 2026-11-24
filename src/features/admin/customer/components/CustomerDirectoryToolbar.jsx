@@ -67,8 +67,8 @@ export function CustomerDirectoryToolbar({
                   aria-pressed={isSelected}
                   className={
                     isSelected
-                      ? 'inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-3.5'
-                      : 'inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:px-3.5'
+                      ? 'inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] bg-white px-3 py-1 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-3.5'
+                      : 'inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-3 py-1 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:px-3.5'
                   }
                 >
                   <span className="sm:hidden">{option.compactLabel || option.label}</span>

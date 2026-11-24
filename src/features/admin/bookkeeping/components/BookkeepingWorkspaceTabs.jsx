@@ -1,4 +1,5 @@
 import { ArrowLeftRight, BarChart3, LayoutDashboard, Wallet } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 
 import { BOOKKEEPING_TAB_ITEMS, BOOKKEEPING_TABS } from '../config/bookkeeping-config';
 
@@ -15,6 +16,8 @@ export function BookkeepingWorkspaceTabs({
   transactionsCount = 0,
   openPayablesCount = 0,
 }) {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
     <div
       role="tablist"
@@ -38,20 +41,30 @@ export function BookkeepingWorkspaceTabs({
             role="tab"
             aria-selected={isActive}
             onClick={() => onTabChange?.(tab.id)}
-            className={
-              isActive
-                ? 'inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] bg-white px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-3.5'
-                : 'inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:px-3.5'
-            }
+            className={`relative inline-flex min-h-9.5 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-1.5 text-xs whitespace-nowrap transition-colors duration-150 sm:px-3.5 ${
+              isActive ? 'font-semibold text-[#151515]' : 'font-medium text-[#666159] hover:text-[#151515]'
+            }`}
           >
+            {isActive ? (
+              <motion.span
+                layoutId={prefersReducedMotion ? undefined : 'bookkeeping-workspace-tab-pill'}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { type: 'spring', stiffness: 460, damping: 34 }
+                }
+                className="absolute inset-0 rounded-[10px] bg-white shadow-[0_1px_3px_rgba(21,21,21,0.08),0_0_0_1px_rgba(21,21,21,0.05)]"
+                aria-hidden="true"
+              />
+            ) : null}
             <Icon
-              className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-[#151515]' : 'text-[#8B857B]'}`}
+              className={`relative z-10 h-3.5 w-3.5 shrink-0 ${isActive ? 'text-[#151515]' : 'text-[#8B857B]'}`}
               aria-hidden="true"
             />
-            <span className="truncate">{tab.label}</span>
+            <span className="relative z-10 truncate">{tab.label}</span>
             {badgeCount !== null ? (
               <span
-                className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
+                className={`relative z-10 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
                   tab.id === BOOKKEEPING_TABS.CASH_SETTLEMENT && badgeCount > 0
                     ? isActive
                       ? 'bg-[#FF4B22] text-white'

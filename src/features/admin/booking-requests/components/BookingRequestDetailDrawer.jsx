@@ -125,7 +125,7 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
           <Dialog.Popup
             data-admin-portal-layer="true"
             aria-label="Detail Booking Request"
-            className="flex h-dvh w-full max-w-2xl flex-col overflow-hidden bg-[#FAF8F1] shadow-[-16px_0_48px_-12px_rgba(21,21,21,0.3)] outline-none"
+            className="sa-drawer flex h-dvh w-full max-w-2xl flex-col overflow-hidden bg-[#FAF8F1] shadow-[-16px_0_48px_-12px_rgba(21,21,21,0.3)] outline-none"
           >
             {/* Header */}
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 bg-[#151515] px-4 py-4 text-[#F1EEE4] sm:px-6">
@@ -151,7 +151,7 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
 
               <Dialog.Close
                 aria-label="Tutup detail request"
-                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white hover:text-[#C8F13A]"
+                className="inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition-colors hover:border-[#C8F13A] hover:text-[#C8F13A]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>

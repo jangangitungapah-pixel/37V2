@@ -1042,9 +1042,9 @@ export function BookingFormDialog({
                 <Dialog.Close
                   aria-label="Tutup form booking"
                   disabled={isSubmitting}
-                  className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/12 bg-white/6 text-white transition-colors"
+                  className="hover:border-studio-lime hover:text-studio-lime inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/15 bg-white/8 text-white transition-colors"
                 >
-                  <X className="h-4.5 w-4.5" aria-hidden="true" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </Dialog.Close>
               </div>
 
@@ -2410,7 +2410,7 @@ export function BookingFormDialog({
                     type="button"
                     disabled={isSubmitting}
                     onClick={() => handleDialogOpenChange(false)}
-                    className="sa-control sa-btn-secondary min-h-11 flex-1 cursor-pointer rounded-xl px-3.5 py-2 text-xs font-semibold sm:min-h-10.5 sm:flex-initial sm:px-4"
+                    className="sa-control sa-btn-secondary min-h-10 flex-1 cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold sm:flex-initial"
                   >
                     Batal
                   </button>
@@ -2419,7 +2419,7 @@ export function BookingFormDialog({
                     type="submit"
                     form="studio-booking-form"
                     disabled={isSubmitting || Boolean(liveValidation.errors.scheduleConflict)}
-                    className="sa-control sa-btn-orange inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-10.5 sm:flex-initial sm:px-5"
+                    className="sa-control sa-btn-orange inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 sm:flex-initial sm:px-5"
                   >
                     {isSubmitting ? (
                       <>

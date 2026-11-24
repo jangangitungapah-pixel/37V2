@@ -53,7 +53,7 @@ export function CustomerDirectoryTable({
       {/* Single-DOM Responsive Table: Genuine <table> on md+, compact stacked rows on < md */}
       <div className="overflow-x-auto">
         <table className="block w-full border-collapse text-left md:table">
-          <thead className="hidden border-b border-[#151515]/[0.08] bg-[#FAF8F3] text-[11px] font-semibold tracking-wide text-[#666159] md:table-header-group">
+          <thead className="hidden border-b border-[#151515]/[0.08] bg-[#FAF8F3]/90 text-[11px] font-semibold tracking-wide text-[#666159] md:table-header-group">
             <tr>
               <th scope="col" className="px-3.5 py-2.5 whitespace-nowrap">
                 No. HP / WhatsApp
@@ -117,7 +117,7 @@ export function CustomerDirectoryTable({
                                 onOpenMergeGroup?.(activeProfilesInGroup, activeProfilesInGroup[0])
                               }
                               aria-label="Merge History"
-                              className="sa-control sa-btn-lime inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold"
+                              className="sa-control sa-btn-lime inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3.5 py-1 text-[11px] font-semibold"
                             >
                               <GitMerge className="h-3 w-3" aria-hidden="true" />
                               <span>Gabung Profil</span>
@@ -140,8 +140,8 @@ export function CustomerDirectoryTable({
                     const bands = bandNamesByCustomerId.get(profile.id) || [];
 
                     const rowBgClass = group.isSharedNumber
-                      ? 'border-l-[3px] border-l-[#FF4B22] bg-[#FEF4DD]/30 hover:bg-[#EDF8C2]/25'
-                      : 'bg-white hover:bg-[#FAF8F3]/80';
+                      ? 'border-l-[3px] border-l-[#FF4B22] bg-[#FEF4DD]/25 hover:bg-[#FAF8F3]/75'
+                      : 'bg-white hover:bg-[#FAF8F3]/75';
 
                     return (
                       <tr
@@ -293,7 +293,7 @@ export function CustomerDirectoryTable({
                               <button
                                 type="button"
                                 onClick={() => onOpenMergeGroup?.(activeProfilesInGroup, profile)}
-                                className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold"
+                                className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-full px-3 py-1 text-xs font-semibold"
                               >
                                 <GitMerge className="h-3 w-3 text-[#46433D]" aria-hidden="true" />
                                 <span>Gabung</span>
@@ -304,7 +304,7 @@ export function CustomerDirectoryTable({
                               type="button"
                               onClick={() => onSelectProfile?.(profile)}
                               aria-label={`Buka detail profil ${profile.displayName}`}
-                              className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold hover:bg-[#C8F13A]"
+                              className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-full px-3 py-1 text-xs font-semibold hover:bg-[#C8F13A]"
                             >
                               <span>Detail</span>
                               <ChevronRight

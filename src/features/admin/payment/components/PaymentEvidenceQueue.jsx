@@ -113,10 +113,10 @@ export function PaymentEvidenceQueue({
                   role="tab"
                   aria-selected={active}
                   onClick={() => setStatusFilter(opt.id)}
-                  className={`inline-flex min-h-9.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
+                  className={`inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold whitespace-nowrap transition-all ${
                     active
-                      ? 'border-[#151515] bg-[#151515] text-[#F1EEE4]'
-                      : 'border-[#151515]/12 bg-[#F8F6EF] text-[#46433D] hover:border-[#151515]/30 hover:text-[#151515]'
+                      ? 'border-[#151515] bg-[#151515] text-[#F1EEE4] shadow-2xs'
+                      : 'border-[#151515]/12 bg-[#F8F6EF] text-[#46433D] hover:border-[#151515]/30 hover:bg-white hover:text-[#151515]'
                   }`}
                 >
                   <span>{opt.label}</span>
@@ -178,7 +178,7 @@ export function PaymentEvidenceQueue({
               <button
                 type="button"
                 onClick={onRetry}
-                className="sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold"
+                className="sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold"
               >
                 <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Coba Lagi</span>
@@ -221,7 +221,7 @@ export function PaymentEvidenceQueue({
                     setSearchQuery('');
                     setStatusFilter('all');
                   }}
-                  className="sa-control sa-btn-secondary inline-flex min-h-10.5 cursor-pointer items-center px-4 py-2 text-xs font-semibold"
+                  className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center rounded-full px-4 py-1.5 text-xs font-semibold"
                 >
                   Lihat Semua Bukti
                 </button>
@@ -230,17 +230,20 @@ export function PaymentEvidenceQueue({
           />
         </AdminSurface>
       ) : (
-        <AdminSurface variant="card" className="overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.07] bg-[#FAF8F3]/80 px-4 py-3">
+        <div className="space-y-3">
+          <AdminSurface
+            variant="card"
+            className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+          >
             <span className="text-xs font-semibold tracking-tight text-[#151515] sm:text-sm">
               Antrean Bukti Pembayaran ({filteredItems.length})
             </span>
             <span className="text-[11px] text-[#666159]">
               Diurutkan terbaru lebih dahulu • Klik item untuk verifikasi
             </span>
-          </div>
+          </AdminSurface>
 
-          <ul className="divide-y divide-[#151515]/[0.07]">
+          <ul className="space-y-2.5">
             {filteredItems.map((item) => {
               const invoice = invoicesById?.get?.(item.invoiceId) || null;
               const statusMeta = getPaymentEvidenceStatusMeta(item.status, 'id');
@@ -254,8 +257,10 @@ export function PaymentEvidenceQueue({
                 <li
                   key={item.id}
                   data-testid={`admin-evidence-row-${item.id}`}
-                  className={`flex flex-col gap-3 p-3.5 transition-colors sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3.5 ${
-                    isPending ? 'bg-[#FEF4DD]/30 hover:bg-[#FEF4DD]/55' : 'bg-white hover:bg-[#FAF8F3]'
+                  className={`flex flex-col gap-3 rounded-2xl border p-3.5 shadow-[0_1px_3px_rgba(21,21,21,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3.5 ${
+                    isPending
+                      ? 'border-amber-500/25 bg-[#FEF4DD]/35 hover:border-amber-500/40 hover:bg-[#FEF4DD]/55'
+                      : 'border-[#151515]/[0.085] bg-white hover:border-[#151515]/16'
                   }`}
                 >
                   <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -347,7 +352,7 @@ export function PaymentEvidenceQueue({
                       type="button"
                       onClick={() => onSelectEvidence?.(item, invoice)}
                       aria-label={`${isPending ? 'Tinjau' : 'Lihat detail'} bukti pembayaran ${item.invoiceNumber}`}
-                      className={`sa-control inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1 px-3.5 py-2 text-xs font-semibold sm:w-auto ${
+                      className={`sa-control inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-semibold sm:w-auto ${
                         isPending ? 'sa-btn-lime' : 'sa-btn-secondary'
                       }`}
                     >
@@ -359,7 +364,7 @@ export function PaymentEvidenceQueue({
               );
             })}
           </ul>
-        </AdminSurface>
+        </div>
       )}
 
       {hasMore ? (
@@ -367,7 +372,7 @@ export function PaymentEvidenceQueue({
           <button
             type="button"
             onClick={onLoadMore}
-            className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold sm:w-auto"
+            className="sa-control sa-btn-secondary inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-full px-4 py-1.5 text-xs font-semibold sm:w-auto"
           >
             Muat Lebih Banyak Bukti Pembayaran
           </button>

@@ -593,7 +593,6 @@ export function AdminCalendarPage() {
             activeDate={activeDate}
             focusRequestKey={focusRequestKey}
             roomFilter={roomFilter}
-            onRoomFilterChange={setRoomFilter}
             bookings={filteredBookings}
             isLoading={isLoading}
             error={error}

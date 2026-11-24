@@ -364,10 +364,10 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
               data-admin-portal-layer="true"
               aria-label={`Preview cetak invoice ${invoice.invoiceNumber}`}
               data-payment-scoped="true"
-              className="no-print sa-dialog flex h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
+              className="no-print sa-dialog flex h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[26px] rounded-b-none outline-none sm:h-auto sm:max-h-[92dvh] sm:rounded-[22px]"
             >
               {/* Preview Action Header */}
-              <div className="flex shrink-0 flex-wrap items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:flex-nowrap sm:items-center sm:px-5 sm:py-3.5">
+              <div className="flex shrink-0 flex-wrap items-start justify-between gap-2.5 border-b border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:flex-nowrap sm:items-center sm:px-5 sm:py-3.5">
                 <div className="min-w-0 flex-1">
                   <Dialog.Title className="text-base font-bold tracking-tight text-[#151515] sm:text-lg">
                     Preview Cetak &amp; PDF — {invoice.invoiceNumber}
@@ -379,16 +379,16 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
 
                 <Dialog.Close
                   aria-label="Tutup preview cetak invoice"
-                  className="sa-control order-2 inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515] sm:order-3"
+                  className="sa-control order-2 inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-[#FAF8F3]/80 text-[#46433D] transition-colors hover:bg-[#151515]/[0.06] hover:text-[#151515] sm:order-3"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </Dialog.Close>
 
-                <div className="order-3 flex w-full items-center gap-2 sm:order-2 sm:w-auto sm:shrink-0">
+                <div className="order-3 flex w-full items-center gap-2.5 sm:order-2 sm:w-auto sm:shrink-0">
                   <button
                     type="button"
                     onClick={handleCopySummary}
-                    className="sa-control sa-btn-secondary inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3 text-xs font-semibold sm:flex-initial"
+                    className="sa-control sa-btn-secondary inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3.5 text-xs font-semibold sm:flex-initial"
                   >
                     {copied ? (
                       <Check className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
@@ -401,7 +401,7 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
                   <button
                     type="button"
                     onClick={handlePrint}
-                    className="sa-control sa-btn-lime inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3.5 text-xs font-semibold sm:flex-initial"
+                    className="sa-control sa-btn-lime inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 text-xs font-semibold sm:flex-initial"
                   >
                     <Printer className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>Cetak / Simpan PDF</span>

@@ -21,7 +21,7 @@ export function AdminEmptyState({
   return (
     <div
       className={cn(
-        'sa-panel flex flex-col items-center justify-center border-dashed px-4 py-8 text-center sm:px-6 sm:py-10',
+        'flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#151515]/14 bg-[#FAF8F2]/80 px-5 py-9 text-center sm:px-6 sm:py-11',
         className,
       )}
     >

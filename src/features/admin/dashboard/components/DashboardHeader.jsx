@@ -53,20 +53,20 @@ export function DashboardHeader({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2.5 lg:shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 lg:shrink-0">
           <Link
             to="/admin/calendar?action=new-booking"
-            className="sa-btn-primary inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:flex-initial sm:text-[13px]"
+            className="sa-btn-primary inline-flex min-h-10 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:text-[13px]"
           >
-            <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <Plus className="h-4 w-4 shrink-0 text-[#C8F13A]" aria-hidden="true" />
             <span>Booking Baru</span>
           </Link>
 
           <Link
             to="/admin/calendar"
-            className="sa-btn-secondary inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:flex-initial sm:text-[13px]"
+            className="sa-btn-secondary inline-flex min-h-10 items-center justify-center gap-2 px-4 py-2 text-xs font-semibold sm:text-[13px]"
           >
-            <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <Calendar className="h-4 w-4 shrink-0 text-[#46433D]" aria-hidden="true" />
             <span>Buka Kalender</span>
           </Link>
         </div>

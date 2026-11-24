@@ -82,7 +82,7 @@ export function CustomerBookingHistory({
               type="button"
               onClick={() => onSelectBooking?.(booking)}
               aria-label={`Buka detail booking ${booking.customerName} tanggal ${booking.date}`}
-              className="group block w-full cursor-pointer rounded-xl border border-[#151515]/10 bg-[#FAF8F3]/75 p-3.5 text-left transition-all hover:border-[#151515]/20 hover:bg-white hover:shadow-xs"
+              className="group block w-full cursor-pointer rounded-xl border border-[#151515]/10 bg-[#FAF8F3]/75 p-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-[#151515]/18 hover:bg-white hover:shadow-sm"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -141,7 +141,7 @@ export function CustomerBookingHistory({
           <button
             type="button"
             onClick={onLoadMore}
-            className="sa-control sa-btn-secondary inline-flex min-h-10 w-full cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold sm:w-auto"
+            className="sa-control sa-btn-secondary inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-full px-4 py-1.5 text-xs font-semibold sm:w-auto"
           >
             Load More ({bookings.length} / {totalLoaded})
           </button>

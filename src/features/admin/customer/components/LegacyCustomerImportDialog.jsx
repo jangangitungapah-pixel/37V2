@@ -134,10 +134,10 @@ export function LegacyCustomerImportDialog({
             data-admin-portal-layer="true"
             aria-label="Import existing booking history"
             data-customer-scoped="true"
-            className="sa-dialog flex h-[95dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:h-auto sm:max-h-[90dvh] sm:rounded-2xl"
+            className="sa-dialog flex h-[95dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[26px] rounded-b-none outline-none sm:h-auto sm:max-h-[90dvh] sm:rounded-[22px]"
           >
             {/* Header */}
-            <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
+            <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:gap-3 sm:px-6 sm:py-4">
               <div className="min-w-0">
                 <AdminStatusBadge tone="lime" icon={Database} size="sm" className="uppercase">
                   Lengkapi Data Pelanggan Lama
@@ -154,7 +154,7 @@ export function LegacyCustomerImportDialog({
               <Dialog.Close
                 aria-label="Tutup dialog import legacy"
                 disabled={isImporting}
-                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
+                className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-[#FAF8F3]/80 text-[#46433D] transition-colors hover:bg-[#151515]/[0.06] hover:text-[#151515] disabled:opacity-50"
               >
                 <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
               </Dialog.Close>
@@ -378,7 +378,7 @@ export function LegacyCustomerImportDialog({
                                   (!draft.correctedPhone && !draft.existingCustomerId)
                                 }
                                 onClick={() => handleResolveNeedsReview(booking.id)}
-                                className="sa-control sa-btn-lime inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold disabled:opacity-50 sm:w-auto"
+                                className="sa-control sa-btn-lime inline-flex h-9.5 w-full cursor-pointer items-center justify-center gap-1.5 rounded-full px-3.5 text-xs font-semibold disabled:opacity-50 sm:w-auto"
                               >
                                 {isLinkingThis ? (
                                   <Loader2
@@ -402,23 +402,23 @@ export function LegacyCustomerImportDialog({
           </div>
 
           {/* Footer */}
-          <div className="sa-safe-bottom grid shrink-0 grid-cols-2 gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:flex sm:items-center sm:justify-between sm:px-6 sm:py-3.5">
+          <div className="sa-safe-bottom flex shrink-0 flex-wrap items-center justify-between gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:flex-nowrap sm:px-6 sm:py-3.5">
             <button
               type="button"
               disabled={isScanning || isImporting}
               onClick={loadPreview}
-              className="sa-control sa-btn-secondary inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold disabled:opacity-50 sm:px-3.5"
+              className="sa-control sa-btn-secondary inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3.5 text-xs font-semibold disabled:opacity-50"
             >
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Scan Ulang</span>
             </button>
 
-            <div className="contents sm:flex sm:items-center sm:gap-2">
+            <div className="flex flex-1 items-center justify-end gap-2.5 sm:flex-initial">
               <button
                 type="button"
                 disabled={isImporting}
                 onClick={() => onOpenChange?.(false)}
-                className="sa-control sa-btn-secondary inline-flex min-h-10.5 cursor-pointer items-center justify-center px-3.5 py-2 text-xs font-semibold sm:px-4"
+                className="sa-control sa-btn-secondary inline-flex h-10 flex-1 cursor-pointer items-center justify-center px-4 text-xs font-semibold sm:flex-initial"
               >
                 Tutup
               </button>
@@ -428,7 +428,7 @@ export function LegacyCustomerImportDialog({
                   isScanning || isImporting || !preview || preview.importableBookingCount === 0
                 }
                 onClick={handleRunImport}
-                className="sa-control sa-btn-lime col-span-2 inline-flex min-h-10.5 cursor-pointer items-center justify-center gap-2 px-5 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1"
+                className="sa-control sa-btn-lime inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-2 px-4 text-xs font-semibold whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial sm:px-5"
               >
                 {isImporting ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

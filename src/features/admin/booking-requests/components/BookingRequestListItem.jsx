@@ -19,12 +19,12 @@ export function BookingRequestListItem({ request, isSelected = false, onSelect }
       type="button"
       onClick={() => onSelect(request.id)}
       data-testid={`booking-request-row-${request.id}`}
-      className={`w-full cursor-pointer rounded-2xl border p-3.5 text-left transition-all sm:p-4 ${
+      className={`w-full cursor-pointer rounded-2xl border p-3.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm sm:p-4 ${
         isSelected
           ? 'border-[#151515] bg-[#EDF8C2]/45 shadow-[0_8px_20px_-10px_rgba(21,21,21,0.22)]'
           : isNew
-            ? 'border-[#FF4B22]/30 bg-white shadow-2xs hover:border-[#151515]/30'
-            : 'border-[#151515]/10 bg-white/85 hover:border-[#151515]/25 hover:bg-white'
+            ? 'border-[#FF4B22]/30 bg-white shadow-[inset_3px_0_0_#FF4B22,0_1px_2px_rgba(21,21,21,0.035)] hover:border-[#151515]/30'
+            : 'border-[#151515]/10 bg-white/90 hover:border-[#151515]/25 hover:bg-white'
       }`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

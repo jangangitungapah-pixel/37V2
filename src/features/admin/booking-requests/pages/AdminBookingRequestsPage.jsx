@@ -99,11 +99,10 @@ export function AdminBookingRequestsPage() {
           isOwner ? (
             <AdminButton
               variant="secondary"
-              size="md"
-              className="w-full sm:w-auto"
+              size="sm"
               onClick={() => setTemplateManagerOpen(true)}
             >
-              <Settings2 className="h-4 w-4" aria-hidden="true" />
+              <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Kelola Template WhatsApp</span>
             </AdminButton>
           ) : null

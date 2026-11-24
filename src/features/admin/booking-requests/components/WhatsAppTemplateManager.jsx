@@ -134,7 +134,7 @@ export function WhatsAppTemplateManager({ open, onOpenChange, actorUid, actorRol
           <Dialog.Popup
             data-admin-portal-layer="true"
             aria-label="Kelola Template Pesan WhatsApp"
-            className="sa-dialog flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl rounded-b-none bg-[#FAF8F1] sm:rounded-2xl"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[26px] rounded-b-none bg-[#FAF8F1] sm:rounded-[22px]"
           >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#151515] px-4 py-3.5 text-[#F1EEE4] sm:px-5 sm:py-4">
               <div className="min-w-0">
@@ -150,7 +150,7 @@ export function WhatsAppTemplateManager({ open, onOpenChange, actorUid, actorRol
               </div>
               <Dialog.Close
                 aria-label="Tutup pengelola template"
-                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white hover:text-[#C8F13A]"
+                className="inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition-colors hover:border-[#C8F13A] hover:text-[#C8F13A]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>

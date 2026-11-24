@@ -367,9 +367,9 @@ export function AdminPaymentAndBillPage() {
         as="section"
         variant="hero"
         aria-labelledby="payment-page-heading"
-        className="p-3.5 sm:p-6"
+        className="p-4 sm:p-6"
       >
-        <div className="flex flex-col gap-2.5 sm:gap-3.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 sm:gap-3.5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <div className="hidden flex-wrap items-center gap-2 sm:flex">
               <AdminStatusBadge tone="ink" icon={ReceiptText} size="sm" className="uppercase">
@@ -382,11 +382,11 @@ export function AdminPaymentAndBillPage() {
 
             <h2
               id="payment-page-heading"
-              className="truncate text-lg font-bold tracking-[-0.025em] text-[#151515] sm:mt-2.5 sm:text-2xl lg:text-[28px]"
+              className="truncate text-xl leading-tight font-extrabold tracking-[-0.03em] text-[#151515] sm:mt-2.5 sm:text-2xl lg:text-[28px]"
             >
               Payment and Bill
             </h2>
-            <p className="mt-1 hidden text-xs leading-relaxed text-[#666159] sm:block sm:text-sm">
+            <p className="mt-1 hidden text-xs leading-relaxed text-[#666159] sm:block sm:text-[13.5px]">
               Kelola tagihan, pembayaran DP atau cicilan, dan sisa tagihan pelanggan.
             </p>
           </div>
@@ -401,10 +401,12 @@ export function AdminPaymentAndBillPage() {
         </div>
 
         {/* Overview Metrics */}
-        <PaymentOverviewMetrics
-          metrics={overviewMetrics}
-          hasActivePeriodFilter={hasActivePeriodFilter}
-        />
+        <div className="mt-3.5 border-t border-[#151515]/[0.06] pt-3.5 sm:mt-4 sm:pt-4">
+          <PaymentOverviewMetrics
+            metrics={overviewMetrics}
+            hasActivePeriodFilter={hasActivePeriodFilter}
+          />
+        </div>
       </AdminSurface>
 
       {/* Legacy Booking Invoice Reconciliation Banner */}
@@ -412,10 +414,10 @@ export function AdminPaymentAndBillPage() {
         <section
           role="region"
           aria-label="Buat invoice booking lama"
-          className="flex flex-col gap-3 rounded-2xl border border-[#8BAD12]/30 bg-[#EDF8C2]/55 p-3.5 shadow-[0_1px_2px_rgba(21,21,21,0.03)] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5"
+          className="flex flex-col gap-2.5 rounded-2xl border border-[#8BAD12]/28 bg-[#EDF8C2]/50 p-3.5 shadow-[0_1px_2px_rgba(21,21,21,0.03)] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3"
         >
           <div className="flex items-start gap-2.5">
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/80 text-[#243300]">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/85 text-[#243300] shadow-2xs">
               <Database className="h-4 w-4" aria-hidden="true" />
             </span>
             <div className="min-w-0">
@@ -434,7 +436,7 @@ export function AdminPaymentAndBillPage() {
           <button
             type="button"
             onClick={() => setLegacyImportOpen(true)}
-            className="sa-control sa-btn-primary inline-flex min-h-10.5 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold sm:w-auto"
+            className="sa-control sa-btn-primary inline-flex min-h-9.5 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold sm:w-auto"
           >
             <Database className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
             <span>Periksa Booking Lama</span>
@@ -502,7 +504,7 @@ export function AdminPaymentAndBillPage() {
                     <button
                       type="button"
                       onClick={handleClearInvoiceFilters}
-                      className="sa-control sa-btn-lime inline-flex min-h-10.5 cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold"
+                      className="sa-control sa-btn-lime inline-flex min-h-9.5 cursor-pointer items-center justify-center rounded-full px-4 py-1.5 text-xs font-semibold"
                     >
                       Clear Filters
                     </button>
@@ -510,7 +512,7 @@ export function AdminPaymentAndBillPage() {
                     <button
                       type="button"
                       onClick={() => setLegacyImportOpen(true)}
-                      className="sa-control sa-btn-lime inline-flex min-h-10.5 cursor-pointer items-center gap-1.5 px-4 py-2 text-xs font-semibold"
+                      className="sa-control sa-btn-lime inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold"
                     >
                       <Database className="h-3.5 w-3.5" aria-hidden="true" />
                       <span>Review Existing Bookings</span>

@@ -185,9 +185,9 @@ export function PaymentReceipt({ open, transaction, invoice, onOpenChange }) {
               data-admin-portal-layer="true"
               aria-label={`Receipt transaksi ${transaction.id}`}
               data-payment-scoped="true"
-              className="no-print sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+              className="no-print sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[26px] rounded-b-none outline-none sm:rounded-[22px]"
             >
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-5 sm:py-3.5">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-3.5">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#EDF8C2] text-[#243300]">
                     <ReceiptText className="h-4 w-4" aria-hidden="true" />
@@ -199,7 +199,7 @@ export function PaymentReceipt({ open, transaction, invoice, onOpenChange }) {
 
                 <Dialog.Close
                   aria-label="Tutup receipt pembayaran"
-                  className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
+                  className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-[#FAF8F3]/80 text-[#46433D] transition-colors hover:bg-[#151515]/[0.06] hover:text-[#151515]"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </Dialog.Close>
@@ -209,11 +209,11 @@ export function PaymentReceipt({ open, transaction, invoice, onOpenChange }) {
                 <PaymentReceiptSheet transaction={transaction} invoice={invoice} />
               </div>
 
-              <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-5 sm:py-3.5">
+              <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-3.5">
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="sa-control sa-btn-secondary inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold sm:flex-initial"
+                  className="sa-control sa-btn-secondary inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 text-xs font-semibold sm:flex-initial"
                 >
                   {copied ? (
                     <Check className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
@@ -226,7 +226,7 @@ export function PaymentReceipt({ open, transaction, invoice, onOpenChange }) {
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="sa-control sa-btn-lime inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold sm:flex-initial"
+                  className="sa-control sa-btn-lime inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 text-xs font-semibold sm:flex-initial"
                 >
                   <Printer className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Cetak Bukti</span>

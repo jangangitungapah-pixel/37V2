@@ -202,7 +202,7 @@ export function PaymentEvidenceReviewDrawer({
           className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-xl flex-col outline-none"
         >
           {/* Sticky Header */}
-          <div className="shrink-0 border-b border-[#151515]/[0.08] bg-white px-4 py-3 sm:px-5 sm:py-4">
+          <div className="shrink-0 border-b border-[#151515]/[0.07] bg-[#FAF8F3]/92 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -235,7 +235,7 @@ export function PaymentEvidenceReviewDrawer({
               <Dialog.Close
                 disabled={isSubmitting}
                 aria-label="Tutup panel tinjau bukti pembayaran"
-                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
+                className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-white/90 text-[#46433D] transition-colors hover:bg-white hover:text-[#151515] disabled:opacity-50"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
@@ -249,7 +249,7 @@ export function PaymentEvidenceReviewDrawer({
                     onOpenChange?.(false);
                     onOpenInvoice(evidence.invoiceId);
                   }}
-                  className="sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                  className="sa-control sa-btn-secondary inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold"
                 >
                   <ReceiptText className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                   <span>Buka Detail Invoice</span>
@@ -489,12 +489,20 @@ export function PaymentEvidenceReviewDrawer({
                           , dan memperbarui sisa tagihan {evidence.invoiceNumber} menjadi{' '}
                           <strong className="font-mono">{formatRupiah(resultingBalance)}</strong>.
                         </p>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center justify-end gap-2.5">
+                          <button
+                            type="button"
+                            disabled={isSubmitting}
+                            onClick={() => setConfirmMode('none')}
+                            className="sa-control sa-btn-secondary inline-flex h-10 flex-1 cursor-pointer items-center justify-center px-4 text-xs font-semibold sm:flex-initial"
+                          >
+                            Batal
+                          </button>
                           <button
                             type="button"
                             disabled={isSubmitting}
                             onClick={handleConfirmVerify}
-                            className="sa-control sa-btn-lime inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold disabled:opacity-60 sm:w-auto"
+                            className="sa-control sa-btn-lime inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 text-xs font-semibold disabled:opacity-60 sm:flex-initial"
                           >
                             {isSubmitting ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -506,14 +514,6 @@ export function PaymentEvidenceReviewDrawer({
                                 ? 'Memproses...'
                                 : 'Ya, Verifikasi & Catat Pembayaran'}
                             </span>
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isSubmitting}
-                            onClick={() => setConfirmMode('none')}
-                            className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-3.5 py-2 text-xs font-semibold sm:w-auto"
-                          >
-                            Batal
                           </button>
                         </div>
                       </div>
@@ -556,12 +556,23 @@ export function PaymentEvidenceReviewDrawer({
                           </p>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center justify-end gap-2.5">
+                          <button
+                            type="button"
+                            disabled={isSubmitting}
+                            onClick={() => {
+                              setConfirmMode('none');
+                              setActionError('');
+                            }}
+                            className="sa-control sa-btn-secondary inline-flex h-10 flex-1 cursor-pointer items-center justify-center px-4 text-xs font-semibold sm:flex-initial"
+                          >
+                            Batal
+                          </button>
                           <button
                             type="button"
                             disabled={isSubmitting}
                             onClick={handleConfirmReject}
-                            className="sa-control inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[#FF4B22] bg-[#FF4B22] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#d93915] disabled:opacity-60 sm:w-auto"
+                            className="sa-control inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[11px] border border-[#FF4B22] bg-[#FF4B22] px-4 text-xs font-semibold text-white hover:bg-[#d93915] disabled:opacity-60 sm:flex-initial"
                           >
                             {isSubmitting ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -570,33 +581,10 @@ export function PaymentEvidenceReviewDrawer({
                             )}
                             <span>{isSubmitting ? 'Menolak...' : 'Konfirmasi Penolakan'}</span>
                           </button>
-                          <button
-                            type="button"
-                            disabled={isSubmitting}
-                            onClick={() => {
-                              setConfirmMode('none');
-                              setActionError('');
-                            }}
-                            className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-3.5 py-2 text-xs font-semibold sm:w-auto"
-                          >
-                            Batal
-                          </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        {canVerifyInvoice ? (
-                          <button
-                            type="button"
-                            disabled={isSubmitting}
-                            onClick={handleRequestVerifyConfirm}
-                            className="sa-control sa-btn-lime inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold sm:w-auto sm:flex-1"
-                          >
-                            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                            <span>Verifikasi &amp; Catat Pembayaran</span>
-                          </button>
-                        ) : null}
-
+                      <div className="flex items-center gap-2.5 pt-1">
                         <button
                           type="button"
                           disabled={isSubmitting}
@@ -604,11 +592,23 @@ export function PaymentEvidenceReviewDrawer({
                             setActionError('');
                             setConfirmMode('reject');
                           }}
-                          className="sa-control inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border border-[#FF4B22]/30 bg-[#FFEDE8]/85 px-4 py-2 text-xs font-semibold text-[#B92B0C] hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white sm:w-auto"
+                          className="sa-control inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[11px] border border-[#FF4B22]/30 bg-[#FFEDE8]/85 px-4 text-xs font-semibold text-[#B92B0C] hover:border-[#FF4B22] hover:bg-[#FF4B22] hover:text-white sm:flex-initial"
                         >
                           <XCircle className="h-4 w-4" aria-hidden="true" />
                           <span>Tolak Bukti</span>
                         </button>
+
+                        {canVerifyInvoice ? (
+                          <button
+                            type="button"
+                            disabled={isSubmitting}
+                            onClick={handleRequestVerifyConfirm}
+                            className="sa-control sa-btn-lime inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 text-xs font-semibold sm:flex-1"
+                          >
+                            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                            <span>Verifikasi &amp; Catat Pembayaran</span>
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </AdminSurface>

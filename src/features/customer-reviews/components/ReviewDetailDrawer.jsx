@@ -35,26 +35,26 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
           className="sa-drawer fixed inset-y-0 right-0 z-50 flex h-dvh w-full max-w-lg flex-col"
         >
           {/* Sticky Header */}
-          <div className="shrink-0 border-b border-white/10 bg-[#151515] px-4 py-3.5 text-[#F1EEE4] sm:px-6 sm:py-4">
+          <div className="sticky top-0 z-10 shrink-0 border-b border-[#151515]/[0.07] bg-[#FAF8F3]/92 px-4 py-3.5 backdrop-blur-md sm:px-6 sm:py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <ReviewStatusBadge status={review.status} kind="review" />
-                  <span className="rounded-full border border-white/15 bg-white/8 px-2.5 py-0.5 font-mono text-[10px] font-bold text-[#C8F13A]">
+                  <span className="rounded-full border border-[#151515]/10 bg-[#151515] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[#C8F13A]">
                     BOOKING-LINKED REVIEW
                   </span>
                 </div>
-                <Dialog.Title className="mt-2 truncate text-lg font-bold text-white sm:text-xl">
+                <Dialog.Title className="mt-2 truncate text-lg font-bold tracking-tight text-[#151515] sm:text-xl">
                   {review.displayName}
                 </Dialog.Title>
-                <Dialog.Description className="mt-0.5 truncate font-mono text-[11px] text-neutral-400">
+                <Dialog.Description className="mt-0.5 truncate font-mono text-[11px] text-[#666159]">
                   Booking ID: {review.bookingId} • Revisi v{review.version}
                 </Dialog.Description>
               </div>
 
               <Dialog.Close
                 aria-label="Tutup detail ulasan"
-                className="hover:border-studio-lime hover:text-studio-lime inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/12 bg-white/6 text-white transition-colors"
+                className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
@@ -152,7 +152,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
                     variant="primary"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.PUBLISHED)}
-                    className="min-h-10.5 w-full sm:w-auto"
+                    className="min-h-9.5 flex-1 sm:flex-initial"
                   >
                     Publish to Website
                   </AdminButton>
@@ -163,7 +163,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
                     variant="secondary"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.ARCHIVED)}
-                    className="min-h-10.5 w-full sm:w-auto"
+                    className="min-h-9.5 flex-1 sm:flex-initial"
                   >
                     Archive Review
                   </AdminButton>
@@ -174,7 +174,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
                     variant="secondary"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.PENDING)}
-                    className="min-h-10.5 w-full sm:w-auto"
+                    className="min-h-9.5 flex-1 sm:flex-initial"
                   >
                     Restore to Pending
                   </AdminButton>
@@ -185,7 +185,7 @@ export function ReviewDetailDrawer({ open, onOpenChange, review, onRequestModera
                     variant="danger"
                     size="sm"
                     onClick={() => onRequestModeration?.(review, CUSTOMER_REVIEW_STATUS.REJECTED)}
-                    className="min-h-10.5 w-full sm:w-auto"
+                    className="min-h-9.5 flex-1 sm:flex-initial"
                   >
                     Reject Review
                   </AdminButton>

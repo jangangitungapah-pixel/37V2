@@ -68,10 +68,10 @@ export function ReviewInvitationShareDialog({ open, onOpenChange, invitationResu
             data-admin-portal-layer="true"
             data-testid="review-invitation-share-dialog"
             aria-label="Bagikan Tautan Undangan Ulasan"
-            className="sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl rounded-b-none border border-[#151515]/15 bg-white p-0 text-[#151515] shadow-2xl outline-none sm:rounded-2xl"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[26px] rounded-b-none border border-[#151515]/12 bg-white p-0 text-[#151515] shadow-2xl outline-none sm:rounded-[22px]"
           >
             {/* Sticky Header */}
-            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/10 bg-white px-4 py-3.5 sm:px-6 sm:py-4">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.07] bg-white/95 px-4 py-3.5 backdrop-blur-md sm:px-6 sm:py-4">
               <div className="min-w-0">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[#8BAD12]/40 bg-[#EDF8C2] px-2.5 py-0.5 font-mono text-[10px] font-bold text-[#243300] uppercase">
                   <Link2 className="h-3 w-3" aria-hidden="true" />
@@ -87,7 +87,7 @@ export function ReviewInvitationShareDialog({ open, onOpenChange, invitationResu
 
               <Dialog.Close
                 aria-label="Tutup dialog bagikan undangan"
-                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#151515]/12 bg-white text-[#46433D] hover:text-[#151515]"
+                className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
@@ -168,8 +168,12 @@ export function ReviewInvitationShareDialog({ open, onOpenChange, invitationResu
             </div>
 
             {/* Sticky Footer */}
-            <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/10 bg-white p-3.5 sm:flex-row sm:items-center sm:justify-end sm:gap-2.5 sm:px-6">
-              <Dialog.Close className="sa-control sa-btn-secondary inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold sm:w-auto">
+            <div className="sa-safe-bottom flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-3.5">
+              <Dialog.Close
+                className={`sa-control sa-btn-secondary inline-flex min-h-9.5 cursor-pointer items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold ${
+                  whatsappLink.isValid ? 'flex-1 sm:flex-initial' : 'w-auto'
+                }`}
+              >
                 Tutup
               </Dialog.Close>
 
@@ -179,7 +183,7 @@ export function ReviewInvitationShareDialog({ open, onOpenChange, invitationResu
                   target="_blank"
                   rel="noopener noreferrer"
                   data-testid="review-invitation-open-whatsapp"
-                  className="sa-control sa-btn-lime inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-[#151515] sm:w-auto"
+                  className="sa-control sa-btn-lime inline-flex min-h-9.5 flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-[#151515] sm:flex-initial"
                 >
                   <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>Open WhatsApp</span>

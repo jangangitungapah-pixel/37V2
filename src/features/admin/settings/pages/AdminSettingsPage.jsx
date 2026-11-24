@@ -224,7 +224,7 @@ export function AdminSettingsPage() {
             as="article"
             variant="card"
             data-testid="settings-danger-area-card"
-            className="flex flex-col justify-between gap-4 border-red-200 bg-white p-4 sm:flex-row sm:items-center sm:p-6"
+            className="flex flex-col justify-between gap-4 border-red-200/80 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center sm:p-6"
           >
             <div className="flex items-start gap-3.5">
               <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700">

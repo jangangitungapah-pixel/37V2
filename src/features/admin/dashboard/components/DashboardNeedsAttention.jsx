@@ -111,11 +111,11 @@ export function DashboardNeedsAttention({
               <li
                 key={item.id}
                 data-testid={`attention-item-${item.type}`}
-                className="rounded-xl border border-[#151515]/[0.08] bg-[#F8F6EF]/65 p-3.5 transition-colors hover:bg-white"
+                className="rounded-xl border border-[#151515]/[0.075] bg-[#FAF8F2]/80 p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/16 hover:bg-white hover:shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2.5">
                   <div className="flex min-w-0 items-start gap-2.5">
-                    <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#151515] shadow-2xs">
+                    <span className="mt-0.5 inline-flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-xl border border-[#151515]/[0.06] bg-white text-[#151515] shadow-2xs">
                       <Icon className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <div className="min-w-0">
@@ -137,7 +137,7 @@ export function DashboardNeedsAttention({
                 <div className="mt-3 flex items-center justify-end border-t border-[#151515]/[0.06] pt-2.5">
                   <Link
                     to={item.href}
-                    className="inline-flex min-h-10 w-full items-center justify-center gap-1 rounded-lg bg-[#151515] px-3 py-1.5 text-xs font-semibold text-[#F8F6EF] transition-colors hover:bg-[#2B2A27] sm:w-auto"
+                    className="sa-btn-primary inline-flex min-h-8.5 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-[#F8F6EF]"
                   >
                     <span>{item.actionLabel}</span>
                     <ArrowUpRight className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />

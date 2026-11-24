@@ -62,10 +62,10 @@ export function ReviewModerationDialog({
           <Dialog.Popup
             data-admin-portal-layer="true"
             data-testid="review-moderation-dialog"
-            className="sa-dialog flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl rounded-b-none border border-[#151515]/15 bg-white p-0 text-[#151515] shadow-2xl outline-none sm:rounded-2xl"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[26px] rounded-b-none border border-[#151515]/12 bg-white p-0 text-[#151515] shadow-2xl outline-none sm:rounded-[22px]"
           >
             {/* Sticky Header */}
-            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/10 bg-white px-4 py-3.5 sm:px-6 sm:py-4">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.07] bg-white/95 px-4 py-3.5 backdrop-blur-md sm:px-6 sm:py-4">
               <div className="min-w-0">
                 <Dialog.Title className="text-base font-bold tracking-tight">
                   {meta.title}
@@ -77,7 +77,7 @@ export function ReviewModerationDialog({
               <Dialog.Close
                 aria-label="Tutup dialog moderasi"
                 disabled={isSubmitting}
-                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#151515]/10 bg-white text-[#46433D] disabled:opacity-50"
+                className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#151515]/10 bg-[#FAF8F3] text-[#46433D] hover:bg-white hover:text-[#151515] disabled:opacity-50"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
@@ -116,12 +116,12 @@ export function ReviewModerationDialog({
             </div>
 
             {/* Sticky Footer */}
-            <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/10 bg-white p-3.5 sm:flex-row sm:items-center sm:justify-end sm:gap-2.5 sm:px-6">
+            <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-3.5">
               <AdminButton
                 variant="secondary"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
-                className="min-h-11 w-full sm:w-auto"
+                className="h-10 flex-1 sm:flex-initial"
               >
                 Batal
               </AdminButton>
@@ -132,7 +132,7 @@ export function ReviewModerationDialog({
                   (targetStatus === CUSTOMER_REVIEW_STATUS.PUBLISHED && !review.consentToPublish)
                 }
                 onClick={onConfirm}
-                className="min-h-11 w-full sm:w-auto"
+                className="h-10 flex-1 sm:flex-initial"
               >
                 {isSubmitting ? (
                   <>

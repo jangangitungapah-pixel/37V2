@@ -69,10 +69,10 @@ export function CustomerMergeDialog({
             data-admin-portal-layer="true"
             aria-label="Merge customer history"
             data-customer-scoped="true"
-            className="sa-dialog flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+            className="sa-dialog flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[26px] rounded-b-none outline-none sm:rounded-[22px]"
           >
             {/* Header */}
-            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-6 sm:py-4">
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-4">
               <div className="min-w-0">
                 <AdminStatusBadge tone="orange" icon={GitMerge} size="sm" className="uppercase">
                   Gabungkan Data Pelanggan
@@ -89,7 +89,7 @@ export function CustomerMergeDialog({
               <Dialog.Close
                 aria-label="Tutup dialog merge customer"
                 disabled={isMerging}
-                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
+                className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-[#FAF8F3]/80 text-[#46433D] transition-colors hover:bg-[#151515]/[0.06] hover:text-[#151515] disabled:opacity-50"
               >
                 <X className="h-4.5 w-4.5" aria-hidden="true" />
               </Dialog.Close>
@@ -177,7 +177,7 @@ export function CustomerMergeDialog({
                 type="button"
                 onClick={handleSwap}
                 disabled={!targetProfile || !sourceProfile}
-                className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center gap-1.5 px-3.5 py-2 text-xs font-semibold"
+                className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold"
               >
                 <ArrowDownUp className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                 <span>Tukar Posisi Profil</span>
@@ -210,12 +210,12 @@ export function CustomerMergeDialog({
             ) : null}
           </div>
 
-          <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:px-6 sm:py-3.5">
+          <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-3.5">
             <button
               type="button"
               disabled={isMerging}
               onClick={() => onOpenChange?.(false)}
-              className="sa-control sa-btn-secondary min-h-11 flex-1 cursor-pointer px-4 py-2 text-xs font-semibold sm:flex-initial"
+              className="sa-control sa-btn-secondary inline-flex h-10 flex-1 cursor-pointer items-center justify-center px-4 text-xs font-semibold sm:flex-initial"
             >
               Batal
             </button>
@@ -224,7 +224,7 @@ export function CustomerMergeDialog({
               disabled={isMerging || !targetProfile || !sourceProfile}
               onClick={handleConfirm}
               aria-label="Confirm Merge"
-              className="sa-control sa-btn-orange inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 px-5 py-2 text-xs font-semibold disabled:opacity-60 sm:flex-initial"
+              className="sa-control sa-btn-orange inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-2 px-5 text-xs font-semibold disabled:opacity-60 sm:flex-initial"
             >
               {isMerging ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

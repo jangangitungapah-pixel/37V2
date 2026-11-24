@@ -1,4 +1,5 @@
 import { ArrowLeftRight, FileText, ShieldCheck } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 
 export function PaymentWorkspaceTabs({
   activeTab,
@@ -7,6 +8,8 @@ export function PaymentWorkspaceTabs({
   transactionsCount = 0,
   pendingEvidenceCount = 0,
 }) {
+  const prefersReducedMotion = useReducedMotion();
+
   const tabs = [
     {
       id: 'invoices',
@@ -45,19 +48,34 @@ export function PaymentWorkspaceTabs({
             role="tab"
             aria-selected={isActive}
             onClick={() => onTabChange(tab.id)}
-            className={
+            className={`relative inline-flex min-h-9.5 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-[10px] px-3 py-1.5 text-xs whitespace-nowrap transition-colors sm:px-4 ${
               isActive
-                ? 'inline-flex min-h-10.5 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:px-4'
-                : 'inline-flex min-h-10.5 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-[10px] px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:px-4'
-            }
+                ? 'font-semibold text-[#151515]'
+                : 'font-medium text-[#666159] hover:text-[#151515]'
+            }`}
           >
+            {isActive ? (
+              <motion.span
+                layoutId={prefersReducedMotion ? undefined : 'payment-workspace-tab-pill'}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { type: 'spring', stiffness: 460, damping: 34 }
+                }
+                className="absolute inset-0 rounded-[10px] bg-white shadow-[0_2px_8px_-2px_rgba(21,21,21,0.12),0_0_0_1px_rgba(21,21,21,0.05)]"
+                aria-hidden="true"
+              />
+            ) : null}
+
             <Icon
-              className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-[#151515]' : 'text-[#8B857B]'}`}
+              className={`relative z-10 h-3.5 w-3.5 shrink-0 ${
+                isActive ? 'text-[#151515]' : 'text-[#8B857B]'
+              }`}
               aria-hidden="true"
             />
-            <span>{tab.label}</span>
+            <span className="relative z-10">{tab.label}</span>
             <span
-              className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
+              className={`relative z-10 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums ${
                 isActive
                   ? 'bg-[#C8F13A] text-[#151515]'
                   : tab.highlightPending

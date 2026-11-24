@@ -50,10 +50,10 @@ export function CustomerIdentityConflictDialog({
             data-admin-portal-layer="true"
             aria-label="Konfirmasi identitas customer"
             data-customer-scoped="true"
-            className="sa-dialog flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl rounded-b-none outline-none sm:rounded-2xl"
+            className="sa-dialog flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[26px] rounded-b-none outline-none sm:rounded-[22px]"
           >
             {/* Header */}
-            <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:gap-3 sm:px-6 sm:py-4">
+            <div className="flex shrink-0 items-start justify-between gap-2.5 border-b border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:gap-3 sm:px-6 sm:py-4">
               <div className="min-w-0">
                 <AdminStatusBadge tone="orange" icon={AlertTriangle} size="sm" className="uppercase">
                   {isMultiple ? 'Nomor Bersama • Pilih Pelanggan' : 'Konfirmasi Data Pelanggan'}
@@ -71,7 +71,7 @@ export function CustomerIdentityConflictDialog({
               <Dialog.Close
                 aria-label="Tutup dialog konflik customer"
                 onClick={handleClose}
-                className="sa-control inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border-[#151515]/10 bg-white text-[#46433D] hover:text-[#151515]"
+                className="sa-control inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border-[#151515]/10 bg-[#FAF8F3]/80 text-[#46433D] transition-colors hover:bg-[#151515]/[0.06] hover:text-[#151515]"
               >
                 <X className="h-4 w-4 sm:h-4.5 sm:w-4.5" aria-hidden="true" />
               </Dialog.Close>
@@ -207,7 +207,7 @@ export function CustomerIdentityConflictDialog({
                         <button
                           type="button"
                           onClick={() => onSelectMerge?.(profile)}
-                          className="sa-control sa-btn-lime inline-flex min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold"
+                          className="sa-control sa-btn-lime inline-flex min-h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold"
                         >
                           <GitMerge className="h-3.5 w-3.5" aria-hidden="true" />
                           <span>Pilih Profil Ini</span>
@@ -220,7 +220,7 @@ export function CustomerIdentityConflictDialog({
                 <button
                   type="button"
                   onClick={() => onSelectSeparate?.()}
-                  className="sa-control sa-btn-secondary flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 px-4 py-2 text-xs font-semibold"
+                  className="sa-control sa-btn-secondary flex h-10 w-full cursor-pointer items-center justify-center gap-2 px-4 text-xs font-semibold"
                 >
                   <UserPlus className="h-4 w-4 text-[#46433D]" aria-hidden="true" />
                   <span>Buat Profil Terpisah dengan Nomor Sama</span>
@@ -230,11 +230,11 @@ export function CustomerIdentityConflictDialog({
           </div>
 
           {/* Footer */}
-          <div className="sa-safe-bottom flex shrink-0 flex-col-reverse gap-2 border-t border-[#151515]/[0.08] bg-[#FAF8F3] px-4 py-3 sm:flex-row sm:items-center sm:justify-end sm:px-6 sm:py-3.5">
+          <div className="sa-safe-bottom flex shrink-0 items-center justify-end gap-2.5 border-t border-[#151515]/[0.07] bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-3.5">
             <button
               type="button"
               onClick={handleClose}
-              className="sa-control sa-btn-secondary inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold sm:w-auto"
+              className="sa-control sa-btn-secondary inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 px-4 text-xs font-semibold sm:flex-initial"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Periksa Kembali</span>

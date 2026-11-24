@@ -41,7 +41,7 @@ export function AdminSidebarNavItem({
                 transition={
                   prefersReducedMotion
                     ? { duration: 0 }
-                    : { type: 'spring', stiffness: 420, damping: 34 }
+                    : { type: 'spring', stiffness: 460, damping: 36 }
                 }
                 className="absolute inset-0 rounded-xl bg-[#C8F13A] shadow-[0_6px_18px_-6px_rgba(200,241,58,0.45)]"
                 aria-hidden="true"

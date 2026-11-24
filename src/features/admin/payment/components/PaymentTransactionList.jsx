@@ -78,8 +78,8 @@ export function PaymentTransactionList({
                     aria-pressed={isSelected}
                     className={
                       isSelected
-                        ? 'inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-[10px] bg-white px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:w-auto sm:px-3.5'
-                        : 'inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-[10px] px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:w-auto sm:px-3.5'
+                        ? 'inline-flex min-h-9 w-full cursor-pointer items-center justify-center rounded-[10px] bg-white px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-[#151515] shadow-[0_1px_3px_rgba(21,21,21,0.08)] sm:w-auto sm:px-3.5'
+                        : 'inline-flex min-h-9 w-full cursor-pointer items-center justify-center rounded-[10px] px-2.5 py-1 text-xs font-medium whitespace-nowrap text-[#666159] transition-colors hover:text-[#151515] sm:w-auto sm:px-3.5'
                     }
                   >
                     {opt.label}
@@ -240,7 +240,7 @@ export function PaymentTransactionList({
           </div>
 
           <table className="block w-full border-collapse text-left md:table">
-            <thead className="hidden border-b border-[#151515]/[0.08] bg-[#FAF8F3] text-[11px] font-semibold tracking-wide text-[#666159] md:table-header-group">
+            <thead className="hidden border-b border-[#151515]/[0.08] bg-[#FAF8F3]/90 text-[11px] font-semibold tracking-wide text-[#666159] md:table-header-group">
               <tr>
                 <th scope="col" className="px-3.5 py-2.5 whitespace-nowrap">
                   Waktu &amp; No. Transaksi
@@ -273,7 +273,7 @@ export function PaymentTransactionList({
 
                 const rowBgClass = isReversal
                   ? 'border-l-[3px] border-l-[#FF4B22] bg-[#FFEDE8]/35 hover:bg-[#FFEDE8]/55'
-                  : 'bg-white hover:bg-[#FAF8F3]/80';
+                  : 'bg-white hover:bg-[#FAF8F3]/75';
 
                 return (
                   <tr
@@ -360,7 +360,7 @@ export function PaymentTransactionList({
                         type="button"
                         onClick={() => onOpenReceipt?.(tx, linkedInvoice)}
                         aria-label={`Buka receipt transaksi ${tx.id}`}
-                        className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold hover:bg-[#C8F13A]"
+                        className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-full px-3 py-1 text-xs font-semibold hover:bg-[#C8F13A]"
                       >
                         <ReceiptText className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                         <span>Kwitansi</span>
@@ -379,7 +379,7 @@ export function PaymentTransactionList({
           <button
             type="button"
             onClick={onLoadMore}
-            className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold sm:w-auto"
+            className="sa-control sa-btn-secondary inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-full px-4 py-1.5 text-xs font-semibold sm:w-auto"
           >
             Muat Lebih Banyak Transaksi
           </button>

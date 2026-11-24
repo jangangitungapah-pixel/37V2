@@ -93,7 +93,7 @@ export function LandingPageMediaManager({
               as="article"
               variant="card"
               aria-label={`Placement: ${def.label}`}
-              className="flex flex-col justify-between p-4 sm:p-5"
+              className="group flex flex-col justify-between p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5"
             >
               <div className="space-y-3">
                 {/* Header */}
@@ -123,6 +123,7 @@ export function LandingPageMediaManager({
                     height={record?.height || 640}
                     fallbackLabel="Belum ada foto dipilih"
                     className={`${def.aspectClass} w-full`}
+                    imgClassName="transition-transform duration-300 group-hover:scale-[1.03]"
                   />
                 </div>
 

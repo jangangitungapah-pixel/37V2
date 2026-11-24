@@ -72,8 +72,8 @@ export function AdminMetricCard({
   return (
     <Component
       className={cn(
-        'rounded-2xl border shadow-[0_1px_2px_rgba(21,21,21,0.035),0_8px_22px_-8px_rgba(21,21,21,0.06)] transition-shadow duration-200 hover:shadow-[0_2px_6px_rgba(21,21,21,0.05),0_12px_28px_-8px_rgba(21,21,21,0.09)]',
-        compactMobile ? 'p-2.5 sm:p-4' : 'p-3.5 sm:p-4',
+        'rounded-2xl border shadow-[0_1px_2px_rgba(21,21,21,0.03),0_8px_22px_-8px_rgba(21,21,21,0.055)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(21,21,21,0.05),0_14px_30px_-8px_rgba(21,21,21,0.095)]',
+        compactMobile ? 'p-3 sm:p-4' : 'p-3.5 sm:p-4',
         styles.container,
         className,
       )}

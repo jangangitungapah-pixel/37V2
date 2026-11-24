@@ -74,7 +74,7 @@ export function InvoiceDirectoryTable({
 
         <div className="overflow-x-auto">
           <table className="block w-full border-collapse text-left md:table">
-            <thead className="hidden border-b border-[#151515]/[0.08] bg-[#FAF8F3] text-[11px] font-semibold tracking-wide text-[#666159] md:table-header-group">
+            <thead className="hidden border-b border-[#151515]/[0.08] bg-[#FAF8F3]/90 text-[11px] font-semibold tracking-wide text-[#666159] md:table-header-group">
               <tr>
                 <th scope="col" className="px-3.5 py-2.5 whitespace-nowrap">
                   Invoice &amp; Jadwal
@@ -132,8 +132,8 @@ export function InvoiceDirectoryTable({
                   .join(' • ');
 
                 const rowBgClass = isVoid
-                  ? 'bg-[#FAF8F3]/70 opacity-75'
-                  : 'bg-white hover:bg-[#FAF8F3]/80';
+                  ? 'bg-[#FAF8F3]/65 opacity-75'
+                  : 'bg-white hover:bg-[#FAF8F3]/75';
 
                 return (
                   <tr
@@ -279,7 +279,7 @@ export function InvoiceDirectoryTable({
                             type="button"
                             onClick={() => onQuickRecordPayment?.(invoice)}
                             aria-label={`Catat pembayaran ${invoice.invoiceNumber}`}
-                            className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold"
+                            className="sa-control sa-btn-lime inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-full px-3 py-1 text-xs font-semibold"
                           >
                             <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>Bayar</span>
@@ -289,7 +289,7 @@ export function InvoiceDirectoryTable({
                             type="button"
                             onClick={() => onReviewInvoiceEvidence?.(pendingEvidence, invoice)}
                             aria-label={`Tinjau bukti pembayaran ${invoice.invoiceNumber}`}
-                            className="sa-control sa-btn-lime inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold"
+                            className="sa-control sa-btn-lime inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-full px-3 py-1 text-xs font-semibold"
                           >
                             <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>Tinjau Bukti</span>
@@ -300,7 +300,7 @@ export function InvoiceDirectoryTable({
                           type="button"
                           onClick={() => onSelectInvoice?.(invoice)}
                           aria-label={`Buka detail invoice ${invoice.invoiceNumber}`}
-                          className="sa-control sa-btn-secondary inline-flex min-h-10 cursor-pointer items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold hover:bg-[#C8F13A]"
+                          className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-full px-3 py-1 text-xs font-semibold hover:bg-[#C8F13A]"
                         >
                           <span>Detail</span>
                           <ChevronRight className="h-3.5 w-3.5 text-[#666159]" aria-hidden="true" />
@@ -320,7 +320,7 @@ export function InvoiceDirectoryTable({
           <button
             type="button"
             onClick={onLoadMore}
-            className="sa-control sa-btn-secondary inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center px-4 py-2 text-xs font-semibold sm:w-auto"
+            className="sa-control sa-btn-secondary inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-full px-4 py-1.5 text-xs font-semibold sm:w-auto"
           >
             Muat Lebih Banyak Invoice
           </button>

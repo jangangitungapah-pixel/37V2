@@ -46,21 +46,25 @@ export function ReviewOverviewCards({ overview }) {
       {cards.map((card) => {
         const Icon = card.icon || XCircle;
         return (
-          <AdminSurface key={card.id} variant="card" className="p-3 sm:p-5">
+          <AdminSurface
+            key={card.id}
+            variant="card"
+            className="p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md sm:p-5"
+          >
             <div className="flex items-start justify-between gap-2">
               <p className="font-mono text-[10px] leading-tight font-bold tracking-wider text-[#756F65] uppercase sm:text-[10.5px]">
                 {card.label}
               </p>
               <span
-                className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border sm:h-8 sm:w-8 ${card.toneClass}`}
+                className={`inline-flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-xl border sm:h-8.5 sm:w-8.5 ${card.toneClass}`}
               >
                 <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
               </span>
             </div>
-            <p className="mt-2 text-xl font-extrabold tracking-tight text-[#151515] sm:mt-2.5 sm:text-3xl">
+            <p className="mt-2 text-xl font-extrabold tracking-tight text-[#151515] tabular-nums sm:mt-2.5 sm:text-3xl">
               {card.value}
             </p>
-            <p className="mt-1 text-[11px] text-[#666159] sm:text-xs">{card.sub}</p>
+            <p className="mt-1 text-[11px] leading-snug text-[#666159] sm:text-xs">{card.sub}</p>
           </AdminSurface>
         );
       })}

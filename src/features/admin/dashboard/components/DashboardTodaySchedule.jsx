@@ -8,6 +8,7 @@ import {
   Music2,
   RefreshCw,
 } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Link } from 'react-router';
 
 import {
@@ -37,6 +38,7 @@ export function DashboardTodaySchedule({
   maxLimit = 300,
   onRetry,
 }) {
+  const prefersReducedMotion = useReducedMotion();
   const [mobileRoomTab, setMobileRoomTab] = useState('all');
   const rooms = todaySchedule?.rooms || [];
   const totalActiveSessions = todaySchedule?.totalActiveSessions ?? 0;
@@ -141,13 +143,25 @@ export function DashboardTodaySchedule({
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => setMobileRoomTab(tab.id)}
-                  className={`min-h-9.5 cursor-pointer rounded-[10px] px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                  className={`relative min-h-9 cursor-pointer rounded-[10px] px-2.5 py-1.5 text-xs transition-colors ${
                     isSelected
-                      ? 'bg-[#151515] text-[#F8F6EF] shadow-2xs'
-                      : 'text-[#46433D] hover:text-[#151515]'
+                      ? 'font-semibold text-[#F8F6EF]'
+                      : 'font-medium text-[#46433D] hover:text-[#151515]'
                   }`}
                 >
-                  {tab.label}
+                  {isSelected ? (
+                    <motion.span
+                      layoutId={prefersReducedMotion ? undefined : 'dash-sched-room-pill'}
+                      transition={
+                        prefersReducedMotion
+                          ? { duration: 0 }
+                          : { type: 'spring', stiffness: 460, damping: 34 }
+                      }
+                      className="absolute inset-0 rounded-[10px] bg-[#151515] shadow-xs"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <span className="relative z-10">{tab.label}</span>
                 </button>
               );
             })}
@@ -205,7 +219,7 @@ export function DashboardTodaySchedule({
                     {room.sessions.map((session) => (
                       <li
                         key={session.id}
-                        className="group rounded-xl border border-[#151515]/[0.08] bg-white p-3 shadow-2xs transition-all hover:border-[#151515]/20 hover:shadow-xs"
+                        className="group rounded-xl border border-[#151515]/[0.075] bg-white p-3.5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#151515]/18 hover:shadow-sm"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#151515] px-2.5 py-1 font-mono text-xs font-bold text-[#F8F6EF] tabular-nums">
