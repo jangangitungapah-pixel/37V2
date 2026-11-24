@@ -373,13 +373,13 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
     renderClientAppAt('/portal');
     expect(await screen.findByTestId('client-portal-home')).toBeTruthy();
 
-    // Check Account Snapshot shows live 0 counts for empty requests/sessions and honest '—' for billing
+    // Check Account Snapshot shows live 0 counts for empty requests/sessions and Rp 0 for empty billing
     expect(screen.getByText('Upcoming Sessions')).toBeTruthy();
-    expect(screen.getByText('Active Booking Requests')).toBeTruthy();
+    expect(screen.getByText('Requests Awaiting Confirmation')).toBeTruthy();
     expect(screen.getByText('Outstanding Balance')).toBeTruthy();
     await waitFor(() => {
       expect(screen.getAllByText('0').length).toBeGreaterThanOrEqual(2);
-      expect(screen.getAllByText('—').length).toBe(1);
+      expect(screen.getByText('Rp 0')).toBeTruthy();
     });
 
     const sidebarNav = screen.getByRole('navigation', { name: /client workspace navigation/i });

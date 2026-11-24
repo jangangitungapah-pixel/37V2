@@ -2,7 +2,9 @@ import {
   BOOKING_REQUEST_STATUS,
   BOOKING_REQUEST_TYPES,
 } from '@/features/admin/booking-requests/config/booking-request-config';
+import { formatMinuteRange } from '@/features/admin/calendar/utils/booking-time';
 import {
+  formatIndonesianDateMedium,
   getJakartaDateTimeParts,
   isValidIsoDateString,
 } from '@/features/admin/calendar/utils/calendar-date';
@@ -192,6 +194,34 @@ export function getClientBookingStatusMeta(
   };
 }
 
+function getRecentActivityActionLabel(item, _view) {
+  const status = String(item?.status || BOOKING_REQUEST_STATUS.NEW).trim();
+
+  if (status === BOOKING_REQUEST_STATUS.CONFIRMED) {
+    if (_view?.isInProgressWindow) return 'Session in progress';
+    if (_view?.isPastConfirmed) return 'Session completed';
+    return 'Session confirmed';
+  }
+
+  if (status === BOOKING_REQUEST_STATUS.IN_REVIEW) {
+    return 'Request under review';
+  }
+  if (status === BOOKING_REQUEST_STATUS.AWAITING_CUSTOMER) {
+    return 'Waiting for your reply';
+  }
+  if (status === BOOKING_REQUEST_STATUS.ACCEPTED) {
+    return 'Request approved · Finalizing schedule';
+  }
+  if (status === BOOKING_REQUEST_STATUS.DECLINED) {
+    return 'Booking request declined';
+  }
+  if (status === BOOKING_REQUEST_STATUS.CLOSED) {
+    return 'Booking request closed';
+  }
+
+  return 'Booking request sent';
+}
+
 function getLatestActivityMillis(record) {
   return Math.max(
     getTimestampMillis(record?.confirmedAt),
@@ -350,27 +380,38 @@ export function classifyClientBookings(records = [], now = new Date()) {
 
       let subtitle = statusMeta.label;
       if (item.status === BOOKING_REQUEST_STATUS.CONFIRMED && schedule.date) {
-        subtitle = `${schedule.date} · ${schedule.studioName}`;
+        const dateLabel = formatIndonesianDateMedium(schedule.date) || schedule.date;
+        const timeRangeLabel =
+          Number.isInteger(schedule.startMinute) && Number.isInteger(schedule.endMinute)
+            ? formatMinuteRange(schedule.startMinute, schedule.endMinute)
+            : '';
+        subtitle = [dateLabel, timeRangeLabel, schedule.studioName].filter(Boolean).join(' · ');
       } else if (schedule.isPostProduction) {
         subtitle = schedule.targetDeadline
-          ? `Post-Production · Target ${schedule.targetDeadline}`
-          : 'Post-Production Inquiry';
+          ? `Mix & Master project · Target ${formatIndonesianDateMedium(schedule.targetDeadline) || schedule.targetDeadline}`
+          : 'Mix & Master project inquiry';
       } else if (schedule.date) {
-        subtitle = `Requested ${schedule.date} · ${schedule.studioName}`;
+        const requestedDateLabel = formatIndonesianDateMedium(schedule.date) || schedule.date;
+        subtitle = schedule.studioName
+          ? `Requested for ${requestedDateLabel} · ${schedule.studioName}`
+          : `Requested for ${requestedDateLabel}`;
       }
 
-      const timestampValue =
-        item.status === BOOKING_REQUEST_STATUS.CONFIRMED
-          ? item.confirmedAt || item.updatedAt || item.createdAt
-          : item.updatedAt || item.createdAt;
+      const isConfirmed = item.status === BOOKING_REQUEST_STATUS.CONFIRMED;
+      const timestampValue = isConfirmed
+        ? item.confirmedAt || item.updatedAt || item.createdAt
+        : item.updatedAt || item.createdAt;
 
       return {
         id: item.id,
         requestReference: item.requestReference,
         bookingReference: schedule.bookingReference || '',
+        bandName: String(item.bandName || '').trim(),
+        actionLabel: getRecentActivityActionLabel(item, item._view),
         title: serviceTitle,
         subtitle,
         statusMeta,
+        timestampPrefix: isConfirmed ? 'Confirmed' : 'Updated',
         timestampValue,
         group,
       };

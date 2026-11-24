@@ -115,6 +115,11 @@ import { ClientPortalHomePage } from './pages/ClientPortalHomePage';
 import { ClientPortalNotFoundPage } from './pages/ClientPortalNotFoundPage';
 import { ClientProfilePage } from './pages/ClientProfilePage';
 import {
+  createInMemoryClientBillingRepositoryAdapter,
+  resetClientBillingRepositoryAdapter,
+  setClientBillingRepositoryAdapter,
+} from './billing/repositories/client-billing-repository';
+import {
   createInMemoryClientPortalRepositoryAdapter,
   resetClientPortalRepositoryAdapter,
   setClientPortalRepositoryAdapter,
@@ -217,6 +222,7 @@ describe('Client Portal Phase 1 — Google Auth, Instant Provisioning & Security
     setCustomerRepositoryAdapter(customerAdapter);
     setClientPortalRepositoryAdapter(clientAdapter);
     setBookingRequestRepositoryAdapter(createInMemoryBookingRequestRepositoryAdapter());
+    setClientBillingRepositoryAdapter(createInMemoryClientBillingRepositoryAdapter());
 
     authMockState.staffLookup = (uid) => clientAdapter.hasStaffProfile(uid);
     authMockState.auth.currentUser = null;
@@ -237,6 +243,7 @@ describe('Client Portal Phase 1 — Google Auth, Instant Provisioning & Security
   afterEach(() => {
     cleanup();
     resetClientPortalRepositoryAdapter();
+    resetClientBillingRepositoryAdapter();
     resetBookingRequestRepositoryAdapter();
     resetCustomerRepositoryAdapter();
     authMockState.listeners.clear();

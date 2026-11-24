@@ -1,0 +1,199 @@
+--- a/src/features/client-portal/pages/ClientPortalHomePage.jsx
++++ b/src/features/client-portal/pages/ClientPortalHomePage.jsx
+@@ -31,5 +31,7 @@
+ } from '@/features/admin/design-system';
+ import { useAuth } from '@/features/auth/AuthContext';
+ 
++import { useClientInvoices } from '../billing/hooks/useClientInvoices';
++import { formatClientRupiah } from '../billing/utils/client-billing-utils';
+ import { CLIENT_PORTAL_ROUTES } from '../config/client-portal-config';
+ import { useClientBookings } from '../hooks/useClientBookings';
+@@ -38,7 +40,7 @@
+   {
+     id: 'book',
+     title: 'Book a Session',
+-    description: 'Reserve studio rehearsal, recording, or request Mix & Master sessions.',
++    description: 'Choose a service and preferred time. Our studio team will confirm your request.',
+     href: CLIENT_PORTAL_ROUTES.BOOK,
+     icon: CalendarPlus,
+     iconBg: 'bg-[#FFEDE8] text-[#B92B0C]',
+@@ -46,7 +48,7 @@
+   {
+     id: 'bookings',
+     title: 'My Bookings',
+-    description: 'Track upcoming studio dates, active requests, and past sessions.',
++    description: 'Check request status, confirmed studio sessions, and past visits.',
+     href: CLIENT_PORTAL_ROUTES.BOOKINGS,
+     icon: CalendarDays,
+     iconBg: 'bg-[#EDF8C2] text-[#243300]',
+@@ -54,7 +56,7 @@
+   {
+     id: 'invoices',
+     title: 'Invoices & Payments',
+-    description: 'Review studio invoices, paid balances, and payment records.',
++    description: 'See what you still need to pay, check past payments, and send payment proof.',
+     href: CLIENT_PORTAL_ROUTES.INVOICES,
+     icon: ReceiptText,
+     iconBg: 'bg-[#F4F1E8] text-[#46433D]',
+@@ -62,7 +64,7 @@
+   {
+     id: 'profile',
+     title: 'My Profile',
+-    description: 'Inspect your Google sign-in details and studio profile status.',
++    description: 'See the account details connected to your studio access.',
+     href: CLIENT_PORTAL_ROUTES.PROFILE,
+     icon: UserRound,
+     iconBg: 'bg-[#E6F6EC] text-[#0F6246]',
+@@ -72,6 +74,13 @@ export function ClientPortalHomePage({ now } = {}) {
+   const { counts, nextSession, recentActivity, isLoading, error, retry } = useClientBookings({
+     now,
+   });
++  const {
++    metrics: billingMetrics,
++    isClientReady: isBillingReady,
++    isLoading: isBillingLoading,
++    isTruncated: isBillingTruncated,
++    error: billingError,
++  } = useClientInvoices({ now });
+ 
+   const displayName =
+     clientProfile?.displayName || clientAccount?.displayName || user?.displayName || 'Client';
+@@ -88,7 +97,7 @@ export function ClientPortalHomePage({ now } = {}) {
+         eyebrow="YOUR STUDIO WORKSPACE"
+         titleId="client-overview-heading"
+         title={`Welcome back, ${displayName}`}
+-        description="All your studio sessions, bookings, and account activity — in one place."
++        description="See your booking status, upcoming studio sessions, and payments in one place."
+         keepDescriptionOnMobile
+         meta={
+           <AdminStatusBadge tone="lime" dot>
+@@ -118,7 +127,7 @@ export function ClientPortalHomePage({ now } = {}) {
+         }
+       />
+ 
+-      {/* D. Account Snapshot */}
++      {/* D. Your Summary */}
+       <section aria-labelledby="client-account-snapshot-heading" className="space-y-2.5">
+         <div className="flex items-center justify-between gap-2 px-0.5">
+           <h3
+@@ -122,9 +131,13 @@ export function ClientPortalHomePage({ now } = {}) {
+             id="client-account-snapshot-heading"
+             className="text-xs font-semibold tracking-wider text-[#666159] uppercase"
+           >
+-            Account Snapshot
++            Your Summary
+           </h3>
+-          <span className="font-mono text-[10.5px] text-[#8B857B]">
+-            {error ? 'Unavailable' : isLoading ? 'Loading...' : 'Live updates'}
++          <span className="text-[10.5px] text-[#8B857B]">
++            {error || billingError || !isBillingReady
++              ? 'Some information is unavailable'
++              : isLoading || isBillingLoading
++                ? 'Updating your information...'
++                : 'Updates automatically'}
+           </span>
+         </div>
+@@ -134,9 +147,13 @@ export function ClientPortalHomePage({ now } = {}) {
+             label="Upcoming Sessions"
+             value={isLoading || error ? '—' : String(counts.upcoming)}
+             hint={
+-              counts.upcoming > 0
+-                ? 'Confirmed studio reservations ahead'
+-                : 'No confirmed sessions scheduled yet'
++              isLoading
++                ? 'Checking your schedule...'
++                : error
++                  ? 'We could not load your bookings.'
++                  : counts.upcoming > 0
++                    ? 'Confirmed sessions scheduled for a future date'
++                    : 'No confirmed sessions yet'
+             }
+             icon={CalendarCheck2}
+             tone="lime"
+@@ -145,17 +162,62 @@ export function ClientPortalHomePage({ now } = {}) {
+             label="Active Booking Requests"
+             value={isLoading || error ? '—' : String(counts.requests)}
+             hint={
+-              counts.requests > 0
+-                ? 'In progress with our studio desk'
+-                : 'No pending studio inquiries'
++              isLoading
++                ? 'Checking your requests...'
++                : error
++                  ? 'We could not load your bookings.'
++                  : counts.requests > 0
++                    ? 'Waiting for the studio team to confirm your request'
++                    : 'No requests waiting for confirmation'
+             }
+             icon={Clock3}
+             tone="orange"
+           />
+-          <AdminMetricCard
+-            label="Outstanding Balance"
+-            value="—"
+-            hint="Online billing & invoices coming soon"
+-            icon={Wallet}
+-            tone="neutral"
+-          />
++          <Link
++            to={CLIENT_PORTAL_ROUTES.INVOICES}
++            data-testid="client-overview-outstanding-balance-link"
++            aria-label="Open Invoices and Payments to review your amount left to pay"
++            className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF4B22] focus-visible:ring-offset-2"
++          >
++            <AdminMetricCard
++              label="Amount Left to Pay"
++              value={
++                isBillingLoading || billingError || !isBillingReady
++                  ? '—'
++                  : formatClientRupiah(billingMetrics.totalOutstanding)
++              }
++              hint={
++                isBillingLoading
++                  ? 'Checking your invoices...'
++                  : billingError
++                    ? 'We could not load your invoices. Open this card to try again.'
++                    : !isBillingReady
++                      ? 'Your invoice account is not connected yet. Please contact the studio team.'
++                      : billingMetrics.totalOutstanding > 0
++                        ? `${billingMetrics.unpaidCount} ${billingMetrics.unpaidCount === 1 ? 'invoice needs' : 'invoices need'} payment${billingMetrics.overdueCount > 0 ? ` · ${billingMetrics.overdueCount} past due` : ''}`
++                        : isBillingTruncated
++                          ? 'No balance on the latest invoices. Open to review the full list.'
++                          : 'No payment is due right now.'
++              }
++              icon={Wallet}
++              tone={
++                !isBillingLoading &&
++                !billingError &&
++                isBillingReady &&
++                billingMetrics.totalOutstanding > 0
++                  ? 'orange'
++                  : 'neutral'
++              }
++              className="h-full transition-colors group-hover:border-[#FF4B22]/35"
++            >
++              <span className="mt-2 inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#46433D] transition-colors group-hover:text-[#B92B0C]">
++                Open invoices & payments
++                <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
++              </span>
++              {isBillingTruncated ? (
++                <span className="mt-1 block text-[10px] leading-snug text-[#8B857B]">
++                  Balance calculated from the latest 100 invoices.
++                </span>
++              ) : null}
++            </AdminMetricCard>
++          </Link>
+@@ -216,4 +278,4 @@ export function ClientPortalHomePage({ now } = {}) {
+             <div>
+               <h3 className="text-sm font-bold text-[#151515] sm:text-base">Next Session</h3>
+-              <p className="text-xs text-[#666159]">Your nearest confirmed studio reservation</p>
++              <p className="text-xs text-[#666159]">Your nearest confirmed studio session</p>
+             </div>
+@@ -352,5 +414,5 @@ export function ClientPortalHomePage({ now } = {}) {
+           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+             <div>
+-              <h3 className="text-sm font-bold text-[#151515] sm:text-base">Recent Activity</h3>
+-              <p className="text-xs text-[#666159]">Account and booking updates timeline</p>
++              <h3 className="text-sm font-bold text-[#151515] sm:text-base">Recent Updates</h3>
++              <p className="text-xs text-[#666159]">The latest changes to your requests and sessions</p>
+             </div>

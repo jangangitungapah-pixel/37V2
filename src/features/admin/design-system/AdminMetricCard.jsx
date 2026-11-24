@@ -54,6 +54,7 @@ const TONE_MAP = {
  * Calm spatial KPI card with subtle corner accent glow and tabular monospace numerals.
  */
 export function AdminMetricCard({
+  as: Component = 'div',
   label,
   value,
   hint,
@@ -62,18 +63,21 @@ export function AdminMetricCard({
   compactMobile = false,
   hideIconOnMobile = false,
   className = '',
+  valueClassName = '',
   children,
+  ...props
 }) {
   const styles = TONE_MAP[tone] || TONE_MAP.neutral;
 
   return (
-    <div
+    <Component
       className={cn(
         'rounded-2xl border shadow-[0_1px_2px_rgba(21,21,21,0.035),0_8px_22px_-8px_rgba(21,21,21,0.06)] transition-shadow duration-200 hover:shadow-[0_2px_6px_rgba(21,21,21,0.05),0_12px_28px_-8px_rgba(21,21,21,0.09)]',
         compactMobile ? 'p-2.5 sm:p-4' : 'p-3.5 sm:p-4',
         styles.container,
         className,
       )}
+      {...props}
     >
       <div className="flex items-start justify-between gap-1.5 sm:gap-2">
         <p
@@ -104,11 +108,12 @@ export function AdminMetricCard({
 
       <p
         className={cn(
-          'font-mono font-bold tracking-tight tabular-nums',
+          'min-w-0 font-mono font-bold tracking-tight break-words tabular-nums',
           compactMobile
             ? 'mt-1 text-base min-[375px]:text-[17px] sm:mt-2 sm:text-xl'
             : 'mt-2 text-lg sm:text-xl',
           styles.value,
+          valueClassName,
         )}
       >
         {value}
@@ -126,6 +131,6 @@ export function AdminMetricCard({
         </p>
       ) : null}
       {children}
-    </div>
+    </Component>
   );
 }

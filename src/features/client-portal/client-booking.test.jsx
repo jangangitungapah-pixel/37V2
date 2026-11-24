@@ -157,6 +157,11 @@ import {
   CLIENT_ROLE,
 } from './config/client-portal-config';
 import {
+  createInMemoryClientBillingRepositoryAdapter,
+  resetClientBillingRepositoryAdapter,
+  setClientBillingRepositoryAdapter,
+} from './billing/repositories/client-billing-repository';
+import {
   createInMemoryClientPortalRepositoryAdapter,
   resetClientPortalRepositoryAdapter,
   setClientPortalRepositoryAdapter,
@@ -326,6 +331,9 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
 
     bookingRequestAdapter = createInMemoryBookingRequestRepositoryAdapter(bookingAdapter);
     setBookingRequestRepositoryAdapter(bookingRequestAdapter);
+    setClientBillingRepositoryAdapter(
+      createInMemoryClientBillingRepositoryAdapter({ bookingAdapter }),
+    );
   });
 
   afterEach(() => {
@@ -338,6 +346,7 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
     resetPaymentRepositoryAdapter();
     resetPublicAvailabilityRepositoryAdapter();
     resetBookingRequestRepositoryAdapter();
+    resetClientBillingRepositoryAdapter();
     portalBookingMocks.listeners.clear();
     portalBookingMocks.staffLookup = null;
     queryClient.clear();
