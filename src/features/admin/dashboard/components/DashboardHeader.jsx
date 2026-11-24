@@ -46,7 +46,7 @@ export function DashboardHeader({
                   : 'inline-flex min-h-6 items-center rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 font-mono text-[9px] font-bold tracking-[0.1em] text-neutral-300'
               }
             >
-              {String(roleLabel || 'Staff').toUpperCase()} ACCESS
+              AKSES: {String(roleLabel || 'Staff').toUpperCase()}
             </span>
           </div>
 
