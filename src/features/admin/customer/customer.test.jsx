@@ -854,11 +854,13 @@ describe('Phase 7 — Customer Management (Phone-Based Identity & Booking Histor
       expect(rulesContent).toContain('function isValidPhoneIndex(data)');
       expect(rulesContent).toContain('function hasValidBookingCustomerLinkAfter(data)');
       expect(rulesContent).toContain(
-        'function isLegacyBookingCustomerLinkUpdate(reqData, resData)',
+        'function isLegacyBookingCustomerLinkUpdate(reqData, resData, affected)',
       );
-      expect(rulesContent).toContain(
-        "request.resource.data.get('customerId', '') == resource.data.get('customerId', '')",
+      const bookingUpdateKeysBlock = rulesContent.slice(
+        rulesContent.indexOf('function isValidBookingUpdateKeys(affected)'),
+        rulesContent.indexOf('function isBookingLifecycleOnlyUpdate(reqData, resData, affected)'),
       );
+      expect(bookingUpdateKeysBlock).not.toContain("'customerId'");
       expect(rulesContent).toContain('allow list: if false;');
       expect(rulesContent).toContain('allow delete: if false;');
     });

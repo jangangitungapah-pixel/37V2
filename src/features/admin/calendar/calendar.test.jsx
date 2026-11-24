@@ -598,6 +598,138 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
         false,
       );
     });
+
+    it('sends minimal lifecycle-only patches to tx.updateBooking on Check-In, Start, Complete, and Cancel while returning full normalized records', async () => {
+      const recordedPatches = [];
+      const baseAdapter = createInMemoryBookingRepositoryAdapter();
+      const spyingAdapter = {
+        ...baseAdapter,
+        runAtomicTransaction(work) {
+          return baseAdapter.runAtomicTransaction((tx) =>
+            work({
+              ...tx,
+              updateBooking(id, data) {
+                recordedPatches.push({ id, keys: Object.keys(data).sort() });
+                return tx.updateBooking(id, data);
+              },
+            }),
+          );
+        },
+      };
+
+      const created = await createBooking({
+        bookingId: 'bkg-minimal-patch-1',
+        eventId: 'evt-minimal-create',
+        actorUid: 'owner-uid-1',
+        formValues: {
+          customerName: 'Arief',
+          phone: '+6287842929003',
+          bandName: 'Sangkuriang',
+          serviceId: 'rehearsal',
+          packageId: '',
+          recordingTypeId: '',
+          studioId: 'room-a',
+          date: '2026-11-24',
+          startMinute: 1200,
+          durationPreset: '180',
+          customDurationMinutes: '180',
+          initialPaymentStatus: INITIAL_PAYMENT_STATUS.UNPAID,
+          dpAmount: '',
+          paymentMethod: '',
+          notes: '',
+        },
+        adapter: spyingAdapter,
+      });
+
+      const checkedIn = await transitionBookingSession({
+        bookingId: created.id,
+        action: 'check_in',
+        expectedVersion: created.version,
+        actorUid: 'owner-uid-1',
+        adapter: spyingAdapter,
+      });
+      expect(checkedIn.customerName).toBe('Arief');
+      expect(checkedIn.checkedInByUid).toBe('owner-uid-1');
+      expect(checkedIn.version).toBe(2);
+      expect(recordedPatches[0].keys).toEqual([
+        'checkedInAt',
+        'checkedInByUid',
+        'updatedAt',
+        'updatedByUid',
+        'version',
+      ]);
+
+      const started = await transitionBookingSession({
+        bookingId: created.id,
+        action: 'start_session',
+        expectedVersion: checkedIn.version,
+        actorUid: 'owner-uid-1',
+        adapter: spyingAdapter,
+      });
+      expect(started.sessionStatus).toBe(BOOKING_SESSION_STATUS.IN_PROGRESS);
+      expect(recordedPatches[1].keys).toEqual([
+        'actualStartedAt',
+        'sessionStatus',
+        'updatedAt',
+        'updatedByUid',
+        'version',
+      ]);
+
+      const completed = await transitionBookingSession({
+        bookingId: created.id,
+        action: 'complete_session',
+        expectedVersion: started.version,
+        actorUid: 'owner-uid-1',
+        adapter: spyingAdapter,
+      });
+      expect(completed.sessionStatus).toBe(BOOKING_SESSION_STATUS.COMPLETED);
+      expect(recordedPatches[2].keys).toEqual([
+        'actualCompletedAt',
+        'sessionStatus',
+        'updatedAt',
+        'updatedByUid',
+        'version',
+      ]);
+
+      const toCancel = await createBooking({
+        bookingId: 'bkg-minimal-patch-cancel',
+        eventId: 'evt-minimal-cancel-create',
+        actorUid: 'owner-uid-1',
+        formValues: {
+          customerName: 'Arief Cancel',
+          phone: '+6287842929004',
+          bandName: 'Sangkuriang',
+          serviceId: 'rehearsal',
+          packageId: '',
+          recordingTypeId: '',
+          studioId: 'room-b',
+          date: '2026-11-24',
+          startMinute: 1200,
+          durationPreset: '180',
+          customDurationMinutes: '180',
+          initialPaymentStatus: INITIAL_PAYMENT_STATUS.UNPAID,
+          dpAmount: '',
+          paymentMethod: '',
+          notes: '',
+        },
+        adapter: spyingAdapter,
+      });
+
+      const cancelled = await cancelBooking({
+        bookingId: toCancel.id,
+        expectedVersion: toCancel.version,
+        actorUid: 'owner-uid-1',
+        reason: 'Customer reschedule',
+        adapter: spyingAdapter,
+      });
+      expect(cancelled.sessionStatus).toBe(BOOKING_SESSION_STATUS.CANCELLED);
+      expect(recordedPatches[3].keys).toEqual([
+        'sessionStatus',
+        'updatedAt',
+        'updatedByUid',
+        'version',
+      ]);
+    });
   });
 
   describe('2. Calendar Workspace UI, Booking Form Modal & Detail Drawer', () => {
@@ -959,15 +1091,19 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       // 3. Bookings rules: no public access, permanent delete denied, payment snapshot locked on update
       expect(rulesContent).toContain('match /bookings/{bookingId}');
       expect(rulesContent).toContain('allow delete: if false;');
-      expect(rulesContent).toContain(
-        'request.resource.data.initialPaymentStatus == resource.data.initialPaymentStatus',
+      expect(rulesContent).toContain('function isBookingLifecycleOnlyUpdate(reqData, resData, affected)');
+      expect(rulesContent).toContain('function isValidBookingUpdateKeys(affected)');
+      // Immutable payment & customer-link fields are excluded from isValidBookingUpdateKeys allowlist
+      const updateKeysSection = rulesContent.slice(
+        rulesContent.indexOf('function isValidBookingUpdateKeys(affected)'),
+        rulesContent.indexOf('function isBookingLifecycleOnlyUpdate(reqData, resData, affected)'),
       );
-      expect(rulesContent).toContain(
-        'request.resource.data.initialPaidAmount == resource.data.initialPaidAmount',
-      );
-      expect(rulesContent).toContain(
-        'request.resource.data.paymentMethod == resource.data.paymentMethod',
-      );
+      expect(updateKeysSection).not.toContain("'initialPaymentStatus'");
+      expect(updateKeysSection).not.toContain("'initialPaidAmount'");
+      expect(updateKeysSection).not.toContain("'paymentMethod'");
+      expect(updateKeysSection).not.toContain("'customerId'");
+      expect(updateKeysSection).not.toContain("'createdAt'");
+      expect(updateKeysSection).not.toContain("'createdByUid'");
 
       // 4. BookingSlots rules: existsAfter & getAfter atomic booking verification
       expect(rulesContent).toContain('match /bookingSlots/{slotId}');

@@ -634,8 +634,8 @@ describe('Duration-Based Automatic Discount (Catalog V2 Integrated)', () => {
       expect(rulesContent).toContain("'automaticDiscount'");
       expect(rulesContent).toContain('function isValidBookingAutomaticDiscountShape(data)');
       expect(rulesContent).toContain('function isBookingAutomaticDiscountMathMatched(data)');
-      expect(rulesContent).toContain('data.discountAmount <= data.subtotal');
-      expect(rulesContent).toContain('data.totalAmount == data.subtotal - data.discountAmount');
+      expect(rulesContent).toContain('&& da <= sub');
+      expect(rulesContent).toContain('&& tot == sub - da');
       expect(rulesContent).toContain(
         "reqData.get('automaticDiscount', null) == resData.get('automaticDiscount', null)",
       );

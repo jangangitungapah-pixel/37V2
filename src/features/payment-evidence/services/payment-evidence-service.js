@@ -131,104 +131,123 @@ export async function submitClientPaymentEvidence({
     );
   }
 
-  return adapter.runAtomicTransaction(async (tx) => {
-    // 1. ALL READS FIRST
-    const [existingInvoice, existingEvidence] = await Promise.all([
-      tx.getInvoice(cleanInvoiceId),
-      tx.getPaymentEvidence(cleanEvidenceId),
-    ]);
+  try {
+    return await adapter.runAtomicTransaction(async (tx) => {
+      // 1. Read ONLY the parent invoice (never GET non-existent paymentEvidence/{id},
+      //    because Firestore Security Rules require `resource != null` on Client `get`
+      //    to prevent cross-customer document existence probing).
+      const existingInvoice = await tx.getInvoice(cleanInvoiceId);
 
-    if (existingEvidence) {
-      if (existingEvidence.invoiceId !== cleanInvoiceId || existingEvidence.clientUid !== cleanUid) {
+      if (!existingInvoice) {
         throw createPaymentServiceError(
-          'payment-evidence/duplicate-id',
-          'This submission reference has already been used.',
+          'payment-evidence/invoice-not-found',
+          'Invoice could not be found.',
         );
       }
-      return {
-        evidence: projectClientPaymentEvidenceRecord(existingEvidence),
-        idempotentReplay: true,
+
+      if (existingInvoice.customerId !== cleanCustomerId) {
+        throw createPaymentServiceError(
+          'permission-denied',
+          'You do not have permission to submit payment proof for this invoice.',
+        );
+      }
+
+      if (existingInvoice.invoiceStatus !== INVOICE_STATUS.ISSUED) {
+        throw createPaymentServiceError(
+          'payment-evidence/invoice-not-eligible',
+          'Payment proof can only be submitted for active issued invoices.',
+        );
+      }
+
+      if (!existingInvoice.clientPaymentEvidenceRequired) {
+        throw createPaymentServiceError(
+          'payment-evidence/not-required',
+          'This invoice does not use Client Portal payment proof submission. Please contact the studio team directly.',
+        );
+      }
+
+      if (existingInvoice.balanceDue <= 0) {
+        throw createPaymentServiceError(
+          'payment-evidence/already-paid',
+          'This invoice is already paid in full.',
+        );
+      }
+
+      if (inputValidation.data.claimedAmount > existingInvoice.balanceDue) {
+        throw createPaymentServiceError(
+          'payment-evidence/amount-exceeds-balance',
+          'Payment amount cannot exceed the current remaining balance.',
+          { claimedAmount: 'Payment amount cannot exceed the current remaining balance.' },
+        );
+      }
+
+      // 2. WRITE ONLY `paymentEvidence/{evidenceId}` — NEVER touch `invoices` or `paymentTransactions`
+      const now = tx.nowValue();
+      const docData = {
+        schemaVersion: PAYMENT_EVIDENCE_SCHEMA_VERSION,
+        invoiceId: cleanInvoiceId,
+        invoiceNumber: existingInvoice.invoiceNumber,
+        bookingId: existingInvoice.bookingId,
+        customerId: cleanCustomerId,
+        clientUid: cleanUid,
+        evidenceSource: PAYMENT_EVIDENCE_SOURCES.CLIENT_PORTAL,
+        status: PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
+        claimedAmount: inputValidation.data.claimedAmount,
+        paymentMethod: inputValidation.data.paymentMethod,
+        claimedPaidAt: inputValidation.data.claimedPaidAt,
+        referenceNumber: inputValidation.data.referenceNumber,
+        evidence: assetValidation.data,
+        submittedByUid: cleanUid,
+        submittedAt: now,
+        reviewedAt: null,
+        reviewedByUid: '',
+        rejectionReason: '',
+        verifiedAmount: null,
+        linkedTransactionId: null,
+        createdAt: now,
+        updatedAt: now,
+        version: 1,
       };
+
+      tx.setPaymentEvidence(cleanEvidenceId, docData);
+
+      return {
+        evidence: projectClientPaymentEvidenceRecord(cleanEvidenceId, docData),
+        idempotentReplay: false,
+      };
+    });
+  } catch (err) {
+    // Safe idempotent replay recovery: if a retry arrives after the first commit succeeded,
+    // Firestore routes `tx.set()` on an existing doc to `allow update` -> `permission-denied`
+    // (or `already-exists` in-memory). Reading the now-existing document passes `resource != null`
+    // strictly for its owning client.
+    const errCode = String(err?.code || '').toLowerCase();
+    if (
+      (errCode.includes('permission-denied') || errCode.includes('already-exists')) &&
+      typeof adapter.getPaymentEvidenceById === 'function'
+    ) {
+      let existingEvidence = null;
+      try {
+        existingEvidence = await adapter.getPaymentEvidenceById(cleanEvidenceId);
+      } catch {
+        // Leave existingEvidence as null and rethrow the original error below.
+      }
+
+      if (existingEvidence) {
+        if (existingEvidence.invoiceId !== cleanInvoiceId || existingEvidence.clientUid !== cleanUid) {
+          throw createPaymentServiceError(
+            'payment-evidence/duplicate-id',
+            'This submission reference has already been used.',
+          );
+        }
+        return {
+          evidence: projectClientPaymentEvidenceRecord(existingEvidence.id, existingEvidence),
+          idempotentReplay: true,
+        };
+      }
     }
-
-    if (!existingInvoice) {
-      throw createPaymentServiceError(
-        'payment-evidence/invoice-not-found',
-        'Invoice could not be found.',
-      );
-    }
-
-    if (existingInvoice.customerId !== cleanCustomerId) {
-      throw createPaymentServiceError(
-        'permission-denied',
-        'You do not have permission to submit payment proof for this invoice.',
-      );
-    }
-
-    if (existingInvoice.invoiceStatus !== INVOICE_STATUS.ISSUED) {
-      throw createPaymentServiceError(
-        'payment-evidence/invoice-not-eligible',
-        'Payment proof can only be submitted for active issued invoices.',
-      );
-    }
-
-    if (!existingInvoice.clientPaymentEvidenceRequired) {
-      throw createPaymentServiceError(
-        'payment-evidence/not-required',
-        'This invoice does not use Client Portal payment proof submission. Please contact the studio team directly.',
-      );
-    }
-
-    if (existingInvoice.balanceDue <= 0) {
-      throw createPaymentServiceError(
-        'payment-evidence/already-paid',
-        'This invoice is already paid in full.',
-      );
-    }
-
-    if (inputValidation.data.claimedAmount > existingInvoice.balanceDue) {
-      throw createPaymentServiceError(
-        'payment-evidence/amount-exceeds-balance',
-        'Payment amount cannot exceed the current remaining balance.',
-        { claimedAmount: 'Payment amount cannot exceed the current remaining balance.' },
-      );
-    }
-
-    // 2. WRITE ONLY `paymentEvidence/{evidenceId}` — NEVER touch `invoices` or `paymentTransactions`
-    const now = tx.nowValue();
-    const docData = {
-      schemaVersion: PAYMENT_EVIDENCE_SCHEMA_VERSION,
-      invoiceId: cleanInvoiceId,
-      invoiceNumber: existingInvoice.invoiceNumber,
-      bookingId: existingInvoice.bookingId,
-      customerId: cleanCustomerId,
-      clientUid: cleanUid,
-      evidenceSource: PAYMENT_EVIDENCE_SOURCES.CLIENT_PORTAL,
-      status: PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
-      claimedAmount: inputValidation.data.claimedAmount,
-      paymentMethod: inputValidation.data.paymentMethod,
-      claimedPaidAt: inputValidation.data.claimedPaidAt,
-      referenceNumber: inputValidation.data.referenceNumber,
-      evidence: assetValidation.data,
-      submittedByUid: cleanUid,
-      submittedAt: now,
-      reviewedAt: null,
-      reviewedByUid: '',
-      rejectionReason: '',
-      verifiedAmount: null,
-      linkedTransactionId: null,
-      createdAt: now,
-      updatedAt: now,
-      version: 1,
-    };
-
-    tx.setPaymentEvidence(cleanEvidenceId, docData);
-
-    return {
-      evidence: projectClientPaymentEvidenceRecord(cleanEvidenceId, docData),
-      idempotentReplay: false,
-    };
-  });
+    throw err;
+  }
 }
 
 /**

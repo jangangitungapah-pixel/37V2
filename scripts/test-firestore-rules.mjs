@@ -5335,6 +5335,511 @@ async function runTests() {
   );
   console.log('✓ Pause/Resume/Completion state transitions & post-complete unlock passed');
 
+  // =========================================================================
+  // BOOKINGS V2 EXPRESSION-BUDGET & LIFECYCLE / EDIT / LEGACY-LINK REGRESSION
+  // =========================================================================
+  await adminSetDoc('customers/cust_v2_life', {
+    displayName: 'Arief V2',
+    normalizedName: 'arief v2',
+    phoneDisplay: '+6287842929003',
+    phoneNormalized: '+6287842929003',
+    nameAliases: [],
+    previousPhones: [],
+    status: 'active',
+    mergedIntoCustomerId: null,
+    historyCustomerIds: ['cust_v2_life'],
+    bookingCount: 1,
+    firstBookingDate: '2026-11-24',
+    lastBookingDate: '2026-11-24',
+    notes: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'owner-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'owner-1',
+    version: 1,
+  });
+
+  const makeV2DiscountBooking = (overrides = {}) => ({
+    customerId: 'cust_v2_life',
+    customerName: 'Arief V2',
+    phone: '+6287842929003',
+    phoneNormalized: '+6287842929003',
+    bandName: 'Sangkuriang',
+    studioId: 'room-a',
+    serviceTypeId: 'rehearsal',
+    serviceTypeName: 'Rehearsal',
+    serviceOptionId: 'rehearsal-regular',
+    serviceOptionName: 'Reguler',
+    deliveryMode: 'studio',
+    pricingMode: 'hourly',
+    pricingSettingsVersion: 3,
+    serviceId: 'rehearsal',
+    serviceLabel: 'Rehearsal',
+    packageId: '',
+    packageLabel: '',
+    recordingTypeId: '',
+    recordingTypeLabel: '',
+    date: '2026-11-24',
+    startMinute: 900,
+    durationMinutes: 180,
+    endMinute: 1080,
+    timeZone: 'Asia/Jakarta',
+    unitRate: 120000,
+    subtotal: 360000,
+    discountAmount: 30000,
+    totalAmount: 330000,
+    automaticDiscount: {
+      type: 'duration_multiple',
+      intervalMinutes: 180,
+      eligibleBlocks: 1,
+      discountPerBlock: 30000,
+      totalDiscount: 30000,
+    },
+    commissionSnapshot: {
+      schemaVersion: 2,
+      staff: { basis: 'hourly', rate: 10000, amount: 30000 },
+      owner: { basis: 'none', rate: 0, amount: 0 },
+      recordingOperator: { basis: 'none', rate: 0, amount: 0 },
+      settingsVersion: 3,
+    },
+    initialPaymentStatus: 'unpaid',
+    initialPaidAmount: 0,
+    paymentMethod: '',
+    sessionStatus: 'upcoming',
+    checkedInAt: null,
+    checkedInByUid: '',
+    actualStartedAt: null,
+    actualCompletedAt: null,
+    notes: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'owner-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'owner-1',
+    version: 1,
+    ...overrides,
+  });
+
+  // 1. CREATE full 44-field V2 booking WITH automaticDiscount + commissionSnapshot V2
+  const v2CreateRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields(makeV2DiscountBooking()),
+        },
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicAvailability/bkg_v2_disc_life`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            date: '2026-11-24',
+            studioId: 'room-a',
+            startMinute: 900,
+            endMinute: 1080,
+            updatedAt: SERVER_TS,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    v2CreateRes.status,
+    200,
+    `V2 booking create with automaticDiscount + commissionSnapshot V2 failed: ${JSON.stringify(v2CreateRes.body)}`,
+  );
+
+  // 2. CHECK-IN atomic 3-write transaction (minimal lifecycle patch + publicAvailability + bookingEvent)
+  const v2CheckInRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields({
+            checkedInByUid: 'owner-1',
+            updatedByUid: 'owner-1',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['checkedInByUid', 'updatedByUid', 'version'] },
+        updateTransforms: [
+          { fieldPath: 'checkedInAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicAvailability/bkg_v2_disc_life`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            date: '2026-11-24',
+            studioId: 'room-a',
+            startMinute: 900,
+            endMinute: 1080,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/bookingEvents/evt_v2_checkin`,
+          fields: toFsFields({
+            bookingId: 'bkg_v2_disc_life',
+            eventType: 'customer_checked_in',
+            actorUid: 'owner-1',
+            previousValue: { sessionStatus: 'upcoming', checkedInAt: false },
+            newValue: { sessionStatus: 'upcoming', checkedInAt: true },
+            note: 'Customer checked in',
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    v2CheckInRes.status,
+    200,
+    `V2 booking Check-In atomic commit failed: ${JSON.stringify(v2CheckInRes.body)}`,
+  );
+
+  // 3. START SESSION + COMPLETE SESSION lifecycle transitions
+  const v2StartRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields({
+            sessionStatus: 'in_progress',
+            updatedByUid: 'owner-1',
+            version: 3,
+          }),
+        },
+        updateMask: { fieldPaths: ['sessionStatus', 'updatedByUid', 'version'] },
+        updateTransforms: [
+          { fieldPath: 'actualStartedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    v2StartRes.status,
+    200,
+    `V2 booking Start Session failed: ${JSON.stringify(v2StartRes.body)}`,
+  );
+
+  // 4. EDIT / RESCHEDULE without pricing recalc (scope unchanged)
+  const v2EditNoRecalcFields = makeV2DiscountBooking({
+    sessionStatus: 'in_progress',
+    checkedInByUid: 'owner-1',
+    startMinute: 960,
+    endMinute: 1140,
+    notes: 'Rescheduled without price change',
+    version: 4,
+  });
+  delete v2EditNoRecalcFields.checkedInAt;
+  delete v2EditNoRecalcFields.actualStartedAt;
+  delete v2EditNoRecalcFields.updatedAt;
+  const v2EditNoRecalcRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields(v2EditNoRecalcFields),
+        },
+        updateMask: { fieldPaths: Object.keys(v2EditNoRecalcFields) },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    v2EditNoRecalcRes.status,
+    200,
+    `V2 booking Edit/Reschedule (scope unchanged) failed: ${JSON.stringify(v2EditNoRecalcRes.body)}`,
+  );
+
+  // 5. WORST-CASE EDIT WITH PRICING RECALC changing BOTH automaticDiscount + commissionSnapshot V2
+  const v2EditRecalcFields = makeV2DiscountBooking({
+    sessionStatus: 'in_progress',
+    checkedInByUid: 'owner-1',
+    startMinute: 960,
+    durationMinutes: 360,
+    endMinute: 1320,
+    subtotal: 720000,
+    discountAmount: 60000,
+    totalAmount: 660000,
+    automaticDiscount: {
+      type: 'duration_multiple',
+      intervalMinutes: 180,
+      eligibleBlocks: 2,
+      discountPerBlock: 30000,
+      totalDiscount: 60000,
+    },
+    commissionSnapshot: {
+      schemaVersion: 2,
+      staff: { basis: 'hourly', rate: 10000, amount: 60000 },
+      owner: { basis: 'none', rate: 0, amount: 0 },
+      recordingOperator: { basis: 'none', rate: 0, amount: 0 },
+      settingsVersion: 3,
+    },
+    version: 5,
+  });
+  delete v2EditRecalcFields.checkedInAt;
+  delete v2EditRecalcFields.actualStartedAt;
+  delete v2EditRecalcFields.updatedAt;
+  const v2EditRecalcRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields(v2EditRecalcFields),
+        },
+        updateMask: { fieldPaths: Object.keys(v2EditRecalcFields) },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    v2EditRecalcRes.status,
+    200,
+    `V2 booking worst-case pricing recalc edit failed: ${JSON.stringify(v2EditRecalcRes.body)}`,
+  );
+
+  // 6. LEGACY CUSTOMER LINK BACKFILL UPDATE
+  const legacyUnlinked = makeV2DiscountBooking({ version: 1 });
+  delete legacyUnlinked.customerId;
+  delete legacyUnlinked.phoneNormalized;
+  await adminSetDoc('bookings/bkg_legacy_unlinked', legacyUnlinked);
+  const legacyLinkRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_legacy_unlinked`,
+          fields: toFsFields({
+            customerId: 'cust_v2_life',
+            phoneNormalized: '+6287842929003',
+            updatedByUid: 'owner-1',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['customerId', 'phoneNormalized', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    legacyLinkRes.status,
+    200,
+    `Legacy booking customer link backfill failed: ${JSON.stringify(legacyLinkRes.body)}`,
+  );
+
+  // 7. NEGATIVE SECURITY ASSERTIONS ON V2 BOOKING UPDATES
+  const tamperPaymentSnapshot = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields({
+            initialPaidAmount: 100000,
+            updatedByUid: 'owner-1',
+            version: 6,
+          }),
+        },
+        updateMask: { fieldPaths: ['initialPaidAmount', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(tamperPaymentSnapshot.status, 403, 'Mutating initialPaidAmount on update must be 403');
+
+  const tamperCustomerId = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields({
+            customerId: 'cust_1',
+            updatedByUid: 'owner-1',
+            version: 6,
+          }),
+        },
+        updateMask: { fieldPaths: ['customerId', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(tamperCustomerId.status, 403, 'Mutating customerId on linked booking must be 403');
+
+  const tamperTotalWithoutScopeChange = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields({
+            discountAmount: 719999,
+            totalAmount: 1,
+            updatedByUid: 'owner-1',
+            version: 6,
+          }),
+        },
+        updateMask: { fieldPaths: ['discountAmount', 'totalAmount', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    tamperTotalWithoutScopeChange.status,
+    403,
+    'Mutating totalAmount when service scope unchanged must be 403',
+  );
+
+  const tamperDiscountMathOnScopeChange = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields({
+            durationMinutes: 180,
+            endMinute: 1140,
+            subtotal: 360000,
+            discountAmount: 90000,
+            totalAmount: 270000,
+            automaticDiscount: {
+              type: 'duration_multiple',
+              intervalMinutes: 180,
+              eligibleBlocks: 3, // invalid for 180 min!
+              discountPerBlock: 30000,
+              totalDiscount: 90000,
+            },
+            updatedByUid: 'owner-1',
+            version: 6,
+          }),
+        },
+        updateMask: {
+          fieldPaths: [
+            'durationMinutes',
+            'endMinute',
+            'subtotal',
+            'discountAmount',
+            'totalAmount',
+            'automaticDiscount',
+            'updatedByUid',
+            'version',
+          ],
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    tamperDiscountMathOnScopeChange.status,
+    403,
+    'Invalid automaticDiscount eligibleBlocks math on scope change must be 403',
+  );
+
+  const injectUnknownKey = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields({
+            injectedAdminFlag: true,
+            updatedByUid: 'owner-1',
+            version: 6,
+          }),
+        },
+        updateMask: { fieldPaths: ['injectedAdminFlag', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(injectUnknownKey.status, 403, 'Injecting unknown key on booking update must be 403');
+
+  const invalidLifecycleStatus = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields({
+            sessionStatus: 'hacked_status',
+            updatedByUid: 'owner-1',
+            version: 6,
+          }),
+        },
+        updateMask: { fieldPaths: ['sessionStatus', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    invalidLifecycleStatus.status,
+    403,
+    'Invalid sessionStatus on booking lifecycle update must be 403',
+  );
+
+  const clientUpdateDenied = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields({
+            sessionStatus: 'completed',
+            updatedByUid: 'client-matched-1',
+            version: 6,
+          }),
+        },
+        updateMask: { fieldPaths: ['sessionStatus', 'updatedByUid', 'version'] },
+        updateTransforms: [
+          { fieldPath: 'actualCompletedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(clientUpdateDenied.status, 403, 'Client cannot update canonical bookings');
+
+  const v2CompleteRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_v2_disc_life`,
+          fields: toFsFields({
+            sessionStatus: 'completed',
+            updatedByUid: 'owner-1',
+            version: 6,
+          }),
+        },
+        updateMask: { fieldPaths: ['sessionStatus', 'updatedByUid', 'version'] },
+        updateTransforms: [
+          { fieldPath: 'actualCompletedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    v2CompleteRes.status,
+    200,
+    `V2 booking Complete Session failed: ${JSON.stringify(v2CompleteRes.body)}`,
+  );
+  console.log('✓ Bookings V2 Check-In / lifecycle / edit / price-recalc / legacy-link & security denials passed');
+
   console.log('\nALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!');
 }
 

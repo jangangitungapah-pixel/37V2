@@ -546,7 +546,9 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
       };
 
       await user.click(within(form).getByTestId('client-evidence-submit-btn'));
-      expect(await within(form).findByText(/unable to reach the studio ledger/i)).toBeTruthy();
+      const submitErrBanner = await within(form).findByTestId('client-evidence-submit-error');
+      expect(submitErrBanner.textContent).toMatch(/unable to reach the studio ledger/i);
+      expect(within(form).getByText(/click retry submission/i)).toBeTruthy();
       expect(uploadTransportSpy).toHaveBeenCalledTimes(1);
 
       // Retry submit -> MUST NOT re-upload image to Cloudinary (still called 1 time total!)
@@ -615,6 +617,52 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
           adapter: evidenceAdapter,
         }),
       ).rejects.toMatchObject({ code: 'payment-evidence/unauthenticated' });
+
+      // Regression: Client submission must NEVER read non-existent paymentEvidence/{id} inside tx
+      // (Firestore Rules intentionally enforce `resource != null` on Client `get`), yet still supports idempotent replay
+      let getPaymentEvidenceCalledInTx = false;
+      const wrappedAdapter = {
+        ...evidenceAdapter,
+        runAtomicTransaction: (fn) =>
+          evidenceAdapter.runAtomicTransaction((tx) =>
+            fn({
+              ...tx,
+              getPaymentEvidence: async (...args) => {
+                getPaymentEvidenceCalledInTx = true;
+                return tx.getPaymentEvidence(...args);
+              },
+            }),
+          ),
+      };
+
+      const firstSubmit = await submitClientPaymentEvidence({
+        evidenceId: 'ev_no_pre_get_1',
+        invoiceId: invA.id,
+        claimedAmount: 120000,
+        paymentMethod: 'transfer',
+        claimedPaidAt: '2026-11-28',
+        evidenceAsset: makeValidCloudinaryAsset(),
+        actorUid: 'client-uid-a',
+        customerId: 'cust_client_a',
+        adapter: wrappedAdapter,
+      });
+      expect(getPaymentEvidenceCalledInTx).toBe(false);
+      expect(firstSubmit.idempotentReplay).toBe(false);
+
+      const replaySubmit = await submitClientPaymentEvidence({
+        evidenceId: 'ev_no_pre_get_1',
+        invoiceId: invA.id,
+        claimedAmount: 120000,
+        paymentMethod: 'transfer',
+        claimedPaidAt: '2026-11-28',
+        evidenceAsset: makeValidCloudinaryAsset(),
+        actorUid: 'client-uid-a',
+        customerId: 'cust_client_a',
+        adapter: wrappedAdapter,
+      });
+      expect(getPaymentEvidenceCalledInTx).toBe(false);
+      expect(replaySubmit.idempotentReplay).toBe(true);
+      expect(replaySubmit.evidence.id).toBe('ev_no_pre_get_1');
     });
   });
 

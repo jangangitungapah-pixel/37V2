@@ -278,9 +278,8 @@ service cloud.firestore {
       ]);
     }
 
-    function isValidBookingUpdateKeys(reqData, resData) {
-      return reqData.diff(resData).affectedKeys().hasOnly([
-        'customerId',
+    function isValidBookingUpdateKeys(affected) {
+      return affected.hasOnly([
         'customerName',
         'phone',
         'phoneNormalized',
@@ -310,21 +309,38 @@ service cloud.firestore {
         'totalAmount',
         'automaticDiscount',
         'commissionSnapshot',
-        'initialPaymentStatus',
-        'initialPaidAmount',
-        'paymentMethod',
         'sessionStatus',
         'checkedInAt',
         'checkedInByUid',
         'actualStartedAt',
         'actualCompletedAt',
         'notes',
-        'createdAt',
-        'createdByUid',
         'updatedAt',
         'updatedByUid',
         'version'
       ]);
+    }
+
+    function isBookingLifecycleOnlyUpdate(reqData, resData, affected) {
+      return affected.hasOnly([
+          'sessionStatus',
+          'checkedInAt',
+          'checkedInByUid',
+          'actualStartedAt',
+          'actualCompletedAt',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && reqData.sessionStatus in ['upcoming', 'in_progress', 'completed', 'no_show', 'cancelled']
+        && (!('checkedInAt' in reqData) || reqData.checkedInAt == null || reqData.checkedInAt is timestamp)
+        && (!('checkedInByUid' in reqData) || reqData.checkedInByUid is string)
+        && (!('actualStartedAt' in reqData) || reqData.actualStartedAt == null || reqData.actualStartedAt is timestamp)
+        && (!('actualCompletedAt' in reqData) || reqData.actualCompletedAt == null || reqData.actualCompletedAt is timestamp)
+        && reqData.updatedAt is timestamp
+        && reqData.updatedByUid == request.auth.uid
+        && reqData.version is int
+        && reqData.version == resData.version + 1;
     }
 
     function isValidBookingV2ServiceFields(data) {
@@ -339,29 +355,30 @@ service cloud.firestore {
         && psv >= 1;
     }
 
-    function isDiscountTotalCappedCorrectly(rawDiscount, subtotal, totalDiscount) {
-      return totalDiscount == (rawDiscount > subtotal ? subtotal : rawDiscount);
+    function isValidAutomaticDiscountMap(disc, subtotal, discountAmount) {
+      let eb = disc.eligibleBlocks;
+      let dpb = disc.discountPerBlock;
+      let td = disc.totalDiscount;
+      let raw = eb * dpb;
+      return disc.size() == 5
+        && disc.type == 'duration_multiple'
+        && disc.intervalMinutes is int
+        && disc.intervalMinutes > 0
+        && eb is int
+        && eb > 0
+        && dpb is int
+        && dpb > 0
+        && td is int
+        && td > 0
+        && td <= subtotal
+        && td == (raw > subtotal ? subtotal : raw)
+        && discountAmount == td;
     }
 
     function isValidBookingAutomaticDiscountShape(data) {
       let disc = data.get('automaticDiscount', null);
       return disc == null
-        || (
-          disc is map
-          && disc.size() == 5
-          && disc.type == 'duration_multiple'
-          && disc.intervalMinutes is int
-          && disc.intervalMinutes > 0
-          && disc.eligibleBlocks is int
-          && disc.eligibleBlocks > 0
-          && disc.discountPerBlock is int
-          && disc.discountPerBlock > 0
-          && disc.totalDiscount is int
-          && disc.totalDiscount > 0
-          && disc.totalDiscount <= data.subtotal
-          && isDiscountTotalCappedCorrectly(disc.eligibleBlocks * disc.discountPerBlock, data.subtotal, disc.totalDiscount)
-          && data.discountAmount == disc.totalDiscount
-        );
+        || (disc is map && isValidAutomaticDiscountMap(disc, data.subtotal, data.discountAmount));
     }
 
     function isBookingAutomaticDiscountMathMatched(data) {
@@ -427,23 +444,6 @@ service cloud.firestore {
         && reqData.durationMinutes == resData.durationMinutes;
     }
 
-    function isBookingSnapshotsUnchanged(reqData, resData) {
-      return reqData.unitRate == resData.unitRate
-        && reqData.subtotal == resData.subtotal
-        && reqData.discountAmount == resData.discountAmount
-        && reqData.totalAmount == resData.totalAmount
-        && reqData.get('automaticDiscount', null) == resData.get('automaticDiscount', null)
-        && reqData.get('commissionSnapshot', null) == resData.get('commissionSnapshot', null);
-    }
-
-    function isValidBookingScopeAndSnapshots(reqData, resData) {
-      let scopeUnchanged = isServiceScopeUnchanged(reqData, resData);
-      return scopeUnchanged
-        ? isBookingSnapshotsUnchanged(reqData, resData)
-        : (reqData.get('automaticDiscount', null) == resData.get('automaticDiscount', null)
-            || isBookingAutomaticDiscountMathMatched(reqData));
-    }
-
     function isValidOperationalSettingsV2(settings) {
       return settings is map
         && settings.size() == 1
@@ -503,7 +503,14 @@ service cloud.firestore {
         && data.updatedByUid == request.auth.uid;
     }
 
-    function isValidBookingShape(data) {
+    function isValidBookingCoreShape(data) {
+      let sm = data.startMinute;
+      let dm = data.durationMinutes;
+      let em = data.endMinute;
+      let sub = data.subtotal;
+      let da = data.discountAmount;
+      let tot = data.totalAmount;
+      let ipa = data.initialPaidAmount;
       return data.customerName is string
         && data.customerName.size() > 0
         && data.phone is string
@@ -519,38 +526,42 @@ service cloud.firestore {
         && data.recordingTypeLabel is string
         && data.date is string
         && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
-        && data.startMinute is int
-        && data.startMinute >= 600
-        && data.startMinute < 1380
-        && data.startMinute % 30 == 0
-        && data.durationMinutes is int
-        && data.durationMinutes > 0
-        && data.durationMinutes % 30 == 0
-        && data.endMinute is int
-        && data.endMinute == data.startMinute + data.durationMinutes
-        && data.endMinute <= 1380
+        && sm is int
+        && sm >= 600
+        && sm < 1380
+        && sm % 30 == 0
+        && dm is int
+        && dm > 0
+        && dm % 30 == 0
+        && em is int
+        && em == sm + dm
+        && em <= 1380
         && data.timeZone == 'Asia/Jakarta'
         && data.unitRate is int
         && data.unitRate >= 0
-        && data.subtotal is int
-        && data.subtotal >= 0
-        && data.discountAmount is int
-        && data.discountAmount >= 0
-        && data.discountAmount <= data.subtotal
-        && data.totalAmount is int
-        && data.totalAmount >= 0
-        && data.totalAmount == data.subtotal - data.discountAmount
-        && isValidBookingAutomaticDiscountShape(data)
-        && isValidBookingCommissionSnapshot(data)
+        && sub is int
+        && sub >= 0
+        && da is int
+        && da >= 0
+        && da <= sub
+        && tot is int
+        && tot >= 0
+        && tot == sub - da
         && data.initialPaymentStatus in ['unpaid', 'partial', 'paid']
-        && data.initialPaidAmount is number
-        && data.initialPaidAmount >= 0
-        && data.initialPaidAmount <= data.totalAmount
+        && ipa is number
+        && ipa >= 0
+        && ipa <= tot
         && data.paymentMethod is string
         && data.sessionStatus in ['upcoming', 'in_progress', 'completed', 'no_show', 'cancelled']
         && data.notes is string
         && data.version is int
         && data.version >= 1;
+    }
+
+    function isValidBookingShape(data) {
+      return isValidBookingCoreShape(data)
+        && isValidBookingAutomaticDiscountShape(data)
+        && isValidBookingCommissionSnapshot(data);
     }
 
     function isValidCustomerShape(data, customerId) {
@@ -651,9 +662,9 @@ service cloud.firestore {
         && isLinkedCustomerPhoneMatchedAfter(data.customerId, data.phoneNormalized, true);
     }
 
-    function isLegacyBookingCustomerLinkUpdate(reqData, resData) {
+    function isLegacyBookingCustomerLinkUpdate(reqData, resData, affected) {
       return resData.get('customerId', '') == ''
-        && reqData.diff(resData).affectedKeys().hasOnly([
+        && affected.hasOnly([
           'customerId',
           'phoneNormalized',
           'updatedAt',
@@ -668,6 +679,53 @@ service cloud.firestore {
         && reqData.updatedAt is timestamp
         && reqData.version == resData.version + 1
         && isLinkedCustomerPhoneMatchedAfter(reqData.customerId, reqData.phoneNormalized, false);
+    }
+
+    function isValidBookingCreate(data) {
+      return isValidBookingKeys(data)
+        && isValidBookingShape(data)
+        && hasValidBookingCustomerLinkAfter(data)
+        && isBookingAutomaticDiscountMathMatched(data)
+        && data.createdByUid == request.auth.uid
+        && data.updatedByUid == request.auth.uid
+        && data.version == 1;
+    }
+
+    function isValidBookingStandardUpdate(reqData, resData, affected) {
+      let scopeUnchanged = isServiceScopeUnchanged(reqData, resData);
+      let discUnchanged = reqData.get('automaticDiscount', null) == resData.get('automaticDiscount', null);
+      let commUnchanged = reqData.get('commissionSnapshot', null) == resData.get('commissionSnapshot', null);
+      return isValidBookingUpdateKeys(affected)
+        && isValidBookingCoreShape(reqData)
+        && reqData.updatedByUid == request.auth.uid
+        && (
+          scopeUnchanged
+            ? (
+              reqData.unitRate == resData.unitRate
+              && reqData.subtotal == resData.subtotal
+              && reqData.discountAmount == resData.discountAmount
+              && reqData.totalAmount == resData.totalAmount
+              && discUnchanged
+              && commUnchanged
+            )
+            : (
+              (
+                (discUnchanged && reqData.discountAmount == resData.discountAmount && reqData.subtotal == resData.subtotal)
+                || (
+                  isValidBookingAutomaticDiscountShape(reqData)
+                  && (discUnchanged || isBookingAutomaticDiscountMathMatched(reqData))
+                )
+              )
+              && (commUnchanged || isValidBookingCommissionSnapshot(reqData))
+            )
+        );
+    }
+
+    function isValidBookingUpdate(reqData, resData) {
+      let affected = reqData.diff(resData).affectedKeys();
+      return isBookingLifecycleOnlyUpdate(reqData, resData, affected)
+        || isLegacyBookingCustomerLinkUpdate(reqData, resData, affected)
+        || isValidBookingStandardUpdate(reqData, resData, affected);
     }
 
     function isValidInvoiceSnapshots(data) {
@@ -2093,31 +2151,11 @@ service cloud.firestore {
 
       allow create: if isActiveStaff()
         && !isFactoryResetLocked()
-        && isValidBookingKeys(request.resource.data)
-        && isValidBookingShape(request.resource.data)
-        && hasValidBookingCustomerLinkAfter(request.resource.data)
-        && isBookingAutomaticDiscountMathMatched(request.resource.data)
-        && request.resource.data.createdByUid == request.auth.uid
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version == 1;
+        && isValidBookingCreate(request.resource.data);
 
       allow update: if isActiveStaff()
         && !isFactoryResetLocked()
-        && (
-          isLegacyBookingCustomerLinkUpdate(request.resource.data, resource.data)
-          || (
-            isValidBookingUpdateKeys(request.resource.data, resource.data)
-            && isValidBookingShape(request.resource.data)
-            && request.resource.data.get('customerId', '') == resource.data.get('customerId', '')
-            && request.resource.data.createdByUid == resource.data.createdByUid
-            && request.resource.data.createdAt == resource.data.createdAt
-            && request.resource.data.updatedByUid == request.auth.uid
-            && request.resource.data.initialPaymentStatus == resource.data.initialPaymentStatus
-            && request.resource.data.initialPaidAmount == resource.data.initialPaidAmount
-            && request.resource.data.paymentMethod == resource.data.paymentMethod
-            && isValidBookingScopeAndSnapshots(request.resource.data, resource.data)
-          )
-        );
+        && isValidBookingUpdate(request.resource.data, resource.data);
 
       allow delete: if canFactoryResetDelete();
     }

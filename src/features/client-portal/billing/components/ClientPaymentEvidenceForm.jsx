@@ -82,9 +82,10 @@ export function ClientPaymentEvidenceForm({
     }
 
     setIsSubmitting(true);
+    let uploadedAsset = null;
     try {
       // Step 1: Upload to Cloudinary once (or reuse preserved asset on Firestore retry)
-      const asset = await upload.ensureUploaded();
+      uploadedAsset = await upload.ensureUploaded();
 
       // Step 2: Persist `paymentEvidence/{evidenceId}` (`pending_review`) in Firestore
       upload.markSavingMetadata();
@@ -95,7 +96,7 @@ export function ClientPaymentEvidenceForm({
         paymentMethod: validation.data.paymentMethod,
         claimedPaidAt: validation.data.claimedPaidAt,
         referenceNumber: validation.data.referenceNumber,
-        evidenceAsset: asset,
+        evidenceAsset: uploadedAsset,
         actorUid: user?.uid || '',
         customerId: clientAccount?.customerId || '',
         expectedCloudName: upload.config.cloudName,
@@ -111,7 +112,7 @@ export function ClientPaymentEvidenceForm({
       onSubmitted?.(result.evidence);
     } catch (err) {
       const friendly = mapPaymentEvidenceErrorToMessage(err, { locale: 'en' });
-      if (upload.hasPreservedUpload) {
+      if (uploadedAsset || upload.hasPreservedUpload) {
         upload.markMetadataFailed(
           `${friendly} Your image is already uploaded — click Retry Submission to save without re-uploading.`,
         );

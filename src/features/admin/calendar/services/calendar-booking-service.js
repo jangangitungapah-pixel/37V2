@@ -1194,16 +1194,19 @@ export async function cancelBooking({
     });
 
     const nextVersion = (Number(existingBooking.version) || 1) + 1;
-    const updatedFields = {
-      ...existingBooking,
+    const cancelPatch = {
       sessionStatus: BOOKING_SESSION_STATUS.CANCELLED,
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,
       version: nextVersion,
     };
+    const updatedFields = {
+      ...existingBooking,
+      ...cancelPatch,
+    };
     delete updatedFields.id;
 
-    tx.updateBooking(cleanBookingId, updatedFields);
+    tx.updateBooking(cleanBookingId, cancelPatch);
 
     const nextPublicProjection = buildPublicAvailabilityProjectionFromBooking(
       updatedFields,
@@ -1314,13 +1317,11 @@ export async function transitionBookingSession({
     const nextVersion = (Number(existingBooking.version) || 1) + 1;
     const cleanNote = String(note || '').trim();
 
-    let updatedFields = {
-      ...existingBooking,
+    const lifecyclePatch = {
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,
       version: nextVersion,
     };
-    delete updatedFields.id;
 
     let eventType;
     let eventNote;
@@ -1337,8 +1338,8 @@ export async function transitionBookingSession({
         return existingBooking;
       }
 
-      updatedFields.checkedInAt = timestamp;
-      updatedFields.checkedInByUid = cleanActorUid;
+      lifecyclePatch.checkedInAt = timestamp;
+      lifecyclePatch.checkedInByUid = cleanActorUid;
       eventType = BOOKING_EVENT_TYPES.CHECKED_IN;
       eventNote = cleanNote || `Customer ${existingBooking.customerName} telah check-in di studio.`;
     } else if (action === 'start_session') {
@@ -1350,11 +1351,11 @@ export async function transitionBookingSession({
       }
 
       nextStatus = BOOKING_SESSION_STATUS.IN_PROGRESS;
-      updatedFields.sessionStatus = nextStatus;
-      updatedFields.actualStartedAt = timestamp;
+      lifecyclePatch.sessionStatus = nextStatus;
+      lifecyclePatch.actualStartedAt = timestamp;
       if (!existingBooking.checkedInAt) {
-        updatedFields.checkedInAt = timestamp;
-        updatedFields.checkedInByUid = cleanActorUid;
+        lifecyclePatch.checkedInAt = timestamp;
+        lifecyclePatch.checkedInByUid = cleanActorUid;
       }
       eventType = BOOKING_EVENT_TYPES.STARTED;
       eventNote = cleanNote || 'Sesi studio dimulai.';
@@ -1367,8 +1368,8 @@ export async function transitionBookingSession({
       }
 
       nextStatus = BOOKING_SESSION_STATUS.COMPLETED;
-      updatedFields.sessionStatus = nextStatus;
-      updatedFields.actualCompletedAt = timestamp;
+      lifecyclePatch.sessionStatus = nextStatus;
+      lifecyclePatch.actualCompletedAt = timestamp;
       eventType = BOOKING_EVENT_TYPES.COMPLETED;
       eventNote = cleanNote || 'Sesi studio telah selesai.';
     } else if (action === 'mark_no_show') {
@@ -1400,7 +1401,7 @@ export async function transitionBookingSession({
       });
 
       nextStatus = BOOKING_SESSION_STATUS.NO_SHOW;
-      updatedFields.sessionStatus = nextStatus;
+      lifecyclePatch.sessionStatus = nextStatus;
       eventType = BOOKING_EVENT_TYPES.NO_SHOW;
       eventNote = cleanNote
         ? `Customer ditandai No Show: ${cleanNote}`
@@ -1412,8 +1413,14 @@ export async function transitionBookingSession({
       );
     }
 
+    const updatedFields = {
+      ...existingBooking,
+      ...lifecyclePatch,
+    };
+    delete updatedFields.id;
+
     // 2. WRITES AFTER READS
-    tx.updateBooking(cleanBookingId, updatedFields);
+    tx.updateBooking(cleanBookingId, lifecyclePatch);
 
     const nextPublicProjection = buildPublicAvailabilityProjectionFromBooking(
       updatedFields,

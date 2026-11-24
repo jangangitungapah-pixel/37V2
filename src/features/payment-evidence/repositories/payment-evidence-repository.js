@@ -495,6 +495,12 @@ export function createInMemoryPaymentEvidenceRepositoryAdapter({
           },
           setPaymentEvidence(id, data) {
             writeStarted = true;
+            if (stagedEvidence.has(id)) {
+              throw createRepositoryError(
+                'already-exists',
+                'Payment evidence document already exists.',
+              );
+            }
             stagedEvidence.set(id, normalizePaymentEvidenceRecord(id, data));
           },
           updatePaymentEvidence(id, data) {
