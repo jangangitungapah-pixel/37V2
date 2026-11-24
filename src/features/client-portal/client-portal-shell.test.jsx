@@ -120,6 +120,11 @@ import {
   CLIENT_ROLE,
 } from './config/client-portal-config';
 import {
+  createInMemoryClientBillingRepositoryAdapter,
+  resetClientBillingRepositoryAdapter,
+  setClientBillingRepositoryAdapter,
+} from './billing/repositories/client-billing-repository';
+import {
   createInMemoryClientPortalRepositoryAdapter,
   resetClientPortalRepositoryAdapter,
   setClientPortalRepositoryAdapter,
@@ -233,6 +238,7 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
       ),
     );
     setBookingRequestRepositoryAdapter(createInMemoryBookingRequestRepositoryAdapter());
+    setClientBillingRepositoryAdapter(createInMemoryClientBillingRepositoryAdapter());
     setPublicAvailabilityRepositoryAdapter(
       createInMemoryPublicAvailabilityRepositoryAdapter({
         initialMetadata: { isReady: true, backfilledFromDate: '2026-01-01' },
@@ -255,6 +261,7 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
   afterEach(() => {
     cleanup();
     resetClientPortalRepositoryAdapter();
+    resetClientBillingRepositoryAdapter();
     resetBookingRequestRepositoryAdapter();
     resetPublicPricingCatalogRepositoryAdapter();
     resetPublicAvailabilityRepositoryAdapter();

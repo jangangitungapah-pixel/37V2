@@ -64,6 +64,29 @@ service cloud.firestore {
         && getClientAccountDoc(request.auth.uid).data.customerId.size() >= 1;
     }
 
+    function isClientOwnerOfCustomer(customerId) {
+      return isActiveClient()
+        && customerId is string
+        && customerId.size() >= 1
+        && getClientAccountDoc(request.auth.uid).data.customerId == customerId
+        && exists(/databases/$(database)/documents/clientCustomerLinks/$(customerId))
+        && get(/databases/$(database)/documents/clientCustomerLinks/$(customerId)).data.ownerUid == request.auth.uid;
+    }
+
+    function isClientReadableInvoiceData(data) {
+      return data != null
+        && data.invoiceStatus in ['issued', 'void']
+        && isClientOwnerOfCustomer(data.customerId);
+    }
+
+    function isClientReadableParentInvoice(invoiceId, customerId) {
+      return invoiceId is string
+        && invoiceId.size() >= 1
+        && exists(/databases/$(database)/documents/invoices/$(invoiceId))
+        && get(/databases/$(database)/documents/invoices/$(invoiceId)).data.customerId == customerId
+        && get(/databases/$(database)/documents/invoices/$(invoiceId)).data.invoiceStatus in ['issued', 'void'];
+    }
+
     function getFactoryResetOperation() {
       return exists(/databases/$(database)/documents/systemOperations/factoryReset)
         ? get(/databases/$(database)/documents/systemOperations/factoryReset)
@@ -1931,7 +1954,14 @@ service cloud.firestore {
     }
 
     match /invoices/{invoiceId} {
-      allow read: if isActiveStaff();
+      allow get: if isActiveStaff()
+        || (resource != null && isClientReadableInvoiceData(resource.data));
+
+      allow list: if isActiveStaff()
+        || (
+          resource.data.invoiceStatus in ['issued', 'void']
+          && isClientOwnerOfCustomer(resource.data.customerId)
+        );
 
       allow create: if isActiveStaff()
         && !isFactoryResetLocked()
@@ -1958,7 +1988,18 @@ service cloud.firestore {
     }
 
     match /paymentTransactions/{transactionId} {
-      allow read: if isActiveStaff();
+      allow get: if isActiveStaff()
+        || (
+          resource != null
+          && isClientOwnerOfCustomer(resource.data.customerId)
+          && isClientReadableParentInvoice(resource.data.invoiceId, resource.data.customerId)
+        );
+
+      allow list: if isActiveStaff()
+        || (
+          isClientOwnerOfCustomer(resource.data.customerId)
+          && isClientReadableParentInvoice(resource.data.invoiceId, resource.data.customerId)
+        );
 
       allow create: if isActiveStaff()
         && !isFactoryResetLocked()

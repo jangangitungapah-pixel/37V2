@@ -362,7 +362,7 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
         /match \/bookingSlots\/\{slotId\}\s*\{\s*allow read: if isActiveStaff\(\);/,
       );
       expect(rulesText).toMatch(
-        /match \/invoices\/\{invoiceId\}\s*\{\s*allow read: if isActiveStaff\(\);/,
+        /match \/invoices\/\{invoiceId\}\s*\{\s*allow get: if isActiveStaff\(\)\s*\|\|\s*\(resource != null && isClientReadableInvoiceData\(resource\.data\)\);/,
       );
 
       // Sanitized publicAvailability rules enforce 6-key schema + getAfter canonical booking match

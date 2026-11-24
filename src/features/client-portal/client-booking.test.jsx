@@ -728,10 +728,10 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
     expect(screen.queryByRole('group', { name: /choose session duration/i })).toBeNull();
 
     const projectDetailsContinue = screen.getByRole('button', { name: /continue to review/i });
-    expect(projectDetailsContinue).toBeDisabled();
+    expect(projectDetailsContinue.disabled).toBe(true);
 
     await user.type(screen.getByLabelText(/project \/ artist name/i), 'Senja EP');
-    expect(projectDetailsContinue).toBeDisabled();
+    expect(projectDetailsContinue.disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: 'EP' }));
     await user.type(screen.getByLabelText(/track count/i), '5');
     fireEvent.change(screen.getByLabelText(/target deadline/i), {
@@ -741,7 +741,7 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       screen.getByLabelText(/project brief \/ references/i),
       'Warm indie rock mix reference',
     );
-    expect(projectDetailsContinue).toBeEnabled();
+    expect(projectDetailsContinue.disabled).toBe(false);
     await user.click(projectDetailsContinue);
 
     // Step 3: Review & Send

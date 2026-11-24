@@ -3073,6 +3073,925 @@ async function runTests() {
 
   console.log('✓ Public galleryItems & landingPagePlacements Client/Public read rules passed');
 
+  // 2F. Client Portal Phase 4 — Client Billing & Payments (`invoices` & `paymentTransactions`)
+  const TOKEN_CLIENT_B = makeEmulatorJwt('client-b-1', 'clientb@gmail.com', {
+    signInProvider: 'google.com',
+    emailVerified: true,
+  });
+
+  // Provision Active Client B bound to `client_client-b-1`
+  const clientBProvisionRes = await userRequest('POST', ':commit', TOKEN_CLIENT_B, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/client-b-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            uid: 'client-b-1',
+            role: 'client',
+            status: 'active',
+            customerId: 'client_client-b-1',
+            profileSource: 'isolated_client_profile',
+            emailNormalized: 'clientb@gmail.com',
+            displayName: 'Client B Musician',
+            photoURL: '',
+            authProvider: 'google.com',
+            emailVerified: true,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/client_client-b-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'client_client-b-1',
+            ownerUid: 'client-b-1',
+            emailNormalized: 'clientb@gmail.com',
+            profileSource: 'isolated_client_profile',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientProfiles/client_client-b-1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: 'client_client-b-1',
+            ownerUid: 'client-b-1',
+            profileSource: 'isolated_client_profile',
+            displayName: 'Client B Musician',
+            emailNormalized: 'clientb@gmail.com',
+            phoneDisplay: '',
+            photoURL: '',
+            status: 'active',
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    clientBProvisionRes.status,
+    200,
+    `Client B provision failed: ${JSON.stringify(clientBProvisionRes.body)}`,
+  );
+
+  // Seed Client A invoices (issued, void, draft) and Client B issued invoice + Suspended Client invoice
+  const clientAIssuedInvNumber = '37MS-20261128-A1A1A1A1A1A1';
+  const clientAVoidInvNumber = '37MS-20261128-A2A2A2A2A2A2';
+  const clientADraftInvNumber = '37MS-20261128-A3A3A3A3A3A3';
+  const clientBIssuedInvNumber = '37MS-20261128-B1B1B1B1B1B1';
+  const suspendedClientInvNumber = '37MS-20261128-C1C1C1C1C1C1';
+
+  const baseClientASnapshots = {
+    customerSnapshot: {
+      name: 'Matched Client Musician',
+      phone: '081277778888',
+      bandName: 'Matched Sound',
+    },
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Paket Rehearsal 3 Jam',
+      studioId: 'room-a',
+      bookingDate: '2026-11-28',
+      startMinute: 600,
+      endMinute: 780,
+      durationMinutes: 180,
+    },
+    financialSnapshot: {
+      subtotal: 300000,
+      discountAmount: 30000,
+      totalAmount: 270000,
+    },
+  };
+
+  // Staff creates Client A issued invoice via real Admin rules path (proving Staff regression!)
+  const staffCreateClientAInvoiceRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_client_portal_1`,
+          fields: toFsFields({
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            invoiceStatus: 'issued',
+            currency: 'IDR',
+            ...baseClientASnapshots,
+            amountPaid: 0,
+            balanceDue: 270000,
+            paymentStatus: 'unpaid',
+            invoiceDate: SERVER_TS,
+            dueDate: '2026-12-05',
+            lastPaymentTransactionId: null,
+            voidReason: '',
+            createdAt: SERVER_TS,
+            createdByUid: 'staff-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'staff-1',
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    staffCreateClientAInvoiceRes.status,
+    200,
+    `Staff create Client A invoice failed: ${JSON.stringify(staffCreateClientAInvoiceRes.body)}`,
+  );
+
+  const fetchedClientAInv = await userRequest(
+    'GET',
+    '/invoices/inv_bkg_client_portal_1',
+    TOKEN_STAFF,
+  );
+  assert.equal(fetchedClientAInv.status, 200, 'Staff can GET Client A invoice');
+  const clientAInvDateTs = { _ts: fetchedClientAInv.body.fields.invoiceDate.timestampValue };
+  const clientAInvCreatedTs = { _ts: fetchedClientAInv.body.fields.createdAt.timestampValue };
+
+  // Staff records valid payment (Rp 100.000) + Owner records second payment (Rp 70.000) + Staff reverses Rp 100.000
+  const staffRecordPaymentRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_cp_1`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_client_portal_1',
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            transactionType: 'payment',
+            amount: 100000,
+            currency: 'IDR',
+            paymentMethod: 'transfer',
+            receivedAt: SERVER_TS,
+            referenceNumber: 'BCA-CP-001',
+            notes: 'Internal staff payment note',
+            source: 'manual',
+            reversalOfTransactionId: null,
+            recordedByUid: 'staff-1',
+            createdAt: SERVER_TS,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_client_portal_1`,
+          fields: toFsFields({
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            invoiceStatus: 'issued',
+            currency: 'IDR',
+            ...baseClientASnapshots,
+            amountPaid: 100000,
+            balanceDue: 170000,
+            paymentStatus: 'partial',
+            invoiceDate: clientAInvDateTs,
+            dueDate: '2026-12-05',
+            lastPaymentTransactionId: 'pay_cp_1',
+            voidReason: '',
+            createdAt: clientAInvCreatedTs,
+            createdByUid: 'staff-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    staffRecordPaymentRes.status,
+    200,
+    `Staff atomic payment record failed: ${JSON.stringify(staffRecordPaymentRes.body)}`,
+  );
+
+  const ownerRecordPaymentRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_cp_2`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_client_portal_1',
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            transactionType: 'payment',
+            amount: 70000,
+            currency: 'IDR',
+            paymentMethod: 'qris',
+            receivedAt: SERVER_TS,
+            referenceNumber: 'QRIS-CP-002',
+            notes: 'Owner verified QRIS',
+            source: 'manual',
+            reversalOfTransactionId: null,
+            recordedByUid: 'owner-1',
+            createdAt: SERVER_TS,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_client_portal_1`,
+          fields: toFsFields({
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            invoiceStatus: 'issued',
+            currency: 'IDR',
+            ...baseClientASnapshots,
+            amountPaid: 170000,
+            balanceDue: 100000,
+            paymentStatus: 'partial',
+            invoiceDate: clientAInvDateTs,
+            dueDate: '2026-12-05',
+            lastPaymentTransactionId: 'pay_cp_2',
+            voidReason: '',
+            createdAt: clientAInvCreatedTs,
+            createdByUid: 'staff-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'owner-1',
+            version: 3,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    ownerRecordPaymentRes.status,
+    200,
+    `Owner atomic payment record failed: ${JSON.stringify(ownerRecordPaymentRes.body)}`,
+  );
+
+  const staffReversalRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_rev_pay_cp_1`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_client_portal_1',
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            transactionType: 'reversal',
+            amount: 100000,
+            currency: 'IDR',
+            paymentMethod: 'transfer',
+            receivedAt: SERVER_TS,
+            referenceNumber: '',
+            notes: 'Duplicate transfer entry reversal',
+            source: 'reversal',
+            reversalOfTransactionId: 'pay_cp_1',
+            recordedByUid: 'staff-1',
+            createdAt: SERVER_TS,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_client_portal_1`,
+          fields: toFsFields({
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            invoiceStatus: 'issued',
+            currency: 'IDR',
+            ...baseClientASnapshots,
+            amountPaid: 70000,
+            balanceDue: 200000,
+            paymentStatus: 'partial',
+            invoiceDate: clientAInvDateTs,
+            dueDate: '2026-12-05',
+            lastPaymentTransactionId: 'pay_rev_pay_cp_1',
+            voidReason: '',
+            createdAt: clientAInvCreatedTs,
+            createdByUid: 'staff-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'staff-1',
+            version: 4,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    staffReversalRes.status,
+    200,
+    `Staff atomic payment reversal failed: ${JSON.stringify(staffReversalRes.body)}`,
+  );
+
+  // Invoice immutability regression: Staff cannot tamper `financialSnapshot` on update
+  const staffMutateSnapshotAttempt = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_client_portal_1`,
+          fields: toFsFields({
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            invoiceStatus: 'issued',
+            currency: 'IDR',
+            ...baseClientASnapshots,
+            financialSnapshot: { subtotal: 100000, discountAmount: 0, totalAmount: 100000 },
+            amountPaid: 70000,
+            balanceDue: 30000,
+            paymentStatus: 'partial',
+            invoiceDate: clientAInvDateTs,
+            dueDate: '2026-12-10',
+            lastPaymentTransactionId: 'pay_rev_pay_cp_1',
+            voidReason: '',
+            createdAt: clientAInvCreatedTs,
+            createdByUid: 'staff-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'staff-1',
+            version: 5,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    staffMutateSnapshotAttempt.status,
+    403,
+    'Invoice immutable financialSnapshot must remain locked even for Staff',
+  );
+
+  // Seed Client A void invoice, Client A draft invoice, Client B issued invoice + payment,
+  // Suspended Client invoice + payment, and mismatched-parent transaction fixture
+  await adminSetDoc('invoices/inv_bkg_client_a_void', {
+    invoiceNumber: clientAVoidInvNumber,
+    bookingId: 'bkg_client_a_void',
+    customerId: 'cust_email_matched',
+    invoiceStatus: 'void',
+    currency: 'IDR',
+    ...baseClientASnapshots,
+    amountPaid: 0,
+    balanceDue: 270000,
+    paymentStatus: 'unpaid',
+    invoiceDate: SERVER_TS,
+    dueDate: null,
+    lastPaymentTransactionId: null,
+    voidReason: 'Cancelled session',
+    createdAt: SERVER_TS,
+    createdByUid: 'owner-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'owner-1',
+    version: 2,
+  });
+
+  await adminSetDoc('invoices/inv_bkg_client_a_draft', {
+    invoiceNumber: clientADraftInvNumber,
+    bookingId: 'bkg_client_a_draft',
+    customerId: 'cust_email_matched',
+    invoiceStatus: 'draft',
+    currency: 'IDR',
+    ...baseClientASnapshots,
+    amountPaid: 0,
+    balanceDue: 270000,
+    paymentStatus: 'unpaid',
+    invoiceDate: SERVER_TS,
+    dueDate: null,
+    lastPaymentTransactionId: null,
+    voidReason: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'owner-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'owner-1',
+    version: 1,
+  });
+
+  await adminSetDoc('invoices/inv_bkg_client_b_1', {
+    invoiceNumber: clientBIssuedInvNumber,
+    bookingId: 'bkg_client_b_1',
+    customerId: 'client_client-b-1',
+    invoiceStatus: 'issued',
+    currency: 'IDR',
+    ...baseClientASnapshots,
+    customerSnapshot: {
+      name: 'Client B Musician',
+      phone: '081399990000',
+      bandName: 'Bravo Trio',
+    },
+    amountPaid: 270000,
+    balanceDue: 0,
+    paymentStatus: 'paid',
+    invoiceDate: SERVER_TS,
+    dueDate: null,
+    lastPaymentTransactionId: 'pay_client_b_1',
+    voidReason: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'owner-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'owner-1',
+    version: 1,
+  });
+
+  await adminSetDoc('paymentTransactions/pay_client_b_1', {
+    invoiceId: 'inv_bkg_client_b_1',
+    invoiceNumber: clientBIssuedInvNumber,
+    bookingId: 'bkg_client_b_1',
+    customerId: 'client_client-b-1',
+    transactionType: 'payment',
+    amount: 270000,
+    currency: 'IDR',
+    paymentMethod: 'cash',
+    receivedAt: SERVER_TS,
+    referenceNumber: '',
+    notes: 'Client B full settlement',
+    source: 'manual',
+    reversalOfTransactionId: null,
+    recordedByUid: 'owner-1',
+    createdAt: SERVER_TS,
+  });
+
+  // Cross-customer parent mismatch fixture: tx claims Client A customerId, but links to Client B's invoice!
+  await adminSetDoc('paymentTransactions/pay_cross_parent_mismatch', {
+    invoiceId: 'inv_bkg_client_b_1',
+    invoiceNumber: clientBIssuedInvNumber,
+    bookingId: 'bkg_client_b_1',
+    customerId: 'cust_email_matched',
+    transactionType: 'payment',
+    amount: 50000,
+    currency: 'IDR',
+    paymentMethod: 'cash',
+    receivedAt: SERVER_TS,
+    referenceNumber: '',
+    notes: 'Mismatched parent invoice fixture',
+    source: 'manual',
+    reversalOfTransactionId: null,
+    recordedByUid: 'owner-1',
+    createdAt: SERVER_TS,
+  });
+
+  // Transaction linked to Client A's DRAFT invoice -> must ALSO be denied to Client A
+  await adminSetDoc('paymentTransactions/pay_draft_parent', {
+    invoiceId: 'inv_bkg_client_a_draft',
+    invoiceNumber: clientADraftInvNumber,
+    bookingId: 'bkg_client_a_draft',
+    customerId: 'cust_email_matched',
+    transactionType: 'payment',
+    amount: 50000,
+    currency: 'IDR',
+    paymentMethod: 'cash',
+    receivedAt: SERVER_TS,
+    referenceNumber: '',
+    notes: 'Draft parent invoice fixture',
+    source: 'manual',
+    reversalOfTransactionId: null,
+    recordedByUid: 'owner-1',
+    createdAt: SERVER_TS,
+  });
+
+  // Suspended Client (`client-new-1` -> `client_client-new-1`) invoice & payment
+  await adminSetDoc('invoices/inv_bkg_suspended_1', {
+    invoiceNumber: suspendedClientInvNumber,
+    bookingId: 'bkg_suspended_1',
+    customerId: 'client_client-new-1',
+    invoiceStatus: 'issued',
+    currency: 'IDR',
+    ...baseClientASnapshots,
+    amountPaid: 50000,
+    balanceDue: 220000,
+    paymentStatus: 'partial',
+    invoiceDate: SERVER_TS,
+    dueDate: null,
+    lastPaymentTransactionId: 'pay_suspended_1',
+    voidReason: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'owner-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'owner-1',
+    version: 1,
+  });
+
+  await adminSetDoc('paymentTransactions/pay_suspended_1', {
+    invoiceId: 'inv_bkg_suspended_1',
+    invoiceNumber: suspendedClientInvNumber,
+    bookingId: 'bkg_suspended_1',
+    customerId: 'client_client-new-1',
+    transactionType: 'payment',
+    amount: 50000,
+    currency: 'IDR',
+    paymentMethod: 'cash',
+    receivedAt: SERVER_TS,
+    referenceNumber: '',
+    notes: '',
+    source: 'manual',
+    reversalOfTransactionId: null,
+    recordedByUid: 'owner-1',
+    createdAt: SERVER_TS,
+  });
+
+  // --- INVOICE ACCESS ASSERTIONS ---
+  // 1. Client A reads own issued invoice -> ALLOW
+  assert.equal(
+    (await userRequest('GET', '/invoices/inv_bkg_client_portal_1', TOKEN_CLIENT_MATCHED)).status,
+    200,
+    'Client A can read own issued invoice',
+  );
+  // 2. Client A reads own void invoice -> ALLOW
+  assert.equal(
+    (await userRequest('GET', '/invoices/inv_bkg_client_a_void', TOKEN_CLIENT_MATCHED)).status,
+    200,
+    'Client A can read own void invoice',
+  );
+  // 3. Client A reads own draft invoice -> DENY
+  assert.equal(
+    (await userRequest('GET', '/invoices/inv_bkg_client_a_draft', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client A MUST be denied reading own draft invoice',
+  );
+  // 4. Client A reads Client B invoice -> DENY (and vice versa)
+  assert.equal(
+    (await userRequest('GET', '/invoices/inv_bkg_client_b_1', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client A denied reading Client B invoice',
+  );
+  assert.equal(
+    (await userRequest('GET', '/invoices/inv_bkg_client_portal_1', TOKEN_CLIENT_B)).status,
+    403,
+    'Client B denied reading Client A invoice',
+  );
+  // 5. Client A queries invoices with own customerId + visible statuses -> ALLOW
+  const clientAOwnInvoicesQueryRes = await userRequest('POST', ':runQuery', TOKEN_CLIENT_MATCHED, {
+    structuredQuery: {
+      from: [{ collectionId: 'invoices' }],
+      where: {
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'customerId' },
+                op: 'EQUAL',
+                value: { stringValue: 'cust_email_matched' },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'invoiceStatus' },
+                op: 'IN',
+                value: {
+                  arrayValue: {
+                    values: [{ stringValue: 'issued' }, { stringValue: 'void' }],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      limit: 101,
+    },
+  });
+  assert.equal(
+    clientAOwnInvoicesQueryRes.status,
+    200,
+    `Client A own customerId invoices query failed: ${JSON.stringify(clientAOwnInvoicesQueryRes.body)}`,
+  );
+  const clientAQueriedInvIds = (
+    Array.isArray(clientAOwnInvoicesQueryRes.body) ? clientAOwnInvoicesQueryRes.body : []
+  )
+    .map((row) => row?.document?.name?.split('/').pop())
+    .filter(Boolean);
+  assert.ok(
+    clientAQueriedInvIds.includes('inv_bkg_client_portal_1') &&
+      clientAQueriedInvIds.includes('inv_bkg_client_a_void'),
+    'Client A query returns own issued and void invoices',
+  );
+  assert.ok(
+    !clientAQueriedInvIds.includes('inv_bkg_client_a_draft') &&
+      !clientAQueriedInvIds.includes('inv_bkg_client_b_1'),
+    'Client A query never returns draft or Client B invoices',
+  );
+
+  // 6. Client A queries all invoices without owner scope (or queries draft status) -> DENY
+  assert.equal(
+    (await userRequest('GET', '/invoices', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client A denied unfiltered invoices list',
+  );
+  const clientADraftQueryRes = await userRequest('POST', ':runQuery', TOKEN_CLIENT_MATCHED, {
+    structuredQuery: {
+      from: [{ collectionId: 'invoices' }],
+      where: {
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'customerId' },
+                op: 'EQUAL',
+                value: { stringValue: 'cust_email_matched' },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'invoiceStatus' },
+                op: 'EQUAL',
+                value: { stringValue: 'draft' },
+              },
+            },
+          ],
+        },
+      },
+      limit: 10,
+    },
+  });
+  assert.equal(clientADraftQueryRes.status, 403, 'Client A denied querying draft invoices');
+
+  // 7. Suspended Client reads invoice -> DENY
+  assert.equal(
+    (await userRequest('GET', '/invoices/inv_bkg_suspended_1', TOKEN_CLIENT_NEW)).status,
+    403,
+    'Suspended Client denied reading own invoice',
+  );
+  // 8. Anonymous user reads invoice -> DENY
+  assert.equal(
+    (await userRequest('GET', '/invoices/inv_bkg_client_portal_1', null)).status,
+    403,
+    'Anonymous user denied reading invoice',
+  );
+  // 9, 10, 11. Client create / update / delete invoice -> DENY
+  const clientCreateInvAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_client_fake`,
+          fields: toFsFields({
+            invoiceNumber: '37MS-20261128-F1F1F1F1F1F1',
+            bookingId: 'bkg_client_fake',
+            customerId: 'cust_email_matched',
+            invoiceStatus: 'issued',
+            currency: 'IDR',
+            ...baseClientASnapshots,
+            amountPaid: 270000,
+            balanceDue: 0,
+            paymentStatus: 'paid',
+            invoiceDate: SERVER_TS,
+            dueDate: null,
+            lastPaymentTransactionId: null,
+            voidReason: '',
+            createdAt: SERVER_TS,
+            createdByUid: 'client-matched-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'client-matched-1',
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(clientCreateInvAttempt.status, 403, 'Client denied creating invoice');
+
+  const clientUpdateInvAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_client_portal_1`,
+          fields: toFsFields({
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            invoiceStatus: 'issued',
+            currency: 'IDR',
+            ...baseClientASnapshots,
+            amountPaid: 270000,
+            balanceDue: 0,
+            paymentStatus: 'paid',
+            invoiceDate: clientAInvDateTs,
+            dueDate: '2026-12-05',
+            lastPaymentTransactionId: 'pay_cp_2',
+            voidReason: '',
+            createdAt: clientAInvCreatedTs,
+            createdByUid: 'staff-1',
+            updatedAt: SERVER_TS,
+            updatedByUid: 'client-matched-1',
+            version: 5,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(clientUpdateInvAttempt.status, 403, 'Client denied updating invoice');
+  assert.equal(
+    (await userRequest('DELETE', '/invoices/inv_bkg_client_portal_1', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client denied deleting invoice',
+  );
+
+  // --- PAYMENT TRANSACTION ACCESS ASSERTIONS ---
+  // 1. Client A reads own payment -> ALLOW
+  assert.equal(
+    (await userRequest('GET', '/paymentTransactions/pay_cp_1', TOKEN_CLIENT_MATCHED)).status,
+    200,
+    'Client A can read own payment transaction',
+  );
+  // 2. Client A reads own reversal transaction -> ALLOW
+  assert.equal(
+    (await userRequest('GET', '/paymentTransactions/pay_rev_pay_cp_1', TOKEN_CLIENT_MATCHED)).status,
+    200,
+    'Client A can read own reversal transaction',
+  );
+  // Client A invoice-scoped transaction list query -> ALLOW
+  const clientATxQueryRes = await userRequest('POST', ':runQuery', TOKEN_CLIENT_MATCHED, {
+    structuredQuery: {
+      from: [{ collectionId: 'paymentTransactions' }],
+      where: {
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'customerId' },
+                op: 'EQUAL',
+                value: { stringValue: 'cust_email_matched' },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'invoiceId' },
+                op: 'EQUAL',
+                value: { stringValue: 'inv_bkg_client_portal_1' },
+              },
+            },
+          ],
+        },
+      },
+      limit: 201,
+    },
+  });
+  assert.equal(
+    clientATxQueryRes.status,
+    200,
+    `Client A invoice-scoped paymentTransactions query failed: ${JSON.stringify(clientATxQueryRes.body)}`,
+  );
+  const clientATxIds = (Array.isArray(clientATxQueryRes.body) ? clientATxQueryRes.body : [])
+    .map((row) => row?.document?.name?.split('/').pop())
+    .filter(Boolean);
+  assert.ok(
+    clientATxIds.includes('pay_cp_1') &&
+      clientATxIds.includes('pay_cp_2') &&
+      clientATxIds.includes('pay_rev_pay_cp_1'),
+    'Client A transaction query returns own payments and reversal',
+  );
+
+  // 3. Client A reads Client B payment -> DENY
+  assert.equal(
+    (await userRequest('GET', '/paymentTransactions/pay_client_b_1', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client A denied reading Client B payment transaction',
+  );
+  // 4. Client A queries all transactions -> DENY
+  assert.equal(
+    (await userRequest('GET', '/paymentTransactions', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client A denied querying all paymentTransactions',
+  );
+  // 5. Client A reads transaction linked to another customer's invoice (or draft parent) -> DENY
+  assert.equal(
+    (
+      await userRequest(
+        'GET',
+        '/paymentTransactions/pay_cross_parent_mismatch',
+        TOKEN_CLIENT_MATCHED,
+      )
+    ).status,
+    403,
+    'Client A denied reading transaction linked to another customer invoice',
+  );
+  assert.equal(
+    (await userRequest('GET', '/paymentTransactions/pay_draft_parent', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client A denied reading transaction linked to a draft parent invoice',
+  );
+  // 6, 7, 8. Client A creates / updates / deletes payment transaction -> DENY
+  const clientCreateTxAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_client_forged_1`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_client_portal_1',
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            transactionType: 'payment',
+            amount: 200000,
+            currency: 'IDR',
+            paymentMethod: 'qris',
+            receivedAt: SERVER_TS,
+            referenceNumber: 'FORGED-1',
+            notes: '',
+            source: 'manual',
+            reversalOfTransactionId: null,
+            recordedByUid: 'client-matched-1',
+            createdAt: SERVER_TS,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(clientCreateTxAttempt.status, 403, 'Client A denied creating paymentTransaction');
+
+  const clientUpdateTxAttempt = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_cp_1`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_client_portal_1',
+            invoiceNumber: clientAIssuedInvNumber,
+            bookingId: 'bkg_client_portal_1',
+            customerId: 'cust_email_matched',
+            transactionType: 'payment',
+            amount: 270000,
+            currency: 'IDR',
+            paymentMethod: 'transfer',
+            receivedAt: SERVER_TS,
+            referenceNumber: 'TAMPERED',
+            notes: '',
+            source: 'manual',
+            reversalOfTransactionId: null,
+            recordedByUid: 'staff-1',
+            createdAt: SERVER_TS,
+          }),
+        },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(clientUpdateTxAttempt.status, 403, 'Client A denied updating paymentTransaction');
+  assert.equal(
+    (await userRequest('DELETE', '/paymentTransactions/pay_cp_1', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Client A denied deleting paymentTransaction',
+  );
+
+  // 9 & 10. Suspended Client & Anonymous user read payment history -> DENY
+  assert.equal(
+    (await userRequest('GET', '/paymentTransactions/pay_suspended_1', TOKEN_CLIENT_NEW)).status,
+    403,
+    'Suspended Client denied reading payment history',
+  );
+  assert.equal(
+    (await userRequest('GET', '/paymentTransactions/pay_cp_1', null)).status,
+    403,
+    'Anonymous user denied reading payment history',
+  );
+
+  // Owner & Active Staff regression: can read all invoices (including draft & Client B)
+  for (const staffOrOwnerToken of [TOKEN_OWNER, TOKEN_STAFF]) {
+    assert.equal(
+      (await userRequest('GET', '/invoices/inv_bkg_client_a_draft', staffOrOwnerToken)).status,
+      200,
+      'Owner/Staff can read draft invoices',
+    );
+    assert.equal(
+      (await userRequest('GET', '/invoices/inv_bkg_client_b_1', staffOrOwnerToken)).status,
+      200,
+      'Owner/Staff can read Client B invoices',
+    );
+    assert.equal(
+      (await userRequest('GET', '/invoices', staffOrOwnerToken)).status,
+      200,
+      'Owner/Staff can list all invoices',
+    );
+  }
+
+  console.log(
+    '✓ Client Portal Phase 4 rules (Client Billing invoices & paymentTransactions ownership, isolation & Admin regression) passed',
+  );
+
   // 3. systemOperations/factoryReset read & start authorization
   assert.equal(
     (await userRequest('GET', '/systemOperations/factoryReset', TOKEN_STAFF)).status,
