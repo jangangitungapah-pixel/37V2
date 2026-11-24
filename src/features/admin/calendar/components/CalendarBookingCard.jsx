@@ -42,7 +42,7 @@ export function CalendarBookingCard({
       : 'before:bg-[#FF6E49]';
 
   const baseCardClass =
-    'relative isolate flex w-full min-w-0 cursor-pointer flex-col overflow-hidden border border-l-[4px] text-left outline-none transition-[box-shadow,transform] duration-150 before:absolute before:inset-x-0 before:top-0 before:h-[3px] hover:-translate-y-px hover:shadow-[0_8px_18px_-12px_rgba(21,21,21,0.6)] focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8BAD12] active:translate-y-0';
+    'relative isolate flex w-full min-w-0 cursor-pointer flex-col overflow-hidden border text-left outline-none transition-[box-shadow,transform] duration-150 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[3px] hover:-translate-y-px hover:shadow-[0_8px_18px_-12px_rgba(21,21,21,0.6)] focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8BAD12] active:translate-y-0';
 
   const ariaLabel = `Booking ${booking.customerName}, ${room.label}, ${timeRangeLabel}, ${serviceSummary}, pembayaran ${paymentMeta.shortLabel}, sesi ${sessionMeta.label}`;
 
@@ -58,7 +58,7 @@ export function CalendarBookingCard({
         }}
         aria-label={ariaLabel}
         title={ariaLabel}
-        className={`${baseCardClass} ${cardSurfaceClass} ${topAccentClass} items-center justify-between gap-1 rounded-[9px] border-l-[3px] px-1.5 py-0.5`}
+        className={`${baseCardClass} ${cardSurfaceClass} ${topAccentClass} flex-row items-center justify-between gap-1 rounded-[9px] border-l-[3px] px-1.5 py-0.5`}
       >
         <span className="min-w-0 flex-1 truncate text-[10px] leading-none font-semibold tracking-tight">
           {booking.customerName}
