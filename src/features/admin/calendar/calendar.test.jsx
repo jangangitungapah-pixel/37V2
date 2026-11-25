@@ -883,6 +883,20 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
 
       expect(await screen.findByText(/jadwal studio/i, {}, { timeout: 5000 })).toBeTruthy();
 
+      const mobileFilterToggle = document.querySelector(
+        'button[aria-controls="calendar-mobile-filters"]',
+      );
+      const mobileFilterPanel = document.getElementById('calendar-mobile-filters');
+      expect(mobileFilterToggle?.getAttribute('aria-expanded')).toBe('false');
+      expect(mobileFilterPanel?.className).toContain('grid-rows-[0fr]');
+      fireEvent.click(mobileFilterToggle);
+      expect(mobileFilterToggle?.getAttribute('aria-expanded')).toBe('true');
+      expect(mobileFilterPanel?.className).toContain('grid-rows-[1fr]');
+      expect(mobileFilterToggle?.querySelector('svg')?.getAttribute('class')).toContain('rotate-180');
+      fireEvent.click(mobileFilterToggle);
+      expect(mobileFilterToggle?.getAttribute('aria-expanded')).toBe('false');
+      expect(mobileFilterPanel?.className).toContain('grid-rows-[0fr]');
+
       // Switch to Day view and verify hourly timeline labels 10:00..22:00 and NO 10:30/11:30 rows
       const viewModeGroup = screen.getByRole('group', { name: /mode tampilan kalender/i });
       await user.click(within(viewModeGroup).getByRole('button', { name: 'Day' }));

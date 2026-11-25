@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Filter, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, Eye, EyeOff, Filter, Search, SlidersHorizontal, X } from 'lucide-react';
 
 import { PAYMENT_FILTER_OPTIONS, ROOM_FILTER_OPTIONS } from '../config/calendar-config';
 
@@ -25,8 +25,17 @@ export function CalendarFilters({
       <div className="flex flex-col gap-2.5 sm:gap-3 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between xl:gap-x-4 xl:gap-y-3">
         {/* Left Cluster (Desktop) / Collapsible Panel (Mobile): Room + Payment Status */}
         <div
-          className={`${mobileFiltersOpen ? 'flex border-t border-[#151515]/[0.07] pt-2.5 sm:border-t-0 sm:pt-0' : 'hidden sm:flex'} order-2 min-w-0 flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:gap-x-4 md:gap-y-3 xl:order-1`}
+          id="calendar-mobile-filters"
+          className={`order-2 grid min-w-0 transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none sm:grid-rows-[1fr] sm:visible sm:opacity-100 sm:pointer-events-auto xl:order-1 ${
+            mobileFiltersOpen
+              ? 'grid-rows-[1fr] visible opacity-100 pointer-events-auto'
+              : 'grid-rows-[0fr] invisible opacity-0 pointer-events-none'
+          }`}
         >
+          <div className="min-h-0 min-w-0 overflow-hidden">
+            <div
+              className={`${mobileFiltersOpen ? 'border-t border-[#151515]/[0.07] pt-2.5 sm:border-t-0 sm:pt-0' : 'border-t-0 pt-0 sm:border-t-0 sm:pt-0'} min-w-0 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:gap-x-4 md:gap-y-3`}
+            >
           {/* Room Filter Selector */}
           <div className="min-w-0">
             <div className="mb-1.5 flex min-h-4 items-center justify-between gap-2 sm:min-h-5">
@@ -174,8 +183,9 @@ export function CalendarFilters({
             <button
               type="button"
               aria-expanded={mobileFiltersOpen}
+              aria-controls="calendar-mobile-filters"
               onClick={() => setMobileFiltersOpen((prev) => !prev)}
-              className="sa-control sa-btn-secondary inline-flex min-h-10 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 text-xs font-semibold sm:hidden"
+              className="sa-control sa-btn-secondary inline-flex min-h-10 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 text-xs font-semibold transition-colors duration-200 ease-out sm:hidden"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Filter</span>
@@ -184,7 +194,14 @@ export function CalendarFilters({
                   {activeFilterCount}
                 </span>
               ) : null}
+              <ChevronDown
+                className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ease-out motion-reduce:transition-none ${
+                  mobileFiltersOpen ? 'rotate-180' : 'rotate-0'
+                }`}
+                aria-hidden="true"
+              />
             </button>
+            </div>
           </div>
         </div>
       </div>
