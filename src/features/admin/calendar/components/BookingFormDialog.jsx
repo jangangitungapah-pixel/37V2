@@ -1065,7 +1065,7 @@ export function BookingFormDialog({
                       onClick={() => handleStepSelect(step.id)}
                       aria-label={`${step.order}. ${step.label}`}
                       aria-current={isStepActive ? 'step' : undefined}
-                      className={`flex min-h-11 min-w-0 cursor-pointer items-center justify-center gap-0.5 rounded-xl border px-1 py-1 text-center transition-all sm:min-h-11 sm:min-h-10.5 sm:justify-between sm:gap-2 sm:px-3 sm:py-1.5 sm:text-left ${isStepActive
+                      className={`flex min-h-11 min-w-0 cursor-pointer items-center justify-center gap-0.5 rounded-xl border px-1 py-1 text-center transition-all sm:min-h-10.5 sm:justify-between sm:gap-2 sm:px-3 sm:py-1.5 sm:text-left ${isStepActive
                         ? 'border-studio-lime bg-studio-lime text-studio-ink font-semibold shadow-xs'
                         : 'border-white/10 bg-white/6 text-neutral-200 hover:border-white/20 hover:bg-white/10'
                         }`}
