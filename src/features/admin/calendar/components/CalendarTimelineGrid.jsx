@@ -26,6 +26,8 @@ export function CalendarTimelineGrid({
   columns = [],
   columnTrackCss = 'minmax(150px, 1fr)',
   cardVariant = 'compact',
+  showRoomLegend = true,
+  hideBannerRightOnMobile = false,
   focusDateIso = '',
   focusRequestKey = 0,
   onSelectEmptySlot,
@@ -103,6 +105,7 @@ export function CalendarTimelineGrid({
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5">
           {bannerLeft}
 
+          {showRoomLegend ? (
           <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-[#46433D]">
             <span className="inline-flex items-center gap-1.5">
               <span
@@ -116,10 +119,11 @@ export function CalendarTimelineGrid({
               <span>Room B</span>
             </span>
           </div>
+          ) : null}
         </div>
 
         {bannerRight ? (
-          <div className="text-xs font-medium text-[#666159]">{bannerRight}</div>
+          <div className={`${hideBannerRightOnMobile ? 'hidden sm:block' : 'block'} text-[11px] font-medium text-[#666159] sm:text-xs`}>{bannerRight}</div>
         ) : null}
       </div>
 
@@ -181,14 +185,20 @@ export function CalendarTimelineGrid({
                 data-column-date={col.dateIso}
                 data-column-today={col.isToday ? 'true' : 'false'}
                 data-column-selected={col.isSelected ? 'true' : 'false'}
-                className={`sticky top-0 z-20 flex flex-col justify-between border-r border-b border-white/10 px-2.5 py-2.5 text-[#F1EEE4] last:border-r-0 ${
+                className={`sticky top-0 z-20 flex flex-col justify-between border-r border-b border-white/10 ${col.compactMobileHeader ? 'px-2 py-2 sm:px-2.5 sm:py-2.5' : 'px-2.5 py-2.5'} text-[#F1EEE4] last:border-r-0 ${
                   col.isToday ? 'bg-[#1D2114]' : col.isSelected ? 'bg-[#22201C]' : 'bg-[#151515]'
                 } ${col.isSelected ? 'border-b-studio-orange border-b-2' : col.isToday ? 'border-b-studio-lime border-b-2' : ''}`}
               >
                 <div className="flex items-center justify-between gap-1.5">
-                  <span className="truncate text-[10.5px] font-medium text-neutral-300">
-                    {col.eyebrow}
-                  </span>
+                  {col.compactMobileHeader ? (
+                    <span className="hidden truncate text-[10.5px] font-medium text-neutral-300 sm:inline">
+                      {col.eyebrow}
+                    </span>
+                  ) : (
+                    <span className="truncate text-[10.5px] font-medium text-neutral-300">
+                      {col.eyebrow}
+                    </span>
+                  )}
 
                   {col.isToday ? (
                     <span className="bg-studio-lime text-studio-ink shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-semibold">
@@ -231,7 +241,7 @@ export function CalendarTimelineGrid({
                         </span>
                       </div>
                       {col.subtitle ? (
-                        <p className="mt-0.5 truncate text-[10.5px] text-neutral-400">
+                        <p className={`${col.compactMobileHeader ? 'hidden sm:block' : 'block'} mt-0.5 truncate text-[10.5px] text-neutral-400`}>
                           {col.subtitle}
                         </p>
                       ) : null}

@@ -20,7 +20,7 @@ export function CalendarFilters({
     (roomFilter !== 'all' ? 1 : 0) + (paymentFilter !== 'all' ? 1 : 0) + (showCancelled ? 1 : 0);
 
   return (
-    <section aria-label="Filter dan pencarian booking kalender" className="sa-card p-3 sm:p-5">
+    <section aria-label="Filter dan pencarian booking kalender" className="sa-card p-2.5 sm:p-5">
       {/* Unified Filter Bar: Search & Mobile Toggle first on mobile; Room/Payment first on desktop */}
       <div className="flex flex-col gap-2.5 sm:gap-3 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between xl:gap-x-4 xl:gap-y-3">
         {/* Left Cluster (Desktop) / Collapsible Panel (Mobile): Room + Payment Status */}
@@ -65,8 +65,8 @@ export function CalendarFilters({
                     aria-pressed={isSelected}
                     className={
                       isSelected
-                        ? 'bg-studio-ink border-studio-ink inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-xl border px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#F1EEE4] shadow-xs transition-all md:w-auto'
-                        : 'hover:text-studio-ink inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-xl border border-[#151515]/12 bg-white px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#46433D] transition-all hover:border-[#151515]/25 hover:bg-[#F8F6EF] md:w-auto'
+                        ? 'bg-studio-ink border-studio-ink inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-xl border px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#F1EEE4] shadow-xs transition-all md:w-auto'
+                        : 'hover:text-studio-ink inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-xl border border-[#151515]/12 bg-white px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#46433D] transition-all hover:border-[#151515]/25 hover:bg-[#F8F6EF] md:w-auto'
                     }
                   >
                     {room.id === 'room-a' ? (
@@ -112,8 +112,8 @@ export function CalendarFilters({
                     aria-pressed={isSelected}
                     className={
                       isSelected
-                        ? 'inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-xl border border-[#8BAD12]/45 bg-[#EDF8C2] px-3 py-1.5 text-center text-xs font-semibold whitespace-nowrap text-[#243300] shadow-xs transition-all md:w-auto'
-                        : 'hover:text-studio-ink inline-flex min-h-9.5 w-full cursor-pointer items-center justify-center rounded-xl border border-[#151515]/12 bg-white px-3 py-1.5 text-center text-xs font-medium whitespace-nowrap text-[#46433D] transition-all hover:border-[#151515]/25 hover:bg-[#F8F6EF] md:w-auto'
+                        ? 'inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center rounded-xl border border-[#8BAD12]/45 bg-[#EDF8C2] px-3 py-1.5 text-center text-xs font-semibold whitespace-nowrap text-[#243300] shadow-xs transition-all md:w-auto'
+                        : 'hover:text-studio-ink inline-flex min-h-10.5 w-full cursor-pointer items-center justify-center rounded-xl border border-[#151515]/12 bg-white px-3 py-1.5 text-center text-xs font-medium whitespace-nowrap text-[#46433D] transition-all hover:border-[#151515]/25 hover:bg-[#F8F6EF] md:w-auto'
                     }
                   >
                     <span className="sm:hidden">{mobileLabel}</span>
@@ -149,7 +149,7 @@ export function CalendarFilters({
                 onChange={(event) => onSearchQueryChange(event.target.value)}
                 aria-label="Cari customer, band, atau project"
                 placeholder="Cari nama, band, atau acara..."
-                className="sa-input h-10 w-full rounded-xl py-1.5 pr-10 pl-9 text-xs font-medium"
+                className="sa-input h-11 w-full rounded-xl py-1.5 pr-10 pl-9 text-xs font-medium"
               />
               {searchQuery ? (
                 <button
@@ -170,8 +170,8 @@ export function CalendarFilters({
               aria-pressed={showCancelled}
               className={
                 showCancelled
-                  ? 'inline-flex min-h-10 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#8BAD12]/45 bg-[#EDF8C2] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#243300] shadow-xs transition-all sm:flex-initial sm:px-3.5'
-                  : 'sa-control sa-btn-secondary inline-flex min-h-10 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#46433D] sm:flex-initial sm:px-3.5'
+                  ? 'inline-flex min-h-11 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#8BAD12]/45 bg-[#EDF8C2] px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-[#243300] shadow-xs transition-all sm:flex-initial sm:px-3.5'
+                  : 'sa-control sa-btn-secondary inline-flex min-h-11 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium whitespace-nowrap text-[#46433D] sm:flex-initial sm:px-3.5'
               }
             >
               {showCancelled ? (
@@ -188,7 +188,7 @@ export function CalendarFilters({
               aria-expanded={mobileFiltersOpen}
               aria-controls="calendar-mobile-filters"
               onClick={() => setMobileFiltersOpen((prev) => !prev)}
-              className="sa-control sa-btn-secondary inline-flex min-h-10 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 text-xs font-semibold transition-colors duration-200 ease-out sm:hidden"
+              className="sa-control sa-btn-secondary inline-flex min-h-11 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 px-3 text-xs font-semibold transition-colors duration-200 ease-out sm:hidden"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Filter</span>

@@ -96,7 +96,7 @@ export function CalendarToolbar({
   };
 
   return (
-    <section aria-label="Kontrol jadwal kalender studio" className="sa-card-hero p-3 sm:p-5">
+    <section aria-label="Kontrol jadwal kalender studio" className="sa-card-hero p-2.5 sm:p-5">
       {/* Primary Period Heading + New Booking Action */}
       <div className="flex flex-row items-center justify-between gap-2.5 sm:gap-4">
         <div className="min-w-0">
@@ -112,7 +112,7 @@ export function CalendarToolbar({
             </span>
           </div>
 
-          <h2 className="text-studio-ink truncate text-lg font-bold tracking-tight sm:mt-2 sm:text-2xl">
+          <h2 className="text-studio-ink truncate text-base font-bold tracking-tight sm:mt-2 sm:text-2xl">
             {periodLabel}
           </h2>
           <p className="mt-1 hidden text-sm text-[#46433D] sm:block">

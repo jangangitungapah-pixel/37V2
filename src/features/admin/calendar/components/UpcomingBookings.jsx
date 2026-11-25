@@ -37,17 +37,17 @@ export function UpcomingBookings({ bookings = [], onSelectBooking, onOpenNewBook
       </div>
 
       {bookings.length === 0 ? (
-        <div className="sa-panel-ivory mt-3.5 rounded-2xl border border-dashed border-[#151515]/15 p-5 text-center">
+        <div className="sa-panel-ivory mt-3 rounded-2xl border border-dashed border-[#151515]/15 p-3.5 text-center sm:mt-3.5 sm:p-5">
           <p className="text-studio-ink text-xs font-semibold sm:text-sm">
-            Belum ada sesi terjadwal pada periode ini
+            Belum ada sesi untuk periode ini
           </p>
           <p className="mt-1 text-xs leading-relaxed text-[#666159]">
-            Pilih slot jam pada kalender atau klik tombol di bawah untuk membuat booking baru.
+            Pilih slot pada kalender untuk membuat booking baru.
           </p>
           <button
             type="button"
             onClick={() => onOpenNewBooking?.()}
-            className="sa-control sa-btn-primary mt-3.5 inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold sm:w-auto"
+            className="sa-control sa-btn-secondary mt-3 inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold sm:mt-3.5 sm:w-auto"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Buat Booking Baru</span>

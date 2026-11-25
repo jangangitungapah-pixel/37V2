@@ -22,6 +22,7 @@ export function CalendarDayView({
     dateIso: activeDate,
     studioId: room.id,
     eyebrow: room.shortLabel,
+    compactMobileHeader: true,
     title: room.label,
     subtitle: room.subtitle,
     badgeLabel: room.shortLabel,
@@ -37,7 +38,7 @@ export function CalendarDayView({
       ariaLabel={`Tampilan jadwal harian ${formatIndonesianDateFull(activeDate)}`}
       bannerLeft={
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-studio-ink text-base font-bold tracking-tight sm:text-lg">
+          <span className="text-studio-ink text-[15px] font-bold tracking-tight sm:text-lg">
             {formatIndonesianDateFull(activeDate)}
           </span>
           {isToday ? (
@@ -48,6 +49,8 @@ export function CalendarDayView({
         </div>
       }
       bannerRight="Klik slot jam untuk tambah booking"
+      showRoomLegend={false}
+      hideBannerRightOnMobile
       columns={columns}
       columnTrackCss={visibleRooms.length === 1 ? 'minmax(180px, 1fr)' : 'minmax(116px, 1fr)'}
       cardVariant="timeline"

@@ -1022,14 +1022,14 @@ export function BookingFormDialog({
             className="sa-dialog fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-[22px] sm:inset-y-4 sm:h-auto sm:max-h-[92dvh] sm:w-[94vw] sm:rounded-[22px]"
           >
             {/* Sticky Header + Compact Mobile 4-Stage Stepper */}
-            <div className="shrink-0 border-b border-white/10 bg-[#151515] px-4 pt-[max(0.875rem,env(safe-area-inset-top))] pb-3 text-[#F1EEE4] sm:px-6 sm:py-4">
+            <div className="shrink-0 border-b border-white/10 bg-[#151515] px-4 pt-[max(0.625rem,env(safe-area-inset-top))] pb-2 text-[#F1EEE4] sm:px-6 sm:py-4">
               <div className="flex items-start justify-between gap-2.5 sm:gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 sm:block">
                     <span className="bg-studio-lime text-studio-ink inline-block rounded-full px-2 py-0.5 text-[9.5px] font-semibold sm:px-2.5 sm:text-[10.5px]">
                       {dialogEyebrow}
                     </span>
-                    <Dialog.Title className="truncate text-base font-bold tracking-tight text-white sm:mt-1.5 sm:text-2xl">
+                    <Dialog.Title className="truncate text-[15px] font-bold tracking-tight sm:text-base text-white sm:mt-1.5 sm:text-2xl">
                       {dialogTitle}
                     </Dialog.Title>
                   </div>
@@ -1051,7 +1051,7 @@ export function BookingFormDialog({
               {/* Functional 4-Stage Stepper (single compact row on phones, rich tiles on sm+) */}
               <nav
                 aria-label="Tahapan form booking"
-                className="mt-3 grid grid-cols-4 gap-1.5 sm:mt-3.5 sm:gap-2"
+                className="mt-2.5 grid grid-cols-4 gap-1 sm:mt-3.5 sm:gap-2"
               >
                 {FORM_STEPS.map((step) => {
                   const isStepValid = Boolean(liveValidation.stepStatus[step.id]);
@@ -1108,7 +1108,7 @@ export function BookingFormDialog({
               id="studio-booking-form"
               onSubmit={handleSubmit}
               noValidate
-              className="min-h-0 flex-1 overscroll-contain overflow-y-auto scroll-smooth bg-[#FAF8F1] px-3.5 pt-4 pb-10 sm:px-6 sm:py-5 sm:pb-8"
+              className="min-h-0 flex-1 overscroll-contain overflow-y-auto scroll-smooth bg-[#FAF8F1] px-3 pt-3 pb-8 sm:px-6 sm:py-5 sm:pb-8"
             >
               {/* Booking Request Conversion Context Banner */}
               {sourceBookingRequest ? (
@@ -1169,22 +1169,22 @@ export function BookingFormDialog({
                 </div>
               ) : null}
 
-              <div className="space-y-4 sm:space-y-5">
+              <div className="space-y-3.5 sm:space-y-5">
                 {/* STEP 01: CUSTOMER SECTION */}
                 <section
                   ref={customerSectionRef}
                   aria-labelledby="step-customer-heading"
                   onFocusCapture={() => setActiveStep('customer')}
-                  className="sa-card scroll-mt-3 p-4 sm:scroll-mt-5 sm:p-6"
+                  className="sa-card scroll-mt-3 p-3.5 sm:scroll-mt-5 sm:p-6"
                 >
-                  <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3">
                     <div>
                       <span className="text-[11px] font-semibold text-[#B92B0C]">
                         Tahap 01 · Data Pemesan
                       </span>
                       <h3
                         id="step-customer-heading"
-                        className="text-studio-ink mt-0.5 text-lg font-bold tracking-tight"
+                        className="text-studio-ink mt-0.5 text-[15px] font-bold tracking-tight sm:text-base sm:text-lg"
                       >
                         Data Pemesan
                       </h3>
@@ -1197,7 +1197,7 @@ export function BookingFormDialog({
                     ) : null}
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:mt-4 sm:grid-cols-2 sm:gap-4">
                     <div>
                       <label
                         htmlFor="booking-customer-name"
@@ -1462,16 +1462,16 @@ export function BookingFormDialog({
                   ref={serviceSectionRef}
                   aria-labelledby="step-service-heading"
                   onFocusCapture={() => setActiveStep('service')}
-                  className="sa-card scroll-mt-3 p-4 sm:scroll-mt-5 sm:p-6"
+                  className="sa-card scroll-mt-3 p-3.5 sm:scroll-mt-5 sm:p-6"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/8 pb-3">
                     <div>
                       <span className="text-[11px] font-semibold text-[#B92B0C]">
                         Tahap 02 · Jenis Jasa &amp; Subcategory
                       </span>
                       <h3
                         id="step-service-heading"
-                        className="text-studio-ink mt-0.5 text-lg font-bold tracking-tight"
+                        className="text-studio-ink mt-0.5 text-[15px] font-bold tracking-tight sm:text-base sm:text-lg"
                       >
                         Layanan Studio
                       </h3>
@@ -1509,7 +1509,7 @@ export function BookingFormDialog({
                               }`}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-base font-bold tracking-tight">
+                              <span className="text-[15px] font-bold tracking-tight sm:text-base">
                                 {service.name}
                               </span>
                               <span
@@ -1747,16 +1747,16 @@ export function BookingFormDialog({
                   ref={scheduleSectionRef}
                   aria-labelledby="step-schedule-heading"
                   onFocusCapture={() => setActiveStep('schedule')}
-                  className="sa-card scroll-mt-3 p-4 sm:scroll-mt-5 sm:p-6"
+                  className="sa-card scroll-mt-3 p-3.5 sm:scroll-mt-5 sm:p-6"
                 >
-                  <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3">
                     <div>
                       <span className="text-[11px] font-semibold text-[#B92B0C]">
                         Tahap 03 · Ruangan &amp; Waktu Sesi
                       </span>
                       <h3
                         id="step-schedule-heading"
-                        className="text-studio-ink mt-0.5 text-lg font-bold tracking-tight"
+                        className="text-studio-ink mt-0.5 text-[15px] font-bold tracking-tight sm:text-base sm:text-lg"
                       >
                         Jadwal &amp; Ketersediaan Slot
                       </h3>
@@ -1792,7 +1792,7 @@ export function BookingFormDialog({
                               }`}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-base font-bold tracking-tight">
+                              <span className="text-[15px] font-bold tracking-tight sm:text-base">
                                 {room.label}
                               </span>
                               <span
@@ -2028,16 +2028,16 @@ export function BookingFormDialog({
                   ref={paymentSectionRef}
                   aria-labelledby="step-payment-heading"
                   onFocusCapture={() => setActiveStep('payment')}
-                  className="sa-card scroll-mt-3 p-4 sm:scroll-mt-5 sm:p-6"
+                  className="sa-card scroll-mt-3 p-3.5 sm:scroll-mt-5 sm:p-6"
                 >
-                  <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3">
                     <div>
                       <span className="text-[11px] font-semibold text-[#B92B0C]">
                         Tahap 04 · Pembayaran Awal &amp; Catatan
                       </span>
                       <h3
                         id="step-payment-heading"
-                        className="text-studio-ink mt-0.5 text-lg font-bold tracking-tight"
+                        className="text-studio-ink mt-0.5 text-[15px] font-bold tracking-tight sm:text-base sm:text-lg"
                       >
                         Informasi Pembayaran Awal
                       </h3>
@@ -2113,7 +2113,7 @@ export function BookingFormDialog({
                                   : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
                                   }`}
                               >
-                                <span className="text-base font-bold tracking-tight">
+                                <span className="text-[15px] font-bold tracking-tight sm:text-base">
                                   {statusOption.shortLabel}
                                 </span>
                                 <span
@@ -2257,7 +2257,7 @@ export function BookingFormDialog({
                   ) : null}
 
                   {/* Live Pricing Breakdown Summary Card: CUSTOMER BILL + INTERNAL FEE ESTIMATE */}
-                  <div className="sa-panel-ivory mt-4 grid grid-cols-1 gap-5 p-4 sm:p-5 md:grid-cols-2">
+                  <div className="sa-panel-ivory mt-3.5 grid grid-cols-1 gap-3.5 p-3.5 sm:mt-4 sm:gap-5 sm:p-5 md:grid-cols-2">
                     <div>
                       <p className="text-studio-ink text-[11px] font-semibold tracking-wider">
                         CUSTOMER BILL
@@ -2383,7 +2383,7 @@ export function BookingFormDialog({
             </form>
 
             {/* Sticky Action Footer (compact single-row summary + actions on phones) */}
-            <div className="sa-safe-bottom shrink-0 border-t border-[#151515]/10 bg-white/95 px-4 pt-3 backdrop-blur-xl sm:px-6 sm:pt-3.5">
+            <div className="sa-safe-bottom shrink-0 border-t border-[#151515]/10 bg-white/95 px-4 pt-2.5 backdrop-blur-xl sm:px-6 sm:pt-3.5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 sm:justify-start sm:gap-x-4 sm:gap-y-1">
                   <div className="flex items-baseline gap-1.5 sm:block">
@@ -2391,7 +2391,7 @@ export function BookingFormDialog({
                       <span className="sm:hidden">Total</span>
                       <span className="hidden sm:inline">Estimasi Total</span>
                     </span>
-                    <span className="text-studio-ink font-mono text-base font-bold tracking-tight tabular-nums sm:text-xl">
+                    <span className="text-studio-ink font-mono text-[15px] font-bold tracking-tight sm:text-base tabular-nums sm:text-xl">
                       {formatRupiah(displayedPricing.totalAmount)}
                     </span>
                   </div>
