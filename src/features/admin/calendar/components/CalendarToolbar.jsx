@@ -50,7 +50,8 @@ export function CalendarToolbar({
     publicSyncError ||
     (!isPublicMetaLoading && !publicMetaError && !isPublicScheduleReady),
   );
-  const compactSyncTime = publicSyncedAtLabel.split(',').pop()?.trim().replace(/\\s*WIB$/, '') || '';
+  const compactSyncTime =
+    publicSyncedAtLabel.split(',').pop()?.trim().replace(' WIB', '') || '';
 
   let publicStatusLabel = 'Status diperiksa';
   let PublicStatusIcon = Loader2;
@@ -161,7 +162,7 @@ export function CalendarToolbar({
               {compactSyncTime && isPublicStatusHealthy ? (
                 <>
                   <span className="font-mono text-[10px] font-medium tabular-nums sm:hidden">
-                    {compactSyncTime}
+                    {compactSyncTime} WIB
                   </span>
                   <span className="hidden font-mono text-[10px] font-medium tabular-nums opacity-75 sm:inline">
                     Terakhir {publicSyncedAtLabel}
