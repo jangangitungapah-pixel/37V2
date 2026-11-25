@@ -1076,7 +1076,8 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
       expect(batchCallArg.deleteIds).toEqual(['cancelled_with_stale_proj_3']);
     });
 
-    it('displays live public schedule sync banner and auto-initializes when an active Owner opens AdminCalendarPage', async () => {
+    it('displays live public schedule status in the Calendar Toolbar and auto-initializes for an active Owner', async () => {
+      const user = userEvent.setup();
       mockAuthenticatedActor('owner', 'owner-uid-1');
 
       const liveTodayIso = getJakartaTodayIso();
@@ -1114,8 +1115,17 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
         </AppProviders>,
       );
 
-      const syncBanner = await screen.findByTestId('admin-public-availability-sync-banner');
-      expect(await within(syncBanner).findByText(/aktif & tersinkron/i)).toBeTruthy();
+      const statusToggle = await screen.findByRole('button', {
+        name: /status kalender publik: publik aktif/i,
+      });
+      expect(statusToggle.getAttribute('aria-expanded')).toBe('false');
+      await user.click(statusToggle);
+
+      const statusDetails = await screen.findByRole('region', {
+        name: /detail kalender publik/i,
+      });
+      expect(await within(statusDetails).findByText(/jadwal publik tersinkron otomatis/i)).toBeTruthy();
+      expect(within(statusDetails).queryByRole('button', { name: /sinkronkan/i })).toBeNull();
 
       const meta = await publicAdapter.getPublicAvailabilityMetadata();
       expect(meta.isReady).toBe(true);

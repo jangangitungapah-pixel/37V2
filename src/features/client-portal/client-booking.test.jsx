@@ -1173,13 +1173,19 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
     });
     cleanup();
 
-    // Healthy banners on Calendar & Price Settings show passive automatic status without redundant manual re-sync buttons
+    // Calendar Toolbar exposes the healthy public status on demand without a redundant re-sync action.
     renderAppAt('/admin/calendar');
-    const calendarSyncBanner = await screen.findByTestId('admin-public-availability-sync-banner');
-    await waitFor(() => {
-      expect(calendarSyncBanner.textContent).toMatch(/aktif & tersinkron otomatis/i);
+    const calendarStatusToggle = await screen.findByRole('button', {
+      name: /status kalender publik: publik aktif/i,
     });
-    expect(within(calendarSyncBanner).queryByRole('button', { name: /sinkronkan/i })).toBeNull();
+    expect(calendarStatusToggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(calendarStatusToggle);
+
+    const calendarStatusDetails = await screen.findByRole('region', {
+      name: /detail kalender publik/i,
+    });
+    expect(calendarStatusDetails.textContent).toMatch(/tersinkron otomatis/i);
+    expect(within(calendarStatusDetails).queryByRole('button', { name: /sinkronkan/i })).toBeNull();
     cleanup();
 
     renderAppAt('/admin/settings/price-and-fee');
