@@ -1,196 +1,110 @@
-# HANDOFF — 37V2 PHASE 1
-## Core Domain, Identity & Policy Foundation
+# HANDOFF — 37V2 Phase 1 Remediation
 
-**Project:** 37 Music Studio — 37V2  
+**Project:** 37 Music Studio / 37V2  
 **Repository:** https://github.com/jangangitungapah-pixel/37V2  
-**Branch:** `feature/phase-1-core-domain-identity-policy-foundation`  
-**Implementation commit:** `a0abe9ac9507c7956a3ded795ac994653da7eed3`  
-**Parent:** `c134b6312b5b2818e1c5f7511c19ec164ae43e55`  
-**Phase:** Phase 1 — Core Domain, Identity & Policy Foundation  
-**Handoff status:** IMPLEMENTED — VERIFICATION PENDING — PHASE 2 BLOCKED  
-**Date:** 25 November 2026
+**Branch:** feature/phase-1-core-domain-identity-policy-foundation  
+**Status:** Phase 1 IMPLEMENTED — NOT ACCEPTED — REMEDIATION REQUIRED — PHASE 2 BLOCKED  
+**Previous branch tip before this documentation set:** 637d133527d1fac256aff44019a7ed0b1daad662  
+**Owner-approved architecture:** Phase 0 decisions AD-01..AD-08 and detailed decisions OD-01..OD-14.
 
 ---
 
-## 1. Executive status
+## 1. Read the detailed documents first
 
-The Phase 1 source and architecture changes have been committed to the dedicated feature branch in one implementation commit. The commit contains **48 changed files**.
+This handoff is deliberately short. The full context is stored in the repository so a new session does not depend on the previous chat transcript.
 
-GitHub compare confirms the branch is one commit ahead of the Phase 0 architecture-freeze baseline. No pull request was opened. The default `main` branch was not updated.
+Read these documents in this order:
 
-This is **not yet a verified Phase 1 completion**. Local lint, unit tests, Firestore Rules emulator tests, and production build have not been executed. A local clone attempt failed because the execution environment could not resolve `github.com`; GitHub reports no CI status checks and no workflow runs for the implementation commit.
+1. **docs/project/37V2-PROJECT-CONTEXT.md**  
+   Understand what 37V2 is: product users, service model, existing modules, stack, Firebase Spark constraints, project conventions and safety rules.
 
-**Do not start Phase 2 until the outstanding verification and identity-reconciliation gate in Section 8 is resolved.**
+2. **docs/architecture/BOOKING-LIFECYCLE-ARCHITECTURE-READER-GUIDE.md**  
+   Understand the Booking Lifecycle target architecture, independent domains, target collection topology, business flows, Owner-approved decisions OD-01..OD-14, phase dependency map, and the explicit distinction between Phase 1 foundations and future engine phases.
 
-## 2. Owner-approved business decisions
+3. **docs/handoffs/PHASE-1-IMPLEMENTATION-BASELINE-AND-GATE-1-RESULTS.md**  
+   Understand the exact Phase 1 implementation footprint, Git baseline, the 49-file list, actual local Gate 1 output, confirmed pricing configuration regression, confirmed paymentEvidence Rules defect, and open acceptance gates.
 
-The delegated Owner approval for OD-01 through OD-14 remains recorded in the Phase 1 PRD and implementation prompt. No additional business-policy values were invented during this phase.
+4. **docs/handoffs/PHASE-1-REMEDIATION-PLAN.md**  
+   Follow the prioritized execution plan, required regressions, Gate 2 identity work, Gate 3 consistency audit, verification commands and exit criteria.
 
-The implemented policy defaults are intentionally neutral:
-- Default deposit policy is `none`.
-- Default hold TTL is `null` / not configured.
-- Service and option overrides start empty.
-- A future deposit-hold engine must fail closed if no effective TTL is configured.
-- No cron or scheduled expiry was introduced.
+5. **Original frozen architecture sources**  
+   Read the Phase 0 PRD, Engine Specification, Data Contracts, State Machines, Migration Plan and Phase 0 handoff when a detailed schema, transaction, transition or legacy-compatibility question arises.
 
-Booking Policies are configuration foundations only. They do not yet confirm reservations, create deposit holds, expire holds, or enforce balance-due transitions. Those behaviors belong to Phase 2.
+Do not treat this summary as a replacement for those documents.
 
-## 3. Implemented scope
+## 2. Overall product context
 
-### 3.1 Booking Policies foundation
-- Added normalization, validation, option > service > studio-default policy resolution, optimistic version checks, Firestore/in-memory repository adapters, hook, Owner-facing settings page, and settings navigation.
-- Added `settings/bookingPolicies` Rules validation and a customer-safe preview path to the public pricing projection.
-- Null hold TTL is represented as unconfigured, not replaced by a made-up number.
+37V2 is the studio operating platform, not just a booking calendar. It includes public website/request intake, Client Portal, Admin operations, calendar, customer CRM, pricing catalog, invoice/payment/evidence, commissions, bookkeeping, dashboard, inventory, gallery, reviews and settings.
 
-### 3.2 Public Pricing Catalog v4
-- Public catalog schema is now v4.
-- The projection includes sanitized service and option deposit previews, balance-due trigger, and `policyVersion`.
-- Internal fees, commission data, and operational metadata remain excluded.
-- Schema v3 catalogs fail closed until the Owner republishes a v4 catalog.
-- Firestore Rules permit `policyVersion: 0` for an unpublished/unpersisted Booking Policies singleton.
+Studio services such as Rehearsal and Recording reserve physical room time. Mix & Master is a post-production Project, not a room reservation. The app must keep the Client experience simple while the domain engine handles the underlying business complexity.
 
-### 3.3 Client identity and booking projection
-- Booking, invoice, and payment-transaction normalizers preserve `clientUid`.
-- Legacy booking normalization derives `reservationStatus: confirmed` (or `cancelled` when the session is cancelled) at read time only; it does not write fabricated history.
-- Client Portal-originated booking conversion uses the source request's `clientUid` and `customerId` as its identity source. It avoids silent CRM profile matching/merging by phone, name, or email.
-- Added customer-safe `clientReservations/{bookingId}` projection writes for new Client Portal booking conversion and canonical booking update/reschedule/cancel/session lifecycle paths.
-- Firestore and in-memory booking repositories support reservation projection writes.
-- Added a manual, Owner-triggered, resumable reservation backfill service. It processes at most five candidate bookings per invocation and only links a booking when its source Client Portal request, UID, and customer identity checks agree.
-- No production backfill was run.
+The approved backend boundary is Firebase Authentication + Cloud Firestore + Firebase Hosting on Spark. Do not introduce Cloud Functions, Cloudflare Workers, Firebase Storage, Blaze/Billing, paid backend services or scheduled jobs. Cloudinary is limited to approved media binaries.
 
-### 3.4 Client Billing and payment ownership
-- Client invoice, payment transaction, and evidence subscriptions support both CRM `customerId` and authenticated `clientUid` ownership.
-- Payment and reversal ledger records carry the invoice's `clientUid`.
-- Admin evidence attachments retain the same UID ownership binding.
-- Evidence submission for isolated Client accounts checks invoice `clientUid` and preserves the invoice's canonical `customerId`.
-- Firestore Rules include UID-scoped ownership paths and cross-document UID consistency checks.
-- Payment evidence review now passes the evidence version; verification notes are accepted and persisted to the payment transaction.
+## 3. What we are actually building
 
-### 3.5 Operational corrections and limits
-- Booking calendar date helpers use `Asia/Jakarta` independently of browser timezone.
-- Client booking Schedule and Review time ranges pass the actual end minute, not duration as an end time.
-- Mix & Master filters include legacy `mixing` and `mastering` IDs.
-- Dashboard payable adapter destructuring and settlement tab navigation were corrected.
-- Commission posting and legacy importer write batches are capped at five.
-- Factory Reset now contains 25 operational targets, including `clientReservations`, `customerEmailIndex`, `clientCustomerLinks`, and `clientProfiles`; `settings/bookingPolicies` is preserved.
+The Booking Lifecycle initiative separates:
+- Booking Request
+- Offer and Offer revisions
+- Reservation and room-slot locks
+- Studio Session
+- Invoice and Payment Transactions
+- Payment Evidence
+- Booking Change Requests and price Adjustments
+- Refund Cases
+- Mix & Master Projects
 
-## 4. Data contracts and indexes
+Each domain owns its own state machine. Do not conflate accepted request, confirmed reservation, paid invoice or completed session.
 
-- Added bounded indexes for UID/CRM-scoped invoice, payment transaction, and payment evidence queries.
-- Added a `publicBookingRequests(source, clientUid)` index.
-- Added a `bookings(source, date)` index for the manual reservation backfill.
-- `firestore.rules` in the implementation commit is approximately 178,719 bytes (below the Phase 1 target of 220 KB and the 256 KB Firestore Rules file limit). This size is a source-file measurement, not proof that emulator compilation succeeds.
-- Existing Firestore rules were not broadly structurally compacted in this phase; only the needed additive and ownership contracts were changed.
+Owner-approved policies include deposit_hold reservation model, configurable deposit, Staff-controlled cash, case-by-case refund, manual hold expiry, adjustment-based pricing changes, approval-based Client changes, and Project-based Mix & Master. The architecture reader guide records OD-01 through OD-14 in detail.
 
-## 5. Changed files
+## 4. Current implementation state
 
-The implementation commit changes 48 files:
+Phase 0 architecture freeze is complete. Phase 1 implementation is committed on the feature branch. It established Booking Policies configuration, Public Pricing Catalog v4 policy projection, clientUid propagation, clientReservations projection/backfill foundations, payment ownership query changes and compatibility fixes.
 
-**Application and domain**
-- `src/App.jsx`
-- `src/lib/booking-date.js`
-- `src/lib/booking-date.test.js`
-- `src/features/admin/booking-requests/hooks/useBookingRequests.js`
-- `src/features/admin/calendar/repositories/calendar-booking-repository.js`
-- `src/features/admin/calendar/services/calendar-booking-service.js`
-- `src/features/admin/commission/schemas/commission-schema.js`
-- `src/features/admin/customer/repositories/customer-repository.js`
-- `src/features/admin/customer/services/customer-migration-service.js`
-- `src/features/admin/dashboard/hooks/useDashboardData.js`
-- `src/features/admin/dashboard/utils/dashboard-calculations.js`
-- `src/features/admin/payment/components/PaymentEvidenceReviewDrawer.jsx`
-- `src/features/admin/payment/repositories/payment-repository.js`
-- `src/features/admin/payment/schemas/payment-schema.js`
-- `src/features/admin/payment/services/legacy-invoice-service.js`
-- `src/features/admin/payment/services/payment-service.js`
-- `src/features/payment-evidence/hooks/useClientPaymentEvidence.js`
-- `src/features/payment-evidence/payment-evidence.test.jsx`
-- `src/features/payment-evidence/repositories/payment-evidence-repository.js`
-- `src/features/payment-evidence/services/payment-evidence-service.js`
-- `src/features/client-portal/billing/hooks/useClientInvoiceDetail.js`
-- `src/features/client-portal/billing/hooks/useClientInvoices.js`
-- `src/features/client-portal/billing/hooks/useClientPaymentTransactions.js`
-- `src/features/client-portal/billing/repositories/client-billing-repository.js`
-- `src/features/client-portal/components/booking/ClientBookingStepReview.jsx`
-- `src/features/client-portal/components/booking/ClientBookingStepSchedule.jsx`
-- `src/features/public-pricing/config/public-pricing-config.js`
-- `src/features/public-pricing/public-pricing-projection.test.js`
-- `src/features/public-pricing/utils/public-pricing-projection.js`
+It did **not** implement the full Offer, deposit-hold, payment, refund, change-request or Mix & Master project lifecycle. Those belong to later phases.
 
-**Booking Policies**
-- `src/features/admin/settings/booking-policies/booking-policies.test.js`
-- `src/features/admin/settings/booking-policies/config/booking-policies-config.js`
-- `src/features/admin/settings/booking-policies/hooks/useBookingPolicies.js`
-- `src/features/admin/settings/booking-policies/hooks/useClientReservationBackfill.js`
-- `src/features/admin/settings/booking-policies/repositories/booking-policies-repository.js`
-- `src/features/admin/settings/booking-policies/services/booking-policies-service.js`
-- `src/features/admin/settings/booking-policies/services/client-reservation-backfill-service.js`
-- `src/features/admin/settings/booking-policies/utils/booking-policies-normalize.js`
-- `src/features/admin/settings/pages/AdminSettingsPage.jsx`
-- `src/features/admin/settings/pages/BookingPoliciesPage.jsx`
-- `src/features/admin/settings/pricing/config/default-pricing-settings.js`
-- `src/features/admin/settings/pricing/repositories/pricing-settings-repository.js`
+Phase 1 is not accepted because Gate 1 has failures and the identity-link/consistency gates remain open.
 
-**Factory Reset, Firebase, and architecture**
-- `firestore.indexes.json`
-- `firestore.rules`
-- `src/features/admin/settings/danger-area/config/factory-reset-config.js`
-- `src/features/admin/settings/danger-area/factory-reset.test.jsx`
-- `docs/architecture/BOOKING-LIFECYCLE-DATA-CONTRACTS.md`
-- `docs/architecture/BOOKING-LIFECYCLE-ENGINE-SPECIFICATION.md`
-- `docs/architecture/BOOKING-LIFECYCLE-MIGRATION-PLAN.md`
+## 5. First remediation priorities
 
-## 6. Verification record
+Use the exact evidence and acceptance checklist in the detailed docs. The known order is:
 
-| Check | Result | Evidence |
-|---|---|---|
-| GitHub branch update | PASS | Feature branch points to `a0abe9ac9507c7956a3ded795ac994653da7eed3` |
-| GitHub commit comparison | PASS | 1 commit ahead; 48 changed files |
-| `npm run lint` | NOT RUN | Local clone blocked by DNS resolution failure to github.com |
-| `npm run test:run` | NOT RUN | Same local clone blocker |
-| `npm run test:rules` | NOT RUN | Firestore emulator not executed |
-| `npm run build` | NOT RUN | Same local clone blocker |
-| GitHub Actions / status checks | NONE FOUND | Commit status returned no statuses; workflow query returned 0 runs |
-| Firebase deploy | NOT RUN | No deployment executed |
-| Production identity backfill | NOT RUN | No production data mutation executed |
-| PR creation / merge | NOT DONE | No PR opened; no branch merge performed |
+1. **P0 — Firestore Rules paymentEvidence ownership defect.**  
+   A linked active Client can read paymentEvidence/ev_reset_1 belonging to another CRM Customer. The parent-invoice helper checks evidence/invoice customerId consistency but does not verify that the authenticated Client owns the parent invoice. Do not weaken the denial test. Fix the ownership condition and add cross-customer regression cases.
 
-The new tests are test source, not test results. Do not mark this phase green until the four local commands above have run successfully and the Firestore Rules tests have been reviewed.
+2. **P1 — Restore the Price & Fee Settings V2 configuration contract.**  
+   In the feature branch, default-pricing-settings.js was reduced from the 404-line existing pricing module to 36 lines of Booking Policies constants. DELIVERY_MODES and PRICING_MODES and the established pricing defaults are missing, causing shared import failures. Restore the existing pricing contract and keep Booking Policies config in its own feature module. Do not restore guessed or invented tariff values.
 
-## 7. Deployment and production safety
+3. **P1 — Resolve lint errors/warnings and hook correctness.**
 
-- No Firebase Rules or index deployment has been executed.
-- No Firestore production data has been backfilled or mutated.
-- No factory reset has been run.
-- No scheduled job, Cloud Function, or paid Firebase feature was added.
-- No PR was created or merged.
-- No change was made to `main`.
+4. **P2 — Re-run Vitest and address the remaining real test failures after shared imports are repaired.**  
+   The previous run had 25 failed suites, 3 passed suites and 7 passed tests. Many failures were import-time failures, not 25 proven independent assertion defects.
 
-## 8. Outstanding gates before Phase 1 can be marked complete
+5. **P2 — Re-run production build and resolve the complete error list.**
 
-1. **Run the verification suite** in a local checkout:
-   ```bash
-   npm ci
-   npm run lint
-   npm run test:run
-   npm run test:rules
-   npm run build
-   ```
-   Capture the real output and fix all failures before any deployment approval.
+6. **Gate 2 — Implement general Owner-reviewed one-to-one identity linking for legacy CRM records that cannot be proven from a matching Client Portal request.**
 
-2. **Complete the explicit CRM identity-link workflow.** The current backfill safely handles booking records whose source Client Portal request carries the matching `clientUid` and `customerId`. A general Owner-reviewed, one-to-one identity-link UI/service for legacy records that cannot be proven from a matching request is not yet implemented. Ambiguous records must remain unlinked; do not use phone/name/email matching as an automatic merge.
+7. **Gate 3 — Verify transaction, Rules lookup budget, clientReservations projection, UID/CRM ownership, indexes and five-record batch assumptions.**
 
-3. **Review transactional and Rules consistency.** In particular, verify createBooking Client Portal conversion, invoice/payment/evidence linkage, `clientReservations` projection writes, the Firestore Rules emulator budget, and the five-write batching assumptions with actual tests. The source-file Rules size being below the limit does not replace emulator compilation.
+The full issue details, file paths, test fixture evidence, required regression matrix and acceptance checklist are in the Phase 1 Baseline and Remediation Plan documents.
 
-4. **Confirm Phase 1 acceptance criteria** against the PRD and this handoff. Only after owner-side review and verified tests should Phase 1 be considered complete.
+## 6. Next-session operating instructions
 
-## 9. Next session instructions
+Start by confirming:
+- Current branch is feature/phase-1-core-domain-identity-policy-foundation.
+- Current HEAD is the latest documentation commit on that branch.
+- Local git status and user edits are understood and preserved.
+- The four detailed documents above have been read.
 
-- Continue only Phase 1 verification and gap closure.
-- Do not begin Phase 2 Offer revisions or deposit-hold lifecycle transitions in this session.
-- Do not run the production backfill.
-- Do not deploy Firestore rules or indexes.
-- Do not merge or update `main`.
-- After all Phase 1 gates pass, update this handoff with exact test output and create a new Phase 2 handoff prompt in a separate session.
+Continue **Phase 1 Remediation only**. Work one gate at a time and report verified results. Do not start Phase 2 in the same session.
 
-**Handoff conclusion:** Phase 1 implementation is committed on its feature branch, but its verification and general manual identity-link gate remain open. Phase 2 must remain blocked until those gates are closed.
+## 7. Hard safety boundaries
+
+Without explicit Owner authorization:
+- Do not merge or update main.
+- Do not create or merge a PR.
+- Do not deploy Firebase Rules, indexes or Hosting.
+- Do not run production backfill or Factory Reset.
+- Do not introduce paid infrastructure, Cloud Functions, Workers, Firebase Storage or scheduled jobs.
+
+**Completion condition:** Phase 1 can only be proposed for acceptance after lint, Vitest, Firestore Rules emulator and build pass; the Owner-reviewed identity-link workflow is complete; transaction/projection/Rules consistency is verified; and the Owner explicitly accepts Phase 1 closure. Phase 2 stays blocked until then.
