@@ -194,7 +194,7 @@ export function BookingRequestToolbar({
         }
       >
         <div className="min-h-0 min-w-0 overflow-hidden">
-          <div className="grid grid-cols-1 gap-2.5 rounded-xl border border-[#151515]/[0.07] bg-[#FAF8F1] p-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 rounded-xl border border-[#151515]/[0.07] bg-[#FAF8F1] p-2.5 sm:grid-cols-2 sm:gap-2.5 sm:p-3 lg:grid-cols-3">
             <div className="min-w-0 space-y-1">
               <label htmlFor="booking-request-type-filter" className="block text-[10px] font-semibold text-[#666159]">
                 Tipe Permintaan
@@ -204,7 +204,8 @@ export function BookingRequestToolbar({
                 aria-label="Filter tipe request"
                 value={requestTypeFilter}
                 onChange={(event) => onRequestTypeFilterChange(event.target.value)}
-                className="sa-input min-h-10 w-full rounded-lg px-3 py-2 text-xs font-medium"
+                className="sa-input !h-10 !min-h-10 w-full rounded-lg px-3 py-2 !text-sm !leading-tight font-medium"
+                style={{ height: 40, minHeight: 40, fontSize: 14, lineHeight: '20px' }}
               >
                 <option value="all">Semua Tipe</option>
                 <option value={BOOKING_REQUEST_TYPES.STUDIO_BOOKING}>Studio Booking</option>
@@ -221,7 +222,8 @@ export function BookingRequestToolbar({
                 aria-label="Filter layanan"
                 value={serviceFilter}
                 onChange={(event) => onServiceFilterChange(event.target.value)}
-                className="sa-input min-h-10 w-full rounded-lg px-3 py-2 text-xs font-medium"
+                className="sa-input !h-10 !min-h-10 w-full rounded-lg px-3 py-2 !text-sm !leading-tight font-medium"
+                style={{ height: 40, minHeight: 40, fontSize: 14, lineHeight: '20px' }}
               >
                 <option value="all">Semua Layanan</option>
                 {PUBLIC_SERVICE_OPTIONS.map((service) => (
@@ -242,7 +244,8 @@ export function BookingRequestToolbar({
                 aria-label="Filter tanggal pilihan"
                 value={preferredDateFilter}
                 onChange={handleDateInputChange}
-                className="sa-input min-h-10 w-full min-w-0 rounded-lg px-3 py-2 text-xs font-medium"
+                className="sa-input !h-10 !min-h-10 w-full min-w-0 rounded-lg px-3 py-2 !text-sm !leading-tight font-medium"
+                style={{ height: 40, minHeight: 40, fontSize: 14, lineHeight: '20px' }}
               />
             </div>
           </div>
