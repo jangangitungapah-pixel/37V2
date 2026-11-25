@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCheck,
+  ChevronDown,
   ExternalLink,
   Loader2,
   MessageSquare,
@@ -43,6 +44,19 @@ function pickInitialTemplateId(request, enabledTemplates = []) {
   ) {
     return 'post_production_received';
   }
+
+  const templateByStatus = {
+    [BOOKING_REQUEST_STATUS.NEW]: 'request_received',
+    [BOOKING_REQUEST_STATUS.IN_REVIEW]: 'request_under_review',
+    [BOOKING_REQUEST_STATUS.AWAITING_CUSTOMER]: 'needs_more_info',
+    [BOOKING_REQUEST_STATUS.ACCEPTED]: 'request_accepted',
+    [BOOKING_REQUEST_STATUS.DECLINED]: 'request_declined',
+  };
+  const preferredTemplateId = templateByStatus[request.status];
+  if (preferredTemplateId && enabledTemplates.some((t) => t.id === preferredTemplateId)) {
+    return preferredTemplateId;
+  }
+
   return enabledTemplates.find((t) => !t.requiresConfirmedBooking)?.id || enabledTemplates[0].id;
 }
 
@@ -64,11 +78,29 @@ export function WhatsAppMessageComposer({
     pickInitialTemplateId(request, enabledTemplates),
   );
   const [customBodyOverride, setCustomBodyOverride] = useState(null);
-  const [composerState, setComposerState] = useState('draft'); // 'draft' | 'prepared' | 'sent'
+  const [composerState, setComposerState] = useState(() =>
+    request?.lastCommunicationStatus === 'manually_marked_sent'
+      ? 'sent'
+      : request?.lastCommunicationStatus === 'prepared_in_whatsapp'
+        ? 'prepared'
+        : 'draft',
+  );
   const [isSavingAction, setIsSavingAction] = useState(false);
   const [actionError, setActionError] = useState('');
   const [staffNoteText, setStaffNoteText] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [isNoteComposerOpen, setIsNoteComposerOpen] = useState(false);
+
+  useEffect(() => {
+    const savedStatus = request?.lastCommunicationStatus;
+    setComposerState(
+      savedStatus === 'manually_marked_sent'
+        ? 'sent'
+        : savedStatus === 'prepared_in_whatsapp'
+          ? 'prepared'
+          : 'draft',
+    );
+  }, [request?.id, request?.lastCommunicationStatus]);
 
   const activeTemplate = useMemo(
     () =>
@@ -114,9 +146,11 @@ export function WhatsAppMessageComposer({
     activeTemplate?.requiresConfirmedBooking && !isBookingConfirmed,
   );
   const hasUnresolvedVars = unresolvedInEditor.length > 0;
+  const isMessageTooLong = activeMessageBody.length > 1800;
   const canOpenWhatsApp =
     Boolean(phoneEvaluation.isValid) &&
     Boolean(activeMessageBody.trim()) &&
+    !isMessageTooLong &&
     !hasUnresolvedVars &&
     !isConfirmedTemplateBlocked &&
     !isSavingAction;
@@ -170,7 +204,13 @@ export function WhatsAppMessageComposer({
   };
 
   const handleMarkAsSent = async () => {
-    if (!activeMessageBody.trim() || isConfirmedTemplateBlocked || isSavingAction) return;
+    if (
+      !activeMessageBody.trim() ||
+      isMessageTooLong ||
+      hasUnresolvedVars ||
+      isConfirmedTemplateBlocked ||
+      isSavingAction
+    ) return;
     setIsSavingAction(true);
     setActionError('');
 
@@ -227,14 +267,17 @@ export function WhatsAppMessageComposer({
   return (
     <section
       aria-labelledby="whatsapp-composer-heading"
-      className="space-y-3.5 rounded-2xl border border-[#151515]/10 bg-white p-4"
+      className="space-y-3 rounded-2xl border border-[#151515]/10 bg-white p-3.5 sm:space-y-3.5 sm:p-4"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.08] pb-3">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-[#151515]" aria-hidden="true" />
-          <h4 id="whatsapp-composer-heading" className="text-sm font-bold text-[#151515]">
-            WhatsApp Communication (Click to Chat)
-          </h4>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.08] pb-2.5 sm:pb-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <MessageSquare className="h-4 w-4 shrink-0 text-[#151515]" aria-hidden="true" />
+          <div className="min-w-0">
+            <h4 id="whatsapp-composer-heading" className="text-sm font-bold text-[#151515]">
+              WhatsApp ke Customer
+            </h4>
+            <p className="text-[10px] text-[#8B857B]">Klik untuk menyiapkan pesan customer</p>
+          </div>
         </div>
         <AdminStatusBadge tone={statusBadgeMeta.tone} size="sm" dot>
           {statusBadgeMeta.label}
@@ -242,7 +285,7 @@ export function WhatsAppMessageComposer({
       </div>
 
       {/* Customer Phone Status */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#151515]/10 bg-[#FAF8F1] px-3 py-2 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#151515]/10 bg-[#FAF8F1] px-3 py-2.5 text-xs">
         <span>
           Tujuan WhatsApp:{' '}
           <strong className="font-mono text-[#151515]">
@@ -264,13 +307,13 @@ export function WhatsAppMessageComposer({
           htmlFor="whatsapp-template-select"
           className="block text-xs font-semibold text-[#151515]"
         >
-          Pilih Template Pesan Internal
+          Pilih Template Pesan
         </label>
         <select
           id="whatsapp-template-select"
           value={activeTemplate?.id || ''}
           onChange={(e) => handleTemplateChange(e.target.value)}
-          className="sa-input min-h-10 w-full rounded-xl px-3 py-2 text-xs font-medium sm:text-sm"
+          className="sa-input min-h-11 w-full rounded-xl px-3 py-2 text-xs font-medium sm:text-sm"
         >
           {enabledTemplates.map((tpl) => {
             const locked = Boolean(tpl.requiresConfirmedBooking && !isBookingConfirmed);
@@ -322,6 +365,12 @@ export function WhatsAppMessageComposer({
         </div>
       ) : null}
 
+      {isMessageTooLong ? (
+        <div role="alert" className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-800">
+          Pesan melebihi batas 1.800 karakter. Ringkas pesan sebelum melanjutkan.
+        </div>
+      ) : null}
+
       {hasUnresolvedVars ? (
         <div
           role="alert"
@@ -359,7 +408,9 @@ export function WhatsAppMessageComposer({
         </div>
         <textarea
           id="whatsapp-message-editor"
-          rows={6}
+          rows={5}
+          maxLength={1800}
+          aria-describedby="whatsapp-message-helper"
           value={activeMessageBody}
           onChange={(e) => {
             setCustomBodyOverride(e.target.value);
@@ -367,11 +418,23 @@ export function WhatsAppMessageComposer({
           }}
           className="sa-input mt-1.5 w-full rounded-xl p-3 text-xs leading-relaxed sm:text-sm"
         />
-        <p className="mt-1 text-[10.5px] text-[#666159]">
-          Variabel yang didukung: {ALLOWLISTED_TEMPLATE_VARIABLES.map((v) => `{${v}}`).join(', ')}.
-          Membuka WhatsApp tidak menjamin pesan terkirim — konfirmasi manual setelah Anda menekan
-          Send di aplikasi WhatsApp.
-        </p>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+          <p id="whatsapp-message-helper" className="max-w-xl text-[10.5px] leading-relaxed text-[#666159]">
+            Membuka WhatsApp hanya menyiapkan pesan. Pengiriman tetap perlu dikonfirmasi secara manual.
+          </p>
+          <span className={`shrink-0 font-mono text-[10px] tabular-nums ${isMessageTooLong ? 'font-bold text-red-700' : 'text-[#8B857B]'}`}>
+            {activeMessageBody.length}/1800
+          </span>
+        </div>
+        <details className="group mt-1">
+          <summary className="inline-flex min-h-8 cursor-pointer list-none items-center gap-1 text-[10.5px] font-semibold text-[#666159] hover:text-[#151515]">
+            <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" aria-hidden="true" />
+            Variabel template yang didukung
+          </summary>
+          <p className="mt-1 rounded-lg bg-[#FAF8F1] p-2 font-mono text-[10px] leading-relaxed text-[#666159]">
+            {ALLOWLISTED_TEMPLATE_VARIABLES.map((variable) => `{${variable}}`).join(', ')}
+          </p>
+        </details>
       </div>
 
       {actionError ? (
@@ -414,39 +477,54 @@ export function WhatsAppMessageComposer({
         </AdminButton>
       </div>
 
-      {/* Add Internal Staff Note */}
-      <form
-        onSubmit={handleAddStaffNote}
-        className="space-y-2 border-t border-[#151515]/[0.08] pt-3"
-      >
-        <label
-          htmlFor="request-staff-note-input"
-          className="flex items-center gap-1.5 text-xs font-semibold text-[#151515]"
+      {/* Internal notes are intentionally separate from messages sent to customers. */}
+      <div className="border-t border-[#151515]/[0.08] pt-2.5">
+        <button
+          type="button"
+          aria-expanded={isNoteComposerOpen}
+          aria-controls="request-staff-note-panel"
+          onClick={() => setIsNoteComposerOpen((previous) => !previous)}
+          className="flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-xl px-2 text-left transition-colors hover:bg-[#FAF8F1]"
         >
-          <StickyNote className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Catatan Internal Staff (Tidak Dikirim ke Customer)</span>
-        </label>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            id="request-staff-note-input"
-            type="text"
-            maxLength={800}
-            value={staffNoteText}
-            onChange={(e) => setStaffNoteText(e.target.value)}
-            placeholder="Catat hasil telepon/WhatsApp atau detail tambahan..."
-            className="sa-input min-h-10.5 flex-1 rounded-xl px-3 py-2 text-xs"
-          />
-          <AdminButton
-            type="submit"
-            variant="secondary"
-            size="sm"
-            disabled={isSavingNote || staffNoteText.trim().length < 3}
-            className="min-h-10.5 w-full shrink-0 sm:w-auto"
-          >
-            {isSavingNote ? 'Menyimpan...' : 'Simpan Catatan'}
-          </AdminButton>
-        </div>
-      </form>
+          <span className="flex min-w-0 items-center gap-2">
+            <StickyNote className="h-4 w-4 shrink-0 text-[#666159]" aria-hidden="true" />
+            <span className="text-xs font-semibold text-[#151515]">Catatan internal staff</span>
+            <span className="rounded-full border border-[#151515]/10 bg-[#FAF8F1] px-2 py-0.5 text-[9px] font-medium text-[#666159]">
+              Privat
+            </span>
+          </span>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-[#666159] transition-transform duration-200 ${isNoteComposerOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
+
+        {isNoteComposerOpen ? (
+          <form id="request-staff-note-panel" onSubmit={handleAddStaffNote} className="mt-2 space-y-2 rounded-xl bg-[#FAF8F1] p-3">
+            <label htmlFor="request-staff-note-input" className="block text-[11px] font-semibold text-[#46433D]">
+              Catatan ini hanya terlihat oleh tim studio dan tidak dikirim ke customer.
+            </label>
+            <textarea
+              id="request-staff-note-input"
+              rows={3}
+              maxLength={800}
+              value={staffNoteText}
+              onChange={(event) => setStaffNoteText(event.target.value)}
+              placeholder="Catat hasil telepon/WhatsApp atau detail tambahan..."
+              className="sa-input w-full rounded-xl bg-white p-3 text-xs leading-relaxed"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-mono text-[10px] text-[#8B857B] tabular-nums">{staffNoteText.length}/800</span>
+              <AdminButton
+                type="submit"
+                variant="secondary"
+                size="sm"
+                disabled={isSavingNote || staffNoteText.trim().length < 3}
+                className="min-h-10 w-full sm:w-auto"
+              >
+                {isSavingNote ? 'Menyimpan...' : 'Simpan Catatan'}
+              </AdminButton>
+            </div>
+          </form>
+        ) : null}
+      </div>
     </section>
   );
 }
