@@ -789,6 +789,17 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       renderCalendarAt('/admin/calendar');
 
       expect(await screen.findByText(/jadwal studio/i, {}, { timeout: 5000 })).toBeTruthy();
+      expect(screen.queryByTestId('admin-public-availability-sync-banner')).toBeNull();
+
+      const publicStatusDisclosure = screen.getByRole('button', {
+        name: /status kalender publik/i,
+      });
+      expect(publicStatusDisclosure.getAttribute('aria-expanded')).toBe('false');
+      await user.click(publicStatusDisclosure);
+      expect(publicStatusDisclosure.getAttribute('aria-expanded')).toBe('true');
+      expect(screen.getByRole('region', { name: /detail kalender publik/i })).toBeTruthy();
+      await user.click(publicStatusDisclosure);
+      expect(publicStatusDisclosure.getAttribute('aria-expanded')).toBe('false');
 
       // Switch to Day view
       const viewModeGroup = screen.getByRole('group', { name: /mode tampilan kalender/i });

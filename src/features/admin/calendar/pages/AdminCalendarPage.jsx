@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, RefreshCw, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, X } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 
@@ -433,94 +433,6 @@ export function AdminCalendarPage() {
 
   return (
     <div data-calendar-scoped="true" className="relative isolate z-0 space-y-3 sm:space-y-4">
-      {/* Owner-Only Public Availability Projection Status & Backfill Strip */}
-      {isOwner ? (
-        <div
-          data-testid="admin-public-availability-sync-banner"
-          className={`flex flex-col gap-2 rounded-2xl border px-4 py-2.5 text-xs ${!isPublicMetaLoading && !publicMetaError && !isPublicScheduleReady
-            ? 'border-[#FF4B22]/35 bg-[#FFF4E8] text-[#7A271A]'
-            : isPublicScheduleReady
-              ? 'border-[#8BAD12]/35 bg-[#F4FBE0] text-[#243300]'
-              : 'border-[#151515]/10 bg-white/85 text-[#46433D]'
-            }`}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <strong className="text-[#151515]">Kalender Publik (/availability):</strong>
-              {isSyncingPublicCalendar ? (
-                <span className="inline-flex items-center gap-1.5 font-medium text-[#151515]">
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                  <span>Menyinkronkan jadwal kalender publik...</span>
-                </span>
-              ) : isPublicScheduleReady && !publicSyncError ? (
-                <>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#C8F13A] px-2 py-0.5 text-[11px] font-bold text-[#151515]">
-                    <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                    <span>Aktif &amp; Tersinkron Otomatis</span>
-                  </span>
-                  {publicSyncedAtLabel ? (
-                    <span className="text-[11px] text-[#46433D]">
-                      Terakhir: {publicSyncedAtLabel}
-                    </span>
-                  ) : null}
-                </>
-              ) : !isPublicMetaLoading && !publicMetaError ? (
-                <span className="inline-flex items-center gap-1 font-semibold text-[#B92B0C]">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <span>
-                    Kalender Publik (/availability) Belum Aktif — sedang menyiapkan jadwal slot
-                    untuk pengunjung.
-                  </span>
-                </span>
-              ) : isPublicMetaLoading ? (
-                <span>Memeriksa status sinkronisasi kalender publik...</span>
-              ) : (
-                <span>Sinkron otomatis untuk setiap booking baru &amp; perubahan jadwal.</span>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {isPublicScheduleReady ? (
-                <Link
-                  to="/availability"
-                  className="text-[11px] font-semibold text-[#151515] underline hover:text-[#FF4B22]"
-                >
-                  Lihat /availability →
-                </Link>
-              ) : null}
-
-              {isSyncingPublicCalendar ||
-                (!isPublicMetaLoading && (!isPublicScheduleReady || Boolean(publicSyncError))) ? (
-                <button
-                  type="button"
-                  onClick={() => void handleSyncPublicAvailability()}
-                  disabled={isFactoryResetLocked || isSyncingPublicCalendar}
-                  className="inline-flex min-h-9.5 cursor-pointer items-center gap-1.5 rounded-lg border border-[#151515] bg-[#151515] px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#FF4B22] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <RefreshCw
-                    className={`h-3 w-3 ${isSyncingPublicCalendar ? 'animate-spin' : ''}`}
-                    aria-hidden="true"
-                  />
-                  <span>
-                    {isSyncingPublicCalendar
-                      ? 'Menyinkronkan...'
-                      : publicSyncError
-                        ? 'Coba Sinkronkan'
-                        : 'Aktifkan & Sinkronkan Sekarang'}
-                  </span>
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          {publicSyncError ? (
-            <p className="rounded-lg border border-[#FF4B22]/30 bg-white/80 px-2.5 py-1.5 text-[11px] font-medium text-[#B92B0C]">
-              {publicSyncError}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
       {/* Request Conversion Eligibility Error Banner */}
       {requestLoadError ? (
         <div
@@ -570,6 +482,15 @@ export function AdminCalendarPage() {
         onSelectDate={handleSelectDate}
         onOpenNewBooking={() => handleOpenNewBooking()}
         newBookingButtonRef={newBookingButtonRef}
+        showPublicAvailabilityStatus={isOwner}
+        isPublicScheduleReady={isPublicScheduleReady}
+        isPublicMetaLoading={isPublicMetaLoading}
+        publicMetaError={publicMetaError}
+        isSyncingPublicCalendar={isSyncingPublicCalendar}
+        publicSyncError={publicSyncError}
+        publicSyncedAtLabel={publicSyncedAtLabel}
+        isPublicSyncDisabled={isFactoryResetLocked || isSyncingPublicCalendar}
+        onSyncPublicAvailability={handleSyncPublicAvailability}
       />
 
       {/* 2. Room, Payment Status & Search Filters */}
