@@ -137,7 +137,13 @@ export function CustomerDirectoryTable({
                     const hasMergedHistory =
                       Array.isArray(profile.historyCustomerIds) &&
                       profile.historyCustomerIds.length > 1;
-                    const bands = bandNamesByCustomerId.get(profile.id) || [];
+                    const bands = [
+                      ...new Set(
+                        (bandNamesByCustomerId.get(profile.id) || [])
+                          .map((band) => String(band ?? '').trim())
+                          .filter(Boolean),
+                      ),
+                    ];
 
                     const rowBgClass = group.isSharedNumber
                       ? 'border-l-[3px] border-l-[#FF4B22] bg-[#FEF4DD]/25 hover:bg-[#FAF8F3]/75'
