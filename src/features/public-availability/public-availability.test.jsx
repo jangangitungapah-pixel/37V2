@@ -1115,15 +1115,27 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
         </AppProviders>,
       );
 
-      const statusToggle = await screen.findByRole('button', {
-        name: /status kalender publik: publik aktif/i,
-      });
+      // Authentication, metadata subscription, and the Owner backfill are asynchronous.
+      // First wait for the disclosure to mount, then verify it transitions to the healthy state.
+      const statusToggle = await screen.findByRole(
+        'button',
+        { name: /status kalender publik:/i },
+        { timeout: 5000 },
+      );
+      await waitFor(
+        () => {
+          expect(statusToggle.getAttribute('aria-label')).toMatch(/publik aktif/i);
+        },
+        { timeout: 5000 },
+      );
       expect(statusToggle.getAttribute('aria-expanded')).toBe('false');
       await user.click(statusToggle);
 
-      const statusDetails = await screen.findByRole('region', {
-        name: /detail kalender publik/i,
-      });
+      const statusDetails = await screen.findByRole(
+        'region',
+        { name: /detail kalender publik/i },
+        { timeout: 5000 },
+      );
       expect(await within(statusDetails).findByText(/jadwal publik tersinkron otomatis/i)).toBeTruthy();
       expect(within(statusDetails).queryByRole('button', { name: /sinkronkan/i })).toBeNull();
 
