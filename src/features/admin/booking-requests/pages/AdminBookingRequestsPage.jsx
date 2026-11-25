@@ -81,18 +81,18 @@ export function AdminBookingRequestsPage() {
     <div data-calendar-scoped="true" className="space-y-4 sm:space-y-5">
       <AdminPageHeader
         compactMobile
-        eyebrow="PUBLIC INQUIRY DESK"
+        eyebrow="CUSTOMER OPERATIONS"
         icon={Inbox}
-        title="Incoming Booking Requests"
+        title="Booking Requests"
         titleId="incoming-booking-requests-heading"
-        description="Kelola permintaan booking studio dan inquiry Mix & Master dari Landing Page, hubungi via WhatsApp, dan konversi ke Admin Calendar."
+        description="Satu inbox untuk permintaan Studio Booking dan proyek Mix & Master dari seluruh kanal."
         meta={
           <AdminStatusBadge
             tone={summaryCounts.newCount > 0 ? 'orange' : 'emerald'}
             size="sm"
             dot={summaryCounts.newCount > 0}
           >
-            {summaryCounts.newCount > 0 ? `${summaryCounts.newCount} New` : 'Inbox Terkendali'}
+            {summaryCounts.newCount > 0 ? `${summaryCounts.newCount} baru` : 'Tidak ada request baru'}
           </AdminStatusBadge>
         }
         actions={
@@ -103,7 +103,7 @@ export function AdminBookingRequestsPage() {
               onClick={() => setTemplateManagerOpen(true)}
             >
               <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Kelola Template WhatsApp</span>
+              <span>Template WhatsApp</span>
             </AdminButton>
           ) : null
         }
@@ -124,6 +124,15 @@ export function AdminBookingRequestsPage() {
         onResetFilters={handleResetFilters}
         hasActiveFilters={hasActiveFilters}
       />
+
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <h2 className="text-sm font-bold tracking-tight text-[#151515] sm:text-base">
+          Permintaan Masuk
+        </h2>
+        <span className="font-mono text-[11px] font-medium text-[#666159] tabular-nums">
+          {isLoading ? 'Memuat inbox...' : error ? 'Inbox tidak tersedia' : `${filteredRequests.length} hasil · ${summaryCounts.totalLoaded} dimuat`}
+        </span>
+      </div>
 
       <BookingRequestList
         requests={filteredRequests}

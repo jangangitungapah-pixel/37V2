@@ -89,6 +89,8 @@ export function useBookingRequests({
       awaitingCustomerCount: 0,
       acceptedCount: 0,
       confirmedCount: 0,
+      declinedCount: 0,
+      closedCount: 0,
       postProductionCount: 0,
     };
 
@@ -99,6 +101,8 @@ export function useBookingRequests({
         counts.awaitingCustomerCount += 1;
       } else if (item.status === BOOKING_REQUEST_STATUS.ACCEPTED) counts.acceptedCount += 1;
       else if (item.status === BOOKING_REQUEST_STATUS.CONFIRMED) counts.confirmedCount += 1;
+      else if (item.status === BOOKING_REQUEST_STATUS.DECLINED) counts.declinedCount += 1;
+      else if (item.status === BOOKING_REQUEST_STATUS.CLOSED) counts.closedCount += 1;
 
       if (item.requestType === BOOKING_REQUEST_TYPES.POST_PRODUCTION_INQUIRY) {
         counts.postProductionCount += 1;
