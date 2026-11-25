@@ -1184,7 +1184,7 @@ export function BookingFormDialog({
                       </span>
                       <h3
                         id="step-customer-heading"
-                        className="text-studio-ink mt-0.5 text-[15px] font-bold tracking-tight sm:text-base sm:text-lg"
+                        className="text-studio-ink mt-0.5 text-base font-bold tracking-tight sm:text-lg"
                       >
                         Data Pemesan
                       </h3>
@@ -1471,7 +1471,7 @@ export function BookingFormDialog({
                       </span>
                       <h3
                         id="step-service-heading"
-                        className="text-studio-ink mt-0.5 text-[15px] font-bold tracking-tight sm:text-base sm:text-lg"
+                        className="text-studio-ink mt-0.5 text-base font-bold tracking-tight sm:text-lg"
                       >
                         Layanan Studio
                       </h3>
@@ -1756,7 +1756,7 @@ export function BookingFormDialog({
                       </span>
                       <h3
                         id="step-schedule-heading"
-                        className="text-studio-ink mt-0.5 text-[15px] font-bold tracking-tight sm:text-base sm:text-lg"
+                        className="text-studio-ink mt-0.5 text-base font-bold tracking-tight sm:text-lg"
                       >
                         Jadwal &amp; Ketersediaan Slot
                       </h3>
@@ -2037,7 +2037,7 @@ export function BookingFormDialog({
                       </span>
                       <h3
                         id="step-payment-heading"
-                        className="text-studio-ink mt-0.5 text-[15px] font-bold tracking-tight sm:text-base sm:text-lg"
+                        className="text-studio-ink mt-0.5 text-base font-bold tracking-tight sm:text-lg"
                       >
                         Informasi Pembayaran Awal
                       </h3>
@@ -2391,7 +2391,7 @@ export function BookingFormDialog({
                       <span className="sm:hidden">Total</span>
                       <span className="hidden sm:inline">Estimasi Total</span>
                     </span>
-                    <span className="text-studio-ink font-mono text-[15px] font-bold tracking-tight sm:text-base tabular-nums sm:text-xl">
+                    <span className="text-studio-ink font-mono text-[15px] font-bold tracking-tight tabular-nums sm:text-xl">
                       {formatRupiah(displayedPricing.totalAmount)}
                     </span>
                   </div>
