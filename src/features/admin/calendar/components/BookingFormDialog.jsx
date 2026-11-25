@@ -1019,10 +1019,10 @@ export function BookingFormDialog({
             aria-label={dialogTitle}
             data-calendar-scoped="true"
             data-admin-portal-layer="true"
-            className="sa-dialog fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden rounded-none sm:inset-y-4 sm:h-auto sm:max-h-[92dvh] sm:w-[95vw] sm:rounded-[22px]"
+            className="sa-dialog fixed inset-x-0 bottom-0 z-50 mx-auto flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-[22px] sm:inset-y-4 sm:h-auto sm:max-h-[92dvh] sm:w-[94vw] sm:rounded-[22px]"
           >
             {/* Sticky Header + Compact Mobile 4-Stage Stepper */}
-            <div className="shrink-0 border-b border-white/10 bg-[#151515] px-3.5 py-2.5 text-[#F1EEE4] sm:px-6 sm:py-4">
+            <div className="shrink-0 border-b border-white/10 bg-[#151515] px-4 pt-[max(0.875rem,env(safe-area-inset-top))] pb-3 text-[#F1EEE4] sm:px-6 sm:py-4">
               <div className="flex items-start justify-between gap-2.5 sm:gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 sm:block">
@@ -1042,7 +1042,7 @@ export function BookingFormDialog({
                 <Dialog.Close
                   aria-label="Tutup form booking"
                   disabled={isSubmitting}
-                  className="hover:border-studio-lime hover:text-studio-lime inline-flex h-9.5 w-9.5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/15 bg-white/8 text-white transition-colors"
+                  className="hover:border-studio-lime hover:text-studio-lime inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/15 bg-white/8 text-white transition-colors sm:h-10 sm:w-10"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </Dialog.Close>
@@ -1051,7 +1051,7 @@ export function BookingFormDialog({
               {/* Functional 4-Stage Stepper (single compact row on phones, rich tiles on sm+) */}
               <nav
                 aria-label="Tahapan form booking"
-                className="mt-2 grid grid-cols-4 gap-1 sm:mt-3.5 sm:gap-2"
+                className="mt-3 grid grid-cols-4 gap-1.5 sm:mt-3.5 sm:gap-2"
               >
                 {FORM_STEPS.map((step) => {
                   const isStepValid = Boolean(liveValidation.stepStatus[step.id]);
@@ -1065,7 +1065,7 @@ export function BookingFormDialog({
                       onClick={() => handleStepSelect(step.id)}
                       aria-label={`${step.order}. ${step.label}`}
                       aria-current={isStepActive ? 'step' : undefined}
-                      className={`flex min-h-10 cursor-pointer items-center justify-center gap-1 rounded-lg border px-1.5 py-1 text-center transition-all sm:min-h-10.5 sm:justify-between sm:gap-2 sm:rounded-xl sm:px-3 sm:py-1.5 sm:text-left ${isStepActive
+                      className={`flex min-h-11 min-w-0 cursor-pointer items-center justify-center gap-0.5 rounded-xl border px-1 py-1 text-center transition-all sm:min-h-11 sm:min-h-10.5 sm:justify-between sm:gap-2 sm:px-3 sm:py-1.5 sm:text-left ${isStepActive
                         ? 'border-studio-lime bg-studio-lime text-studio-ink font-semibold shadow-xs'
                         : 'border-white/10 bg-white/6 text-neutral-200 hover:border-white/20 hover:bg-white/10'
                         }`}
@@ -1108,7 +1108,7 @@ export function BookingFormDialog({
               id="studio-booking-form"
               onSubmit={handleSubmit}
               noValidate
-              className="min-h-0 flex-1 overflow-y-auto bg-[#FAF8F1] px-3 py-3 pb-6 sm:px-6 sm:py-5 sm:pb-8"
+              className="min-h-0 flex-1 overscroll-contain overflow-y-auto scroll-smooth bg-[#FAF8F1] px-3.5 pt-4 pb-10 sm:px-6 sm:py-5 sm:pb-8"
             >
               {/* Booking Request Conversion Context Banner */}
               {sourceBookingRequest ? (
@@ -1169,13 +1169,13 @@ export function BookingFormDialog({
                 </div>
               ) : null}
 
-              <div className="space-y-3.5 sm:space-y-5">
+              <div className="space-y-4 sm:space-y-5">
                 {/* STEP 01: CUSTOMER SECTION */}
                 <section
                   ref={customerSectionRef}
                   aria-labelledby="step-customer-heading"
                   onFocusCapture={() => setActiveStep('customer')}
-                  className="sa-card p-3.5 sm:p-6"
+                  className="sa-card scroll-mt-3 p-4 sm:scroll-mt-5 sm:p-6"
                 >
                   <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
@@ -1213,7 +1213,7 @@ export function BookingFormDialog({
                         value={formValues.customerName}
                         onChange={(e) => handleFieldChange('customerName', e.target.value)}
                         placeholder="Contoh: Raka Pratama"
-                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
+                        className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
                       />
                       {shouldShowFieldError('customerName') ? (
                         <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
@@ -1253,7 +1253,7 @@ export function BookingFormDialog({
                           }
                         }}
                         placeholder="Contoh: 081234567890"
-                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
+                        className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
                       />
                       {shouldShowFieldError('phone') ? (
                         <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
@@ -1451,7 +1451,7 @@ export function BookingFormDialog({
                         value={formValues.bandName}
                         onChange={(e) => handleFieldChange('bandName', e.target.value)}
                         placeholder="Contoh: The Velvet Echo / Solo Project"
-                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
+                        className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
                       />
                     </div>
                   </div>
@@ -1462,7 +1462,7 @@ export function BookingFormDialog({
                   ref={serviceSectionRef}
                   aria-labelledby="step-service-heading"
                   onFocusCapture={() => setActiveStep('service')}
-                  className="sa-card p-3.5 sm:p-6"
+                  className="sa-card scroll-mt-3 p-4 sm:scroll-mt-5 sm:p-6"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
@@ -1640,7 +1640,7 @@ export function BookingFormDialog({
                                 )
                               }
                               placeholder="Contoh: 350000"
-                              className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
+                              className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
                             />
                             {shouldShowFieldError('manualCustomerPrice') ? (
                               <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
@@ -1681,7 +1681,7 @@ export function BookingFormDialog({
                                     )
                                   }
                                   placeholder="0"
-                                  className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
+                                  className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
                                 />
                               </div>
                             ) : null}
@@ -1706,7 +1706,7 @@ export function BookingFormDialog({
                                     )
                                   }
                                   placeholder="0"
-                                  className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
+                                  className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
                                 />
                               </div>
                             ) : null}
@@ -1731,7 +1731,7 @@ export function BookingFormDialog({
                                     )
                                   }
                                   placeholder="0"
-                                  className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
+                                  className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-semibold"
                                 />
                               </div>
                             ) : null}
@@ -1747,7 +1747,7 @@ export function BookingFormDialog({
                   ref={scheduleSectionRef}
                   aria-labelledby="step-schedule-heading"
                   onFocusCapture={() => setActiveStep('schedule')}
-                  className="sa-card p-3.5 sm:p-6"
+                  className="sa-card scroll-mt-3 p-4 sm:scroll-mt-5 sm:p-6"
                 >
                   <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
@@ -1776,7 +1776,7 @@ export function BookingFormDialog({
                     <div
                       role="group"
                       aria-label="Pilih ruangan studio"
-                      className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2"
+                      className="mt-2 grid grid-cols-2 gap-2 sm:gap-2.5"
                     >
                       {STUDIO_ROOMS.map((room) => {
                         const isSelected = formValues.studioId === room.id;
@@ -1814,8 +1814,8 @@ export function BookingFormDialog({
                   </div>
 
                   {/* Date, Start Time & End Time */}
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                    <div className="col-span-2 sm:col-span-1">
                       <label
                         htmlFor="booking-schedule-date"
                         className="text-studio-ink block text-xs font-semibold"
@@ -1828,7 +1828,7 @@ export function BookingFormDialog({
                         required
                         value={formValues.date}
                         onChange={(e) => handleFieldChange('date', e.target.value)}
-                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
+                        className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
                       />
                       {shouldShowFieldError('date') ? (
                         <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
@@ -1848,7 +1848,7 @@ export function BookingFormDialog({
                         id="booking-start-minute"
                         value={formValues.startMinute}
                         onChange={(e) => handleFieldChange('startMinute', e.target.value)}
-                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
+                        className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
                       >
                         {startTimeOptions.map((slot) => (
                           <option key={slot.startMinute} value={slot.value}>
@@ -1875,7 +1875,7 @@ export function BookingFormDialog({
                         disabled={isDurationLockedByFixedShift}
                         value={String(computedEndMinute)}
                         onChange={(e) => handleEndTimeChange(e.target.value)}
-                        className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                        className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {endTimeOptions.map((slot) => (
                           <option key={slot.endMinute} value={slot.value} disabled={slot.disabled}>
@@ -1926,7 +1926,7 @@ export function BookingFormDialog({
                             disabled={isPresetDisabled}
                             onClick={() => handleFieldChange('durationPreset', option.key)}
                             aria-pressed={isSelected}
-                            className={`min-h-10.5 cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${isSelected
+                            className={`min-h-11 sm:min-h-10.5 cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${isSelected
                               ? 'border-[#8BAD12]/50 bg-[#EDF8C2] text-[#243300] shadow-xs'
                               : 'text-studio-ink border-[#151515]/12 bg-[#FAF8F1] hover:border-[#151515]/25 hover:bg-white'
                               }`}
@@ -1959,7 +1959,7 @@ export function BookingFormDialog({
                           onChange={(e) =>
                             handleFieldChange('customDurationMinutes', e.target.value)
                           }
-                          className="sa-input mt-1.5 min-h-10.5 w-full max-w-xs rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
+                          className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full max-w-xs rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
                         />
                         <p className="mt-1 text-xs text-[#666159]">
                           Contoh: 90 = 1 jam 30 menit, 150 = 2 jam 30 menit.
@@ -2028,7 +2028,7 @@ export function BookingFormDialog({
                   ref={paymentSectionRef}
                   aria-labelledby="step-payment-heading"
                   onFocusCapture={() => setActiveStep('payment')}
-                  className="sa-card p-3.5 sm:p-6"
+                  className="sa-card scroll-mt-3 p-4 sm:scroll-mt-5 sm:p-6"
                 >
                   <div className="flex items-center justify-between gap-2 border-b border-[#151515]/8 pb-3.5">
                     <div>
@@ -2143,7 +2143,7 @@ export function BookingFormDialog({
                                 id="booking-payment-method"
                                 value={formValues.paymentMethod}
                                 onChange={(e) => handleFieldChange('paymentMethod', e.target.value)}
-                                className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
+                                className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 text-sm font-medium"
                               >
                                 {PAYMENT_METHOD_OPTIONS.map((method) => (
                                   <option key={method.id} value={method.id}>
@@ -2173,7 +2173,7 @@ export function BookingFormDialog({
                                   value={formValues.dpAmount}
                                   onChange={(e) => handleFieldChange('dpAmount', e.target.value)}
                                   placeholder="Contoh: 50000"
-                                  className="sa-input mt-1.5 min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
+                                  className="sa-input mt-1.5 min-h-11 sm:min-h-10.5 w-full rounded-xl px-3.5 py-2 font-mono text-sm font-medium"
                                 />
                                 {shouldShowFieldError('dpAmount') ? (
                                   <p
@@ -2383,7 +2383,7 @@ export function BookingFormDialog({
             </form>
 
             {/* Sticky Action Footer (compact single-row summary + actions on phones) */}
-            <div className="sa-safe-bottom shrink-0 border-t border-[#151515]/10 bg-white/95 px-3.5 pt-2 backdrop-blur-md sm:px-6 sm:pt-3.5">
+            <div className="sa-safe-bottom shrink-0 border-t border-[#151515]/10 bg-white/95 px-4 pt-3 backdrop-blur-xl sm:px-6 sm:pt-3.5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 sm:justify-start sm:gap-x-4 sm:gap-y-1">
                   <div className="flex items-baseline gap-1.5 sm:block">
@@ -2410,7 +2410,7 @@ export function BookingFormDialog({
                     type="button"
                     disabled={isSubmitting}
                     onClick={() => handleDialogOpenChange(false)}
-                    className="sa-control sa-btn-secondary min-h-10 flex-1 cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold sm:flex-initial"
+                    className="sa-control sa-btn-secondary min-h-11 flex-1 cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold sm:flex-initial"
                   >
                     Batal
                   </button>
@@ -2419,7 +2419,7 @@ export function BookingFormDialog({
                     type="submit"
                     form="studio-booking-form"
                     disabled={isSubmitting || Boolean(liveValidation.errors.scheduleConflict)}
-                    className="sa-control sa-btn-orange inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 sm:flex-initial sm:px-5"
+                    className="sa-control sa-btn-orange inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60 sm:flex-initial sm:px-5"
                   >
                     {isSubmitting ? (
                       <>

@@ -902,6 +902,14 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       await user.click(emptySlotBtn);
 
       const modal = await screen.findByRole('dialog', { name: /tambah booking/i });
+      expect(modal.className).toContain('rounded-t-[22px]');
+      expect(modal.className).toContain('max-w-5xl');
+      const bookingStepper = within(modal).getByRole('navigation', {
+        name: /tahapan form booking/i,
+      });
+      expect(bookingStepper.querySelectorAll('button')).toHaveLength(4);
+      expect(bookingStepper.querySelectorAll('button')[0].className).toContain('min-h-11');
+      expect(within(modal).getByLabelText(/nama customer/i).className).toContain('min-h-11');
       const startSelect = within(modal).getByLabelText(/jam mulai/i);
       expect(startSelect.value).toBe('660');
 
