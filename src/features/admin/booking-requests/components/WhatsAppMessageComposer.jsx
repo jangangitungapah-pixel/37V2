@@ -246,6 +246,7 @@ export function WhatsAppMessageComposer({
         actorUid,
       });
       setStaffNoteText('');
+      setIsNoteComposerOpen(false);
       onCommunicationSaved?.(result.request);
       toast.success('Catatan internal berhasil ditambahkan.');
     } catch (err) {
@@ -311,6 +312,7 @@ export function WhatsAppMessageComposer({
         </label>
         <select
           id="whatsapp-template-select"
+          aria-label="Pilih Template Pesan Internal"
           value={activeTemplate?.id || ''}
           onChange={(e) => handleTemplateChange(e.target.value)}
           className="sa-input min-h-11 w-full rounded-xl px-3 py-2 text-xs font-medium sm:text-sm"
@@ -465,6 +467,7 @@ export function WhatsAppMessageComposer({
           size="md"
           disabled={
             !activeMessageBody.trim() ||
+            isMessageTooLong ||
             hasUnresolvedVars ||
             isConfirmedTemplateBlocked ||
             isSavingAction
