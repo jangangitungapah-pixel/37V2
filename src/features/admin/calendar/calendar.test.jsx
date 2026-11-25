@@ -892,7 +892,7 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       fireEvent.click(mobileFilterToggle);
       expect(mobileFilterToggle?.getAttribute('aria-expanded')).toBe('true');
       expect(mobileFilterPanel?.className).toContain('grid-rows-[1fr]');
-      expect(mobileFilterToggle?.querySelector('svg')?.getAttribute('class')).toContain('rotate-180');
+      expect(mobileFilterToggle?.querySelectorAll('svg')?.[1]?.getAttribute('class')).toContain('rotate-180');
       fireEvent.click(mobileFilterToggle);
       expect(mobileFilterToggle?.getAttribute('aria-expanded')).toBe('false');
       expect(mobileFilterPanel?.className).toContain('grid-rows-[0fr]');

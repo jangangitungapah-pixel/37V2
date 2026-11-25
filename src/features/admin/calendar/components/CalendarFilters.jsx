@@ -26,10 +26,10 @@ export function CalendarFilters({
         {/* Left Cluster (Desktop) / Collapsible Panel (Mobile): Room + Payment Status */}
         <div
           id="calendar-mobile-filters"
-          className={`order-2 grid min-w-0 transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none sm:grid-rows-[1fr] sm:visible sm:opacity-100 sm:pointer-events-auto xl:order-1 ${
+          className={`order-2 grid min-w-0 transition-[grid-template-rows,opacity,visibility] duration-200 ease-out motion-reduce:transition-none sm:grid-rows-[1fr] sm:visible sm:opacity-100 sm:pointer-events-auto xl:order-1 ${
             mobileFiltersOpen
-              ? 'grid-rows-[1fr] visible opacity-100 pointer-events-auto'
-              : 'grid-rows-[0fr] invisible opacity-0 pointer-events-none'
+              ? 'grid-rows-[1fr] visible opacity-100 pointer-events-auto [transition-delay:0ms]'
+              : 'grid-rows-[0fr] invisible opacity-0 pointer-events-none [transition-delay:0ms,0ms,200ms]'
           }`}
         >
           <div className="min-h-0 min-w-0 overflow-hidden">
