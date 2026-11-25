@@ -190,7 +190,7 @@ export function CalendarToolbar({
                 <p className="mt-0.5 text-[11px] leading-relaxed text-[#666159]">
                   {publicStatusDescription}
                 </p>
-                {publicSyncedAtLabel && !isPublicStatusHealthy ? (
+                {publicSyncedAtLabel ? (
                   <p className="mt-1 font-mono text-[10px] text-[#666159]">
                     Terakhir sinkron: {publicSyncedAtLabel}
                   </p>
