@@ -66,7 +66,7 @@ function formatRequestAge(value) {
 function getCommunicationLabel(status) {
   if (status === 'manually_marked_sent') return 'WA dicatat terkirim';
   if (status === 'prepared_in_whatsapp') return 'WA siap dikirim';
-  if (status === 'staff_note_added') return 'Catatan internal';
+  if (status === 'staff_note_logged') return 'Catatan internal';
   return '';
 }
 
