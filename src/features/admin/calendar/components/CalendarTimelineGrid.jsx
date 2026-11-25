@@ -26,7 +26,7 @@ export function CalendarTimelineGrid({
   columns = [],
   columnTrackCss = 'minmax(150px, 1fr)',
   cardVariant = 'compact',
-  showRoomLegend = true,
+  hideRoomLegendOnMobile = false,
   hideBannerRightOnMobile = false,
   focusDateIso = '',
   focusRequestKey = 0,
@@ -105,8 +105,7 @@ export function CalendarTimelineGrid({
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5">
           {bannerLeft}
 
-          {showRoomLegend ? (
-          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-[#46433D]">
+          <div className={`${hideRoomLegendOnMobile ? 'hidden sm:flex' : 'flex'} flex-wrap items-center gap-3 text-xs font-medium text-[#46433D]`}>
             <span className="inline-flex items-center gap-1.5">
               <span
                 className="bg-studio-lime h-2.5 w-2.5 rounded-full border border-[#658800]/60"
@@ -119,7 +118,6 @@ export function CalendarTimelineGrid({
               <span>Room B</span>
             </span>
           </div>
-          ) : null}
         </div>
 
         {bannerRight ? (

@@ -49,7 +49,7 @@ export function CalendarDayView({
         </div>
       }
       bannerRight="Klik slot jam untuk tambah booking"
-      showRoomLegend={false}
+      hideRoomLegendOnMobile
       hideBannerRightOnMobile
       columns={columns}
       columnTrackCss={visibleRooms.length === 1 ? 'minmax(180px, 1fr)' : 'minmax(116px, 1fr)'}
