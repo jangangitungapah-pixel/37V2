@@ -627,7 +627,7 @@ export function buildNeedsAttentionItems({
         count: validOpenPayables.length,
         amount: totalPayableRemaining,
         actionLabel: 'Lunasi Kewajiban',
-        href: '/admin/pembukuan?tab=settlement',
+        href: '/admin/pembukuan?tab=cash-settlement',
         ownerOnly: true,
       });
     }

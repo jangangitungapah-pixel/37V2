@@ -41,7 +41,7 @@ export function ClientBookingStepReview({
   const roomLabel = PUBLIC_ROOM_LABELS[requestedRoomId] || 'No preference / Studio recommends';
   const timeRangeLabel =
     !isWfa && Number.isInteger(selectedStartMinute)
-      ? formatMinuteRange(selectedStartMinute, durationMinutes)
+      ? formatMinuteRange(selectedStartMinute, selectedStartMinute + durationMinutes)
       : '-';
 
   return (

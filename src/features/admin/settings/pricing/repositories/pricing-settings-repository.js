@@ -104,9 +104,13 @@ export function createFirestorePricingSettingsAdapter() {
       ]);
       const db = getFirebaseDb();
       const settingsRef = doc(db, PRICING_SETTINGS_COLLECTION, PRICING_SETTINGS_DOC_ID);
+      const bookingPoliciesRef = doc(db, 'settings', 'bookingPolicies');
 
       return runTransaction(db, async (tx) => {
-        const snap = await tx.get(settingsRef);
+        const [snap, bookingPoliciesSnap] = await Promise.all([
+          tx.get(settingsRef),
+          tx.get(bookingPoliciesRef),
+        ]);
         const currentVersion = snap.exists() ? Number(snap.data()?.version) || 1 : 0;
 
         if (Number.isInteger(expectedVersion) && currentVersion !== expectedVersion) {
@@ -140,6 +144,7 @@ export function createFirestorePricingSettingsAdapter() {
           {
             catalogVersion: nextVersion,
             updatedAt: serverTimestamp(),
+            bookingPolicies: bookingPoliciesSnap.exists() ? bookingPoliciesSnap.data() : null,
           },
         );
 
@@ -160,6 +165,7 @@ export function createFirestorePricingSettingsAdapter() {
       ]);
       const db = getFirebaseDb();
       const settingsRef = doc(db, PRICING_SETTINGS_COLLECTION, PRICING_SETTINGS_DOC_ID);
+      const bookingPoliciesRef = doc(db, 'settings', 'bookingPolicies');
       const publicPricingRef = doc(
         db,
         PUBLIC_PRICING_CATALOG_COLLECTION,
@@ -167,7 +173,10 @@ export function createFirestorePricingSettingsAdapter() {
       );
 
       return runTransaction(db, async (tx) => {
-        const snap = await tx.get(settingsRef);
+        const [snap, bookingPoliciesSnap] = await Promise.all([
+          tx.get(settingsRef),
+          tx.get(bookingPoliciesRef),
+        ]);
         if (!snap.exists()) {
           throw createPricingSettingsRepositoryError(
             'pricing/not-persisted',
@@ -192,6 +201,7 @@ export function createFirestorePricingSettingsAdapter() {
           {
             catalogVersion: currentVersion,
             updatedAt: serverTimestamp(),
+            bookingPolicies: bookingPoliciesSnap.exists() ? bookingPoliciesSnap.data() : null,
           },
         );
 
@@ -205,6 +215,7 @@ export function createFirestorePricingSettingsAdapter() {
           {
             catalogVersion: currentVersion,
             updatedAt: new Date().toISOString(),
+            bookingPolicies: bookingPoliciesSnap.exists() ? bookingPoliciesSnap.data() : null,
           },
         );
       });

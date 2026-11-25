@@ -120,7 +120,14 @@ export function useBookingRequests({
     return allLoadedRequests.filter((item) => {
       if (statusFilter !== 'all' && item.status !== statusFilter) return false;
       if (requestTypeFilter !== 'all' && item.requestType !== requestTypeFilter) return false;
-      if (serviceFilter !== 'all' && item.publicServiceId !== serviceFilter) return false;
+      if (serviceFilter !== 'all') {
+        const serviceId = String(item.publicServiceId || '').trim().toLowerCase();
+        const selectedService = String(serviceFilter || '').trim().toLowerCase();
+        const isMixMasterFilter =
+          selectedService === 'mix-master' &&
+          ['mix-master', 'mixing', 'mastering'].includes(serviceId);
+        if (!isMixMasterFilter && serviceId !== selectedService) return false;
+      }
       if (preferredDateFilter && item.preferredDate !== preferredDateFilter) return false;
 
       if (cleanSearch) {

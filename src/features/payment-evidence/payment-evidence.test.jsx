@@ -1105,6 +1105,8 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
         evidenceId: 'ev_int_1',
         verifiedAmount: 200000,
         expectedInvoiceVersion: 1,
+        expectedEvidenceVersion: 1,
+        notes: 'Nominal dan rekening transfer sudah dicocokkan.',
         actorUid: 'staff-uid-1',
         paymentAdapter,
         evidenceAdapter,
@@ -1112,6 +1114,7 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
       expect(firstVerify.invoice.amountPaid).toBe(200000);
       expect(firstVerify.invoice.balanceDue).toBe(100000);
       expect(firstVerify.invoice.paymentStatus).toBe(PAYMENT_STATUS.PARTIAL);
+      expect(firstVerify.transaction.notes).toBe('Nominal dan rekening transfer sudah dicocokkan.');
 
       // Repeated verification of already verified evidence NEVER double-records payment
       const replay = await verifyClientPaymentEvidence({

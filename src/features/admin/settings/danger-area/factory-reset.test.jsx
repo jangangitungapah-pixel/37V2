@@ -110,6 +110,7 @@ function createFullOperationalSeed({ bookingsCount = 14 } = {}) {
       bookingEvents: [{ id: 'evt_001' }],
       bookingSlots: [{ id: '2026-11-22__room-a__600' }, { id: '2026-11-22__room-a__660' }],
       publicAvailability: [{ id: 'bkg_001' }],
+      clientReservations: [],
       paymentEvidence: [{ id: 'ev_001' }],
       paymentTransactions: [{ id: 'pay_001' }],
       invoices: [{ id: 'inv_001' }],
@@ -121,6 +122,9 @@ function createFullOperationalSeed({ bookingsCount = 14 } = {}) {
       inventoryMovements: [{ id: 'mov_001' }],
       inventoryItems: [{ id: 'inv_item_001' }],
       customerPhoneIndex: [{ id: 'hash_001' }],
+      customerEmailIndex: [],
+      clientCustomerLinks: [],
+      clientProfiles: [],
       customers: [{ id: 'cust_001' }],
       bookings,
     },
@@ -142,6 +146,7 @@ function createFullOperationalSeed({ bookingsCount = 14 } = {}) {
       settings: [
         { id: 'studioProfile', studioName: '37 Music Studio' },
         { id: 'pricing', version: 2 },
+        { id: 'bookingPolicies', version: 1 },
       ],
       bookkeepingSettings: [{ id: 'default', initialBalance: 5000000 }],
       publicSiteSettings: [{ id: 'site', heroTitle: '37 Music Studio' }],
@@ -166,7 +171,7 @@ afterEach(() => {
 });
 
 describe('Danger Area & Operational Factory Reset Engine', () => {
-  it('1. Dry Run Preview accurately counts all 21 operational targets without mutating anything and blocks incomplete preflight', async () => {
+  it('1. Dry Run Preview accurately counts all 25 operational targets without mutating anything and blocks incomplete preflight', async () => {
     const adapter = createInMemoryFactoryResetRepositoryAdapter(
       createFullOperationalSeed({ bookingsCount: 14 }),
     );
@@ -174,7 +179,7 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
 
     const preflight = await previewFactoryReset({ actor: owner, adapter });
     expect(preflight.isComplete).toBe(true);
-    expect(preflight.items).toHaveLength(21);
+    expect(preflight.items).toHaveLength(25);
     expect(preflight.topLevelDocumentCount).toBe(32);
     expect(preflight.subcollectionDocumentCount).toBe(6);
     expect(preflight.totalDeleteOperations).toBe(38);
@@ -372,7 +377,7 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     expect(result.totalDeletedCount).toBe(49);
     expect(result.verificationSummary).toEqual({
       allZero: true,
-      checkedCollectionsCount: 21,
+      checkedCollectionsCount: 25,
       remainingTotal: 0,
     });
 
@@ -396,7 +401,7 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     // Preserved collections untouched (including Customer Reviews & Public Review Stats)
     expect(state.preservedCounts).toEqual({
       staffProfiles: 2,
-      settings: 2,
+      settings: 3,
       bookkeepingSettings: 1,
       publicSiteSettings: 1,
       bookingRequestMessageTemplates: 1,
@@ -619,7 +624,7 @@ describe('Danger Area UI & Routes (/admin/settings/danger-area)', () => {
   });
 
   it('6c. Surfaces Maintenance Banner on AdminLayout when locked and supports password-verified Resume after interrupted failure', async () => {
-    const completedEarlierSteps = FACTORY_RESET_DELETION_MANIFEST.slice(0, 20).map(
+    const completedEarlierSteps = FACTORY_RESET_DELETION_MANIFEST.slice(0, 24).map(
       (step) => step.key,
     );
     const seed = createFullOperationalSeed({ bookingsCount: 3 });

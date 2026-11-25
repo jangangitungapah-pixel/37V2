@@ -100,28 +100,54 @@ export function createFirestorePaymentEvidenceRepositoryAdapter() {
      */
     subscribeClientInvoiceEvidence({
       customerId,
+      clientUid,
       invoiceId,
       maxLimit = PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT,
       onData,
       onError,
     }) {
       const cleanCustomerId = String(customerId || '').trim();
+      const cleanClientUid = String(clientUid || '').trim();
       const cleanInvoiceId = String(invoiceId || '').trim();
-      if (!cleanCustomerId || !cleanInvoiceId) {
-        queueMicrotask(() => {
-          onError?.(
-            createRepositoryError(
-              'permission-denied',
-              'Missing customer or invoice identity for payment evidence subscription.',
-            ),
-          );
-        });
+      if ((!cleanCustomerId && !cleanClientUid) || !cleanInvoiceId) {
+        queueMicrotask(() => onError?.(createRepositoryError(
+          'permission-denied',
+          'Missing client or invoice identity for payment evidence subscription.',
+        )));
         return () => {};
       }
 
       const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT);
-      let unsubscribe = null;
+      let unsubscribes = [];
       let isCancelled = false;
+      const snapshots = new Map();
+      const expectedSources = [
+        ...(cleanCustomerId ? ['customer'] : []),
+        ...(cleanClientUid ? ['uid'] : []),
+      ];
+
+      const emitMerged = () => {
+        if (isCancelled || expectedSources.some((source) => !snapshots.has(source))) return;
+        const unique = new Map();
+        for (const source of expectedSources) {
+          for (const docSnap of snapshots.get(source) || []) {
+            const raw = docSnap.data();
+            if (!raw || raw.invoiceId !== cleanInvoiceId) continue;
+            if (raw.clientUid !== cleanClientUid && raw.customerId !== cleanCustomerId) continue;
+            unique.set(docSnap.id, projectClientPaymentEvidenceRecord(docSnap.id, raw));
+          }
+        }
+        const sorted = sortPaymentEvidenceRecords(Array.from(unique.values()).filter(Boolean));
+        const hasMore =
+          expectedSources.some((source) => (snapshots.get(source) || []).length > safeLimit) ||
+          sorted.length > safeLimit;
+        onData?.({
+          items: sorted.slice(0, safeLimit),
+          hasMore,
+          isTruncated: hasMore,
+          maxLimit: safeLimit,
+        });
+      };
 
       (async () => {
         try {
@@ -131,79 +157,93 @@ export function createFirestorePaymentEvidenceRepositoryAdapter() {
           if (typeof onSnapshot !== 'function') {
             throw createRepositoryError('unavailable', 'Realtime Firestore listener unavailable.');
           }
+          const ref = collection(getFirebaseDb(), FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE);
+          const attach = (source, field, value) => {
+            const q = query(
+              ref,
+              where(field, '==', value),
+              where('invoiceId', '==', cleanInvoiceId),
+              limit(safeLimit + 1),
+            );
+            const unsubscribe = onSnapshot(
+              q,
+              (snapshot) => {
+                if (isCancelled) return;
+                snapshots.set(source, snapshot.docs || []);
+                emitMerged();
+              },
+              (error) => {
+                if (!isCancelled) onError?.(error);
+              },
+            );
+            unsubscribes.push(unsubscribe);
+          };
 
-          const db = getFirebaseDb();
-          const ref = collection(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE);
-          const q = query(
-            ref,
-            where('customerId', '==', cleanCustomerId),
-            where('invoiceId', '==', cleanInvoiceId),
-            limit(safeLimit + 1),
-          );
-
-          unsubscribe = onSnapshot(
-            q,
-            (snapshot) => {
-              if (isCancelled) return;
-              const projected = snapshot.docs
-                .map((docSnap) => {
-                  const raw = docSnap.data();
-                  if (!raw || raw.customerId !== cleanCustomerId) return null;
-                  return projectClientPaymentEvidenceRecord(docSnap.id, raw);
-                })
-                .filter(Boolean);
-
-              const sorted = sortPaymentEvidenceRecords(projected);
-              const hasMore = snapshot.docs.length > safeLimit || sorted.length > safeLimit;
-              onData?.({
-                items: sorted.slice(0, safeLimit),
-                hasMore,
-                isTruncated: hasMore,
-                maxLimit: safeLimit,
-              });
-            },
-            (err) => {
-              if (!isCancelled) onError?.(err);
-            },
-          );
-        } catch (err) {
-          if (!isCancelled) onError?.(err);
+          if (cleanCustomerId) attach('customer', 'customerId', cleanCustomerId);
+          if (cleanClientUid) attach('uid', 'clientUid', cleanClientUid);
+        } catch (error) {
+          if (!isCancelled) onError?.(error);
         }
       })();
 
       return () => {
         isCancelled = true;
-        if (typeof unsubscribe === 'function') unsubscribe();
+        unsubscribes.forEach((unsubscribe) => unsubscribe?.());
       };
     },
 
     /**
-     * Client-scoped single-listener subscription to all payment evidence belonging
-     * to the authenticated customer (`where('customerId', '==', customerId)`).
-     * Avoids N+1 listeners on `/portal/invoices`.
+     * Client-scoped subscription to the authenticated Client's payment evidence,
+     * using both canonical CRM ownership and isolated account UID ownership.
      */
     subscribeClientCustomerEvidence({
       customerId,
+      clientUid,
       maxLimit = PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT,
       onData,
       onError,
     }) {
       const cleanCustomerId = String(customerId || '').trim();
-      if (!cleanCustomerId) {
-        queueMicrotask(() => {
-          onError?.(
-            createRepositoryError(
-              'permission-denied',
-              'Missing customer identity for payment evidence subscription.',
-            ),
-          );
-        });
+      const cleanClientUid = String(clientUid || '').trim();
+      if (!cleanCustomerId && !cleanClientUid) {
+        queueMicrotask(() => onError?.(createRepositoryError(
+          'permission-denied',
+          'Missing client identity for payment evidence subscription.',
+        )));
         return () => {};
       }
 
       const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT);
-      let unsubscribe = null;
+      let unsubscribes = [];
       let isCancelled = false;
+      const snapshots = new Map();
+      const expectedSources = [
+        ...(cleanCustomerId ? ['customer'] : []),
+        ...(cleanClientUid ? ['uid'] : []),
+      ];
+
+      const emitMerged = () => {
+        if (isCancelled || expectedSources.some((source) => !snapshots.has(source))) return;
+        const unique = new Map();
+        for (const source of expectedSources) {
+          for (const docSnap of snapshots.get(source) || []) {
+            const raw = docSnap.data();
+            if (!raw) continue;
+            if (raw.clientUid !== cleanClientUid && raw.customerId !== cleanCustomerId) continue;
+            unique.set(docSnap.id, projectClientPaymentEvidenceRecord(docSnap.id, raw));
+          }
+        }
+        const sorted = sortPaymentEvidenceRecords(Array.from(unique.values()).filter(Boolean));
+        const hasMore =
+          expectedSources.some((source) => (snapshots.get(source) || []).length > safeLimit) ||
+          sorted.length > safeLimit;
+        onData?.({
+          items: sorted.slice(0, safeLimit),
+          hasMore,
+          isTruncated: hasMore,
+          maxLimit: safeLimit,
+        });
+      };
 
       (async () => {
         try {
@@ -213,44 +253,33 @@ export function createFirestorePaymentEvidenceRepositoryAdapter() {
           if (typeof onSnapshot !== 'function') {
             throw createRepositoryError('unavailable', 'Realtime Firestore listener unavailable.');
           }
+          const ref = collection(getFirebaseDb(), FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE);
+          const attach = (source, field, value) => {
+            const q = query(ref, where(field, '==', value), limit(safeLimit + 1));
+            const unsubscribe = onSnapshot(
+              q,
+              (snapshot) => {
+                if (isCancelled) return;
+                snapshots.set(source, snapshot.docs || []);
+                emitMerged();
+              },
+              (error) => {
+                if (!isCancelled) onError?.(error);
+              },
+            );
+            unsubscribes.push(unsubscribe);
+          };
 
-          const db = getFirebaseDb();
-          const ref = collection(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE);
-          const q = query(ref, where('customerId', '==', cleanCustomerId), limit(safeLimit + 1));
-
-          unsubscribe = onSnapshot(
-            q,
-            (snapshot) => {
-              if (isCancelled) return;
-              const projected = snapshot.docs
-                .map((docSnap) => {
-                  const raw = docSnap.data();
-                  if (!raw || raw.customerId !== cleanCustomerId) return null;
-                  return projectClientPaymentEvidenceRecord(docSnap.id, raw);
-                })
-                .filter(Boolean);
-
-              const sorted = sortPaymentEvidenceRecords(projected);
-              const hasMore = snapshot.docs.length > safeLimit || sorted.length > safeLimit;
-              onData?.({
-                items: sorted.slice(0, safeLimit),
-                hasMore,
-                isTruncated: hasMore,
-                maxLimit: safeLimit,
-              });
-            },
-            (err) => {
-              if (!isCancelled) onError?.(err);
-            },
-          );
-        } catch (err) {
-          if (!isCancelled) onError?.(err);
+          if (cleanCustomerId) attach('customer', 'customerId', cleanCustomerId);
+          if (cleanClientUid) attach('uid', 'clientUid', cleanClientUid);
+        } catch (error) {
+          if (!isCancelled) onError?.(error);
         }
       })();
 
       return () => {
         isCancelled = true;
-        if (typeof unsubscribe === 'function') unsubscribe();
+        unsubscribes.forEach((unsubscribe) => unsubscribe?.());
       };
     },
 

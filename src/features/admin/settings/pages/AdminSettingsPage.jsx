@@ -38,7 +38,7 @@ export function AdminSettingsPage() {
         description="Pusat konfigurasi identitas studio, tarif layanan, kebijakan operasional, serta keamanan akun admin 37 Music Studio."
         meta={
           <AdminStatusBadge tone="ivory" size="sm">
-            {isActiveOwner ? '4 Modul Aktif' : '3 Modul Aktif'}
+            {isActiveOwner ? '5 Modul Aktif' : '4 Modul Aktif'}
           </AdminStatusBadge>
         }
         className="[&>div:last-child]:mt-0 sm:[&>div:last-child]:mt-5"
@@ -91,13 +91,14 @@ export function AdminSettingsPage() {
           />
 
           <SettingsModuleCard
-            planned
+            to="/admin/settings/booking-policies"
             order="03"
-            title="Operations & Booking Rules"
-            description="Jam operasional studio, aturan penjadwalan booking, masa tenggang, dan kebijakan pembatalan."
+            title="Booking Policies"
+            description="Atur kebijakan DP, durasi hold default, dan tenggat pelunasan untuk layanan studio."
             icon={Clock}
-            badge="PLANNED"
-            statusNote="PLANNED · Hadir pada fase berikutnya"
+            badge="AKTIF"
+            statusNote="Owner ubah · Staff baca saja"
+            actionLabel="Open Booking Policies"
           />
         </div>
       </section>

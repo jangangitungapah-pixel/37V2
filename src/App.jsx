@@ -15,6 +15,7 @@ import { AccountSecurityPage } from '@/features/admin/settings/pages/AccountSecu
 import { AdminSettingsPage } from '@/features/admin/settings/pages/AdminSettingsPage';
 import { DangerAreaPage } from '@/features/admin/settings/danger-area/pages/DangerAreaPage';
 import { PriceAndFeeSettingsPage } from '@/features/admin/settings/pages/PriceAndFeeSettingsPage';
+import { BookingPoliciesPage } from '@/features/admin/settings/pages/BookingPoliciesPage';
 import { StudioProfilePage } from '@/features/admin/settings/pages/StudioProfilePage';
 import { RequireOwner } from '@/features/auth/RequireOwner';
 import { RequireStaff } from '@/features/auth/RequireStaff';
@@ -90,6 +91,7 @@ export function AppRoutes() {
         <Route path="settings/studio-profile" element={<StudioProfilePage />} />
         <Route path="settings/account-security" element={<AccountSecurityPage />} />
         <Route path="settings/price-and-fee" element={<PriceAndFeeSettingsPage />} />
+        <Route path="settings/booking-policies" element={<BookingPoliciesPage />} />
         <Route
           path="settings/danger-area"
           element={

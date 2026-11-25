@@ -26,7 +26,7 @@ export const INVOICES_DEFAULT_QUERY_LIMIT = 200;
 export const TRANSACTIONS_DEFAULT_QUERY_LIMIT = 200;
 export const CALENDAR_INVOICE_SUMMARY_LIMIT = 300;
 export const LEGACY_INVOICE_SCAN_PAGE_SIZE = 200;
-export const MAX_PAYMENT_BATCH_WRITES = 400;
+export const MAX_PAYMENT_BATCH_WRITES = 5;
 
 function deduplicateAndSortInvoices(chunks = []) {
   const byId = new Map();

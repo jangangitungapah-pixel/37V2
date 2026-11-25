@@ -86,7 +86,7 @@ erDiagram
 - **Schema:**
   - `schemaVersion`: `1` (int, immutable)
   - `defaultDepositPolicy`: `{ type: 'none' | 'fixed' | 'percentage', fixedAmount: int >= 0, percentage: int (0..100), calculationBase: 'total_amount' | 'subtotal' }`
-  - `defaultHoldPolicy`: `{ defaultHours: int (1..168), minMinutesBeforeSessionStart: int (0..1440), allowPerBookingOverride: bool }`
+  - `defaultHoldPolicy`: `{ defaultHours: int (1..168) | null, minMinutesBeforeSessionStart: int (0..1440), allowPerBookingOverride: bool }` (null means Owner has not configured a TTL; deposit-hold creation must fail closed until configured)
   - `defaultBalanceDuePolicy`: `{ trigger: 'before_session' | 'at_check_in' | 'before_delivery', offsetHoursBeforeStart: int (0..168) }`
   - `serviceOverrides`: `map<serviceTypeId, { depositPolicy?: ..., holdPolicy?: ..., balanceDuePolicy?: ... }>` (max 20 entries)
   - `optionOverrides`: `map<serviceOptionId, { depositPolicy?: ..., holdPolicy?: ..., balanceDuePolicy?: ... }>` (max 100 entries)

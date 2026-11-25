@@ -55,6 +55,7 @@ export function useClientInvoiceDetail({
 
     const unsubscribe = resolvedAdapter.subscribeClientInvoiceById({
       customerId: cleanCustomerId,
+      clientUid: cleanUid,
       invoiceId: cleanInvoiceId,
       onData: (invoice) => {
         if (isCancelled) return;

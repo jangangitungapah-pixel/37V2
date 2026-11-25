@@ -206,7 +206,7 @@ export async function scanLegacyBookingsForInvoicesPreview({
 
 /**
  * Creates deterministic invoices (and `legacy_initial_snapshot` payment transactions when `initialPaidAmount > 0`)
- * for all safely importable legacy bookings in resumable batches of at most `maxBatchWrites` (`<= 400`).
+ * for all safely importable legacy bookings in resumable batches of at most `maxBatchWrites` (`<= 5`).
  *
  * Strictly never mutates `bookings`, `bookingSlots`, `bookingEvents`, or `customers`.
  */
@@ -220,7 +220,7 @@ export async function importLegacyBookingInvoices({
   const cleanActorUid = assertAuthenticatedPaymentActor(actorUid);
   const safeBatchSize = Math.max(
     2,
-    Math.min(MAX_PAYMENT_BATCH_WRITES, Number(maxBatchWrites) || 400),
+    Math.min(MAX_PAYMENT_BATCH_WRITES, Number(maxBatchWrites) || 5),
   );
 
   const activePreview = preview || (await scanLegacyBookingsForInvoicesPreview({ adapter }));

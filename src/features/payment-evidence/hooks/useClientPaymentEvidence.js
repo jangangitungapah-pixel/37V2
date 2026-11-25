@@ -87,6 +87,7 @@ export function useClientPaymentEvidence({
     const unsubscribe = cleanInvoiceId
       ? resolvedAdapter.subscribeClientInvoiceEvidence({
           customerId: cleanCustomerId,
+          clientUid: cleanUid,
           invoiceId: cleanInvoiceId,
           maxLimit: effectiveLimit,
           onData: handleData,
@@ -94,6 +95,7 @@ export function useClientPaymentEvidence({
         })
       : resolvedAdapter.subscribeClientCustomerEvidence({
           customerId: cleanCustomerId,
+          clientUid: cleanUid,
           maxLimit: effectiveLimit,
           onData: handleData,
           onError: handleError,

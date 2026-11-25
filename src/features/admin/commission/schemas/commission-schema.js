@@ -33,7 +33,7 @@ export const BOOKKEEPING_SETTLEMENT_STATUS = {
   UNPAID: 'unpaid',
 };
 
-export const MAX_BOOKINGS_PER_COMMISSION_BATCH = 100;
+export const MAX_BOOKINGS_PER_COMMISSION_BATCH = 5;
 
 /**
  * Normalizes a `commissionBatches/{batchId}` Firestore document.

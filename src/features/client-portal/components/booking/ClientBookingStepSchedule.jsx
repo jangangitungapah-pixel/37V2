@@ -88,7 +88,7 @@ function mergeRoomDaySlots(roomSchedules = [], activeDateIso, requestedRoomId, d
     return (target.day.slots || []).map((slot) => ({
       startMinute: slot.startMinute,
       startLabel: slot.startLabel,
-      rangeLabel: formatMinuteRange(slot.startMinute, durationMinutes),
+      rangeLabel: formatMinuteRange(slot.startMinute, slot.startMinute + durationMinutes),
       state: slot.state,
       availableRoomLabels:
         slot.state === PUBLIC_SLOT_STATES.AVAILABLE ? [target.room.shortLabel] : [],
@@ -101,7 +101,7 @@ function mergeRoomDaySlots(roomSchedules = [], activeDateIso, requestedRoomId, d
       const existing = slotsByMinute.get(slot.startMinute) || {
         startMinute: slot.startMinute,
         startLabel: slot.startLabel || formatMinuteOfDay(slot.startMinute),
-        rangeLabel: formatMinuteRange(slot.startMinute, durationMinutes),
+        rangeLabel: formatMinuteRange(slot.startMinute, slot.startMinute + durationMinutes),
         states: [],
         availableRoomLabels: [],
       };

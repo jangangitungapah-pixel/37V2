@@ -152,7 +152,9 @@ flowchart LR
   - When `depositType === 'none'` (`No Deposit` policy): `minimumDepositAmount = 0`, `depositStatus = 'not_required'`, following **Owner Decision `OD-04`** (auto-confirm on Offer Acceptance OR explicit Staff confirmation).
   - Partial DP (`0 < verifiedPaidAmount < minimumDepositAmount`): keeps reservation in `deposit_hold` with `depositStatus: 'partial_below_minimum'` subject to **Owner Decision `OD-07`**.
 
-### 4.4 Hold Management & Manual Expiry (`AD-05` — Spark-Only)
+### 4.4 Hold Management & A hold TTL is configurable per studio/service/option. An absent/null default TTL means the policy is not configured: creating a deposit hold must fail closed with an actionable Owner-facing error. No cron or scheduled expiry is allowed.
+
+Manual Expiry (`AD-05` — Spark-Only)
 - Because Cloud Functions / cron jobs are forbidden, **no booking expires automatically in the background**.
 - **Clock Display (`Asia/Jakarta`):** Every `deposit_hold` stores `holdExpiresAt` (Timestamp) determined by **Owner Decision `OD-02`**. UI renders live countdown (`Held until ... WIB`) and highlights **`OVERDUE HOLD`** when `now > holdExpiresAt && reservationStatus === 'deposit_hold'`.
 - **Pending Evidence Shield (`OD-09`):** If an invoice for a `deposit_hold` has `hasPendingEvidence` (`pending_review` proof submitted before or around the deadline), Admin UI warns Staff (`"Client submitted payment proof awaiting review"`) and blocks accidental one-click Hold Expiry unless Staff explicitly reviews/rejects the pending proof or enters an Owner override confirmation.

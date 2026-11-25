@@ -145,7 +145,9 @@ export async function submitClientPaymentEvidence({
         );
       }
 
-      if (existingInvoice.customerId !== cleanCustomerId) {
+      const invoiceClientUid = String(existingInvoice.clientUid || '').trim();
+      const ownsByClientUid = invoiceClientUid && invoiceClientUid === cleanUid;
+      if (existingInvoice.customerId !== cleanCustomerId && !ownsByClientUid) {
         throw createPaymentServiceError(
           'permission-denied',
           'You do not have permission to submit payment proof for this invoice.',
@@ -188,7 +190,7 @@ export async function submitClientPaymentEvidence({
         invoiceId: cleanInvoiceId,
         invoiceNumber: existingInvoice.invoiceNumber,
         bookingId: existingInvoice.bookingId,
-        customerId: cleanCustomerId,
+        customerId: String(existingInvoice.customerId || cleanCustomerId),
         clientUid: cleanUid,
         evidenceSource: PAYMENT_EVIDENCE_SOURCES.CLIENT_PORTAL,
         status: PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
@@ -264,6 +266,7 @@ export async function verifyClientPaymentEvidence({
   expectedInvoiceVersion,
   expectedEvidenceVersion,
   verifiedAmount,
+  notes = '',
   actorUid,
   adapter = getPaymentEvidenceRepositoryAdapter(),
 }) {
@@ -378,7 +381,7 @@ export async function verifyClientPaymentEvidence({
       paymentMethod: existingEvidence.paymentMethod,
       receivedDate: existingEvidence.claimedPaidAt,
       referenceNumber: existingEvidence.referenceNumber,
-      notes: 'Terverifikasi dari bukti pembayaran Client Portal',
+      notes: String(notes || '').trim().slice(0, 400) || 'Terverifikasi dari bukti pembayaran Client Portal',
       source: PAYMENT_SOURCE.CLIENT_EVIDENCE_VERIFIED,
       actorUid: cleanActorUid,
       allowClientEvidenceInvoice: true,
@@ -586,7 +589,7 @@ export async function attachAdminPaymentEvidence({
       invoiceNumber: existingInvoice.invoiceNumber,
       bookingId: existingInvoice.bookingId,
       customerId: existingInvoice.customerId,
-      clientUid: '',
+      clientUid: String(existingInvoice.clientUid || ''),
       evidenceSource: PAYMENT_EVIDENCE_SOURCES.ADMIN_MANUAL,
       status: PAYMENT_EVIDENCE_STATUSES.ATTACHED,
       claimedAmount: existingTx.amount,

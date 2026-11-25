@@ -24,7 +24,7 @@ import {
 
 export const CUSTOMERS_DEFAULT_QUERY_LIMIT = 200;
 export const LEGACY_BOOKINGS_SCAN_PAGE_SIZE = 200;
-export const MAX_BATCH_WRITES = 400;
+export const MAX_BATCH_WRITES = 5;
 
 function getTimestampMillis(value) {
   if (!value) return 0;

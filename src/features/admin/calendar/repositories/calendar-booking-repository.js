@@ -31,6 +31,7 @@ export const FIRESTORE_COLLECTIONS = {
   INVOICES: 'invoices',
   PAYMENT_TRANSACTIONS: 'paymentTransactions',
   PAYMENT_EVIDENCE: 'paymentEvidence',
+  CLIENT_RESERVATIONS: 'clientReservations',
   COMMISSION_BATCHES: 'commissionBatches',
   COMMISSION_POSTING_ITEMS: 'commissionPostingItems',
   COMMISSION_REVIEW_RESOLUTIONS: 'commissionReviewResolutions',
@@ -157,6 +158,9 @@ export function normalizeBookingRecord(id, data = {}) {
 
   const record = {
     id: String(id || data.id || ''),
+    clientUid: String(data.clientUid || '').trim(),
+    sourceRequestId: String(data.sourceRequestId || '').trim(),
+    acceptedOfferId: String(data.acceptedOfferId || '').trim(),
     customerName: String(data.customerName || '').trim(),
     phone: String(data.phone || '').trim(),
     bandName: String(data.bandName || '').trim(),
@@ -182,6 +186,15 @@ export function normalizeBookingRecord(id, data = {}) {
     initialPaidAmount: Math.max(0, Number(data.initialPaidAmount) || 0),
     paymentMethod: String(data.paymentMethod || '').trim(),
     sessionStatus: data.sessionStatus || BOOKING_SESSION_STATUS.UPCOMING,
+    // Read-time legacy interpretation only; do not write this derived status back to V1 records.
+    reservationStatus:
+      data.reservationStatus ||
+      (data.sessionStatus === BOOKING_SESSION_STATUS.CANCELLED ? 'cancelled' : 'confirmed'),
+    depositPolicySnapshot: data.depositPolicySnapshot ?? null,
+    minimumDepositAmount:
+      Number.isInteger(data.minimumDepositAmount) ? data.minimumDepositAmount : null,
+    holdExpiresAt: data.holdExpiresAt ?? null,
+    depositStatus: typeof data.depositStatus === 'string' ? data.depositStatus : null,
     checkedInAt: data.checkedInAt ?? null,
     checkedInByUid: String(data.checkedInByUid || ''),
     actualStartedAt: data.actualStartedAt ?? null,
@@ -196,6 +209,9 @@ export function normalizeBookingRecord(id, data = {}) {
 
   if (data.customerId) {
     record.customerId = String(data.customerId).trim();
+  }
+  if (typeof data.source === 'string' && data.source.trim()) {
+    record.source = data.source.trim();
   }
   if (data.phoneNormalized) {
     record.phoneNormalized = String(data.phoneNormalized).trim();
@@ -349,6 +365,10 @@ export function createFirestoreBookingRepositoryAdapter() {
           },
           setPaymentEvidence(evidenceId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
+            tx.set(ref, data);
+          },
+          setClientReservation(bookingId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CLIENT_RESERVATIONS, bookingId);
             tx.set(ref, data);
           },
           setPublicAvailability(bookingId, data) {

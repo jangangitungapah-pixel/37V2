@@ -43,7 +43,7 @@ export const FACTORY_RESET_PREVIEW_GROUPS = Object.freeze([
 ]);
 
 /**
- * Authoritative dependency-aware ordered deletion manifest (21 explicit targets).
+ * Authoritative dependency-aware ordered deletion manifest (25 explicit targets).
  * Subcollections (`communications`, `activities`) are always deleted and verified empty
  * before deleting parent `publicBookingRequests` documents, and dependents are deleted
  * before canonical `bookings` and `customers`.
@@ -81,13 +81,22 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     order: 3,
   },
   {
+    key: 'clientReservations',
+    label: 'Client Booking Reservations',
+    collection: 'clientReservations',
+    pathPattern: 'clientReservations',
+    kind: 'collection',
+    group: 'booking_scheduling',
+    order: 4,
+  },
+  {
     key: 'bookingEvents',
     label: 'Booking Events',
     collection: 'bookingEvents',
     pathPattern: 'bookingEvents',
     kind: 'collection',
     group: 'booking_scheduling',
-    order: 4,
+    order: 5,
   },
   {
     key: 'bookingSlots',
@@ -96,7 +105,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'bookingSlots',
     kind: 'collection',
     group: 'booking_scheduling',
-    order: 5,
+    order: 6,
   },
   {
     key: 'publicAvailability',
@@ -105,7 +114,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'publicAvailability',
     kind: 'collection',
     group: 'public_availability',
-    order: 6,
+    order: 7,
   },
   {
     key: 'paymentEvidence',
@@ -114,7 +123,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'paymentEvidence',
     kind: 'collection',
     group: 'financial',
-    order: 7,
+    order: 8,
   },
   {
     key: 'paymentTransactions',
@@ -123,7 +132,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'paymentTransactions',
     kind: 'collection',
     group: 'financial',
-    order: 8,
+    order: 9,
   },
   {
     key: 'invoices',
@@ -132,7 +141,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'invoices',
     kind: 'collection',
     group: 'financial',
-    order: 9,
+    order: 10,
   },
   {
     key: 'commissionReviewResolutions',
@@ -141,7 +150,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'commissionReviewResolutions',
     kind: 'collection',
     group: 'financial',
-    order: 10,
+    order: 11,
   },
   {
     key: 'commissionPostingItems',
@@ -150,7 +159,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'commissionPostingItems',
     kind: 'collection',
     group: 'financial',
-    order: 11,
+    order: 12,
   },
   {
     key: 'commissionBatches',
@@ -159,7 +168,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'commissionBatches',
     kind: 'collection',
     group: 'financial',
-    order: 12,
+    order: 13,
   },
   {
     key: 'bookkeepingSettlements',
@@ -168,7 +177,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'bookkeepingSettlements',
     kind: 'collection',
     group: 'financial',
-    order: 13,
+    order: 14,
   },
   {
     key: 'bookkeepingEntries',
@@ -177,7 +186,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'bookkeepingEntries',
     kind: 'collection',
     group: 'financial',
-    order: 14,
+    order: 15,
   },
   {
     key: 'inventoryMovements',
@@ -186,7 +195,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'inventoryMovements',
     kind: 'collection',
     group: 'inventory',
-    order: 15,
+    order: 16,
   },
   {
     key: 'inventoryItems',
@@ -195,7 +204,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'inventoryItems',
     kind: 'collection',
     group: 'inventory',
-    order: 16,
+    order: 17,
   },
   {
     key: 'customerPhoneIndex',
@@ -204,7 +213,34 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'customerPhoneIndex',
     kind: 'collection',
     group: 'customer',
-    order: 17,
+    order: 18,
+  },
+  {
+    key: 'customerEmailIndex',
+    label: 'Customer Email Indexes',
+    collection: 'customerEmailIndex',
+    pathPattern: 'customerEmailIndex',
+    kind: 'collection',
+    group: 'customer',
+    order: 19,
+  },
+  {
+    key: 'clientCustomerLinks',
+    label: 'Client-to-Customer Identity Links',
+    collection: 'clientCustomerLinks',
+    pathPattern: 'clientCustomerLinks',
+    kind: 'collection',
+    group: 'customer',
+    order: 20,
+  },
+  {
+    key: 'clientProfiles',
+    label: 'Client Profiles',
+    collection: 'clientProfiles',
+    pathPattern: 'clientProfiles',
+    kind: 'collection',
+    group: 'customer',
+    order: 21,
   },
   {
     key: 'customers',
@@ -213,7 +249,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'customers',
     kind: 'collection',
     group: 'customer',
-    order: 18,
+    order: 22,
   },
   {
     key: 'reviewInvitations',
@@ -222,7 +258,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'reviewInvitations',
     kind: 'collection',
     group: 'booking_scheduling',
-    order: 19,
+    order: 23,
   },
   {
     key: 'reviewInvitationIndexes',
@@ -231,7 +267,7 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'reviewInvitationIndexes',
     kind: 'collection',
     group: 'booking_scheduling',
-    order: 20,
+    order: 24,
   },
   {
     key: 'bookings',
@@ -240,9 +276,9 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     pathPattern: 'bookings',
     kind: 'collection',
     group: 'booking_scheduling',
-    order: 21,
+    order: 25,
   },
-]);
+]);;
 
 export const FACTORY_RESET_DELETION_TARGET_KEYS = Object.freeze(
   FACTORY_RESET_DELETION_MANIFEST.map((target) => target.key),
@@ -287,6 +323,16 @@ export const FACTORY_RESET_PRESERVED_MANIFEST = Object.freeze([
     checkType: 'singleton_doc',
     collection: 'settings',
     docId: 'pricing',
+  },
+  {
+    key: 'bookingPolicies',
+    label: 'Kebijakan Booking Studio',
+    path: 'settings/bookingPolicies',
+    category: 'Studio Configuration',
+    reason: 'Aturan DP, durasi hold default, dan tenggat pelunasan dipertahankan saat data operasional direset.',
+    checkType: 'singleton_doc',
+    collection: 'settings',
+    docId: 'bookingPolicies',
   },
   {
     key: 'bookkeepingSettings',

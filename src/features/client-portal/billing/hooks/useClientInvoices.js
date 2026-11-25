@@ -84,6 +84,7 @@ export function useClientInvoices({
 
     const unsubscribe = resolvedAdapter.subscribeClientInvoices({
       customerId: cleanCustomerId,
+      clientUid: cleanUid,
       maxLimit: effectiveLimit,
       onData: ({ invoices, hasMore, isTruncated }) => {
         if (isCancelled) return;

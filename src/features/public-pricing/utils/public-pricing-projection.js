@@ -1,4 +1,8 @@
 import {
+  normalizeBookingPolicies,
+  resolveBookingPolicyForService,
+} from '@/features/admin/settings/booking-policies/utils/booking-policies-normalize';
+import {
   DISCOUNT_RULE_MODES,
   PRICING_MODES,
 } from '@/features/admin/settings/pricing/config/default-pricing-settings';
@@ -173,7 +177,34 @@ function sanitizeDiscountRules(rules, pricingMode) {
   return sanitized;
 }
 
-function sanitizePublicOption(option, index) {
+function buildPublicDepositPreview(bookingPolicies, serviceId, optionId = '') {
+  const resolved = resolveBookingPolicyForService(bookingPolicies, serviceId, optionId);
+  const policy = resolved.depositPolicy;
+  return {
+    type: policy.type,
+    fixedAmount: policy.type === 'fixed' ? policy.fixedAmount : 0,
+    percentage: policy.type === 'percentage' ? policy.percentage : 0,
+    balanceDueTrigger: resolved.balanceDuePolicy.trigger,
+  };
+}
+
+function normalizePublicDepositPreview(input) {
+  if (!isPlainObject(input)) return null;
+  const type = cleanString(input.type, 20);
+  const balanceDueTrigger = cleanString(input.balanceDueTrigger, 40);
+  if (!['none', 'fixed', 'percentage'].includes(type)) return null;
+  if (!['before_session', 'at_check_in', 'before_delivery'].includes(balanceDueTrigger)) return null;
+  const fixedAmount = toStrictNonNegativeInt(input.fixedAmount);
+  const percentage = toStrictNonNegativeInt(input.percentage);
+  if (fixedAmount === null || percentage === null || percentage > 100) return null;
+  if (type === 'fixed' && fixedAmount <= 0) return null;
+  if (type !== 'fixed' && fixedAmount !== 0) return null;
+  if (type === 'percentage' && (percentage < 1 || percentage > 100)) return null;
+  if (type !== 'percentage' && percentage !== 0) return null;
+  return { type, fixedAmount, percentage, balanceDueTrigger };
+}
+
+function sanitizePublicOption(option, index, depositPreview = null) {
   if (!isPlainObject(option) || option.isActive === false) return null;
   const pricing = option.pricing;
   if (!isPlainObject(pricing)) return null;
@@ -252,6 +283,7 @@ function sanitizePublicOption(option, index) {
     sortOrder: toStrictPositiveInt(option.sortOrder) ?? index + 1,
     pricing: publicPricing,
     discountRules: sanitizeDiscountRules(option.discountRules, mode),
+    depositPreview: normalizePublicDepositPreview(depositPreview),
   };
 }
 
@@ -264,9 +296,10 @@ function sanitizePublicOption(option, index) {
  */
 export function buildPublicPricingProjection(
   pricingSettings,
-  { catalogVersion = null, updatedAt = undefined } = {},
+  { catalogVersion = null, updatedAt = undefined, bookingPolicies = null } = {},
 ) {
   const normalized = normalizePricingSettings(pricingSettings);
+  const normalizedPolicies = normalizeBookingPolicies(bookingPolicies || {});
   const resolvedVersion =
     toStrictPositiveInt(catalogVersion) ?? toStrictPositiveInt(normalized.version) ?? 1;
 
@@ -285,7 +318,15 @@ export function buildPublicPricingProjection(
     const sortedOptions = [...(svc.options || [])].sort(
       (a, b) => (Number(a.sortOrder) || 999) - (Number(b.sortOrder) || 999),
     );
-    const options = sortedOptions.map(sanitizePublicOption).filter(Boolean);
+    const options = sortedOptions
+      .map((option, optionIndex) =>
+        sanitizePublicOption(
+          option,
+          optionIndex,
+          buildPublicDepositPreview(normalizedPolicies, svc.id, option.id),
+        ),
+      )
+      .filter(Boolean);
     if (options.length === 0) continue;
 
     serviceTypes.push({
@@ -294,6 +335,7 @@ export function buildPublicPricingProjection(
       description: cleanString(svc.description, 240),
       deliveryMode,
       sortOrder: toStrictPositiveInt(svc.sortOrder) ?? i + 1,
+      depositPreview: buildPublicDepositPreview(normalizedPolicies, svc.id),
       options,
     });
   }
@@ -301,6 +343,7 @@ export function buildPublicPricingProjection(
   return {
     schemaVersion: PUBLIC_PRICING_CATALOG_SCHEMA_VERSION,
     version: resolvedVersion,
+    policyVersion: normalizedPolicies.version,
     serviceTypes,
     serviceOptionIndex: buildServiceOptionIndex(serviceTypes),
     updatedAt: updatedAt !== undefined ? updatedAt : normalized.updatedAt || null,
@@ -316,6 +359,7 @@ function validateNormalizedOption(option) {
 
   const mode = cleanString(option.pricing.mode, 40);
   if (!ALLOWED_PRICING_MODE_SET.has(mode)) return 'invalid_option_pricing_mode';
+  if (!normalizePublicDepositPreview(option.depositPreview)) return 'invalid_option_deposit_preview';
 
   if (mode === PRICING_MODES.HOURLY && !toStrictPositiveInt(option.pricing.hourlyRate)) {
     return 'invalid_hourly_rate';
@@ -363,6 +407,10 @@ export function normalizePublicPricingCatalog(rawData) {
   if (!version) {
     return { isValid: false, reason: 'invalid_catalog_version', catalog: null };
   }
+  const policyVersion = toStrictNonNegativeInt(rawData.policyVersion);
+  if (policyVersion === null) {
+    return { isValid: false, reason: 'invalid_policy_version', catalog: null };
+  }
 
   if (!Array.isArray(rawData.serviceTypes)) {
     return { isValid: false, reason: 'invalid_service_types', catalog: null };
@@ -388,7 +436,7 @@ export function normalizePublicPricingCatalog(rawData) {
       if (err) {
         return { isValid: false, reason: err, catalog: null };
       }
-      const cleanOpt = sanitizePublicOption(opt, j);
+      const cleanOpt = sanitizePublicOption(opt, j, opt.depositPreview);
       if (!cleanOpt) {
         return { isValid: false, reason: 'invalid_public_option', catalog: null };
       }
@@ -402,8 +450,12 @@ export function normalizePublicPricingCatalog(rawData) {
         description: cleanString(svc.description, 240),
         deliveryMode,
         sortOrder: toStrictPositiveInt(svc.sortOrder) ?? i + 1,
+        depositPreview: normalizePublicDepositPreview(svc.depositPreview),
         options: sanitizedOptions.sort((a, b) => a.sortOrder - b.sortOrder),
       });
+      if (!normalizedServices[normalizedServices.length - 1].depositPreview) {
+        return { isValid: false, reason: 'invalid_service_deposit_preview', catalog: null };
+      }
     }
   }
 
@@ -419,6 +471,7 @@ export function normalizePublicPricingCatalog(rawData) {
     catalog: {
       schemaVersion: PUBLIC_PRICING_CATALOG_SCHEMA_VERSION,
       version,
+      policyVersion,
       serviceTypes: normalizedServices,
       serviceOptionIndex: buildServiceOptionIndex(normalizedServices),
       updatedAt: normalizeTimestampToIso(rawData.updatedAt),

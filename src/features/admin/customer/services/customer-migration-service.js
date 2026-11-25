@@ -4,7 +4,7 @@
  * Scans existing `bookings` lacking `customerId` via paginated queries, builds a preview
  * grouped strictly by `(phoneNormalized + normalizedName)` (never auto-merging different names),
  * separates invalid/missing phone records into `Needs Review`, and executes resumable
- * conservative batches (<= 400 writes per batch) using deterministic legacy Customer IDs.
+ * conservative batches (<= 5 writes per batch) using deterministic legacy Customer IDs.
  *
  * Safety invariants:
  * - Zero writes occur during preview scanning.
@@ -349,7 +349,7 @@ export async function importLegacyBookingHistory({
     });
   }
 
-  // Commit in conservative chunks (<= maxBatchWrites, ensuring customer creation precedes booking updates)
+  // Commit in conservative chunks (<= maxBatchWrites (capped at 5), ensuring customer creation precedes booking updates)
   const safeLimit = Math.max(
     1,
     Math.min(MAX_BATCH_WRITES, Number(maxBatchWrites) || MAX_BATCH_WRITES),

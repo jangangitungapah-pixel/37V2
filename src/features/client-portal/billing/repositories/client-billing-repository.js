@@ -55,90 +55,99 @@ export function createFirestoreClientBillingRepositoryAdapter() {
      */
     subscribeClientInvoices({
       customerId,
+      clientUid,
       maxLimit = CLIENT_INVOICES_INITIAL_LIMIT,
       onData,
       onError,
     }) {
       const cleanCustomerId = String(customerId || '').trim();
-      if (!cleanCustomerId) {
-        queueMicrotask(() => {
-          onError?.(
-            createRepositoryError(
-              'permission-denied',
-              'Missing customer identity for client invoice subscription.',
-            ),
-          );
-        });
+      const cleanClientUid = String(clientUid || '').trim();
+      if (!cleanCustomerId && !cleanClientUid) {
+        queueMicrotask(() => onError?.(createRepositoryError(
+          'permission-denied',
+          'Missing client identity for invoice subscription.',
+        )));
         return () => {};
       }
 
       const safeLimit = Math.max(1, Number(maxLimit) || CLIENT_INVOICES_INITIAL_LIMIT);
-      let unsubscribe = null;
-      let isCancelled = false;
+      const sources = [
+        ...(cleanCustomerId ? [{ key: 'customer', field: 'customerId', value: cleanCustomerId }] : []),
+        ...(cleanClientUid ? [{ key: 'uid', field: 'clientUid', value: cleanClientUid }] : []),
+      ];
+      const snapshots = new Map();
+      const unsubscribes = [];
+      let cancelled = false;
+
+      const emitMerged = () => {
+        if (cancelled || sources.some((source) => !snapshots.has(source.key))) return;
+        const unique = new Map();
+        for (const source of sources) {
+          for (const snapshotDoc of snapshots.get(source.key) || []) {
+            const data = snapshotDoc.data();
+            if (!data || !isCustomerVisibleInvoiceStatus(data.invoiceStatus)) continue;
+            if (
+              (source.key === 'uid' && data.clientUid !== cleanClientUid) ||
+              (source.key === 'customer' && data.customerId !== cleanCustomerId)
+            ) continue;
+            unique.set(snapshotDoc.id, projectClientInvoiceRecord(snapshotDoc.id, data));
+          }
+        }
+        const sorted = sortClientInvoices(Array.from(unique.values()).filter(Boolean));
+        const hasMore = sources.some((source) => (snapshots.get(source.key) || []).length > safeLimit) ||
+          sorted.length > safeLimit;
+        onData?.({
+          invoices: sorted.slice(0, safeLimit),
+          hasMore,
+          isTruncated: hasMore,
+          maxLimit: safeLimit,
+        });
+      };
 
       (async () => {
         try {
           const [{ collection, limit, onSnapshot, query, where }, { getFirebaseDb }] =
             await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
-          if (isCancelled) return;
+          if (cancelled) return;
           if (typeof onSnapshot !== 'function') {
-            throw createRepositoryError('unavailable', 'Realtime Firestore listener unavailable.');
+            throw createRepositoryError('unavailable', 'Realtime invoice listener unavailable.');
           }
-
-          const db = getFirebaseDb();
-          const invoicesRef = collection(db, FIRESTORE_COLLECTIONS.INVOICES);
-          const clientInvoicesQuery = query(
-            invoicesRef,
-            where('customerId', '==', cleanCustomerId),
-            where('invoiceStatus', 'in', CUSTOMER_VISIBLE_INVOICE_STATUSES),
-            limit(safeLimit + 1),
-          );
-
-          unsubscribe = onSnapshot(
-            clientInvoicesQuery,
-            (snapshot) => {
-              if (isCancelled) return;
-              const projected = snapshot.docs
-                .map((docSnap) => {
-                  const data = docSnap.data();
-                  if (!data || data.customerId !== cleanCustomerId) return null;
-                  return projectClientInvoiceRecord(docSnap.id, data);
-                })
-                .filter(Boolean);
-
-              const sorted = sortClientInvoices(projected);
-              const hasMore = snapshot.docs.length > safeLimit || sorted.length > safeLimit;
-
-              onData?.({
-                invoices: sorted.slice(0, safeLimit),
-                hasMore,
-                isTruncated: hasMore,
-                maxLimit: safeLimit,
-              });
-            },
-            (err) => {
-              if (!isCancelled) onError?.(err);
-            },
-          );
-        } catch (err) {
-          if (!isCancelled) onError?.(err);
+          const ref = collection(getFirebaseDb(), FIRESTORE_COLLECTIONS.INVOICES);
+          for (const source of sources) {
+            const q = query(
+              ref,
+              where(source.field, '==', source.value),
+              where('invoiceStatus', 'in', CUSTOMER_VISIBLE_INVOICE_STATUSES),
+              limit(safeLimit + 1),
+            );
+            const unsubscribe = onSnapshot(
+              q,
+              (snapshot) => {
+                if (cancelled) return;
+                snapshots.set(source.key, snapshot.docs || []);
+                emitMerged();
+              },
+              (error) => { if (!cancelled) onError?.(error); },
+            );
+            unsubscribes.push(unsubscribe);
+          }
+        } catch (error) {
+          if (!cancelled) onError?.(error);
         }
       })();
 
       return () => {
-        isCancelled = true;
-        if (typeof unsubscribe === 'function') unsubscribe();
+        cancelled = true;
+        unsubscribes.forEach((unsubscribe) => unsubscribe?.());
       };
     },
 
-    /**
-     * Subscribes in realtime to a single customer-owned invoice document (`issued` | `void`).
-     */
-    subscribeClientInvoiceById({ customerId, invoiceId, onData, onError }) {
+    subscribeClientInvoiceById({ customerId, clientUid, invoiceId, onData, onError }) {
       const cleanCustomerId = String(customerId || '').trim();
+      const cleanClientUid = String(clientUid || '').trim();
       const cleanInvoiceId = String(invoiceId || '').trim();
 
-      if (!cleanCustomerId || !cleanInvoiceId) {
+      if ((!cleanCustomerId && !cleanClientUid) || !cleanInvoiceId) {
         queueMicrotask(() => {
           onError?.(
             createRepositoryError(
@@ -176,7 +185,10 @@ export function createFirestoreClientBillingRepositoryAdapter() {
                 return;
               }
               const raw = snap.data();
-              if (!raw || raw.customerId !== cleanCustomerId) {
+              if (
+                !raw ||
+                (raw.customerId !== cleanCustomerId && raw.clientUid !== cleanClientUid)
+              ) {
                 onError?.(
                   createRepositoryError('permission-denied', 'Invoice ownership mismatch.'),
                 );
@@ -207,6 +219,7 @@ export function createFirestoreClientBillingRepositoryAdapter() {
      */
     subscribeClientPaymentTransactions({
       customerId,
+      clientUid,
       invoiceId = '',
       invoiceIds = [],
       maxLimit = CLIENT_TRANSACTIONS_INITIAL_LIMIT,
@@ -214,137 +227,113 @@ export function createFirestoreClientBillingRepositoryAdapter() {
       onError,
     }) {
       const cleanCustomerId = String(customerId || '').trim();
-      const cleanSingleInvoiceId = String(invoiceId || '').trim();
-      const targetIds = cleanSingleInvoiceId
-        ? [cleanSingleInvoiceId]
-        : Array.from(
-            new Set(
-              (Array.isArray(invoiceIds) ? invoiceIds : [])
-                .map((id) => String(id || '').trim())
-                .filter(Boolean),
-            ),
-          );
+      const cleanClientUid = String(clientUid || '').trim();
+      const singleInvoiceId = String(invoiceId || '').trim();
+      const targetIds = singleInvoiceId
+        ? [singleInvoiceId]
+        : Array.from(new Set((Array.isArray(invoiceIds) ? invoiceIds : [])
+            .map((value) => String(value || '').trim()).filter(Boolean)));
 
-      if (!cleanCustomerId) {
-        queueMicrotask(() => {
-          onError?.(
-            createRepositoryError(
-              'permission-denied',
-              'Missing customer identity for payment transaction subscription.',
-            ),
-          );
-        });
+      if (!cleanCustomerId && !cleanClientUid) {
+        queueMicrotask(() => onError?.(createRepositoryError(
+          'permission-denied',
+          'Missing client identity for payment transaction subscription.',
+        )));
         return () => {};
       }
-
-      if (targetIds.length === 0) {
-        queueMicrotask(() => {
-          onData?.({
-            transactions: [],
-            reversedTransactionIds: new Set(),
-            hasMore: false,
-            isTruncated: false,
-            maxLimit: Math.max(1, Number(maxLimit) || CLIENT_TRANSACTIONS_INITIAL_LIMIT),
-          });
-        });
-        return () => {};
-      }
-
       const safeLimit = Math.max(1, Number(maxLimit) || CLIENT_TRANSACTIONS_INITIAL_LIMIT);
-      const chunks =
-        targetIds.length === 1 ? [targetIds] : chunkValues(targetIds, IN_QUERY_CHUNK_SIZE);
+      if (targetIds.length === 0) {
+        queueMicrotask(() => onData?.({
+          transactions: [],
+          reversedTransactionIds: new Set(),
+          hasMore: false,
+          isTruncated: false,
+          maxLimit: safeLimit,
+        }));
+        return () => {};
+      }
 
-      let unsubscribes = [];
-      let isCancelled = false;
+      const chunks = targetIds.length === 1 ? [targetIds] : chunkValues(targetIds, IN_QUERY_CHUNK_SIZE);
+      const owners = [
+        ...(cleanCustomerId ? [{ key: 'customer', field: 'customerId', value: cleanCustomerId }] : []),
+        ...(cleanClientUid ? [{ key: 'uid', field: 'clientUid', value: cleanClientUid }] : []),
+      ];
+      const expectedKeys = chunks.flatMap((_, index) => owners.map((owner) => `${owner.key}:${index}`));
+      const streams = new Map();
+      const unsubscribes = [];
+      let cancelled = false;
+
+      const emitMerged = () => {
+        if (cancelled || expectedKeys.some((key) => !streams.has(key))) return;
+        const unique = new Map();
+        let sourceHasMore = false;
+        for (const [key, snapshotData] of streams.entries()) {
+          if (snapshotData.hasMore) sourceHasMore = true;
+          for (const record of snapshotData.records) unique.set(record.id, record);
+        }
+        const { transactions, reversedTransactionIds } =
+          projectClientPaymentTransactions(Array.from(unique.values()));
+        const hasMore = sourceHasMore || transactions.length > safeLimit;
+        onData?.({
+          transactions: transactions.slice(0, safeLimit),
+          reversedTransactionIds,
+          hasMore,
+          isTruncated: hasMore,
+          maxLimit: safeLimit,
+        });
+      };
 
       (async () => {
         try {
           const [{ collection, limit, onSnapshot, query, where }, { getFirebaseDb }] =
             await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
-          if (isCancelled) return;
+          if (cancelled) return;
           if (typeof onSnapshot !== 'function') {
-            throw createRepositoryError('unavailable', 'Realtime Firestore listener unavailable.');
+            throw createRepositoryError('unavailable', 'Realtime payment transaction listener unavailable.');
           }
-
-          const db = getFirebaseDb();
-          const txCollectionRef = collection(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS);
-          const chunkRecords = new Map();
-          const chunkTruncated = new Set();
-          const readyChunks = new Set();
-
-          const emitMerged = () => {
-            if (isCancelled || readyChunks.size < chunks.length) return;
-            const combinedRaw = [];
-            for (const list of chunkRecords.values()) {
-              for (const item of list) {
-                combinedRaw.push(item);
-              }
-            }
-            const { transactions, reversedTransactionIds } =
-              projectClientPaymentTransactions(combinedRaw);
-            const hasMore = chunkTruncated.size > 0 || transactions.length > safeLimit;
-
-            onData?.({
-              transactions: transactions.slice(0, safeLimit),
-              reversedTransactionIds,
-              hasMore,
-              isTruncated: hasMore,
-              maxLimit: safeLimit,
-            });
-          };
-
-          unsubscribes = chunks.map((chunk, chunkIndex) => {
-            const txQuery =
-              chunk.length === 1
-                ? query(
-                    txCollectionRef,
-                    where('customerId', '==', cleanCustomerId),
-                    where('invoiceId', '==', chunk[0]),
-                    limit(safeLimit + 1),
-                  )
-                : query(
-                    txCollectionRef,
-                    where('customerId', '==', cleanCustomerId),
-                    where('invoiceId', 'in', chunk),
-                    limit(safeLimit + 1),
-                  );
-
-            return onSnapshot(
-              txQuery,
-              (snapshot) => {
-                if (isCancelled) return;
-                const docs = snapshot.docs
-                  .map((docSnap) => {
+          const ref = collection(getFirebaseDb(), FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS);
+          chunks.forEach((chunk, chunkIndex) => {
+            owners.forEach((owner) => {
+              const invoiceOperator = chunk.length === 1 ? '==' : 'in';
+              const invoiceValue = chunk.length === 1 ? chunk[0] : chunk;
+              const q = query(
+                ref,
+                where(owner.field, '==', owner.value),
+                where('invoiceId', invoiceOperator, invoiceValue),
+                limit(safeLimit + 1),
+              );
+              const streamKey = `${owner.key}:${chunkIndex}`;
+              const unsubscribe = onSnapshot(
+                q,
+                (snapshot) => {
+                  if (cancelled) return;
+                  const docs = (snapshot.docs || []).map((docSnap) => {
                     const data = docSnap.data();
-                    if (!data || data.customerId !== cleanCustomerId) return null;
+                    const ownerMatches = owner.key === 'uid'
+                      ? data?.clientUid === cleanClientUid
+                      : data?.customerId === cleanCustomerId;
+                    if (!data || !ownerMatches || !targetIds.includes(data.invoiceId)) return null;
                     return { id: docSnap.id, ...data };
-                  })
-                  .filter(Boolean);
-
-                chunkRecords.set(chunkIndex, docs);
-                if (snapshot.docs.length > safeLimit) {
-                  chunkTruncated.add(chunkIndex);
-                } else {
-                  chunkTruncated.delete(chunkIndex);
-                }
-                readyChunks.add(chunkIndex);
-                emitMerged();
-              },
-              (err) => {
-                if (!isCancelled) onError?.(err);
-              },
-            );
+                  }).filter(Boolean);
+                  streams.set(streamKey, {
+                    records: docs,
+                    hasMore: (snapshot.docs || []).length > safeLimit,
+                  });
+                  emitMerged();
+                },
+                (error) => { if (!cancelled) onError?.(error); },
+              );
+              unsubscribes.push(unsubscribe);
+            });
           });
-        } catch (err) {
-          if (!isCancelled) onError?.(err);
+        } catch (error) {
+          if (!cancelled) onError?.(error);
         }
       })();
 
       return () => {
-        isCancelled = true;
-        for (const unsub of unsubscribes) {
-          if (typeof unsub === 'function') unsub();
-        }
+        cancelled = true;
+        unsubscribes.forEach((unsubscribe) => unsubscribe?.());
       };
     },
   };
@@ -395,10 +384,13 @@ export function createInMemoryClientBillingRepositoryAdapter({
     }
   }
 
-  function computeOwnedVisibleInvoices(cleanCustomerId, safeLimit) {
+  function computeOwnedVisibleInvoices(cleanCustomerId, cleanClientUid, safeLimit) {
     const projected = Array.from(invoices.values())
       .filter(
-        (inv) => inv && inv.customerId === cleanCustomerId && isCustomerVisibleInvoiceStatus(inv.invoiceStatus),
+        (inv) =>
+          inv &&
+          (inv.customerId === cleanCustomerId || inv.clientUid === cleanClientUid) &&
+          isCustomerVisibleInvoiceStatus(inv.invoiceStatus),
       )
       .map((inv) => projectClientInvoiceRecord(inv.id, inv))
       .filter(Boolean);
@@ -414,22 +406,22 @@ export function createInMemoryClientBillingRepositoryAdapter({
     };
   }
 
-  function isParentInvoiceReadableByClient(invoiceId, cleanCustomerId) {
+  function isParentInvoiceReadableByClient(invoiceId, cleanCustomerId, cleanClientUid) {
     const parent = invoices.get(invoiceId);
     return Boolean(
       parent &&
-        parent.customerId === cleanCustomerId &&
+        (parent.customerId === cleanCustomerId || parent.clientUid === cleanClientUid) &&
         isCustomerVisibleInvoiceStatus(parent.invoiceStatus),
     );
   }
 
-  function computeOwnedTransactions(cleanCustomerId, targetIdSet, safeLimit) {
+  function computeOwnedTransactions(cleanCustomerId, cleanClientUid, targetIdSet, safeLimit) {
     const matchingRaw = Array.from(paymentTransactions.values()).filter(
       (tx) =>
         tx &&
-        tx.customerId === cleanCustomerId &&
+        (tx.customerId === cleanCustomerId || tx.clientUid === cleanClientUid) &&
         targetIdSet.has(tx.invoiceId) &&
-        isParentInvoiceReadableByClient(tx.invoiceId, cleanCustomerId),
+        isParentInvoiceReadableByClient(tx.invoiceId, cleanCustomerId, cleanClientUid),
     );
 
     const { transactions, reversedTransactionIds } = projectClientPaymentTransactions(matchingRaw);
@@ -482,14 +474,16 @@ export function createInMemoryClientBillingRepositoryAdapter({
 
     subscribeClientInvoices({
       customerId,
+      clientUid,
       maxLimit = CLIENT_INVOICES_INITIAL_LIMIT,
       onData,
       onError,
     }) {
       const cleanCustomerId = String(customerId || '').trim();
+      const cleanClientUid = String(clientUid || '').trim();
       const safeLimit = Math.max(1, Number(maxLimit) || CLIENT_INVOICES_INITIAL_LIMIT);
 
-      if (!cleanCustomerId) {
+      if (!cleanCustomerId && !cleanClientUid) {
         queueMicrotask(() => {
           onError?.(
             createRepositoryError(
@@ -509,7 +503,7 @@ export function createInMemoryClientBillingRepositoryAdapter({
           onError?.(simulatedError);
           return;
         }
-        onData?.(computeOwnedVisibleInvoices(cleanCustomerId, safeLimit));
+        onData?.(computeOwnedVisibleInvoices(cleanCustomerId, cleanClientUid, safeLimit));
       };
 
       localInvoiceListeners.add(pushSnapshot);
@@ -534,11 +528,12 @@ export function createInMemoryClientBillingRepositoryAdapter({
       };
     },
 
-    subscribeClientInvoiceById({ customerId, invoiceId, onData, onError }) {
+    subscribeClientInvoiceById({ customerId, clientUid, invoiceId, onData, onError }) {
       const cleanCustomerId = String(customerId || '').trim();
+      const cleanClientUid = String(clientUid || '').trim();
       const cleanInvoiceId = String(invoiceId || '').trim();
 
-      if (!cleanCustomerId || !cleanInvoiceId) {
+      if ((!cleanCustomerId && !cleanClientUid) || !cleanInvoiceId) {
         queueMicrotask(() => {
           onError?.(
             createRepositoryError(
@@ -563,7 +558,10 @@ export function createInMemoryClientBillingRepositoryAdapter({
           onError?.(createRepositoryError('permission-denied', 'Invoice not accessible.'));
           return;
         }
-        if (raw.customerId !== cleanCustomerId || !isCustomerVisibleInvoiceStatus(raw.invoiceStatus)) {
+        if (
+          (raw.customerId !== cleanCustomerId && raw.clientUid !== cleanClientUid) ||
+          !isCustomerVisibleInvoiceStatus(raw.invoiceStatus)
+        ) {
           onError?.(createRepositoryError('permission-denied', 'Invoice not accessible.'));
           return;
         }
@@ -594,6 +592,7 @@ export function createInMemoryClientBillingRepositoryAdapter({
 
     subscribeClientPaymentTransactions({
       customerId,
+      clientUid,
       invoiceId = '',
       invoiceIds = [],
       maxLimit = CLIENT_TRANSACTIONS_INITIAL_LIMIT,
@@ -601,6 +600,7 @@ export function createInMemoryClientBillingRepositoryAdapter({
       onError,
     }) {
       const cleanCustomerId = String(customerId || '').trim();
+      const cleanClientUid = String(clientUid || '').trim();
       const cleanSingleInvoiceId = String(invoiceId || '').trim();
       const targetIds = cleanSingleInvoiceId
         ? [cleanSingleInvoiceId]
@@ -609,12 +609,12 @@ export function createInMemoryClientBillingRepositoryAdapter({
             .filter(Boolean);
       const safeLimit = Math.max(1, Number(maxLimit) || CLIENT_TRANSACTIONS_INITIAL_LIMIT);
 
-      if (!cleanCustomerId) {
+      if (!cleanCustomerId && !cleanClientUid) {
         queueMicrotask(() => {
           onError?.(
             createRepositoryError(
               'permission-denied',
-              'Missing customer identity for payment transaction subscription.',
+              'Missing client identity for payment transaction subscription.',
             ),
           );
         });
@@ -647,7 +647,7 @@ export function createInMemoryClientBillingRepositoryAdapter({
           const parent = invoices.get(id);
           if (
             !parent ||
-            parent.customerId !== cleanCustomerId ||
+            (parent.customerId !== cleanCustomerId && parent.clientUid !== cleanClientUid) ||
             !isCustomerVisibleInvoiceStatus(parent.invoiceStatus)
           ) {
             onError?.(
@@ -659,7 +659,7 @@ export function createInMemoryClientBillingRepositoryAdapter({
             return;
           }
         }
-        onData?.(computeOwnedTransactions(cleanCustomerId, targetIdSet, safeLimit));
+        onData?.(computeOwnedTransactions(cleanCustomerId, cleanClientUid, targetIdSet, safeLimit));
       };
 
       localTransactionListeners.add(pushTx);

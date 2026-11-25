@@ -1,39 +1,31 @@
-import { format, isBefore, isValid, parse, startOfDay } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
+import { TZDate } from '@date-fns/tz';
 
+const STUDIO_TIME_ZONE = 'Asia/Jakarta';
 const ISO_CALENDAR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const REFERENCE_DATE = new Date(2000, 0, 1);
+const REFERENCE_DATE = new TZDate(2000, 0, 1, STUDIO_TIME_ZONE);
 
 /**
- * Formats the local calendar date as YYYY-MM-DD without UTC conversion drift.
+ * Formats the studio calendar date in WIB regardless of the browser's timezone.
  */
 export function getTodayLocalDateString(now = new Date()) {
-  return format(now, 'yyyy-MM-dd');
+  const instant = now instanceof Date ? now.getTime() : Number(now);
+  const jakartaNow = new TZDate(Number.isFinite(instant) ? instant : Date.now(), STUDIO_TIME_ZONE);
+  return format(jakartaNow, 'yyyy-MM-dd');
 }
 
 /**
- * Verifies YYYY-MM-DD format and strict calendar validity (rejects e.g. 2026-02-30).
+ * Verifies YYYY-MM-DD format and strict calendar validity.
  */
 export function isValidBookingCalendarDate(value) {
-  if (typeof value !== 'string' || !ISO_CALENDAR_DATE_PATTERN.test(value)) {
-    return false;
-  }
-
+  if (typeof value !== 'string' || !ISO_CALENDAR_DATE_PATTERN.test(value)) return false;
   const parsed = parse(value, 'yyyy-MM-dd', REFERENCE_DATE);
-  if (!isValid(parsed)) {
-    return false;
-  }
-
-  return format(parsed, 'yyyy-MM-dd') === value;
+  return isValid(parsed) && format(parsed, 'yyyy-MM-dd') === value;
 }
 
 /**
- * Checks whether a YYYY-MM-DD date string is today or in the future in local calendar time.
+ * Checks whether a date is today or later on the Asia/Jakarta calendar.
  */
 export function isDateNotInPast(value, now = new Date()) {
-  if (!isValidBookingCalendarDate(value)) {
-    return false;
-  }
-
-  const parsed = parse(value, 'yyyy-MM-dd', REFERENCE_DATE);
-  return !isBefore(startOfDay(parsed), startOfDay(now));
+  return isValidBookingCalendarDate(value) && value >= getTodayLocalDateString(now);
 }

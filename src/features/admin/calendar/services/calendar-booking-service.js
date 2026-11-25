@@ -79,6 +79,74 @@ import {
 } from '../utils/booking-time';
 import { getJakartaTodayIso } from '../utils/calendar-date';
 
+/**
+ * Builds a strict, customer-safe mirror for a Client Portal-owned booking.
+ * Legacy bookings default to a confirmed reservation in this Phase 1 foundation.
+ */
+export function buildClientReservationProjection(booking, invoice = null, timestamp = null) {
+  const bookingId = String(booking?.id || '').trim();
+  const clientUid = String(booking?.clientUid || '').trim();
+  if (!bookingId || !clientUid) return null;
+
+  const studioId = String(booking.studioId || '');
+  const startMinute = Number(booking.startMinute);
+  const durationMinutes = Number(booking.durationMinutes);
+  const endMinute = Number(booking.endMinute);
+  if (
+    !['room-a', 'room-b'].includes(studioId) ||
+    !Number.isInteger(startMinute) ||
+    !Number.isInteger(durationMinutes) ||
+    !Number.isInteger(endMinute) ||
+    endMinute !== startMinute + durationMinutes
+  ) return null;
+
+  return {
+    schemaVersion: 1,
+    bookingId,
+    bookingReference: String(booking.bookingReference || booking.bookingCode || bookingId),
+    customerId: String(booking.customerId || ''),
+    clientUid,
+    sourceRequestId: String(booking.sourceRequestId || ''),
+    acceptedOfferId: String(booking.acceptedOfferId || ''),
+    invoiceId: `inv_${bookingId}`,
+    studioId,
+    studioName: String(booking.studioName || ''),
+    serviceTypeName: String(booking.serviceTypeName || booking.serviceTypeId || booking.serviceLabel || ''),
+    serviceOptionName: String(booking.serviceOptionName || booking.packageLabel || ''),
+    date: String(booking.date || ''),
+    startMinute,
+    endMinute,
+    durationMinutes,
+    timeZone: String(booking.timeZone || STUDIO_TIME_ZONE),
+    reservationStatus:
+      booking.sessionStatus === BOOKING_SESSION_STATUS.CANCELLED
+        ? 'cancelled'
+        : String(booking.reservationStatus || 'confirmed'),
+    sessionStatus: String(booking.sessionStatus || BOOKING_SESSION_STATUS.UPCOMING),
+    holdExpiresAt: booking.holdExpiresAt || null,
+    effectiveTotalAmount: Math.max(
+      0,
+      Math.round(Number(invoice?.effectiveTotalAmount ?? invoice?.totalAmount ?? booking.totalAmount) || 0),
+    ),
+    minimumDepositAmount:
+      Number.isInteger(invoice?.minimumDepositAmount)
+        ? invoice.minimumDepositAmount
+        : Number.isInteger(booking.minimumDepositAmount)
+          ? booking.minimumDepositAmount
+          : null,
+    depositStatus:
+      typeof invoice?.depositStatus === 'string'
+        ? invoice.depositStatus
+        : typeof booking.depositStatus === 'string'
+          ? booking.depositStatus
+          : null,
+    paymentStatus: String(invoice?.paymentStatus || booking.paymentStatus || 'unpaid'),
+    createdAt: booking.createdAt || timestamp || booking.updatedAt,
+    updatedAt: timestamp || booking.updatedAt || booking.createdAt,
+    version: Number(booking.version) || 1,
+  };
+}
+
 export function createBookingServiceError(code, message, details = null) {
   const error = new Error(message);
   error.code = code;
@@ -316,6 +384,17 @@ export async function createBooking({
       }
     }
 
+    const isClientPortalOrigin = Boolean(
+      existingBookingRequest?.source === BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
+    );
+    const requestedClientUid = String(existingBookingRequest?.clientUid || '').trim();
+    if (isClientPortalOrigin && !requestedClientUid) {
+      throw createBookingServiceError(
+        'booking/client-identity-missing',
+        'Request Client Portal tidak memiliki clientUid yang valid. Hubungkan identitas Client secara eksplisit sebelum mengonversi request.',
+      );
+    }
+
     if (existingBooking && existingBooking.createdByUid !== cleanActorUid) {
       throw createBookingServiceError(
         'booking/duplicate-id',
@@ -331,13 +410,15 @@ export async function createBooking({
     }
 
     // Read all candidate customer profiles referenced by the phone index + explicit resolution target
-    const candidateCustomerIds = Array.from(
-      new Set([
-        ...(existingPhoneIndex?.activeCustomerIds || []),
-        ...(existingPhoneIndex?.historicalCustomerIds || []),
-        ...(customerResolution?.customerId ? [customerResolution.customerId] : []),
-      ]),
-    );
+    const candidateCustomerIds = isClientPortalOrigin
+      ? []
+      : Array.from(
+          new Set([
+            ...(existingPhoneIndex?.activeCustomerIds || []),
+            ...(existingPhoneIndex?.historicalCustomerIds || []),
+            ...(customerResolution?.customerId ? [customerResolution.customerId] : []),
+          ]),
+        );
     const loadedCandidates =
       candidateCustomerIds.length > 0
         ? await Promise.all(candidateCustomerIds.map((id) => tx.getCustomer(id)))
@@ -389,7 +470,12 @@ export async function createBooking({
     let resolvedCustomerId = preGeneratedCustomerId;
     let targetExistingProfile = null;
 
-    if (!effectiveMode) {
+    if (isClientPortalOrigin) {
+      // Client Portal UID is authoritative. Do not resolve or auto-merge a CRM profile by phone/name.
+      effectiveMode = 'client_portal_uid';
+      resolvedCustomerId =
+        String(existingBookingRequest.customerId || '').trim() || `client_${requestedClientUid}`;
+    } else if (!effectiveMode) {
       if (
         identityResolution.status === IDENTITY_MATCH_STATUS.NO_MATCH ||
         identityResolution.status === IDENTITY_MATCH_STATUS.HISTORICAL_ONLY
@@ -449,7 +535,7 @@ export async function createBooking({
     // 2. ALL WRITES AFTER ALL READS
     const timestamp = tx.nowValue();
 
-    if (targetExistingProfile) {
+    if (!isClientPortalOrigin && targetExistingProfile) {
       const nextAliases =
         effectiveMode === CUSTOMER_RESOLUTION_MODE.MERGE_INTO_EXISTING
           ? appendUniqueNameAlias(
@@ -513,8 +599,8 @@ export async function createBooking({
           updatedByUid: cleanActorUid,
         });
       }
-    } else {
-      // Create new Customer Profile (either fresh number or intentional Create Separate on shared number)
+    } else if (!isClientPortalOrigin) {
+      // Create or reuse a CRM Customer Profile only for Staff-created bookings.
       tx.setCustomer(resolvedCustomerId, {
         displayName: payload.customerName,
         normalizedName: normalizeCustomerName(payload.customerName),
@@ -552,6 +638,12 @@ export async function createBooking({
 
     const bookingDoc = {
       customerId: resolvedCustomerId,
+      clientUid: isClientPortalOrigin ? requestedClientUid : '',
+      source: isClientPortalOrigin ? 'client_portal' : 'staff_created',
+      sourceRequestId: isClientPortalOrigin ? cleanBookingRequestId : '',
+      acceptedOfferId: isClientPortalOrigin
+        ? String(existingBookingRequest.acceptedOfferId || '')
+        : '',
       customerName: payload.customerName,
       phone: payload.phone,
       phoneNormalized: payload.phoneNormalized,
@@ -633,11 +725,6 @@ export async function createBooking({
     });
 
     // 3. Automatic Invoice & Optional Initial Payment Transaction (Phase 8 + Payment Evidence v1)
-    const isClientPortalOrigin = Boolean(
-      cleanBookingRequestId &&
-        existingBookingRequest &&
-        existingBookingRequest.source === BOOKING_REQUEST_SOURCES.CLIENT_PORTAL,
-    );
     const initialPaidInt = Math.max(0, Math.round(Number(payload.initialPaidAmount) || 0));
 
     if (isClientPortalOrigin && initialPaidInt > 0) {
@@ -660,9 +747,21 @@ export async function createBooking({
       initialPaidAmount: hasInitialPayment ? initialPaidInt : 0,
       clientPaymentEvidenceRequired: isClientPortalOrigin,
     });
+    const canonicalInvoiceDoc = isClientPortalOrigin
+      ? { ...invoiceDoc, clientUid: requestedClientUid }
+      : invoiceDoc;
 
     if (!existingInvoice) {
-      tx.setInvoice(invoiceId, invoiceDoc);
+      tx.setInvoice(invoiceId, canonicalInvoiceDoc);
+    }
+
+    const clientReservationProjection = buildClientReservationProjection(
+      { ...bookingDoc, id: cleanBookingId },
+      canonicalInvoiceDoc,
+      timestamp,
+    );
+    if (clientReservationProjection) {
+      tx.setClientReservation?.(cleanBookingId, clientReservationProjection);
     }
 
     if (hasInitialPayment && !existingInitialPayment) {
@@ -682,7 +781,7 @@ export async function createBooking({
         receivedAt: timestamp,
         referenceNumber: '',
         notes:
-          initialPaidInt >= invoiceDoc.financialSnapshot.totalAmount
+          initialPaidInt >= canonicalInvoiceDoc.financialSnapshot.totalAmount
             ? 'Pembayaran lunas saat pembuatan booking'
             : 'Pembayaran DP awal saat pembuatan booking',
         source: PAYMENT_SOURCE.BOOKING_INITIAL_PAYMENT,
@@ -805,6 +904,9 @@ export async function updateOrRescheduleBooking({
     // 1. READ EXISTING BOOKING & EVENT FIRST
     const existingBooking = await tx.getBooking(cleanBookingId);
     const existingEvent = await tx.getEvent(cleanEventId);
+    const existingInvoice = existingBooking?.clientUid
+      ? await tx.getInvoice?.(`inv_${cleanBookingId}`)
+      : null;
 
     if (!existingBooking) {
       throw createBookingServiceError('booking/not-found', 'Data booking tidak ditemukan.');
@@ -1067,6 +1169,14 @@ export async function updateOrRescheduleBooking({
     };
 
     tx.updateBooking(cleanBookingId, updatedFields);
+    const clientReservationProjection = buildClientReservationProjection(
+      { ...existingBooking, ...updatedFields, id: cleanBookingId },
+      existingInvoice,
+      timestamp,
+    );
+    if (clientReservationProjection) {
+      tx.setClientReservation?.(cleanBookingId, clientReservationProjection);
+    }
 
     const nextPublicProjection = buildPublicAvailabilityProjectionFromBooking(
       updatedFields,
@@ -1143,6 +1253,9 @@ export async function cancelBooking({
     // 1. READS FIRST
     const existingBooking = await tx.getBooking(cleanBookingId);
     const existingEvent = await tx.getEvent(cleanEventId);
+    const existingInvoice = existingBooking?.clientUid
+      ? await tx.getInvoice?.(`inv_${cleanBookingId}`)
+      : null;
 
     if (!existingBooking) {
       throw createBookingServiceError('booking/not-found', 'Data booking tidak ditemukan.');
@@ -1207,6 +1320,14 @@ export async function cancelBooking({
     delete updatedFields.id;
 
     tx.updateBooking(cleanBookingId, cancelPatch);
+    const clientReservationProjection = buildClientReservationProjection(
+      { ...existingBooking, ...updatedFields, id: cleanBookingId },
+      existingInvoice,
+      timestamp,
+    );
+    if (clientReservationProjection) {
+      tx.setClientReservation?.(cleanBookingId, clientReservationProjection);
+    }
 
     const nextPublicProjection = buildPublicAvailabilityProjectionFromBooking(
       updatedFields,
@@ -1280,6 +1401,9 @@ export async function transitionBookingSession({
     // 1. READS FIRST
     const existingBooking = await tx.getBooking(cleanBookingId);
     const existingEvent = await tx.getEvent(cleanEventId);
+    const existingInvoice = existingBooking?.clientUid
+      ? await tx.getInvoice?.(`inv_${cleanBookingId}`)
+      : null;
 
     if (!existingBooking) {
       throw createBookingServiceError('booking/not-found', 'Data booking tidak ditemukan.');
@@ -1421,6 +1545,14 @@ export async function transitionBookingSession({
 
     // 2. WRITES AFTER READS
     tx.updateBooking(cleanBookingId, lifecyclePatch);
+    const clientReservationProjection = buildClientReservationProjection(
+      { ...existingBooking, ...updatedFields, id: cleanBookingId },
+      existingInvoice,
+      timestamp,
+    );
+    if (clientReservationProjection) {
+      tx.setClientReservation?.(cleanBookingId, clientReservationProjection);
+    }
 
     const nextPublicProjection = buildPublicAvailabilityProjectionFromBooking(
       updatedFields,
@@ -1473,6 +1605,7 @@ export function createInMemoryBookingRepositoryAdapter(
   const invoices = new Map();
   const paymentTransactions = new Map();
   const paymentEvidence = new Map();
+  const clientReservations = new Map();
   const commissionBatches = new Map();
   const commissionPostingItems = new Map();
   const commissionReviewResolutions = new Map();
@@ -1864,6 +1997,7 @@ export function createInMemoryBookingRepositoryAdapter(
         invoices: new Map(invoices),
         paymentTransactions: new Map(paymentTransactions),
         paymentEvidence: new Map(paymentEvidence),
+        clientReservations: new Map(clientReservations),
         bookingRequests: new Map(bookingRequests),
         bookingRequestActivities: new Map(bookingRequestActivities),
         bookingRequestCommunications: new Map(bookingRequestCommunications),
@@ -1883,6 +2017,7 @@ export function createInMemoryBookingRepositoryAdapter(
         const stagedInvoices = new Map(invoices);
         const stagedPaymentTransactions = new Map(paymentTransactions);
         const stagedPaymentEvidence = new Map(paymentEvidence);
+        const stagedClientReservations = new Map(clientReservations);
         const stagedBookingRequests = new Map(bookingRequests);
         const stagedBookingRequestActivities = new Map(bookingRequestActivities);
         const touchedBookingIds = new Set();
@@ -1932,6 +2067,10 @@ export function createInMemoryBookingRepositoryAdapter(
             }
             const item = stagedInvoices.get(id);
             return item ? normalizeInvoiceRecord(id, item) : null;
+          },
+          setClientReservation(id, data) {
+            writeStarted = true;
+            stagedClientReservations.set(id, { id, ...data });
           },
           async getPaymentTransaction(id) {
             if (writeStarted) {
@@ -2076,6 +2215,8 @@ export function createInMemoryBookingRepositoryAdapter(
         for (const [k, v] of stagedPaymentTransactions) paymentTransactions.set(k, v);
         paymentEvidence.clear();
         for (const [k, v] of stagedPaymentEvidence) paymentEvidence.set(k, v);
+        clientReservations.clear();
+        for (const [k, v] of stagedClientReservations) clientReservations.set(k, v);
         bookingRequests.clear();
         for (const [k, v] of stagedBookingRequests) bookingRequests.set(k, v);
         bookingRequestActivities.clear();

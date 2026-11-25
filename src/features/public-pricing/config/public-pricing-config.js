@@ -6,7 +6,8 @@ import {
 export const PUBLIC_PRICING_CATALOG_COLLECTION = 'publicPricingCatalog';
 export const PUBLIC_PRICING_CATALOG_DOC_ID = 'current';
 // Public catalog schema v3 adds a Firestore-rules-readable active service-option index.
-export const PUBLIC_PRICING_CATALOG_SCHEMA_VERSION = 3;
+// Schema v4 adds customer-safe deposit policy previews.
+export const PUBLIC_PRICING_CATALOG_SCHEMA_VERSION = 4;
 
 export const PUBLIC_PRICING_ALLOWED_DELIVERY_MODES = Object.freeze([
   DELIVERY_MODES.STUDIO,

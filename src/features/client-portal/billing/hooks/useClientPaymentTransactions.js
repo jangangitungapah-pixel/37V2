@@ -86,6 +86,7 @@ export function useClientPaymentTransactions({
 
     const unsubscribe = resolvedAdapter.subscribeClientPaymentTransactions({
       customerId: cleanCustomerId,
+      clientUid: cleanUid,
       invoiceId: cleanSingleInvoiceId,
       invoiceIds: cleanSingleInvoiceId ? [] : targetIdsList,
       maxLimit: effectiveLimit,

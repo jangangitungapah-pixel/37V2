@@ -342,9 +342,9 @@ export function useDashboardData({
 
     const unsubPayables = bookkeepingAdapter.subscribeActivePayables({
       maxLimit: DASHBOARD_QUERY_LIMITS.ACTIVE_PAYABLES,
-      onData: ({ entries, hasMore }) =>
+      onData: ({ payables, hasMore }) =>
         markSlice('payables', {
-          activePayables: entries || [],
+          activePayables: payables || [],
           hasMorePayables: Boolean(hasMore),
         }),
       onError: handleOwnerError,

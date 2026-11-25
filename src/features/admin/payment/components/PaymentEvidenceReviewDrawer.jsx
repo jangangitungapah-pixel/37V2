@@ -121,6 +121,7 @@ export function PaymentEvidenceReviewDrawer({
         evidenceId: evidence.id,
         verifiedAmount: parsedVerifiedAmount,
         expectedInvoiceVersion: invoice.version,
+        expectedEvidenceVersion: evidence.version,
         notes: verifyNotes.trim(),
         actorUid,
         ...(customPaymentAdapter ? { paymentAdapter: customPaymentAdapter } : {}),
@@ -158,6 +159,7 @@ export function PaymentEvidenceReviewDrawer({
     try {
       const updated = await rejectClientPaymentEvidence({
         evidenceId: evidence.id,
+        expectedEvidenceVersion: evidence.version,
         rejectionReason: cleanReason,
         actorUid,
         ...(customEvidenceAdapter ? { evidenceAdapter: customEvidenceAdapter } : {}),
