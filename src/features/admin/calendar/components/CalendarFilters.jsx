@@ -125,6 +125,9 @@ export function CalendarFilters({
           </div>
         </div>
 
+          </div>
+        </div>
+
         {/* Right Cluster (Desktop) / Primary Compact Row (Mobile): Search + Cancelled Toggle + Mobile Filter */}
         <div className="order-1 flex w-full min-w-0 flex-col xl:order-2 xl:min-w-[290px] xl:flex-1">
           <div className="mb-1.5 hidden min-h-5 items-center justify-end gap-2 text-xs xl:flex">
@@ -204,7 +207,6 @@ export function CalendarFilters({
             </div>
           </div>
         </div>
-      </div>
     </section>
   );
 }
