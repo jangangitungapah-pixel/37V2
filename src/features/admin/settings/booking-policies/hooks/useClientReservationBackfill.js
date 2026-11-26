@@ -8,56 +8,78 @@ export function useClientReservationBackfill({
   enabled = true,
 } = {}) {
   const service = getClientReservationBackfillService();
-  const [status, setStatus] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const normalizedActorRole = String(actorRole || '').toLowerCase();
+  const canSubscribe = Boolean(enabled && normalizedActorRole === 'owner');
+  const subscriptionKey = canSubscribe ? `${actorUid || ''}:${normalizedActorRole}` : 'disabled';
+  const [subscriptionState, setSubscriptionState] = useState({
+    key: '',
+    status: null,
+    isLoading: true,
+    error: '',
+  });
   const [isRunning, setIsRunning] = useState(false);
-  const [error, setError] = useState('');
+  const [runError, setRunError] = useState({ key: '', message: '' });
 
   useEffect(() => {
-    if (!enabled || String(actorRole || '').toLowerCase() !== 'owner') {
-      setStatus(null);
-      setIsLoading(false);
-      setError('');
-      return undefined;
-    }
+    if (!canSubscribe) return undefined;
+
     let cancelled = false;
-    setIsLoading(true);
+    const currentKey = subscriptionKey;
     const unsubscribe = service.subscribeStatus({
       actorUid,
-      actorRole,
+      actorRole: normalizedActorRole,
       onData: (nextStatus) => {
         if (cancelled) return;
-        setStatus(nextStatus);
-        setIsLoading(false);
-        setError('');
+        setSubscriptionState({
+          key: currentKey,
+          status: nextStatus,
+          isLoading: false,
+          error: '',
+        });
       },
       onError: (nextError) => {
         if (cancelled) return;
-        setError(nextError?.message || 'Gagal memuat status backfill.');
-        setIsLoading(false);
+        setSubscriptionState({
+          key: currentKey,
+          status: null,
+          isLoading: false,
+          error: nextError?.message || 'Gagal memuat status backfill.',
+        });
       },
     });
+
     return () => {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [actorUid, actorRole, enabled, service]);
+  }, [actorUid, canSubscribe, normalizedActorRole, service, subscriptionKey]);
+
+  const hasCurrentSubscription =
+    canSubscribe && subscriptionState.key === subscriptionKey;
+  const status = hasCurrentSubscription ? subscriptionState.status : null;
+  const isLoading = canSubscribe && (!hasCurrentSubscription || subscriptionState.isLoading);
+  const error = hasCurrentSubscription
+    ? subscriptionState.error || (runError.key === subscriptionKey ? runError.message : '')
+    : '';
 
   const runNextBatch = useCallback(async () => {
-    if (!enabled || String(actorRole || '').toLowerCase() !== 'owner') {
+    if (!canSubscribe) {
       throw new Error('Hanya Owner aktif yang boleh menjalankan identity backfill.');
     }
     setIsRunning(true);
-    setError('');
+    setRunError({ key: subscriptionKey, message: '' });
     try {
-      return await service.runNextBatch({ actorUid, actorRole });
+      return await service.runNextBatch({ actorUid, actorRole: normalizedActorRole });
     } catch (nextError) {
-      setError(nextError?.message || 'Backfill gagal dijalankan.');
+      setRunError({
+        key: subscriptionKey,
+        message: nextError?.message || 'Backfill gagal dijalankan.',
+      });
       throw nextError;
     } finally {
       setIsRunning(false);
     }
-  }, [actorUid, actorRole, enabled, service]);
+  }, [actorUid, canSubscribe, normalizedActorRole, service, subscriptionKey]);
 
   return { status, isLoading, isRunning, error, runNextBatch };
 }
