@@ -1133,6 +1133,8 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       date: addDaysToIsoDate(todayIso, 5),
       startMinute: 600,
       endMinute: 660,
+      // The latest activity can be an older booking whose status/payment was recently updated.
+      updatedAt: `${todayIso}T15:00:00.000Z`,
     }));
     bookingAdapter._seedClientReservation('bkg_cancelled_001', reservationFixture({
       bookingId: 'bkg_cancelled_001',
@@ -1151,6 +1153,18 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       customerId: 'cust_other_999',
       clientUid: 'other-client-uid-999',
     }));
+
+    let reservationActivitySnapshot = null;
+    const unsubscribeReservationActivity = bookingAdapter.subscribeClientReservations({
+      clientUid: 'client-book-uid-1',
+      customerId: 'cust_book_client_1',
+      maxLimit: 100,
+      onData: (snapshot) => {
+        reservationActivitySnapshot = snapshot;
+      },
+    });
+    expect(reservationActivitySnapshot?.reservations?.[0]?.bookingId).toBe('bkg_walkin_001');
+    unsubscribeReservationActivity();
 
     renderAppAt('/portal/bookings');
 
