@@ -5,7 +5,10 @@ import {
   resolveBookingPolicyForService,
   validateBookingPolicies,
 } from './utils/booking-policies-normalize';
-import { validateClientReservationBackfillActor } from './services/client-reservation-backfill-service';
+import {
+  buildClientReservationProjection,
+  validateClientReservationBackfillActor,
+} from './services/client-reservation-backfill-service';
 
 describe('Booking Policies domain contracts', () => {
   it('resolves option override before service override and global defaults', () => {
@@ -65,6 +68,68 @@ describe('Booking Policies domain contracts', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.defaultDepositPolicy).toContain('lebih dari Rp0');
+  });
+
+  it('builds schema v2 customer-safe projections for both Client Portal bookings and CRM-linked walk-ins', () => {
+    const projection = buildClientReservationProjection(
+      {
+        id: 'bkg_backfill_walkin',
+        customerId: 'cust_linked_123',
+        clientUid: '',
+        bookingReference: 'BKG-WALKIN123',
+        studioId: 'room-b',
+        studioName: 'Room B — Control + Booth',
+        serviceTypeName: 'Rehearsal',
+        serviceOptionName: 'Regular',
+        date: '2026-11-30',
+        startMinute: 600,
+        endMinute: 780,
+        durationMinutes: 180,
+        sessionStatus: 'completed',
+        createdAt: { seconds: 1796000000 },
+        version: 4,
+        notes: 'Must not be included in projection',
+        phoneNormalized: '+628123456789',
+        commissionSnapshot: { ownerFee: 50000 },
+      },
+      {
+        effectiveTotalAmount: 360000,
+        paymentStatus: 'partial',
+      },
+      { seconds: 1796000000 },
+    );
+
+    expect(projection).toMatchObject({
+      schemaVersion: 2,
+      bookingId: 'bkg_backfill_walkin',
+      customerId: 'cust_linked_123',
+      clientUid: '',
+      reservationStatus: 'confirmed',
+      sessionStatus: 'completed',
+      paymentStatus: 'partial',
+      effectiveTotalAmount: 360000,
+      version: 4,
+    });
+    expect(projection).not.toHaveProperty('notes');
+    expect(projection).not.toHaveProperty('phoneNormalized');
+    expect(projection).not.toHaveProperty('commissionSnapshot');
+    expect(Object.keys(projection)).toHaveLength(27);
+
+    expect(
+      buildClientReservationProjection(
+        {
+          id: 'bkg_no_identity',
+          customerId: '',
+          clientUid: '',
+          studioId: 'room-a',
+          startMinute: 600,
+          endMinute: 660,
+          durationMinutes: 60,
+        },
+        null,
+        { seconds: 1796000000 },
+      ),
+    ).toBeNull();
   });
 
   it('requires an authenticated Owner for identity backfill execution', () => {
