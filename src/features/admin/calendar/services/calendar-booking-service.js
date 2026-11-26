@@ -86,7 +86,8 @@ import { getJakartaTodayIso } from '../utils/calendar-date';
 export function buildClientReservationProjection(booking, invoice = null, timestamp = null) {
   const bookingId = String(booking?.id || '').trim();
   const clientUid = String(booking?.clientUid || '').trim();
-  if (!bookingId || !clientUid) return null;
+  const customerId = String(booking?.customerId || '').trim();
+  if (!bookingId || (!clientUid && !customerId)) return null;
 
   const studioId = String(booking.studioId || '');
   const startMinute = Number(booking.startMinute);
