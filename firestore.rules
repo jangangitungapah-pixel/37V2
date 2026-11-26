@@ -2529,8 +2529,100 @@ service cloud.firestore {
       allow delete: if canFactoryResetDelete();
     }
 
+    function isClientReservationBookingMatched(data, bookingId) {
+      let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
+      let bookingAfter = getAfter(bookingPath);
+      let expectedServiceName = bookingAfter.data.get('serviceTypeName', '') != ''
+        ? bookingAfter.data.serviceTypeName
+        : (
+          bookingAfter.data.get('serviceTypeId', '') != ''
+            ? bookingAfter.data.serviceTypeId
+            : bookingAfter.data.get('serviceLabel', '')
+        );
+      let expectedOptionName = bookingAfter.data.get('serviceOptionName', '') != ''
+        ? bookingAfter.data.serviceOptionName
+        : bookingAfter.data.get('packageLabel', '');
+      return existsAfter(bookingPath)
+        && bookingAfter.data.clientUid == data.clientUid
+        && bookingAfter.data.customerId == data.customerId
+        && bookingAfter.data.get('sourceRequestId', '') == data.sourceRequestId
+        && bookingAfter.data.get('acceptedOfferId', '') == data.acceptedOfferId
+        && bookingAfter.data.date == data.date
+        && bookingAfter.data.studioId == data.studioId
+        && bookingAfter.data.startMinute == data.startMinute
+        && bookingAfter.data.endMinute == data.endMinute
+        && bookingAfter.data.durationMinutes == data.durationMinutes
+        && bookingAfter.data.get('timeZone', 'Asia/Jakarta') == data.timeZone
+        && expectedServiceName == data.serviceTypeName
+        && expectedOptionName == data.serviceOptionName
+        && bookingAfter.data.get('sessionStatus', 'upcoming') == data.sessionStatus
+        && data.reservationStatus == (
+          bookingAfter.data.get('sessionStatus', 'upcoming') == 'cancelled'
+            ? 'cancelled'
+            : bookingAfter.data.get('reservationStatus', 'confirmed')
+        )
+        && bookingAfter.data.get('holdExpiresAt', null) == data.holdExpiresAt
+        && bookingAfter.data.version == data.version;
+    }
+
+    function isClientReservationFinancialSummaryMatched(data, bookingId) {
+      let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
+      let invoicePath = /databases/$(database)/documents/invoices/$(('inv_' + bookingId));
+      let bookingAfter = getAfter(bookingPath);
+      let invoiceAfter = existsAfter(invoicePath) ? getAfter(invoicePath) : null;
+      let legacyTotal = bookingAfter.data.get('totalAmount', 0);
+      let legacyPaid = bookingAfter.data.get('initialPaidAmount', 0);
+      return invoiceAfter != null
+        ? invoiceAfter.data.bookingId == bookingId
+          && invoiceAfter.data.customerId == data.customerId
+          && invoiceAfter.data.financialSnapshot.totalAmount == data.effectiveTotalAmount
+          && invoiceAfter.data.paymentStatus == data.paymentStatus
+          && invoiceAfter.data.get('minimumDepositAmount', null) == data.minimumDepositAmount
+          && invoiceAfter.data.get('depositStatus', null) == data.depositStatus
+          && (
+            invoiceAfter.data.get('clientUid', '') == ''
+            || invoiceAfter.data.clientUid == data.clientUid
+          )
+        : data.effectiveTotalAmount == legacyTotal
+          && data.paymentStatus == (
+            legacyPaid >= legacyTotal
+              ? 'paid'
+              : (legacyPaid > 0 ? 'partial' : 'unpaid')
+          )
+          && data.minimumDepositAmount == bookingAfter.data.get('minimumDepositAmount', null)
+          && data.depositStatus == bookingAfter.data.get('depositStatus', null);
+    }
+
+    function isClientReservationBackedByCanonicalMutation(bookingId) {
+      let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
+      let invoicePath = /databases/$(database)/documents/invoices/$(('inv_' + bookingId));
+      let bookingBefore = exists(bookingPath) ? get(bookingPath) : null;
+      let bookingAfter = existsAfter(bookingPath) ? getAfter(bookingPath) : null;
+      let invoiceBefore = exists(invoicePath) ? get(invoicePath) : null;
+      let invoiceAfter = existsAfter(invoicePath) ? getAfter(invoicePath) : null;
+      return (
+          bookingBefore == null && bookingAfter != null
+        )
+        || isActiveOwner()
+        || (
+          bookingBefore != null
+          && bookingAfter != null
+          && bookingAfter.data.version == bookingBefore.data.version + 1
+          && bookingAfter.data.updatedAt == request.time
+        )
+        || (
+          invoiceAfter != null
+          && (
+            invoiceBefore == null
+            || (
+              invoiceAfter.data.version == invoiceBefore.data.version + 1
+              && invoiceAfter.data.updatedAt == request.time
+            )
+          )
+        );
+    }
+
     function isValidClientReservationShape(data, bookingId) {
-      let booking = getAfter(/databases/$(database)/documents/bookings/$(bookingId));
       return data.keys().hasOnly([
           'schemaVersion', 'bookingId', 'bookingReference', 'customerId', 'clientUid',
           'sourceRequestId', 'acceptedOfferId', 'invoiceId', 'studioId', 'studioName',
@@ -2551,7 +2643,7 @@ service cloud.firestore {
         && data.serviceTypeName is string
         && data.serviceOptionName is string
         && data.date is string
-        && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.date.matches('^\\\\d{4}-\\\\d{2}-\\\\d{2}$')
         && data.startMinute is int
         && data.endMinute is int
         && data.durationMinutes is int
@@ -2564,23 +2656,21 @@ service cloud.firestore {
         && data.effectiveTotalAmount >= 0
         && (data.minimumDepositAmount == null || data.minimumDepositAmount is int)
         && (data.depositStatus == null || data.depositStatus is string)
-        && data.paymentStatus is string
+        && data.paymentStatus in ['unpaid', 'partial', 'paid']
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
+        && data.updatedAt == request.time
         && data.version is int
-        && existsAfter(/databases/$(database)/documents/bookings/$(bookingId))
-        && booking.data.clientUid == data.clientUid
-        && booking.data.customerId == data.customerId
-        && booking.data.date == data.date
-        && booking.data.studioId == data.studioId
-        && booking.data.version == data.version;
+        && isClientReservationBookingMatched(data, bookingId)
+        && isClientReservationFinancialSummaryMatched(data, bookingId);
     }
 
     match /clientReservations/{bookingId} {
       allow get, list: if isActiveStaff() || isClientDocumentOwner(resource.data);
       allow create, update: if isActiveStaff()
         && !isFactoryResetLocked()
-        && isValidClientReservationShape(request.resource.data, bookingId);
+        && isValidClientReservationShape(request.resource.data, bookingId)
+        && isClientReservationBackedByCanonicalMutation(bookingId);
       allow delete: if canFactoryResetDelete();
     }
 
