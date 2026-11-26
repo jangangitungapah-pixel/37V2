@@ -228,7 +228,7 @@ export function ClientIdentityLinkDialog({
                 Pastikan identitas telah diverifikasi langsung. Tindakan ini memberi akun akses ke
                 data milik Customer CRM tersebut. Akun yang sudah tertaut ke CRM lain tidak dapat
                 dipindahkan melalui workflow ini. Riwayat booking dan transaksi keuangan tidak
-                diubah.
+                diubah. Client mungkin perlu masuk ulang ke Portal agar sesi memuat binding CRM yang baru.
               </p>
             </div>
 
