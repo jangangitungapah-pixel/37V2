@@ -306,9 +306,9 @@ export function BookingPoliciesPage() {
               <div>
                 <h3 className="font-bold text-[#151515]">Client Reservation Identity Backfill</h3>
                 <p className="mt-1 max-w-3xl text-xs leading-relaxed text-[#666159]">
-                  Migrasi terkontrol untuk booking Client Portal yang sudah confirmed dan tanggal sesinya belum lewat.
-                  Setiap eksekusi memproses maksimal 5 request, membaca ulang request, booking, dan invoice dalam satu transaksi,
-                  lalu menyinkronkan clientUid serta proyeksi aman Client Portal. Data historis dan relasi CRM tidak digabung.
+                  Migrasi terkontrol untuk sesi Client Portal dan booking walk-in milik Customer CRM yang sudah tertaut ke akun Client aktif, termasuk riwayat sesi.
+                  Setiap batch memindai maksimal 5 booking, memverifikasi request atau relasi CRM beserta akun Client, lalu menyinkronkan booking, invoice identity pointer, dan proyeksi aman Client Portal dalam transaksi terpisah per booking.
+                  Nilai pembayaran dan riwayat ledger tidak diubah. Proses hanya berjalan atas tindakan Owner; tidak ada scheduler atau production backfill otomatis.
                 </p>
               </div>
               <AdminStatusBadge tone={backfillStatus?.status === 'completed' ? 'lime' : 'ivory'} size="sm">
@@ -326,10 +326,11 @@ export function BookingPoliciesPage() {
               {isOwner ? (
                 <AdminButton
                   type="button"
-                  disabled={isBackfillLoading || isBackfillRunning || backfillStatus?.status === 'completed'}
+                  disabled={isBackfillLoading || isBackfillRunning}
                   onClick={async () => {
                     try {
-                      const result = await runNextBatch();
+                      const restart = backfillStatus?.status === 'completed';
+                      const result = await runNextBatch({ restart });
                       if (result?.isComplete) {
                         toast.success(`Backfill selesai. ${result.projectedCount} projection tersedia.`);
                       } else {
@@ -341,7 +342,7 @@ export function BookingPoliciesPage() {
                   }}
                 >
                   {isBackfillRunning ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Clock3 className="h-4 w-4" aria-hidden="true" />}
-                  {backfillStatus?.status ? 'Run next batch (max 5)' : 'Start backfill (max 5)'}
+                  {backfillStatus?.status === 'completed' ? 'Start new scan (max 5)' : backfillStatus?.status ? 'Run next batch (max 5)' : 'Start backfill (max 5)'}
                 </AdminButton>
               ) : <AdminStatusBadge tone="ivory" size="sm">Owner only</AdminStatusBadge>}
             </div>
