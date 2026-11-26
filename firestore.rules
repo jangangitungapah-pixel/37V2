@@ -2518,7 +2518,6 @@ service cloud.firestore {
         && data.bookingReference is string
         && data.customerId is string
         && data.clientUid is string
-        && data.clientUid.size() > 0
         && data.invoiceId == 'inv_' + bookingId
         && data.studioId in ['room-a', 'room-b']
         && data.studioName is string
@@ -2551,11 +2550,7 @@ service cloud.firestore {
     }
 
     match /clientReservations/{bookingId} {
-      allow get, list: if isActiveStaff()
-        || (
-          resource.data.clientUid == request.auth.uid
-          && isClientUidOwner(resource.data.clientUid)
-        );
+      allow get, list: if isActiveStaff() || isClientDocumentOwner(resource.data);
       allow create, update: if isActiveStaff()
         && !isFactoryResetLocked()
         && isValidClientReservationShape(request.resource.data, bookingId);
