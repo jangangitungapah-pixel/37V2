@@ -763,6 +763,38 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
       expect(run2.skippedAlreadyExistsCount).toBe(3);
       expect(legacyPayAdapter._inspectState().paymentTransactions.size).toBe(2);
 
+      // A pre-existing Client-safe projection must be synchronized when Owner
+      // explicitly reconciles a Needs Review legacy payment amount.
+      legacyBookingAdapter._seedClientReservation('leg-p8-mismatch', {
+        schemaVersion: 2,
+        bookingId: 'leg-p8-mismatch',
+        bookingReference: 'BKG-LEG-MISMATCH',
+        customerId: 'cust-leg-4',
+        clientUid: '',
+        sourceRequestId: '',
+        acceptedOfferId: '',
+        invoiceId: 'inv_leg-p8-mismatch',
+        studioId: 'room-a',
+        studioName: 'Room A — Live Room',
+        serviceTypeName: 'Rehearsal',
+        serviceOptionName: 'Reguler',
+        date: '2026-10-13',
+        startMinute: 600,
+        endMinute: 720,
+        durationMinutes: 120,
+        timeZone: 'Asia/Jakarta',
+        reservationStatus: 'confirmed',
+        sessionStatus: 'completed',
+        holdExpiresAt: null,
+        effectiveTotalAmount: 200000,
+        minimumDepositAmount: null,
+        depositStatus: null,
+        paymentStatus: PAYMENT_STATUS.UNPAID,
+        createdAt: { seconds: 1791850000 },
+        updatedAt: { seconds: 1791850000 },
+        version: 1,
+      });
+
       // 4. Explicit review reconciliation for inconsistent record
       const reconciled = await reconcileNeedsReviewLegacyBooking({
         bookingId: 'leg-p8-mismatch',
@@ -774,6 +806,9 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
       expect(reconciled.amountPaid).toBe(100000);
       expect(reconciled.balanceDue).toBe(100000);
       expect(reconciled.paymentStatus).toBe(PAYMENT_STATUS.PARTIAL);
+      expect(
+        legacyBookingAdapter._inspectState().clientReservations.get('leg-p8-mismatch')?.paymentStatus,
+      ).toBe(PAYMENT_STATUS.PARTIAL);
     });
   });
 
