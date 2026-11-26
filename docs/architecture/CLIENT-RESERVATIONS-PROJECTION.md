@@ -53,6 +53,8 @@ The Calendar service builds the projection from the canonical booking and invoic
 - Cancellation.
 - Check-in / session start / session completion / No Show lifecycle transitions.
 
+For every persisted booking, these three later Calendar mutation paths read the deterministic invoice `inv_{bookingId}` before writes even when the booking has a CRM `customerId` but a blank `clientUid`. The projection therefore continues to use invoice-authoritative financial totals and payment status for CRM walk-ins instead of falling back to stale `initialPaidAmount` data on the booking.
+
 When no safe `customerId` or `clientUid` exists, projection creation fails closed. When the booking has CRM identity but no Client Portal UID, it is still projected with `clientUid: ''`; Rules continue to require a valid CRM link for Client access.
 
 The in-memory booking adapter mirrors the same projection writes and exposes an identity-scoped realtime subscription for deterministic integration tests. Booking create/edit/reschedule/cancel/lifecycle and payment summary changes retain the canonical booking/invoice mutation and the projection write in one transaction.
@@ -121,6 +123,8 @@ The Phase 1 diagnostics must be rerun on the latest commit. Added regression cov
 - Firestore Emulator allows a linked Client to read and query its own CRM walk-in projection, denies another Client and Client mutation, rejects a Staff-only projection create, and rejects a standalone Staff payment-summary mutation.
 - Firestore Emulator permits Owner creation of a legacy projection and a Staff atomic payment-ledger + invoice aggregate + projection summary update.
 - Manual payment, Client evidence verification, and reversal update projection `paymentStatus` consistently when reservation/invoice identity matches.
+- Calendar edit, cancellation, and session lifecycle preserve invoice-derived `partial` status for CRM walk-ins with a blank `clientUid`.
+- The six-hour / twelve-slot Staff booking Rules-budget case now includes the matching schema v2 `clientReservations` create in the same commit.
 - The payment service does not update a projection when its non-empty Client UID conflicts with the invoice UID.
 - The in-memory merged reservation subscription returns the most recently updated reservation first.
 
