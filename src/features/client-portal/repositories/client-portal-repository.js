@@ -92,6 +92,20 @@ function buildIsolatedProfilePayload({
   };
 }
 
+function hasCanonicalLinkedClientProfileIdentity(existingProfile, customer) {
+  if (!existingProfile) return true;
+  const expectedName = String(customer?.displayName || '').trim();
+  const expectedEmail = String(customer?.emailNormalized || customer?.email || '')
+    .trim()
+    .toLowerCase();
+  const expectedPhone = String(customer?.phoneDisplay || '').trim();
+  return (
+    String(existingProfile.displayName || '').trim() === expectedName &&
+    String(existingProfile.emailNormalized || '').trim().toLowerCase() === expectedEmail &&
+    String(existingProfile.phoneDisplay || '').trim() === expectedPhone
+  );
+}
+
 function buildLinkedClientProfilePayload({
   customerId,
   ownerUid,
@@ -388,6 +402,12 @@ export function createFirestoreClientPortalRepositoryAdapter() {
           )
         ) {
           throw createRepositoryError('client-identity/profile-already-claimed', 'Client profile target sudah memiliki Owner atau tidak aktif.');
+        }
+        if (!hasCanonicalLinkedClientProfileIdentity(existingProfile, customer)) {
+          throw createRepositoryError(
+            'client-identity/profile-conflict',
+            'Client profile target tidak sesuai dengan snapshot Customer CRM. Periksa data profil sebelum linking.',
+          );
         }
 
         const timestamp = serverTimestamp();
@@ -885,6 +905,12 @@ export function createInMemoryClientPortalRepositoryAdapter(customerAdapterOrBri
           )
         ) {
           throw createRepositoryError('client-identity/profile-already-claimed', 'Client profile target sudah memiliki Owner atau tidak aktif.');
+        }
+        if (!hasCanonicalLinkedClientProfileIdentity(existingProfile, customer)) {
+          throw createRepositoryError(
+            'client-identity/profile-conflict',
+            'Client profile target tidak sesuai dengan snapshot Customer CRM. Periksa data profil sebelum linking.',
+          );
         }
         if (identityLinkAuditsMap.has(cleanOperationId)) {
           throw createRepositoryError('client-identity/duplicate-operation', 'Operation ID identity link sudah digunakan.');
