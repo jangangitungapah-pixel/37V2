@@ -302,11 +302,6 @@ export function createFirestoreClientPortalRepositoryAdapter() {
         const targetProfileRef = doc(db, FIRESTORE_COLLECTIONS.CLIENT_PROFILES, cleanTargetCustomerId);
         const targetLinkRef = doc(db, FIRESTORE_COLLECTIONS.CLIENT_CUSTOMER_LINKS, cleanTargetCustomerId);
         const auditRef = doc(db, 'clientIdentityLinkAudits', cleanOperationId);
-        const accountClaimsQuery = query(
-          collection(db, FIRESTORE_COLLECTIONS.CLIENT_ACCOUNTS),
-          where('customerId', '==', cleanTargetCustomerId),
-          limit(2),
-        );
 
         const [
           accountSnapshot,
