@@ -126,20 +126,28 @@ service cloud.firestore {
         && isClientDocumentOwner(data);
     }
 
-    function isClientReadableParentInvoiceDoc(invoiceId, customerId) {
+    function isClientReadableParentInvoiceDoc(invoiceId, childData) {
       let inv = get(/databases/$(database)/documents/invoices/$(invoiceId));
-      return (
-          inv.data.customerId == customerId
-          || inv.data.get('clientUid', '') == request.auth.uid
-        )
-        && inv.data.invoiceStatus in ['issued', 'void'];
+      let invoiceClientUid = inv.data.get('clientUid', '');
+      let childClientUid = childData.get('clientUid', '');
+      return isClientDocumentOwner(inv.data)
+        && inv.data.invoiceStatus in ['issued', 'void']
+        && (!('customerId' in childData)
+          || childData.customerId == inv.data.get('customerId', ''))
+        && (!('bookingId' in childData)
+          || childData.bookingId == inv.data.get('bookingId', ''))
+        && (!('invoiceNumber' in childData)
+          || childData.invoiceNumber == inv.data.get('invoiceNumber', ''))
+        && (invoiceClientUid == '' || invoiceClientUid == request.auth.uid)
+        && (childClientUid == '' || childClientUid == request.auth.uid);
     }
 
-    function isClientReadableParentInvoice(invoiceId, customerId) {
+    function isClientReadableParentInvoice(childData) {
+      let invoiceId = childData.get('invoiceId', '');
       return invoiceId is string
         && invoiceId.size() >= 1
         && exists(/databases/$(database)/documents/invoices/$(invoiceId))
-        && isClientReadableParentInvoiceDoc(invoiceId, customerId);
+        && isClientReadableParentInvoiceDoc(invoiceId, childData);
     }
 
     function getFactoryResetOperation() {
@@ -2615,14 +2623,13 @@ service cloud.firestore {
         || (
           resource != null
           && (
-            isClientReadableParentInvoice(resource.data.invoiceId, resource.data.customerId)
-            || isClientUidOwner(resource.data.get('clientUid', ''))
+            isClientReadableParentInvoice(resource.data)
           )
         );
 
       allow list: if isActiveStaff()
         || isClientReadableParentInvoice(resource.data.invoiceId, resource.data.customerId)
-        || isClientUidOwner(resource.data.get('clientUid', ''));
+;
 
       allow create: if isActiveStaff()
         && !isFactoryResetLocked()
