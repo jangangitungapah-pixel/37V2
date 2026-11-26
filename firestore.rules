@@ -2513,7 +2513,7 @@ service cloud.firestore {
           'createdAt', 'updatedAt', 'version'
         ])
         && data.size() == 27
-        && data.schemaVersion == 1
+        && data.schemaVersion == 2
         && data.bookingId == bookingId
         && data.bookingReference is string
         && data.customerId is string
