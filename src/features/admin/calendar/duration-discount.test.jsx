@@ -636,9 +636,12 @@ describe('Duration-Based Automatic Discount (Catalog V2 Integrated)', () => {
       expect(rulesContent).toContain('function isBookingAutomaticDiscountMathMatched(data)');
       expect(rulesContent).toContain('&& da <= sub');
       expect(rulesContent).toContain('&& tot == sub - da');
-      expect(rulesContent).toContain(
-        "reqData.get('automaticDiscount', null) == resData.get('automaticDiscount', null)",
-      );
+      // Nested map equality exceeded the Firestore Rules expression budget.
+      // The optimized contract treats an unchanged field as immutable, and permits
+      // a changed field only when both before/after values are null (no active discount).
+      expect(rulesContent).toContain("!affected.hasAny(['automaticDiscount'])");
+      expect(rulesContent).toContain("reqData.get('automaticDiscount', null) == null");
+      expect(rulesContent).toContain("resData.get('automaticDiscount', null) == null");
     });
   });
 });
