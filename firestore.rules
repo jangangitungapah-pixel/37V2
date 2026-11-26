@@ -784,8 +784,9 @@ service cloud.firestore {
         && affected.hasOnly([
           'startMinute', 'durationMinutes', 'endMinute', 'unitRate',
           'subtotal', 'discountAmount', 'totalAmount', 'automaticDiscount',
-          'commissionSnapshot', 'updatedAt', 'updatedByUid', 'version'
+          'commissionSnapshot', 'notes', 'updatedAt', 'updatedByUid', 'version'
         ])
+        && reqData.notes is string
         && reqData.startMinute is int
         && reqData.startMinute >= 600
         && reqData.startMinute < 1380
