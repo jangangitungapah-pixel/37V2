@@ -557,6 +557,52 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
         }),
       ).rejects.toMatchObject({ code: 'payment/invoice-void' });
     });
+
+    it('does not synchronize a Client reservation when its non-empty UID conflicts with the invoice UID', async () => {
+      const booking = await createBooking({
+        bookingId: 'bkg-p8-uid-mismatch',
+        eventId: 'evt-p8-uid-mismatch',
+        actorUid: 'owner-uid-1',
+        formValues: buildBookingForm({
+          date: '2026-11-28',
+          initialPaymentStatus: INITIAL_PAYMENT_STATUS.UNPAID,
+          dpAmount: '0',
+        }),
+        adapter: bookingAdapter,
+      });
+      const invoiceId = buildInvoiceId(booking.id);
+
+      await paymentAdapter.runAtomicTransaction(async (tx) => {
+        const invoice = await tx.getInvoice(invoiceId);
+        tx.updateInvoice(invoiceId, {
+          ...invoice,
+          clientUid: 'invoice-client-uid',
+        });
+      });
+
+      const currentReservation = bookingAdapter._inspectState().clientReservations.get(booking.id);
+      expect(currentReservation?.paymentStatus).toBe(PAYMENT_STATUS.UNPAID);
+      bookingAdapter._seedClientReservation(booking.id, {
+        ...currentReservation,
+        clientUid: 'reservation-client-uid',
+      });
+
+      const payment = await recordInvoicePayment({
+        transactionId: 'pay-p8-uid-mismatch',
+        invoiceId,
+        expectedVersion: 1,
+        amount: 25000,
+        paymentMethod: 'cash',
+        actorUid: 'staff-uid-2',
+        adapter: paymentAdapter,
+      });
+
+      expect(payment.invoice.paymentStatus).toBe(PAYMENT_STATUS.PARTIAL);
+      expect(payment.invoice.clientUid).toBe('invoice-client-uid');
+      expect(
+        bookingAdapter._inspectState().clientReservations.get(booking.id)?.paymentStatus,
+      ).toBe(PAYMENT_STATUS.UNPAID);
+    });
   });
 
   describe('D. Snapshot Integrity & Internal Commission Isolation', () => {
