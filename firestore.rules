@@ -777,7 +777,10 @@ service cloud.firestore {
     }
 
     function isValidBookingFocusedPricingUpdate(reqData, resData, affected) {
-      return affected.hasAny([
+      // Use this fast path only when duration changes; unchanged-scope price edits
+      // must continue through the stricter standard-update branch.
+      return reqData.durationMinutes != resData.durationMinutes
+        && affected.hasAny([
           'durationMinutes', 'unitRate', 'subtotal', 'discountAmount',
           'totalAmount', 'automaticDiscount', 'commissionSnapshot'
         ])
