@@ -214,7 +214,7 @@ function createMockDashboardAdapters({
     subscribeActivePayables: vi.fn(({ maxLimit = 200, onData }) => {
       queueMicrotask(() => {
         onData?.({
-          entries: activePayables,
+          payables: activePayables,
           hasMore: hasMorePayables,
           maxLimit,
         });
