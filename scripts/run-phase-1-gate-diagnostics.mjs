@@ -9,10 +9,10 @@ const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const logPath = path.join(logDirectory, `phase1-gates-${timestamp}.txt`);
 
 const stages = [
-  ['lint', 'npm run lint'],
-  ['vitest', 'npm run test:run'],
-  ['firestore-rules', 'npm run test:rules:diagnostics'],
-  ['production-build', 'npm run build'],
+  ['lint', 'lint'],
+  ['vitest', 'test:run'],
+  ['firestore-rules', 'test:rules:diagnostics'],
+  ['production-build', 'build'],
 ];
 
 await mkdir(logDirectory, { recursive: true });
