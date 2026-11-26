@@ -4392,6 +4392,9 @@ service cloud.firestore {
         && profileAfter.data.ownerUid == uid
         && profileAfter.data.profileSource == 'linked_customer'
         && profileAfter.data.status == 'active'
+        && profileAfter.data.displayName == customer.data.displayName
+        && profileAfter.data.emailNormalized == customer.data.get('emailNormalized', customer.data.get('email', ''))
+        && profileAfter.data.phoneDisplay == customer.data.get('phoneDisplay', '')
         && profileAfter.data.updatedAt == request.time
         && auditAfter.data.operationId == isClientIdentityLinkAuditId(uid, customerId)
         && auditAfter.data.action == 'owner_reviewed_legacy_link'
@@ -4445,7 +4448,10 @@ service cloud.firestore {
         && targetLinkAfter.data.customerId == targetCustomerId
         && targetProfileAfter.data.ownerUid == uid
         && targetProfileAfter.data.profileSource == 'linked_customer'
-        && targetProfileAfter.data.status == 'active';
+        && targetProfileAfter.data.status == 'active'
+        && targetProfileAfter.data.displayName == targetCustomer.data.displayName
+        && targetProfileAfter.data.emailNormalized == targetCustomer.data.get('emailNormalized', targetCustomer.data.get('email', ''))
+        && targetProfileAfter.data.phoneDisplay == targetCustomer.data.get('phoneDisplay', '');
     }
 
     function isValidClientIdentityLinkAudit(data, operationId) {
