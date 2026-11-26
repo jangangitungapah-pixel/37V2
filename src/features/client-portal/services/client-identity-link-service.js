@@ -1,5 +1,3 @@
-import { generateOperationId } from '@/features/admin/calendar/repositories/calendar-booking-repository';
-
 import { getClientPortalRepositoryAdapter } from '../repositories/client-portal-repository';
 
 function identityLinkError(code, message) {
@@ -72,7 +70,7 @@ export async function linkLegacyClientAccountToCustomer({
     targetCustomerId: cleanCustomerId,
     actorUid: ownerUid,
     reviewReason: cleanReason,
-    operationId: generateOperationId('cil'),
+    operationId: `link_${cleanClientUid}_${cleanCustomerId}`,
   });
 }
 
