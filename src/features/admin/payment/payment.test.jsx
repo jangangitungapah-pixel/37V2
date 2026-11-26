@@ -331,6 +331,9 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
         adapter: bookingAdapter,
       });
       const invId = buildInvoiceId(bkg.id);
+      expect(bookingAdapter._inspectState().clientReservations.get(bkg.id)?.paymentStatus).toBe(
+        PAYMENT_STATUS.UNPAID,
+      );
 
       // Zero & negative amounts rejected
       await expect(
@@ -394,6 +397,9 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
       expect(p1.invoice.amountPaid).toBe(50000);
       expect(p1.invoice.balanceDue).toBe(220000);
       expect(p1.invoice.paymentStatus).toBe(PAYMENT_STATUS.PARTIAL);
+      expect(bookingAdapter._inspectState().clientReservations.get(bkg.id)?.paymentStatus).toBe(
+        PAYMENT_STATUS.PARTIAL,
+      );
 
       // Duplicate transactionId replay is strictly idempotent (does NOT add 50k again)
       const p1Replay = await recordInvoicePayment({
@@ -462,6 +468,9 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
       expect(pFinal.invoice.amountPaid).toBe(270000);
       expect(pFinal.invoice.balanceDue).toBe(0);
       expect(pFinal.invoice.paymentStatus).toBe(PAYMENT_STATUS.PAID);
+      expect(bookingAdapter._inspectState().clientReservations.get(bkg.id)?.paymentStatus).toBe(
+        PAYMENT_STATUS.PAID,
+      );
       expect(getEffectivePaymentStatus(pFinal.invoice, '2026-12-01')).toBe(PAYMENT_STATUS.PAID);
 
       // Voiding an invoice with amountPaid > 0 is strictly blocked
@@ -489,6 +498,9 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
       expect(rev.invoice.amountPaid).toBe(250000);
       expect(rev.invoice.balanceDue).toBe(20000);
       expect(rev.invoice.paymentStatus).toBe(PAYMENT_STATUS.PARTIAL);
+      expect(bookingAdapter._inspectState().clientReservations.get(bkg.id)?.paymentStatus).toBe(
+        PAYMENT_STATUS.PARTIAL,
+      );
 
       // Duplicate reversal of the same original transaction is strictly rejected
       await expect(
