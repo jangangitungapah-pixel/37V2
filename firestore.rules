@@ -776,6 +776,44 @@ service cloud.firestore {
         && data.version == 1;
     }
 
+    function isValidBookingFocusedPricingUpdate(reqData, resData, affected) {
+      return affected.hasAny([
+          'durationMinutes', 'unitRate', 'subtotal', 'discountAmount',
+          'totalAmount', 'automaticDiscount', 'commissionSnapshot'
+        ])
+        && affected.hasOnly([
+          'startMinute', 'durationMinutes', 'endMinute', 'unitRate',
+          'subtotal', 'discountAmount', 'totalAmount', 'automaticDiscount',
+          'commissionSnapshot', 'updatedAt', 'updatedByUid', 'version'
+        ])
+        && reqData.startMinute is int
+        && reqData.startMinute >= 600
+        && reqData.startMinute < 1380
+        && reqData.startMinute % 30 == 0
+        && reqData.durationMinutes is int
+        && reqData.durationMinutes > 0
+        && reqData.durationMinutes % 30 == 0
+        && reqData.endMinute is int
+        && reqData.endMinute == reqData.startMinute + reqData.durationMinutes
+        && reqData.endMinute <= 1380
+        && reqData.timeZone == 'Asia/Jakarta'
+        && reqData.unitRate is int
+        && reqData.unitRate >= 0
+        && reqData.subtotal is int
+        && reqData.subtotal >= 0
+        && reqData.discountAmount is int
+        && reqData.discountAmount >= 0
+        && reqData.discountAmount <= reqData.subtotal
+        && reqData.totalAmount is int
+        && reqData.totalAmount == reqData.subtotal - reqData.discountAmount
+        && isValidBookingAutomaticDiscountShape(reqData)
+        && isBookingAutomaticDiscountMathMatched(reqData)
+        && isValidBookingCommissionSnapshot(reqData)
+        && reqData.updatedAt is timestamp
+        && reqData.updatedByUid == request.auth.uid
+        && reqData.version is int
+        && reqData.version == resData.version + 1;
+    }
     function isValidBookingStandardUpdate(reqData, resData, affected) {
       let scopeUnchanged = isServiceScopeUnchanged(reqData, resData);
       // MapDiff identifies top-level nested-map changes; avoid deep map equality
@@ -841,7 +879,8 @@ service cloud.firestore {
 
     function isValidBookingUpdate(reqData, resData, bookingId) {
       let affected = reqData.diff(resData).affectedKeys();
-      return isBookingLifecycleOnlyUpdate(reqData, resData, affected)
+      return isValidBookingFocusedPricingUpdate(reqData, resData, affected)
+        || isBookingLifecycleOnlyUpdate(reqData, resData, affected)
         || isLegacyBookingCustomerLinkUpdate(reqData, resData, affected)
         || isLegacyBookingClientUidUpdate(reqData, resData, affected, bookingId)
         || isValidBookingStandardUpdate(reqData, resData, affected);
