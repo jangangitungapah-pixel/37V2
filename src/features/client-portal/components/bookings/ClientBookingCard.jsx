@@ -96,9 +96,11 @@ export function ClientBookingCard({ record, whatsappNumber = '', studioName = '3
               {schedule.bookingReference}
             </span>
           ) : null}
-          <span className="rounded-lg border border-[#151515]/12 bg-[#FAF8F1] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#46433D]">
-            {record.requestReference}
-          </span>
+          {record.requestReference ? (
+            <span className="rounded-lg border border-[#151515]/12 bg-[#FAF8F1] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#46433D]">
+              {record.requestReference}
+            </span>
+          ) : null}
         </div>
       </div>
 
