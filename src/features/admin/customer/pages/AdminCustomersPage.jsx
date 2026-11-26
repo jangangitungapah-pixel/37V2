@@ -12,6 +12,7 @@ import {
 } from '@/features/admin/design-system';
 import { useAuth } from '@/features/auth/AuthContext';
 
+import { ClientIdentityLinkDialog } from '../components/ClientIdentityLinkDialog';
 import { CustomerArchiveDialog } from '../components/CustomerArchiveDialog';
 import { CustomerDetailDrawer } from '../components/CustomerDetailDrawer';
 import { CustomerDirectoryTable } from '../components/CustomerDirectoryTable';
@@ -34,8 +35,10 @@ import {
 import { CUSTOMER_STATUS } from '../utils/customer-identity';
 
 export function AdminCustomersPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, role } = useAuth();
   const actorUid = user?.uid || profile?.uid || '';
+  const actorRole = String(role || profile?.role || '').toLowerCase();
+  const canReviewClientIdentity = actorRole === 'owner';
   const [searchParams, setSearchParams] = useSearchParams();
   const urlCustomerId = searchParams.get('customerId') || '';
 
@@ -71,6 +74,11 @@ export function AdminCustomersPage() {
     allowCrossPhoneMerge: false,
   });
   const [archiveDialogState, setArchiveDialogState] = useState({
+    open: false,
+    customer: null,
+  });
+  const [identityLinkDialogState, setIdentityLinkDialogState] = useState({
+    sessionKey: 0,
     open: false,
     customer: null,
   });
@@ -136,6 +144,17 @@ export function AdminCustomersPage() {
       initialTargetId: initialTarget?.id || candidates[0]?.id || '',
       initialSourceId: initialSource?.id || '',
       allowCrossPhoneMerge,
+    }));
+  };
+
+  const openClientIdentityLinkDialog = (customer) => {
+    if (!canReviewClientIdentity || !customer || customer.status !== CUSTOMER_STATUS.ACTIVE) {
+      return;
+    }
+    setIdentityLinkDialogState((prev) => ({
+      sessionKey: prev.sessionKey + 1,
+      open: true,
+      customer,
     }));
   };
 
@@ -451,6 +470,23 @@ export function AdminCustomersPage() {
         onUpdatePhone={(cust) => openFormDialog('phone', cust)}
         onToggleArchive={(cust) => setArchiveDialogState({ open: true, customer: cust })}
         onOpenMerge={(peers, targetCust) => openMergeDialog(peers, targetCust, null, false)}
+        onLinkClient={canReviewClientIdentity ? openClientIdentityLinkDialog : undefined}
+      />
+
+      {/* Owner-reviewed one-to-one Client identity reconciliation */}
+      <ClientIdentityLinkDialog
+        key={identityLinkDialogState.sessionKey}
+        open={identityLinkDialogState.open}
+        onOpenChange={(nextOpen) =>
+          setIdentityLinkDialogState((prev) => ({ ...prev, open: nextOpen }))
+        }
+        customer={identityLinkDialogState.customer}
+        actorUid={actorUid}
+        actorRole={actorRole}
+        onComplete={() => {
+          toast.success('Akun Client berhasil dihubungkan ke Customer CRM. Audit review tersimpan.');
+          setIdentityLinkDialogState((prev) => ({ ...prev, open: false }));
+        }}
       />
 
       {/* Manual Add / Edit / Update Phone Dialog */}
