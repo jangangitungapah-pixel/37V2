@@ -7015,6 +7015,78 @@ async function runTests() {
     'A different active Client cannot read another CRM-linked walk-in reservation',
   );
 
+  // Only Owner may attach an explicitly linked CRM Client UID to a walk-in booking,
+  // and the canonical booking and client projection must move atomically.
+  const gate3StaffIdentityAttachDenied = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/${gate3WalkInReservationId}`,
+          fields: toFsFields({
+            clientUid: gate2UpdateUid,
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['clientUid', 'updatedByUid', 'version'] },
+        updateTransforms: [
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    gate3StaffIdentityAttachDenied.status,
+    403,
+    'Staff cannot attach a CRM Client UID to a legacy walk-in booking',
+  );
+
+  const gate3OwnerIdentityAttach = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/${gate3WalkInReservationId}`,
+          fields: toFsFields({
+            clientUid: gate2UpdateUid,
+            updatedByUid: 'owner-1',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['clientUid', 'updatedByUid', 'version'] },
+        updateTransforms: [
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/${gate3WalkInReservationId}`,
+          fields: toFsFields({
+            clientUid: gate2UpdateUid,
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['clientUid', 'version'] },
+        updateTransforms: [
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    gate3OwnerIdentityAttach.status,
+    200,
+    `Owner can atomically attach the active CRM-linked Client UID to a walk-in booking and its projection: ${JSON.stringify(gate3OwnerIdentityAttach.body)}`,
+  );
+  const gate3LinkedBooking = await userRequest('GET', `/bookings/${gate3WalkInReservationId}`, TOKEN_OWNER);
+  assert.equal(
+    gate3LinkedBooking.body?.fields?.clientUid?.stringValue,
+    gate2UpdateUid,
+    'Canonical CRM walk-in booking receives the verified Client UID',
+  );
+
   const gate3OwnReservationQuery = await userRequest('POST', ':runQuery', TOKEN_GATE2_UPDATE_CLIENT, {
     structuredQuery: {
       from: [{ collectionId: 'clientReservations' }],
