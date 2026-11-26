@@ -2628,8 +2628,7 @@ service cloud.firestore {
         );
 
       allow list: if isActiveStaff()
-        || isClientReadableParentInvoice(resource.data)
-;
+        || isClientReadableParentInvoice(resource.data);
 
       allow create: if isActiveStaff()
         && !isFactoryResetLocked()
