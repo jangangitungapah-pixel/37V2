@@ -98,7 +98,23 @@ describe('Owner-reviewed legacy Client identity linking', () => {
     expect(state.clientIdentityLinkAudits.size).toBe(1);
     expect(state.clientAccounts.get('legacy-client-1').customerId).toBe(customer.id);
     expect(state.emailIndex.get('crm-record@example.com').customerId).toBe(customer.id);
+    expect(result.clientProfile.emailNormalized).toBe(customer.emailNormalized);
+    expect(result.clientProfile.phoneDisplay).toBe(customer.phoneDisplay);
     expect((await clientAdapter.listOwnerEligibleClientAccounts()).map((item) => item.uid)).toEqual([]);
+
+    // A retry for the same one-to-one binding returns the original result without
+    // incrementing account version or writing a second audit event.
+    const retried = await linkLegacyClientAccountToCustomer({
+      actorUid: 'owner-1',
+      actorRole: 'owner',
+      clientUid: 'legacy-client-1',
+      targetCustomerId: customer.id,
+      reviewReason: 'Retry after the UI did not receive the previous confirmation.',
+      adapter: clientAdapter,
+    });
+    expect(retried.alreadyLinked).toBe(true);
+    expect(retried.account.version).toBe(2);
+    expect(clientAdapter._inspectState().clientIdentityLinkAudits.size).toBe(1);
   });
 
   it('does not auto-link by matching email or phone; the Owner must submit an explicit CRM customer ID', async () => {
