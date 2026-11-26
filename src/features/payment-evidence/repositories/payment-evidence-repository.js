@@ -4,8 +4,10 @@
  *
  * Query & Security Guarantees:
  * - Zero custom composite indexes required (uses equality / single-field indexes + client-side sort).
- * - Client queries ALWAYS bind `customerId` (and `invoiceId` when viewing invoice detail)
- *   so Firestore Security Rules can statically prove ownership.
+ * - Client evidence history queries bind `customerId` / `clientUid` plus invoice IDs
+ *   from the Client-visible invoice subscription; invoice IDs are chunked into bounded IN queries.
+ * - Invoice-detail evidence queries bind both `customerId` and one concrete `invoiceId`
+ *   so Firestore Security Rules can statically prove parent ownership.
  * - Admin queries are bounded (`limit(maxLimit + 1)`) and Staff/Owner gated by Firestore Rules.
  * - Shared transactional adapter coordinates `invoices`, `paymentTransactions`, and `paymentEvidence`
  *   in a single atomic Firestore transaction without nested transactions.
@@ -203,8 +205,9 @@ export function createFirestorePaymentEvidenceRepositoryAdapter() {
     },
 
     /**
-     * Client-scoped subscription to the authenticated Client's payment evidence,
-     * using both canonical CRM ownership and isolated account UID ownership.
+     * Client-scoped subscription to evidence under the authenticated Client's visible invoices.
+     * Every bounded query includes the owner identity and a finite invoiceId chunk so Rules
+     * can validate each document against its owned parent invoice.
      */
     subscribeClientCustomerEvidence({
       customerId,
