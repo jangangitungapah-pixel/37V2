@@ -1,3 +1,5 @@
+import { computeStoredPaymentStatus } from '@/features/admin/payment/utils/invoice-status';
+
 const COLLECTIONS = {
   BOOKINGS: 'bookings',
   REQUESTS: 'publicBookingRequests',
@@ -80,7 +82,7 @@ export function buildClientReservationProjection(booking, invoice, timestamp) {
     holdExpiresAt: booking.holdExpiresAt || null,
     effectiveTotalAmount: Math.max(
       0,
-      Math.round(Number(invoice?.effectiveTotalAmount ?? invoice?.totalAmount ?? booking.totalAmount) || 0),
+      Math.round(Number(invoice?.effectiveTotalAmount ?? invoice?.financialSnapshot?.totalAmount ?? invoice?.totalAmount ?? booking.totalAmount) || 0),
     ),
     minimumDepositAmount:
       Number.isInteger(invoice?.minimumDepositAmount)
@@ -94,7 +96,16 @@ export function buildClientReservationProjection(booking, invoice, timestamp) {
         : typeof booking.depositStatus === 'string'
           ? booking.depositStatus
           : null,
-    paymentStatus: String(invoice?.paymentStatus || booking.paymentStatus || 'unpaid'),
+    paymentStatus: String(
+      invoice?.paymentStatus ||
+      computeStoredPaymentStatus(
+        invoice?.effectiveTotalAmount ??
+          invoice?.financialSnapshot?.totalAmount ??
+          invoice?.totalAmount ??
+          booking.totalAmount,
+        invoice?.amountPaid ?? booking.initialPaidAmount,
+      ),
+    ),
     createdAt: booking.createdAt || timestamp,
     updatedAt: timestamp,
     version: Number(booking.version) || 1,
