@@ -81,8 +81,9 @@ import {
 import { getJakartaTodayIso } from '../utils/calendar-date';
 
 /**
- * Builds a strict, customer-safe mirror for a Client Portal-owned booking.
- * Legacy bookings default to a confirmed reservation in this Phase 1 foundation.
+ * Builds the strict schema v2 customer-safe reservation projection for a canonical
+ * CRM-owned booking. Client Portal UID ownership is optional when an explicit CRM
+ * customerId exists (for example, an Admin-created walk-in).
  */
 export function buildClientReservationProjection(booking, invoice = null, timestamp = null) {
   const bookingId = String(booking?.id || '').trim();
