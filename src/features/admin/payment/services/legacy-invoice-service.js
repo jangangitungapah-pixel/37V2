@@ -397,6 +397,10 @@ export async function reconcileNeedsReviewLegacyBooking({
       tx.getInvoice(invoiceId),
       tx.getPaymentTransaction(initialPaymentId),
     ]);
+    const existingClientReservation =
+      typeof tx.getClientReservation === 'function'
+        ? await tx.getClientReservation(cleanBookingId)
+        : null;
 
     if (!booking) {
       throw createPaymentServiceError(
@@ -434,6 +438,18 @@ export async function reconcileNeedsReviewLegacyBooking({
     });
 
     tx.setInvoice(invoiceId, invoiceDoc);
+    if (
+      existingClientReservation?.bookingId === cleanBookingId &&
+      existingClientReservation.invoiceId === invoiceId &&
+      String(existingClientReservation.customerId || '') === String(invoiceDoc.customerId || '') &&
+      typeof tx.updateClientReservation === 'function'
+    ) {
+      tx.updateClientReservation(cleanBookingId, {
+        effectiveTotalAmount: invoiceDoc.financialSnapshot.totalAmount,
+        paymentStatus: invoiceDoc.paymentStatus,
+        updatedAt: now,
+      });
+    }
 
     if (hasInitialPayment && !existingInitialPayment) {
       tx.setPaymentTransaction(initialPaymentId, {
