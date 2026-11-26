@@ -1224,7 +1224,7 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
 
     const nextSessionCard = screen.getByTestId('client-overview-next-session');
     expect(await within(nextSessionCard).findByText('BKG_LIVE_UP1')).toBeTruthy();
-    expect(within(nextSessionCard).getByText('Room A — Live Room')).toBeTruthy();
+    expect(within(nextSessionCard).getByText('Room B — Control + Booth')).toBeTruthy();
 
     const activityCard = screen.getByTestId('client-overview-recent-activity');
     expect(within(activityCard).getByText('BKG_LIVE_UP1')).toBeTruthy();
