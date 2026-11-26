@@ -1186,7 +1186,8 @@ service cloud.firestore {
         && inv.data.get('clientPaymentEvidenceRequired', false) == true
         && (
           inv.data.get('clientUid', '') == data.clientUid
-          || isClientOwnerOfCustomer(data.customerId)
+            ? isClientUidOwner(data.clientUid)
+            : isClientOwnerOfCustomer(data.customerId)
         )
         && inv.data.balanceDue is int
         && inv.data.balanceDue > 0
@@ -1209,8 +1210,6 @@ service cloud.firestore {
         && data.updatedAt == request.time
         && data.version == 1
         && isValidPaymentEvidenceBase(data)
-        && isClientUidOwner(data.clientUid)
-        && exists(/databases/$(database)/documents/invoices/$(data.invoiceId))
         && isValidClientEvidenceParentInvoice(data);
     }
 
