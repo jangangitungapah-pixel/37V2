@@ -1,4 +1,53 @@
-import assert from 'node:assert/strict';
+import strictAssert from 'node:assert/strict';
+
+const aggregateAssertionMode = process.env.FIRESTORE_RULES_AGGREGATE === '1';
+const assertionFailures = [];
+
+const assert = aggregateAssertionMode
+  ? new Proxy(strictAssert, {
+      get(target, property) {
+        const assertion = Reflect.get(target, property, target);
+        if (typeof assertion !== 'function') return assertion;
+
+        return (...args) => {
+          try {
+            return Reflect.apply(assertion, target, args);
+          } catch (error) {
+            const label =
+              typeof args[args.length - 1] === 'string'
+                ? args[args.length - 1]
+                : error.message.split('\\n')[0];
+            assertionFailures.push({
+              method: String(property),
+              label,
+              message: error.message,
+            });
+            console.error(
+              `✗ AGGREGATE ASSERTION #${assertionFailures.length}: ${label}`,
+            );
+            console.error(error.message);
+            return false;
+          }
+        };
+      },
+    })
+  : strictAssert;
+
+function printAggregateAssertionSummary() {
+  if (!aggregateAssertionMode || assertionFailures.length === 0) return;
+
+  console.error('\\n========== FIRESTORE RULES AGGREGATE SUMMARY ==========');
+  console.error(`Assertion failures collected: ${assertionFailures.length}`);
+  assertionFailures.forEach((failure, index) => {
+    console.error(`\\n${index + 1}. [${failure.method}] ${failure.label}`);
+    console.error(failure.message);
+  });
+  console.error(
+    '\\nNOTE: A failed write can cause later dependent assertions to fail too. ' +
+      'Treat later failures as possible cascades until the earliest failed operation is fixed.',
+  );
+  console.error('========================================================\\n');
+}
 import { createHash } from 'node:crypto';
 
 const PROJECT_ID = 'demo-studio37-rules';
@@ -6392,10 +6441,17 @@ async function runTests() {
   );
   console.log('✓ Bookings V2 Check-In / lifecycle / edit / price-recalc / legacy-link & security denials passed');
 
-  console.log('\nALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!');
+  if (aggregateAssertionMode && assertionFailures.length > 0) {
+    printAggregateAssertionSummary();
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log('\\nALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!');
 }
 
 runTests().catch((err) => {
   console.error('FIRESTORE RULES TEST FAILED:', err);
-  process.exit(1);
+  printAggregateAssertionSummary();
+  process.exitCode = 1;
 });
