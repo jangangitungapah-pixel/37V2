@@ -305,19 +305,33 @@ export function createFirestoreClientPortalRepositoryAdapter() {
           tx.get(auditRef),
         ]);
 
-        if (auditSnapshot.exists()) {
-          throw createRepositoryError('client-identity/duplicate-operation', 'Operation ID identity link sudah digunakan.');
-        }
         if (!accountSnapshot.exists()) {
           throw createRepositoryError('client-identity/account-not-found', 'Akun Client tidak ditemukan.');
         }
 
         const account = normalizeClientAccountRecord(cleanUid, accountSnapshot.data());
+        if (
+          account.profileSource === CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER &&
+          account.customerId === cleanTargetCustomerId &&
+          targetLinkSnapshot.exists() &&
+          targetLinkSnapshot.data()?.ownerUid === cleanUid &&
+          auditSnapshot.exists() &&
+          auditSnapshot.data()?.operationId === cleanOperationId &&
+          auditSnapshot.data()?.action === 'owner_reviewed_legacy_link'
+        ) {
+          return {
+            account,
+            clientProfile: targetProfileSnapshot.exists()
+              ? normalizeClientProfileRecord(cleanTargetCustomerId, targetProfileSnapshot.data())
+              : null,
+            audit: auditSnapshot.data(),
+            alreadyLinked: true,
+          };
+        }
+        if (auditSnapshot.exists()) {
+          throw createRepositoryError('client-identity/duplicate-operation', 'Operation ID identity link sudah digunakan.');
+        }
         if (account.profileSource === CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER) {
-          if (account.customerId === cleanTargetCustomerId) {
-            const existingLink = targetLinkSnapshot.exists() ? targetLinkSnapshot.data() : null;
-            if (existingLink?.ownerUid === cleanUid) return { account, alreadyLinked: true };
-          }
           throw createRepositoryError(
             'client-identity/reassignment-blocked',
             'Akun ini sudah tertaut ke CRM lain. Reassignment memerlukan proses dispute terpisah.',
@@ -796,8 +810,18 @@ export function createInMemoryClientPortalRepositoryAdapter(customerAdapterOrBri
         }
         if (account.profileSource === CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER) {
           const existingLink = clientCustomerLinksMap.get(cleanTargetCustomerId);
-          if (account.customerId === cleanTargetCustomerId && existingLink?.ownerUid === cleanUid) {
-            return { account, alreadyLinked: true };
+          const existingAudit = identityLinkAuditsMap.get(cleanOperationId);
+          if (
+            account.customerId === cleanTargetCustomerId &&
+            existingLink?.ownerUid === cleanUid &&
+            existingAudit?.action === 'owner_reviewed_legacy_link'
+          ) {
+            return {
+              account,
+              clientProfile: clientProfilesMap.get(cleanTargetCustomerId) || null,
+              audit: { ...existingAudit },
+              alreadyLinked: true,
+            };
           }
           throw createRepositoryError(
             'client-identity/reassignment-blocked',
