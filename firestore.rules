@@ -4427,9 +4427,13 @@ service cloud.firestore {
         && currentAccount.data.profileSource == 'isolated_client_profile'
         && currentAccount.data.customerId == sourceCustomerId
         && currentAccount.data.version == data.accountVersionBefore
+        && sourceLink.data.customerId == sourceCustomerId
         && sourceLink.data.ownerUid == uid
+        && sourceLink.data.emailNormalized == currentAccount.data.emailNormalized
         && sourceLink.data.profileSource == 'isolated_client_profile'
+        && sourceProfile.data.customerId == sourceCustomerId
         && sourceProfile.data.ownerUid == uid
+        && sourceProfile.data.emailNormalized == currentAccount.data.emailNormalized
         && sourceProfile.data.profileSource == 'isolated_client_profile';
     }
 
