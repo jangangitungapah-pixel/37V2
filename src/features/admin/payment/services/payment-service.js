@@ -69,6 +69,15 @@ export function buildReceivedAtValue(receivedDateIso, tx) {
  * Caller MUST have already completed all transaction reads (`existingInvoice`,
  * `existingTransaction`, and any evidence doc) before invoking this helper.
  */
+function isMatchingClientReservation(reservation, invoice) {
+  if (!reservation || !invoice?.bookingId) return false;
+  return (
+    reservation.bookingId === invoice.bookingId &&
+    reservation.invoiceId === invoice.id &&
+    String(reservation.customerId || '') === String(invoice.customerId || '')
+  );
+}
+
 export function applyValidatedPaymentInTransaction(
   tx,
   {
@@ -232,9 +241,8 @@ export function applyValidatedPaymentInTransaction(
   tx.setPaymentTransaction(cleanTxId, transactionDoc);
   tx.updateInvoice(cleanInvoiceId, updatedInvoiceDoc);
   if (
-    existingClientReservation &&
-    typeof tx.updateClientReservation === 'function' &&
-    existingInvoice.bookingId
+    isMatchingClientReservation(existingClientReservation, existingInvoice) &&
+    typeof tx.updateClientReservation === 'function'
   ) {
     tx.updateClientReservation(existingInvoice.bookingId, {
       paymentStatus: nextTotals.paymentStatus,
@@ -547,9 +555,8 @@ export async function reversePaymentTransaction({
     tx.setPaymentTransaction(reversalTxId, reversalDoc);
     tx.updateInvoice(cleanInvoiceId, updatedInvoiceDoc);
     if (
-      existingClientReservation &&
-      typeof tx.updateClientReservation === 'function' &&
-      existingInvoice.bookingId
+      isMatchingClientReservation(existingClientReservation, existingInvoice) &&
+      typeof tx.updateClientReservation === 'function'
     ) {
       tx.updateClientReservation(existingInvoice.bookingId, {
         paymentStatus: nextTotals.paymentStatus,
