@@ -28,7 +28,16 @@ export function ClientInvoicesPage({
     loadMore,
   } = useClientInvoices({ now, customAdapter });
 
+  const evidenceInvoiceIds = useMemo(
+    () => invoices
+      .map((invoice) => String(invoice?.id || '').trim())
+      .filter(Boolean),
+    [invoices],
+  );
+
   const { evidenceByInvoiceId } = useClientPaymentEvidence({
+    invoiceIds: evidenceInvoiceIds,
+    enabled: !isLoading && !error,
     customAdapter: customEvidenceAdapter,
   });
 
