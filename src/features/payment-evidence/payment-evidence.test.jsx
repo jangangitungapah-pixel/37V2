@@ -1059,6 +1059,35 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
         totalAmount: 300000,
         clientPaymentEvidenceRequired: true,
       });
+      bookingAdapter._seedClientReservation('bkg_integrity_1', {
+        schemaVersion: 2,
+        bookingId: 'bkg_integrity_1',
+        bookingReference: 'BKG-INTEGRITY-1',
+        customerId: 'cust_client_a',
+        clientUid: 'client-uid-a',
+        sourceRequestId: '',
+        acceptedOfferId: '',
+        invoiceId: inv.id,
+        studioId: 'room-a',
+        studioName: 'Room A — Live Room',
+        serviceTypeName: 'Rehearsal',
+        serviceOptionName: 'Reguler',
+        date: '2026-11-28',
+        startMinute: 600,
+        endMinute: 780,
+        durationMinutes: 180,
+        timeZone: 'Asia/Jakarta',
+        reservationStatus: 'confirmed',
+        sessionStatus: 'upcoming',
+        holdExpiresAt: null,
+        effectiveTotalAmount: 300000,
+        minimumDepositAmount: null,
+        depositStatus: null,
+        paymentStatus: PAYMENT_STATUS.UNPAID,
+        createdAt: '2026-11-26T00:00:00.000Z',
+        updatedAt: '2026-11-26T00:00:00.000Z',
+        version: 1,
+      });
 
       // Two pending submissions each claiming 200,000 against a 300,000 balance
       await submitClientPaymentEvidence({
@@ -1114,6 +1143,9 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
       expect(firstVerify.invoice.amountPaid).toBe(200000);
       expect(firstVerify.invoice.balanceDue).toBe(100000);
       expect(firstVerify.invoice.paymentStatus).toBe(PAYMENT_STATUS.PARTIAL);
+      expect(bookingAdapter._inspectState().clientReservations.get('bkg_integrity_1')?.paymentStatus).toBe(
+        PAYMENT_STATUS.PARTIAL,
+      );
       expect(firstVerify.transaction.notes).toBe('Nominal dan rekening transfer sudah dicocokkan.');
 
       // Repeated verification of already verified evidence NEVER double-records payment
@@ -1166,6 +1198,9 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
       expect(secondVerify.invoice.amountPaid).toBe(300000);
       expect(secondVerify.invoice.balanceDue).toBe(0);
       expect(secondVerify.invoice.paymentStatus).toBe(PAYMENT_STATUS.PAID);
+      expect(bookingAdapter._inspectState().clientReservations.get('bkg_integrity_1')?.paymentStatus).toBe(
+        PAYMENT_STATUS.PAID,
+      );
 
       // Reversing the verified payment restores balance AND preserves paymentEvidence history!
       const reversalRes = await reversePaymentTransaction({
@@ -1179,6 +1214,9 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
       expect(reversalRes.invoice.amountPaid).toBe(100000);
       expect(reversalRes.invoice.balanceDue).toBe(200000);
       expect(reversalRes.invoice.clientPaymentEvidenceRequired).toBe(true);
+      expect(bookingAdapter._inspectState().clientReservations.get('bkg_integrity_1')?.paymentStatus).toBe(
+        PAYMENT_STATUS.PARTIAL,
+      );
       expect(bookingAdapter._sharedStore.paymentEvidence.get('ev_int_1')).toMatchObject({
         status: PAYMENT_EVIDENCE_STATUSES.VERIFIED,
         linkedTransactionId: firstVerify.transaction.id,
