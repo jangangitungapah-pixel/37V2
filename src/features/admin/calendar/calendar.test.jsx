@@ -599,6 +599,116 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
       );
     });
 
+    it('preserves invoice-authoritative payment summaries for CRM walk-ins across edit, cancel, and session lifecycle', async () => {
+      const createWalkInWithPartialInvoice = async ({
+        bookingId,
+        eventId,
+        customerName,
+        phone,
+        startMinute,
+      }) => {
+        const formValues = {
+          customerName,
+          phone,
+          bandName: customerName,
+          serviceId: 'rehearsal',
+          packageId: '',
+          recordingTypeId: '',
+          studioId: 'room-a',
+          date: '2026-11-28',
+          startMinute,
+          durationPreset: '60',
+          customDurationMinutes: '60',
+          initialPaymentStatus: INITIAL_PAYMENT_STATUS.UNPAID,
+          dpAmount: '',
+          paymentMethod: 'cash',
+          notes: '',
+        };
+        const booking = await createBooking({
+          bookingId,
+          eventId,
+          actorUid: 'owner-uid-1',
+          formValues,
+          adapter: memoryAdapter,
+        });
+
+        // A CRM walk-in has customerId but deliberately has no Client Portal UID.
+        expect(booking.customerId).toBeTruthy();
+        expect(booking.clientUid).toBe('');
+
+        const invoiceId = `inv_${bookingId}`;
+        const invoice = memoryAdapter._sharedStore.invoices.get(invoiceId);
+        expect(invoice).toBeTruthy();
+        const paidAmount = Math.max(1, Math.floor(invoice.financialSnapshot.totalAmount / 4));
+        memoryAdapter._sharedStore.invoices.set(invoiceId, {
+          ...invoice,
+          amountPaid: paidAmount,
+          balanceDue: invoice.financialSnapshot.totalAmount - paidAmount,
+          version: invoice.version + 1,
+        });
+
+        return { booking, formValues };
+      };
+
+      const editable = await createWalkInWithPartialInvoice({
+        bookingId: 'bkg-crm-walkin-edit-projection',
+        eventId: 'evt-crm-walkin-edit-create',
+        customerName: 'CRM Walk-In Edit',
+        phone: '081200003331',
+        startMinute: 600,
+      });
+      await updateOrRescheduleBooking({
+        bookingId: editable.booking.id,
+        expectedVersion: editable.booking.version,
+        eventId: 'evt-crm-walkin-edit',
+        actorUid: 'owner-uid-1',
+        formValues: { ...editable.formValues, notes: 'Edited without changing invoice totals' },
+        mode: 'edit',
+        adapter: memoryAdapter,
+      });
+      expect(
+        memoryAdapter._inspectState().clientReservations.get(editable.booking.id).paymentStatus,
+      ).toBe('partial');
+
+      const cancellable = await createWalkInWithPartialInvoice({
+        bookingId: 'bkg-crm-walkin-cancel-projection',
+        eventId: 'evt-crm-walkin-cancel-create',
+        customerName: 'CRM Walk-In Cancel',
+        phone: '081200003332',
+        startMinute: 720,
+      });
+      await cancelBooking({
+        bookingId: cancellable.booking.id,
+        expectedVersion: cancellable.booking.version,
+        eventId: 'evt-crm-walkin-cancel',
+        actorUid: 'owner-uid-1',
+        reason: 'Customer membatalkan jadwal',
+        adapter: memoryAdapter,
+      });
+      expect(
+        memoryAdapter._inspectState().clientReservations.get(cancellable.booking.id).paymentStatus,
+      ).toBe('partial');
+
+      const lifecycle = await createWalkInWithPartialInvoice({
+        bookingId: 'bkg-crm-walkin-lifecycle-projection',
+        eventId: 'evt-crm-walkin-lifecycle-create',
+        customerName: 'CRM Walk-In Lifecycle',
+        phone: '081200003333',
+        startMinute: 840,
+      });
+      await transitionBookingSession({
+        bookingId: lifecycle.booking.id,
+        action: 'check_in',
+        expectedVersion: lifecycle.booking.version,
+        eventId: 'evt-crm-walkin-check-in',
+        actorUid: 'owner-uid-1',
+        adapter: memoryAdapter,
+      });
+      expect(
+        memoryAdapter._inspectState().clientReservations.get(lifecycle.booking.id).paymentStatus,
+      ).toBe('partial');
+    });
+
     it('sends minimal lifecycle-only patches to tx.updateBooking on Check-In, Start, Complete, and Cancel while returning full normalized records', async () => {
       const recordedPatches = [];
       const baseAdapter = createInMemoryBookingRepositoryAdapter();
