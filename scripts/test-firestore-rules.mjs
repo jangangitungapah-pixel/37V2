@@ -6952,10 +6952,28 @@ async function runTests() {
   await adminSetDoc(`bookings/${gate3WalkInReservationId}`, {
     customerId: gate2UpdateTargetId,
     clientUid: '',
+    source: 'staff_created',
+    sourceRequestId: '',
+    acceptedOfferId: '',
+    serviceTypeId: 'rehearsal',
+    serviceTypeName: 'Rehearsal',
+    serviceOptionId: 'regular',
+    serviceOptionName: 'Reguler',
+    serviceId: 'rehearsal',
+    serviceLabel: 'Rehearsal',
+    packageId: 'regular',
+    packageLabel: 'Reguler',
     date: '2026-11-27',
     studioId: 'room-a',
+    startMinute: 600,
+    endMinute: 660,
+    durationMinutes: 60,
+    timeZone: 'Asia/Jakarta',
+    totalAmount: 100000,
+    initialPaidAmount: 0,
     version: 1,
     sessionStatus: 'upcoming',
+    updatedAt: SERVER_TS,
   });
   const gate3WalkInProjection = {
     schemaVersion: 2,
@@ -6984,7 +7002,7 @@ async function runTests() {
     paymentStatus: 'unpaid',
     version: 1,
   };
-  const gate3StaffProjectionCreate = await userRequest('POST', ':commit', TOKEN_STAFF, {
+  const gate3StaffProjectionCreateDenied = await userRequest('POST', ':commit', TOKEN_STAFF, {
     writes: [
       {
         update: {
@@ -7000,9 +7018,30 @@ async function runTests() {
     ],
   });
   assert.equal(
-    gate3StaffProjectionCreate.status,
+    gate3StaffProjectionCreateDenied.status,
+    403,
+    'Staff cannot create a customer-facing projection independently of a canonical booking or invoice mutation',
+  );
+
+  const gate3OwnerProjectionCreate = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/${gate3WalkInReservationId}`,
+          fields: toFsFields(gate3WalkInProjection),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    gate3OwnerProjectionCreate.status,
     200,
-    `Staff can atomically create schema v2 reservation projection for a CRM walk-in with blank clientUid: ${JSON.stringify(gate3StaffProjectionCreate.body)}`,
+    `Owner can create an allowlisted schema v2 projection for an existing CRM walk-in during bounded reconciliation: ${JSON.stringify(gate3OwnerProjectionCreate.body)}`,
   );
   assert.equal(
     (await userRequest('GET', `/clientReservations/${gate3WalkInReservationId}`, TOKEN_GATE2_UPDATE_CLIENT)).status,
@@ -7105,8 +7144,126 @@ async function runTests() {
     `CRM-linked Client can list its own reservation projections: ${JSON.stringify(gate3OwnReservationQuery.body)}`,
   );
 
+  const gate3InvoiceId = `inv_${gate3WalkInReservationId}`;
+  const gate3InvoiceNumber = '37MS-20261127-GATE3WALKIN1';
+  await adminSetDoc(`invoices/${gate3InvoiceId}`, {
+    invoiceNumber: gate3InvoiceNumber,
+    bookingId: gate3WalkInReservationId,
+    customerId: gate2UpdateTargetId,
+    clientUid: gate2UpdateUid,
+    invoiceStatus: 'issued',
+    currency: 'IDR',
+    clientPaymentEvidenceRequired: false,
+    customerSnapshot: {
+      name: 'Gate 3 CRM Client',
+      phone: '+6281234567890',
+      bandName: 'Gate 3 Band',
+    },
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      studioId: 'room-a',
+      bookingDate: '2026-11-27',
+      startMinute: 600,
+      endMinute: 660,
+      durationMinutes: 60,
+    },
+    financialSnapshot: {
+      subtotal: 100000,
+      discountAmount: 0,
+      totalAmount: 100000,
+    },
+    amountPaid: 0,
+    balanceDue: 100000,
+    paymentStatus: 'unpaid',
+    invoiceDate: SERVER_TS,
+    dueDate: null,
+    lastPaymentTransactionId: null,
+    voidReason: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  });
+
+  const gate3StandaloneFinancialProjectionWrite = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/${gate3WalkInReservationId}`,
+          fields: toFsFields({ paymentStatus: 'partial' }),
+        },
+        updateMask: { fieldPaths: ['paymentStatus'] },
+        updateTransforms: [
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    gate3StandaloneFinancialProjectionWrite.status,
+    403,
+    'Staff cannot change projection payment status without an atomic authoritative invoice update',
+  );
+
+  const gate3ProjectionPaymentTxId = 'pay_gate3_projection_payment';
   const gate3ProjectionFinancialSync = await userRequest('POST', ':commit', TOKEN_STAFF, {
     writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/${gate3ProjectionPaymentTxId}`,
+          fields: toFsFields({
+            invoiceId: gate3InvoiceId,
+            invoiceNumber: gate3InvoiceNumber,
+            bookingId: gate3WalkInReservationId,
+            customerId: gate2UpdateTargetId,
+            clientUid: gate2UpdateUid,
+            transactionType: 'payment',
+            amount: 25000,
+            currency: 'IDR',
+            paymentMethod: 'transfer',
+            referenceNumber: 'GATE3-TRANSFER',
+            notes: 'Gate 3 emulator payment sync',
+            source: 'manual',
+            reversalOfTransactionId: null,
+            recordedByUid: 'staff-1',
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'receivedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/${gate3InvoiceId}`,
+          fields: toFsFields({
+            amountPaid: 25000,
+            balanceDue: 75000,
+            paymentStatus: 'partial',
+            lastPaymentTransactionId: gate3ProjectionPaymentTxId,
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateMask: {
+          fieldPaths: [
+            'amountPaid',
+            'balanceDue',
+            'paymentStatus',
+            'lastPaymentTransactionId',
+            'updatedByUid',
+            'version',
+          ],
+        },
+        updateTransforms: [
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
       {
         update: {
           name: `${DB_ROOT}/clientReservations/${gate3WalkInReservationId}`,
@@ -7123,12 +7280,22 @@ async function runTests() {
   assert.equal(
     gate3ProjectionFinancialSync.status,
     200,
-    `Staff can sync customer-safe paymentStatus without changing booking identity: ${JSON.stringify(gate3ProjectionFinancialSync.body)}`,
+    `Staff can atomically create the payment ledger entry, update the invoice aggregate, and synchronize the customer-safe reservation summary: ${JSON.stringify(gate3ProjectionFinancialSync.body)}`,
+  );
+  const gate3ProjectionAfterPayment = await userRequest(
+    'GET',
+    `/clientReservations/${gate3WalkInReservationId}`,
+    TOKEN_GATE2_UPDATE_CLIENT,
   );
   assert.equal(
-    (await userRequest('GET', `/clientReservations/${gate3WalkInReservationId}`, TOKEN_GATE2_UPDATE_CLIENT)).status,
+    gate3ProjectionAfterPayment.status,
     200,
-    'CRM-linked Client continues to read the reservation after payment summary synchronization',
+    'CRM-linked Client can still read the reservation after atomic payment summary synchronization',
+  );
+  assert.equal(
+    gate3ProjectionAfterPayment.body?.fields?.paymentStatus?.stringValue,
+    'partial',
+    'Reservation projection exposes the invoice-authoritative partial payment status',
   );
 
   const gate3ForeignReservationQuery = await userRequest('POST', ':runQuery', TOKEN_GATE2_CLIENT, {
