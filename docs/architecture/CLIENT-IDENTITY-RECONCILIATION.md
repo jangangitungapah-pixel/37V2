@@ -1,6 +1,6 @@
 # Owner-Reviewed Client Identity Reconciliation — Phase 1 Gate 2
 
-**Status:** Implemented on the Phase 1 feature branch; local verification pending.  
+**Status:** Gate 2 passed the user's full local Phase 1 diagnostic run at commit `3049ca7cbbdf12fd831cd6a33f67a0381b22666d` on 2026-11-26. Subsequent Gate 3 changes require a fresh full diagnostic run before final Phase 1 acceptance.  
 **Scope:** Link an active, isolated Client Portal account to one explicitly selected, active CRM Customer.  
 **Out of scope:** Reassignment of an already-linked Client, account merging, historical financial rewrites, production backfill, and automatic identity inference.
 
@@ -126,4 +126,6 @@ The implementation adds:
 - In-memory service tests for successful link, explicit selection, one-to-one conflict, orphaned account claim, reassignment denial, Owner-only service access, and idempotent retry.
 - Firestore Emulator tests for Owner atomic linking, both target-profile creation and unclaimed-profile update, retained source history with revoked Client access, Client/Staff mutation denial, one-to-one conflict, audit immutability, and unchanged UID-pinned financial records.
 
-**Gate 2 remains unverified until the user runs the full local Phase 1 diagnostics against the latest branch commit and shares a clean result.** Gate 3 and explicit Owner acceptance remain separate requirements.
+**Gate 2 local evidence:** the user supplied a clean `npm run verify:phase1` diagnostic at `3049ca7cbbdf12fd831cd6a33f67a0381b22666d` with lint, Vitest (246/246), real Firestore Rules Emulator, and production build all passing.
+
+Because Gate 3 remediation subsequently changed the reservation projection, Client Portal read path, Rules tests, backfill, and payment synchronization, the full diagnostics must be rerun against the latest branch commit. Gate 3 and explicit Owner acceptance remain separate requirements; Phase 2 is still blocked.
