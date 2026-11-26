@@ -312,5 +312,28 @@ describe('Owner-reviewed legacy Client identity linking', () => {
         adapter: clientAdapter,
       }),
     ).rejects.toMatchObject({ code: 'client-identity/invalid-reason' });
+
+    clientAdapter._seedClientProfile(customer.id, {
+      ownerUid: null,
+      profileSource: 'linked_customer',
+      displayName: 'Different Profile Name',
+      emailNormalized: '',
+      phoneDisplay: customer.phoneDisplay,
+    });
+    await expect(
+      linkLegacyClientAccountToCustomer({
+        actorUid: 'owner-1',
+        actorRole: 'owner',
+        clientUid: 'review-guards',
+        targetCustomerId: customer.id,
+        reviewReason: 'Owner verified the source account but CRM projection differs.',
+        adapter: clientAdapter,
+      }),
+    ).rejects.toMatchObject({ code: 'client-identity/profile-conflict' });
+    expect(clientAdapter._inspectState().clientAccounts.get('review-guards').customerId).toBe(
+      'client_review-guards',
+    );
+    expect(clientAdapter._inspectState().clientCustomerLinks.has(customer.id)).toBe(false);
+    expect(clientAdapter._inspectState().clientIdentityLinkAudits.size).toBe(0);
   });
 });
