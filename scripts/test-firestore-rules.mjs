@@ -6626,6 +6626,16 @@ async function runTests() {
     'Old isolated synthetic link is no longer an active ownership binding',
   );
   assert.equal(
+    (await userRequest('GET', `/clientCustomerLinks/${gate2SourceCustomerId}`, TOKEN_OWNER)).status,
+    200,
+    'Owner can inspect preserved historical synthetic link',
+  );
+  assert.equal(
+    (await userRequest('GET', `/clientProfiles/${gate2SourceCustomerId}`, TOKEN_OWNER)).status,
+    200,
+    'Owner can inspect preserved historical synthetic profile',
+  );
+  assert.equal(
     (await userRequest('GET', `/clientProfiles/${gate2SourceCustomerId}`, TOKEN_GATE2_CLIENT)).status,
     403,
     'Old isolated synthetic profile is no longer owned after canonical binding changes',
@@ -6672,6 +6682,24 @@ async function runTests() {
     });
     assert.equal(directBindingAttempt.status, 403, `${label} ${actorUid} cannot directly mutate Client identity binding`);
   }
+
+  const clientProfileDirectMutation = await userRequest('POST', ':commit', TOKEN_GATE2_CLIENT, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientProfiles/${gate2TargetCustomerId}`,
+          fields: toFsFields({
+            ownerUid: 'gate2-attacker',
+            updatedAt: SERVER_TS,
+            version: 3,
+          }),
+        },
+        updateMask: { fieldPaths: ['ownerUid', 'updatedAt', 'version'] },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(clientProfileDirectMutation.status, 403, 'Client cannot mutate its canonical CRM clientProfile binding');
 
   // Audit events are append-only, even for Owner.
   const auditTamperRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
