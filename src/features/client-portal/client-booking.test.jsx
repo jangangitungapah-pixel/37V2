@@ -1072,7 +1072,7 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
     ]);
 
     const reservationFixture = (overrides = {}) => ({
-      schemaVersion: 1,
+      schemaVersion: 2,
       bookingId: 'bkg_fixture',
       bookingReference: 'BKG_FIXTURE',
       customerId: 'cust_book_client_1',
