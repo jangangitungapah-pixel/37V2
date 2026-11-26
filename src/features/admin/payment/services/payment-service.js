@@ -75,6 +75,7 @@ export function applyValidatedPaymentInTransaction(
     transactionId,
     existingInvoice,
     existingTransaction = null,
+    existingClientReservation = null,
     expectedVersion,
     amount,
     paymentMethod = 'cash',
@@ -230,6 +231,16 @@ export function applyValidatedPaymentInTransaction(
 
   tx.setPaymentTransaction(cleanTxId, transactionDoc);
   tx.updateInvoice(cleanInvoiceId, updatedInvoiceDoc);
+  if (
+    existingClientReservation &&
+    typeof tx.updateClientReservation === 'function' &&
+    existingInvoice.bookingId
+  ) {
+    tx.updateClientReservation(existingInvoice.bookingId, {
+      paymentStatus: nextTotals.paymentStatus,
+      updatedAt: effectiveNow,
+    });
+  }
 
   return {
     invoice: normalizeInvoiceRecord(cleanInvoiceId, updatedInvoiceDoc),
@@ -307,10 +318,16 @@ export async function recordInvoicePayment({
     ]);
 
     // 2. SHARED TRANSACTIONAL VALIDATION & WRITES
+    const existingClientReservation =
+      existingInvoice?.bookingId && typeof tx.getClientReservation === 'function'
+        ? await tx.getClientReservation(existingInvoice.bookingId)
+        : null;
+
     const applied = applyValidatedPaymentInTransaction(tx, {
       transactionId: cleanTxId,
       existingInvoice,
       existingTransaction,
+      existingClientReservation,
       expectedVersion,
       amount: validation.data.amount,
       paymentMethod: validation.data.paymentMethod,
@@ -425,6 +442,11 @@ export async function reversePaymentTransaction({
       throw createPaymentServiceError('invoice/not-found', 'Invoice tidak ditemukan.');
     }
 
+    const existingClientReservation =
+      existingInvoice.bookingId && typeof tx.getClientReservation === 'function'
+        ? await tx.getClientReservation(existingInvoice.bookingId)
+        : null;
+
     if (existingInvoice.invoiceStatus === INVOICE_STATUS.VOID) {
       throw createPaymentServiceError(
         'payment/invoice-void',
@@ -524,6 +546,16 @@ export async function reversePaymentTransaction({
 
     tx.setPaymentTransaction(reversalTxId, reversalDoc);
     tx.updateInvoice(cleanInvoiceId, updatedInvoiceDoc);
+    if (
+      existingClientReservation &&
+      typeof tx.updateClientReservation === 'function' &&
+      existingInvoice.bookingId
+    ) {
+      tx.updateClientReservation(existingInvoice.bookingId, {
+        paymentStatus: nextTotals.paymentStatus,
+        updatedAt: now,
+      });
+    }
 
     return {
       invoice: normalizeInvoiceRecord(cleanInvoiceId, updatedInvoiceDoc),
