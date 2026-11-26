@@ -6946,6 +6946,85 @@ async function runTests() {
     'Client can read its existing CRM projection after Owner assigns the one-to-one binding',
   );
 
+  // Client reservation projections can be read through an explicit CRM binding
+  // even when the source walk-in booking has no Client Portal UID.
+  const gate3WalkInReservationId = 'bkg_gate3_crm_walkin_projection';
+  await adminSetDoc(`clientReservations/${gate3WalkInReservationId}`, {
+    schemaVersion: 2,
+    bookingId: gate3WalkInReservationId,
+    bookingReference: 'BKG-GATE3-WALKIN',
+    customerId: gate2UpdateTargetId,
+    clientUid: '',
+    sourceRequestId: '',
+    acceptedOfferId: '',
+    invoiceId: `inv_${gate3WalkInReservationId}`,
+    studioId: 'room-a',
+    studioName: 'Room A — Live Room',
+    serviceTypeName: 'Rehearsal',
+    serviceOptionName: 'Reguler',
+    date: '2026-11-27',
+    startMinute: 600,
+    endMinute: 660,
+    durationMinutes: 60,
+    timeZone: 'Asia/Jakarta',
+    reservationStatus: 'confirmed',
+    sessionStatus: 'upcoming',
+    holdExpiresAt: null,
+    effectiveTotalAmount: 100000,
+    minimumDepositAmount: null,
+    depositStatus: null,
+    paymentStatus: 'unpaid',
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
+  assert.equal(
+    (await userRequest('GET', `/clientReservations/${gate3WalkInReservationId}`, TOKEN_GATE2_UPDATE_CLIENT)).status,
+    200,
+    'CRM-linked Client can read an unclaimed walk-in reservation projection through customerId',
+  );
+  assert.equal(
+    (await userRequest('GET', `/clientReservations/${gate3WalkInReservationId}`, TOKEN_GATE2_CLIENT)).status,
+    403,
+    'A different active Client cannot read another CRM-linked walk-in reservation',
+  );
+
+  const gate3OwnReservationQuery = await userRequest('POST', ':runQuery', TOKEN_GATE2_UPDATE_CLIENT, {
+    structuredQuery: {
+      from: [{ collectionId: 'clientReservations' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'customerId' },
+          op: 'EQUAL',
+          value: { stringValue: gate2UpdateTargetId },
+        },
+      },
+    },
+  });
+  assert.equal(
+    gate3OwnReservationQuery.status,
+    200,
+    `CRM-linked Client can list its own reservation projections: ${JSON.stringify(gate3OwnReservationQuery.body)}`,
+  );
+
+  const gate3ForeignReservationQuery = await userRequest('POST', ':runQuery', TOKEN_GATE2_CLIENT, {
+    structuredQuery: {
+      from: [{ collectionId: 'clientReservations' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'customerId' },
+          op: 'EQUAL',
+          value: { stringValue: gate2UpdateTargetId },
+        },
+      },
+    },
+  });
+  assert.equal(
+    gate3ForeignReservationQuery.status,
+    403,
+    'A different active Client cannot list another CRM Customer reservation projections',
+  );
+
   // A CRM Customer already claimed by another Client cannot be claimed again.
   const gate2ExistingUid = 'gate2-existing-owner';
   const gate2SecondUid = 'gate2-second-client';
