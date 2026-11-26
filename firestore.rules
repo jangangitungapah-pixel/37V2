@@ -778,8 +778,18 @@ service cloud.firestore {
 
     function isValidBookingStandardUpdate(reqData, resData, affected) {
       let scopeUnchanged = isServiceScopeUnchanged(reqData, resData);
-      let discUnchanged = reqData.get('automaticDiscount', null) == resData.get('automaticDiscount', null);
-      let commUnchanged = reqData.get('commissionSnapshot', null) == resData.get('commissionSnapshot', null);
+      // MapDiff already identifies top-level nested-map changes. Avoid deep map equality
+      // here so worst-case pricing recalculation stays within Firestore's expression budget.
+      let discUnchanged = !affected.hasAny(['automaticDiscount'])
+        || (
+          reqData.get('automaticDiscount', null) == null
+          && resData.get('automaticDiscount', null) == null
+        );
+      let commUnchanged = !affected.hasAny(['commissionSnapshot'])
+        || (
+          reqData.get('commissionSnapshot', null) == null
+          && resData.get('commissionSnapshot', null) == null
+        );
       return isValidBookingUpdateKeys(affected)
         && isValidBookingCoreShape(reqData)
         && reqData.updatedByUid == request.auth.uid
@@ -1039,15 +1049,3411 @@ service cloud.firestore {
     function isValidVerifiedEvidenceTxLinkAfter(data, transactionId) {
       let evidenceId = transactionId[13:transactionId.size()];
       let evAfter = getAfter(/databases/$(database)/documents/paymentEvidence/$(evidenceId));
-      return transactionId.matches('^pay_evidence_[A-Za-z0-9_-]{4,120}$')
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$(data.invoiceId));
+      return transactionId.matches('^pay_evidence_[A-Za-z0-9_-]{4,120}
+
+    function isValidPaymentTxPolicyAfter(data, transactionId) {
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$(data.invoiceId));
+      return invAfter != null
+        && (
+          invAfter.data.get('clientPaymentEvidenceRequired', false) == true
+            ? (data.source == 'client_evidence_verified'
+                && isValidVerifiedEvidenceTxLinkAfter(data, transactionId))
+            : (data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot'])
+        );
+    }
+
+    function isValidPaymentTransactionCreate(data, transactionId) {
+      return (data.size() == 15 || data.size() == 16)
+        && (!('clientUid' in data) || (data.clientUid is string && data.clientUid.size() <= 128))
+        && data.invoiceId is string
+        && data.invoiceId.size() > 0
+        && data.invoiceNumber is string
+        && data.invoiceNumber.matches('^37MS-\\d{8}-[A-Z0-9]{12}$')
+        && data.bookingId is string
+        && data.bookingId.size() > 0
+        && data.customerId is string
+        && data.transactionType in ['payment', 'reversal']
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && data.paymentMethod in ['cash', 'transfer', 'qris', 'other']
+        && data.receivedAt is timestamp
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && data.notes is string
+        && data.notes.size() <= 400
+        && data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot', 'client_evidence_verified', 'reversal']
+        && data.recordedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && existsAfter(/databases/$(database)/documents/invoices/$(data.invoiceId))
+        && isTxInvoiceConsistentAfter(data)
+        && (
+          data.transactionType == 'payment'
+            ? (data.reversalOfTransactionId == null
+                && isValidPaymentTxPolicyAfter(data, transactionId))
+            : (data.source == 'reversal'
+                && data.reversalOfTransactionId is string
+                && data.reversalOfTransactionId.size() > 0
+                && transactionId == 'pay_rev_' + data.reversalOfTransactionId
+                && data.notes.size() >= 3
+                && isValidReversalOriginalPayment(data))
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Payment Evidence & Verification v1 Helpers
+    // ------------------------------------------------------------------
+
+    function isValidPaymentEvidenceAsset(asset) {
+      return asset is map
+        && asset.size() == 10
+        && asset.provider == 'cloudinary'
+        && asset.cloudName is string
+        && asset.cloudName.matches('^[a-z0-9_-]{2,64}$')
+        && asset.cloudinaryPublicId is string
+        && asset.cloudinaryPublicId.trim().size() >= 1
+        && asset.cloudinaryPublicId.size() <= 255
+        && asset.cloudinaryAssetId is string
+        && asset.cloudinaryAssetId.size() <= 120
+        && asset.secureUrl is string
+        && asset.secureUrl.size() <= 500
+        && asset.secureUrl.matches('^https://res\\.cloudinary\\.com/' + asset.cloudName + '/image/upload/\\S+$')
+        && asset.resourceType == 'image'
+        && asset.format in ['jpg', 'jpeg', 'png', 'webp']
+        && asset.width is int
+        && asset.width >= 1
+        && asset.width <= 20000
+        && asset.height is int
+        && asset.height >= 1
+        && asset.height <= 20000
+        && asset.bytes is int
+        && asset.bytes >= 1
+        && asset.bytes <= 5242880;
+    }
+
+    function isValidPaymentEvidenceBase(data) {
+      return data.size() == 23
+        && data.schemaVersion == 1
+        && data.invoiceId is string
+        && data.invoiceId.size() >= 1
+        && data.invoiceId.size() <= 140
+        && data.invoiceNumber is string
+        && data.invoiceNumber.matches('^37MS-\\d{8}-[A-Z0-9]{12}$')
+        && data.bookingId is string
+        && data.bookingId.size() >= 1
+        && data.bookingId.size() <= 140
+        && data.customerId is string
+        && data.customerId.size() >= 1
+        && data.customerId.size() <= 140
+        && data.clientUid is string
+        && data.clientUid.size() <= 128
+        && data.evidenceSource in ['client_portal', 'admin_manual']
+        && data.status in ['pending_review', 'verified', 'rejected', 'attached']
+        && data.claimedAmount is int
+        && data.claimedAmount > 0
+        && data.paymentMethod in ['cash', 'transfer', 'qris', 'other']
+        && data.claimedPaidAt is string
+        && data.claimedPaidAt.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && isValidPaymentEvidenceAsset(data.evidence)
+        && data.submittedByUid is string
+        && data.submittedByUid.size() >= 1
+        && data.submittedByUid.size() <= 128
+        && data.submittedAt is timestamp
+        && (data.reviewedAt == null || data.reviewedAt is timestamp)
+        && data.reviewedByUid is string
+        && data.reviewedByUid.size() <= 128
+        && data.rejectionReason is string
+        && data.rejectionReason.size() <= 300
+        && (data.verifiedAmount == null || (data.verifiedAmount is int && data.verifiedAmount > 0))
+        && (data.linkedTransactionId == null
+          || (data.linkedTransactionId is string && data.linkedTransactionId.size() >= 1 && data.linkedTransactionId.size() <= 160))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidClientEvidenceParentInvoice(data) {
+      let inv = get(/databases/$(database)/documents/invoices/$(data.invoiceId));
+      return inv != null
+        && inv.data.customerId == data.customerId
+        && inv.data.bookingId == data.bookingId
+        && inv.data.invoiceNumber == data.invoiceNumber
+        && inv.data.invoiceStatus == 'issued'
+        && inv.data.get('clientPaymentEvidenceRequired', false) == true
+        && (
+          inv.data.get('clientUid', '') == data.clientUid
+            ? isClientUidOwner(data.clientUid)
+            : isClientOwnerOfCustomer(data.customerId)
+        )
+        && inv.data.balanceDue is int
+        && inv.data.balanceDue > 0
+        && data.claimedAmount <= inv.data.balanceDue;
+    }
+
+    function isValidClientEvidenceCreate(data, evidenceId) {
+      return evidenceId.matches('^[A-Za-z0-9_-]{4,120}$')
+        && data.evidenceSource == 'client_portal'
+        && data.status == 'pending_review'
+        && data.clientUid == request.auth.uid
+        && data.submittedByUid == request.auth.uid
+        && data.reviewedAt == null
+        && data.reviewedByUid == ''
+        && data.rejectionReason == ''
+        && data.verifiedAmount == null
+        && data.linkedTransactionId == null
+        && data.submittedAt == request.time
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.version == 1
+        && isValidPaymentEvidenceBase(data)
+        && isValidClientEvidenceParentInvoice(data);
+    }
+
+    function isAdminAttachedEvidenceLinkedAfter(data) {
+      let txAfter = getAfter(/databases/$(database)/documents/paymentTransactions/$(data.linkedTransactionId));
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$(data.invoiceId));
+      return txAfter != null
+        && invAfter != null
+        && txAfter.data.transactionType == 'payment'
+        && txAfter.data.invoiceId == data.invoiceId
+        && txAfter.data.bookingId == data.bookingId
+        && txAfter.data.customerId == data.customerId
+        && txAfter.data.invoiceNumber == data.invoiceNumber
+        && txAfter.data.amount == data.claimedAmount
+        && txAfter.data.get('clientUid', '') == data.clientUid
+        && invAfter.data.invoiceStatus == 'issued'
+        && invAfter.data.customerId == data.customerId
+        && invAfter.data.get('clientUid', '') == data.clientUid
+        && invAfter.data.bookingId == data.bookingId
+        && invAfter.data.invoiceNumber == data.invoiceNumber;
+    }
+
+    function isValidAdminAttachedEvidenceCreate(data, evidenceId) {
+      return evidenceId.matches('^[A-Za-z0-9_-]{4,120}$')
+        && data.evidenceSource == 'admin_manual'
+        && data.status == 'attached'
+        && data.clientUid is string
+        && data.clientUid.size() <= 128
+        && data.submittedByUid == request.auth.uid
+        && data.reviewedAt == null
+        && data.reviewedByUid == ''
+        && data.rejectionReason == ''
+        && data.verifiedAmount is int
+        && data.verifiedAmount == data.claimedAmount
+        && data.linkedTransactionId is string
+        && data.linkedTransactionId.size() >= 1
+        && data.version == 1
+        && isValidPaymentEvidenceBase(data)
+        && existsAfter(/databases/$(database)/documents/paymentTransactions/$(data.linkedTransactionId))
+        && existsAfter(/databases/$(database)/documents/invoices/$(data.invoiceId))
+        && isAdminAttachedEvidenceLinkedAfter(data);
+    }
+
+    function isPaymentEvidenceImmutableFieldsUnchanged(reqData, resData) {
+      return reqData.schemaVersion == resData.schemaVersion
+        && reqData.invoiceId == resData.invoiceId
+        && reqData.invoiceNumber == resData.invoiceNumber
+        && reqData.bookingId == resData.bookingId
+        && reqData.customerId == resData.customerId
+        && reqData.clientUid == resData.clientUid
+        && reqData.evidenceSource == resData.evidenceSource
+        && reqData.claimedAmount == resData.claimedAmount
+        && reqData.paymentMethod == resData.paymentMethod
+        && reqData.claimedPaidAt == resData.claimedPaidAt
+        && reqData.referenceNumber == resData.referenceNumber
+        && reqData.evidence == resData.evidence
+        && reqData.submittedByUid == resData.submittedByUid
+        && reqData.submittedAt == resData.submittedAt
+        && reqData.createdAt == resData.createdAt;
+    }
+
+    function isVerifiedEvidenceLinkedAfter(reqData, expectedTxId) {
+      let txAfter = getAfter(/databases/$(database)/documents/paymentTransactions/$(expectedTxId));
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$(reqData.invoiceId));
+      return txAfter != null
+        && invAfter != null
+        && txAfter.data.transactionType == 'payment'
+        && txAfter.data.source == 'client_evidence_verified'
+        && txAfter.data.invoiceId == reqData.invoiceId
+        && txAfter.data.bookingId == reqData.bookingId
+        && txAfter.data.customerId == reqData.customerId
+        && txAfter.data.amount == reqData.verifiedAmount
+        && invAfter.data.invoiceStatus == 'issued'
+        && invAfter.data.lastPaymentTransactionId == expectedTxId;
+    }
+
+    function isValidStaffEvidenceVerifyUpdate(reqData, evidenceId) {
+      let expectedTxId = 'pay_evidence_' + evidenceId;
+      return reqData.status == 'verified'
+        && reqData.rejectionReason == ''
+        && reqData.verifiedAmount is int
+        && reqData.verifiedAmount > 0
+        && reqData.linkedTransactionId == expectedTxId
+        && existsAfter(/databases/$(database)/documents/paymentTransactions/$(expectedTxId))
+        && existsAfter(/databases/$(database)/documents/invoices/$(reqData.invoiceId))
+        && isVerifiedEvidenceLinkedAfter(reqData, expectedTxId);
+    }
+
+    function isValidStaffEvidenceRejectUpdate(reqData) {
+      return reqData.status == 'rejected'
+        && reqData.rejectionReason is string
+        && reqData.rejectionReason.trim().size() >= 3
+        && reqData.rejectionReason.size() <= 300
+        && reqData.verifiedAmount == null
+        && reqData.linkedTransactionId == null;
+    }
+
+    function isCommissionItemAmountsMatchingSnapshot(data, snap) {
+      return snap is map
+        && (
+          snap.get('schemaVersion', 1) == 2
+            ? (
+              isValidBookingCommissionSnapshotV2(snap)
+              && data.staffPayableAmount == snap.staff.amount
+              && data.recordingOperatorPayableAmount == snap.recordingOperator.amount
+              && data.ownerAllocationReference == snap.owner.amount
+            )
+            : (
+              isValidBookingCommissionSnapshotV1(snap)
+              && data.staffPayableAmount == int(snap.staffAmount)
+              && data.recordingOperatorPayableAmount == int(snap.recordingOperatorAmount)
+              && data.ownerAllocationReference == 0
+            )
+        );
+    }
+
+    function isValidCommissionBatchCreate(data, batchId) {
+      let staffEntryId = 'bk_commission_' + batchId + '_staff';
+      let operatorEntryId = 'bk_commission_' + batchId + '_operator';
+      let expectedEntryCount = (data.staffCommissionTotal > 0 ? 1 : 0)
+        + (data.recordingOperatorFeeTotal > 0 ? 1 : 0);
+      return data.size() == 15
+        && batchId is string
+        && batchId.size() > 0
+        && data.periodStart is string
+        && data.periodStart.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.periodEnd is string
+        && data.periodEnd.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.completionTimeZone == 'Asia/Jakarta'
+        && data.bookingCount is int
+        && data.bookingCount >= 1
+        && data.bookingCount <= 100
+        && data.staffCommissionTotal is int
+        && data.staffCommissionTotal >= 0
+        && data.recordingOperatorFeeTotal is int
+        && data.recordingOperatorFeeTotal >= 0
+        && data.payableTotal is int
+        && data.payableTotal > 0
+        && data.payableTotal == data.staffCommissionTotal + data.recordingOperatorFeeTotal
+        && data.ownerAllocationReferenceTotal is int
+        && data.ownerAllocationReferenceTotal >= 0
+        && data.currency == 'IDR'
+        && data.status == 'posted'
+        && data.bookkeepingEntryIds is list
+        && data.bookkeepingEntryIds.size() == expectedEntryCount
+        && (data.staffCommissionTotal == 0
+          || (staffEntryId in data.bookkeepingEntryIds
+              && existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(staffEntryId))))
+        && (data.recordingOperatorFeeTotal == 0
+          || (operatorEntryId in data.bookkeepingEntryIds
+              && existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(operatorEntryId))))
+        && data.postedAt is timestamp
+        && data.postedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid;
+    }
+
+    function isValidCommissionPostingItemCreate(data, itemId) {
+      let booking = exists(/databases/$(database)/documents/bookings/$(itemId))
+        ? get(/databases/$(database)/documents/bookings/$(itemId))
+        : null;
+      return data.size() == 15
+        && itemId is string
+        && itemId.size() > 0
+        && data.bookingId == itemId
+        && data.batchId is string
+        && data.batchId.size() > 0
+        && existsAfter(/databases/$(database)/documents/commissionBatches/$(data.batchId))
+        && data.customerSnapshot is map
+        && data.customerSnapshot.size() == 2
+        && data.customerSnapshot.name is string
+        && data.customerSnapshot.name.size() > 0
+        && data.customerSnapshot.bandName is string
+        && data.completedAt is timestamp
+        && data.serviceSnapshot is map
+        && data.serviceSnapshot.size() == 3
+        && data.serviceSnapshot.serviceTypeId in ['rehearsal', 'recording']
+        && data.serviceSnapshot.serviceTypeName is string
+        && data.serviceSnapshot.serviceOptionName is string
+        && data.staffPayableAmount is int
+        && data.staffPayableAmount >= 0
+        && data.recordingOperatorPayableAmount is int
+        && data.recordingOperatorPayableAmount >= 0
+        && data.ownerAllocationReference is int
+        && data.ownerAllocationReference >= 0
+        && data.payableTotal is int
+        && data.payableTotal > 0
+        && data.payableTotal == data.staffPayableAmount + data.recordingOperatorPayableAmount
+        && data.currency == 'IDR'
+        && data.status == 'posted'
+        && data.postedAt is timestamp
+        && data.postedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && booking != null
+        && booking.data.sessionStatus == 'completed'
+        && booking.data.get('deliveryMode', 'studio') == 'studio'
+        && booking.data.get('serviceTypeId', booking.data.serviceId) in ['rehearsal', 'recording']
+        && booking.data.actualCompletedAt is timestamp
+        && data.completedAt == booking.data.actualCompletedAt
+        && booking.data.commissionSnapshot is map
+        && data.commissionSnapshot == booking.data.commissionSnapshot
+        && isCommissionItemAmountsMatchingSnapshot(data, booking.data.commissionSnapshot);
+    }
+
+    function isValidCommissionBookkeepingEntryCreate(data, entryId) {
+      let staffExpectedId = 'bk_commission_' + data.sourceId + '_staff';
+      let operatorExpectedId = 'bk_commission_' + data.sourceId + '_operator';
+      let batchAfter = getAfter(/databases/$(database)/documents/commissionBatches/$(data.sourceId));
+      return data.size() == 13
+        && data.sourceModule == 'commission-and-fee'
+        && data.sourceType == 'commission_batch'
+        && data.sourceId is string
+        && data.sourceId.size() > 0
+        && data.entryType == 'expense_accrual'
+        && data.category in ['staff_commission', 'recording_operator_fee']
+        && data.description is string
+        && data.description.size() >= 3
+        && data.description.size() <= 200
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && data.settlementStatus == 'unpaid'
+        && data.occurredAt is timestamp
+        && data.postedAt is timestamp
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/commissionBatches/$(data.sourceId))
+        && batchAfter != null
+        && (
+          (data.category == 'staff_commission'
+            && entryId == staffExpectedId
+            && data.amount == batchAfter.data.staffCommissionTotal)
+          || (data.category == 'recording_operator_fee'
+              && entryId == operatorExpectedId
+              && data.amount == batchAfter.data.recordingOperatorFeeTotal)
+        );
+    }
+
+    function isValidCommissionReviewResolutionCreate(data, resolutionId) {
+      let booking = exists(/databases/$(database)/documents/bookings/$(resolutionId))
+        ? get(/databases/$(database)/documents/bookings/$(resolutionId))
+        : null;
+      return data.size() == 9
+        && resolutionId is string
+        && resolutionId.size() > 0
+        && data.bookingId == resolutionId
+        && data.status == 'dismissed_no_commission'
+        && data.reason is string
+        && data.reason.size() >= 3
+        && data.reason.size() <= 300
+        && data.snapshotIssue is string
+        && data.snapshotIssue.size() <= 200
+        && data.customerSnapshot is map
+        && data.customerSnapshot.size() == 2
+        && data.customerSnapshot.name is string
+        && data.customerSnapshot.name.size() > 0
+        && data.customerSnapshot.bandName is string
+        && data.completedAt is timestamp
+        && data.resolvedAt is timestamp
+        && data.resolvedByUid == request.auth.uid
+        && data.createdAt is timestamp
+        && booking != null
+        && booking.data.sessionStatus == 'completed'
+        && booking.data.actualCompletedAt is timestamp
+        && data.completedAt == booking.data.actualCompletedAt;
+    }
+
+    function isValidInventoryCategory(catId) {
+      return catId in [
+        'instruments',
+        'audio_recording',
+        'amplifiers_speakers',
+        'cables_connectivity',
+        'stands_accessories',
+        'maintenance_cleaning',
+        'other'
+      ];
+    }
+
+    function isValidInventoryUnit(unit) {
+      return unit in [
+        'pcs',
+        'unit',
+        'set',
+        'pair',
+        'pack',
+        'box',
+        'bottle',
+        'meter',
+        'roll',
+        'liter',
+        'other'
+      ];
+    }
+
+    function isValidConsumableStockMap(stock) {
+      return stock is map
+        && stock.size() == 1
+        && stock.onHandQuantity is number
+        && stock.onHandQuantity >= 0;
+    }
+
+    function isValidEquipmentStockMap(stock) {
+      return stock is map
+        && stock.size() == 4
+        && stock.availableQuantity is int
+        && stock.availableQuantity >= 0
+        && stock.maintenanceQuantity is int
+        && stock.maintenanceQuantity >= 0
+        && stock.damagedQuantity is int
+        && stock.damagedQuantity >= 0
+        && stock.retiredQuantity is int
+        && stock.retiredQuantity >= 0;
+    }
+
+    function isZeroInventoryItemStock(data) {
+      return data.itemType == 'consumable'
+        ? data.consumableStock.onHandQuantity == 0
+        : (
+          data.equipmentStock.availableQuantity == 0
+          && data.equipmentStock.maintenanceQuantity == 0
+          && data.equipmentStock.damagedQuantity == 0
+          && data.equipmentStock.retiredQuantity == 0
+        );
+    }
+
+    function isValidInventoryItemFlags(data) {
+      return data.itemType == 'consumable'
+        ? (
+          data.lowStock == (data.isActive && data.consumableStock.onHandQuantity <= data.minimumStockQuantity)
+          && data.inMaintenance == false
+          && data.hasDamagedOrRetired == false
+        )
+        : (
+          data.lowStock == false
+          && data.inMaintenance == (data.isActive && data.equipmentStock.maintenanceQuantity > 0)
+          && data.hasDamagedOrRetired == (
+            data.isActive
+            && (data.equipmentStock.damagedQuantity > 0 || data.equipmentStock.retiredQuantity > 0)
+          )
+        );
+    }
+
+    function isValidInventoryItemShape(data) {
+      return data.size() == 32
+        && data.itemCode is string
+        && data.itemCode.size() >= 2
+        && data.itemCode.size() <= 32
+        && data.normalizedCode is string
+        && data.normalizedCode.size() >= 2
+        && data.normalizedCode.size() <= 32
+        && data.name is string
+        && data.name.size() >= 2
+        && data.name.size() <= 120
+        && data.normalizedName is string
+        && data.normalizedName.size() >= 2
+        && data.normalizedName.size() <= 120
+        && data.itemType in ['consumable', 'equipment']
+        && isValidInventoryCategory(data.categoryId)
+        && data.categoryLabel is string
+        && data.categoryLabel.size() >= 1
+        && data.categoryLabel.size() <= 80
+        && isValidInventoryUnit(data.unit)
+        && data.customUnitLabel is string
+        && data.customUnitLabel.size() <= 40
+        && data.locationId in ['room-a', 'room-b', 'storage', 'other']
+        && data.locationLabel is string
+        && data.locationLabel.size() >= 1
+        && data.locationLabel.size() <= 60
+        && data.brand is string
+        && data.brand.size() <= 80
+        && data.model is string
+        && data.model.size() <= 80
+        && data.notes is string
+        && data.notes.size() <= 1000
+        && data.minimumStockQuantity is number
+        && data.minimumStockQuantity >= 0
+        && data.minimumAvailableQuantity is int
+        && data.minimumAvailableQuantity >= 0
+        && data.lowStock is bool
+        && data.inMaintenance is bool
+        && data.hasDamagedOrRetired is bool
+        && (
+          data.itemType == 'consumable'
+            ? (isValidConsumableStockMap(data.consumableStock)
+                && data.equipmentStock == null
+                && data.minimumAvailableQuantity == 0
+                && data.lastMaintenanceDate == null
+                && data.nextMaintenanceDate == null
+                && data.maintenanceIntervalDays == null)
+            : (data.consumableStock == null
+                && isValidEquipmentStockMap(data.equipmentStock)
+                && data.minimumStockQuantity == 0
+                && (data.lastMaintenanceDate == null
+                  || (data.lastMaintenanceDate is string && data.lastMaintenanceDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+                && (data.nextMaintenanceDate == null
+                  || (data.nextMaintenanceDate is string && data.nextMaintenanceDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+                && (data.maintenanceIntervalDays == null
+                  || (data.maintenanceIntervalDays is int && data.maintenanceIntervalDays >= 1 && data.maintenanceIntervalDays <= 3650)))
+        )
+        && isValidInventoryItemFlags(data)
+        && data.isActive is bool
+        && (data.lastMovementId == null || (data.lastMovementId is string && data.lastMovementId.size() > 0))
+        && (data.lastMovementAt == null || data.lastMovementAt is timestamp)
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidInventoryInitialLink(data, itemId) {
+      return isZeroInventoryItemStock(data)
+        ? (data.lastMovementId == null && data.lastMovementAt == null)
+        : (
+          data.lastMovementId is string
+          && data.lastMovementId.size() > 0
+          && data.lastMovementAt is timestamp
+          && existsAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId))
+          && getAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId)).data.itemId == itemId
+          && getAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId)).data.movementType == 'opening_stock'
+          && getAfter(/databases/$(database)/documents/inventoryMovements/$(data.lastMovementId)).data.balanceAfter == (
+            data.itemType == 'consumable' ? data.consumableStock : data.equipmentStock
+          )
+        );
+    }
+
+    function isInventoryStockUnchanged(reqData, resData) {
+      return reqData.consumableStock == resData.consumableStock
+        && reqData.equipmentStock == resData.equipmentStock
+        && reqData.lastMovementId == resData.lastMovementId
+        && reqData.lastMovementAt == resData.lastMovementAt;
+    }
+
+    function isInventoryMetadataUnchanged(reqData, resData) {
+      return reqData.itemCode == resData.itemCode
+        && reqData.normalizedCode == resData.normalizedCode
+        && reqData.name == resData.name
+        && reqData.normalizedName == resData.normalizedName
+        && reqData.categoryId == resData.categoryId
+        && reqData.categoryLabel == resData.categoryLabel
+        && reqData.unit == resData.unit
+        && reqData.customUnitLabel == resData.customUnitLabel
+        && reqData.locationId == resData.locationId
+        && reqData.locationLabel == resData.locationLabel
+        && reqData.brand == resData.brand
+        && reqData.model == resData.model
+        && reqData.notes == resData.notes
+        && reqData.minimumStockQuantity == resData.minimumStockQuantity
+        && reqData.minimumAvailableQuantity == resData.minimumAvailableQuantity
+        && reqData.lastMaintenanceDate == resData.lastMaintenanceDate
+        && reqData.nextMaintenanceDate == resData.nextMaintenanceDate
+        && reqData.maintenanceIntervalDays == resData.maintenanceIntervalDays;
+    }
+
+    function isInventoryCanArchive(resData) {
+      return resData.itemType == 'consumable'
+        ? resData.consumableStock.onHandQuantity == 0
+        : (
+          resData.equipmentStock.availableQuantity == 0
+          && resData.equipmentStock.maintenanceQuantity == 0
+          && resData.equipmentStock.damagedQuantity == 0
+        );
+    }
+
+    function isValidInventoryMetadataUpdate(reqData, resData) {
+      let locUnchanged = reqData.locationId == resData.locationId && reqData.locationLabel == resData.locationLabel;
+      return resData.isActive == true
+        && reqData.isActive == true
+        && isInventoryStockUnchanged(reqData, resData)
+        && (locUnchanged || resData.lastMovementId == null);
+    }
+
+    function isValidInventoryArchiveOrReactivateUpdate(reqData, resData) {
+      return isInventoryStockUnchanged(reqData, resData)
+        && isInventoryMetadataUnchanged(reqData, resData)
+        && (
+          (resData.isActive == true && reqData.isActive == false && isInventoryCanArchive(resData))
+          || (resData.isActive == false && reqData.isActive == true && isActiveOwner())
+        );
+    }
+
+    function isValidInventoryMovementLinkedDetails(reqData, resData, itemId) {
+      let movAfter = getAfter(/databases/$(database)/documents/inventoryMovements/$(reqData.lastMovementId));
+      return movAfter != null
+        && movAfter.data.itemId == itemId
+        && movAfter.data.itemType == resData.itemType
+        && movAfter.data.balanceBefore == (
+          resData.itemType == 'consumable' ? resData.consumableStock : resData.equipmentStock
+        )
+        && movAfter.data.balanceAfter == (
+          reqData.itemType == 'consumable' ? reqData.consumableStock : reqData.equipmentStock
+        )
+        && (
+          movAfter.data.movementType == 'location_changed'
+            ? (movAfter.data.locationAfter is map
+                && reqData.locationId == movAfter.data.locationAfter.locationId
+                && reqData.locationLabel == movAfter.data.locationAfter.locationLabel)
+            : (reqData.locationId == resData.locationId
+                && reqData.locationLabel == resData.locationLabel
+                && reqData.itemCode == resData.itemCode
+                && reqData.name == resData.name
+                && reqData.categoryId == resData.categoryId
+                && reqData.unit == resData.unit
+                && reqData.minimumStockQuantity == resData.minimumStockQuantity
+                && reqData.minimumAvailableQuantity == resData.minimumAvailableQuantity)
+        );
+    }
+
+    function isValidInventoryMovementLinkedUpdate(reqData, resData, itemId) {
+      return resData.isActive == true
+        && reqData.isActive == true
+        && reqData.lastMovementId is string
+        && reqData.lastMovementId.size() > 0
+        && reqData.lastMovementId != resData.lastMovementId
+        && reqData.lastMovementAt is timestamp
+        && existsAfter(/databases/$(database)/documents/inventoryMovements/$(reqData.lastMovementId))
+        && isValidInventoryMovementLinkedDetails(reqData, resData, itemId);
+    }
+
+    function isValidInventoryMovementType(movementType, itemType) {
+      return movementType == 'opening_stock'
+        || movementType == 'stock_in'
+        || movementType == 'stock_adjustment'
+        || movementType == 'location_changed'
+        || (itemType == 'consumable' && movementType in ['consume', 'write_off'])
+        || (itemType == 'equipment' && movementType in [
+          'send_to_maintenance',
+          'return_from_maintenance',
+          'mark_damaged',
+          'mark_repaired',
+          'mark_retired'
+        ]);
+    }
+
+    function isValidInventoryLocationSnapshot(loc) {
+      return loc == null
+        || (loc is map
+            && loc.size() == 2
+            && loc.locationId in ['room-a', 'room-b', 'storage', 'other']
+            && loc.locationLabel is string
+            && loc.locationLabel.size() >= 1
+            && loc.locationLabel.size() <= 60);
+    }
+
+    function isValidInventoryMovementItemAfterLink(data, movementId) {
+      let itemAfter = getAfter(/databases/$(database)/documents/inventoryItems/$(data.itemId));
+      return itemAfter != null
+        && itemAfter.data.isActive == true
+        && itemAfter.data.itemType == data.itemType
+        && itemAfter.data.lastMovementId == movementId
+        && data.balanceAfter == (
+          data.itemType == 'consumable' ? itemAfter.data.consumableStock : itemAfter.data.equipmentStock
+        )
+        && (
+          data.movementType == 'opening_stock'
+            ? (
+              !exists(/databases/$(database)/documents/inventoryItems/$(data.itemId))
+              && (data.itemType == 'consumable'
+                ? data.balanceBefore.onHandQuantity == 0
+                : (data.balanceBefore.availableQuantity == 0
+                    && data.balanceBefore.maintenanceQuantity == 0
+                    && data.balanceBefore.damagedQuantity == 0
+                    && data.balanceBefore.retiredQuantity == 0))
+            )
+            : (
+              exists(/databases/$(database)/documents/inventoryItems/$(data.itemId))
+              && get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.isActive == true
+              && itemAfter.data.version == get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.version + 1
+              && data.balanceBefore == (
+                data.itemType == 'consumable'
+                  ? get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.consumableStock
+                  : get(/databases/$(database)/documents/inventoryItems/$(data.itemId)).data.equipmentStock
+              )
+            )
+        );
+    }
+
+    function isValidInventoryMovementCreate(data, movementId) {
+      return data.size() == 19
+        && data.itemId is string
+        && data.itemId.size() > 0
+        && data.itemCode is string
+        && data.itemCode.size() >= 2
+        && data.itemCode.size() <= 32
+        && data.itemNameSnapshot is string
+        && data.itemNameSnapshot.size() >= 2
+        && data.itemNameSnapshot.size() <= 120
+        && data.itemType in ['consumable', 'equipment']
+        && isValidInventoryMovementType(data.movementType, data.itemType)
+        && (data.movementType != 'stock_adjustment' || isActiveOwner())
+        && data.quantity is number
+        && (data.movementType == 'location_changed' ? data.quantity == 0 : data.quantity > 0)
+        && (data.itemType == 'consumable' || data.quantity is int)
+        && data.unit is string
+        && data.unit.size() >= 1
+        && data.unit.size() <= 40
+        && (
+          data.itemType == 'consumable'
+            ? (isValidConsumableStockMap(data.balanceBefore) && isValidConsumableStockMap(data.balanceAfter))
+            : (isValidEquipmentStockMap(data.balanceBefore) && isValidEquipmentStockMap(data.balanceAfter))
+        )
+        && isValidInventoryLocationSnapshot(data.locationBefore)
+        && isValidInventoryLocationSnapshot(data.locationAfter)
+        && data.reason is string
+        && data.reason.size() <= 160
+        && data.notes is string
+        && data.notes.size() <= 500
+        && data.source in ['opening_stock', 'manual', 'stock_adjustment', 'location_change']
+        && data.occurredAt is timestamp
+        && data.operationId == movementId
+        && data.recordedByUid == request.auth.uid
+        && data.recordedByNameSnapshot is string
+        && data.recordedByNameSnapshot.size() <= 120
+        && data.createdAt is timestamp
+        && (data.movementType != 'stock_adjustment'
+            || (data.reason.size() >= 3 && data.balanceAfter != data.balanceBefore))
+        && (data.movementType != 'location_changed'
+            || (data.locationBefore is map && data.locationAfter is map && data.balanceAfter == data.balanceBefore))
+        && existsAfter(/databases/$(database)/documents/inventoryItems/$(data.itemId))
+        && isValidInventoryMovementItemAfterLink(data, movementId);
+    }
+
+    function isValidBookkeepingManualIncomeCategory(category) {
+      return category in [
+        'other_studio_service',
+        'equipment_rental',
+        'merchandise',
+        'other_income'
+      ];
+    }
+
+    function isValidBookkeepingManualExpenseCategory(category) {
+      return category in [
+        'utilities',
+        'internet_communication',
+        'cleaning_housekeeping',
+        'equipment_maintenance',
+        'equipment_purchase',
+        'studio_supplies',
+        'transportation',
+        'rent_facilities',
+        'other_operational_expense'
+      ];
+    }
+
+    function isValidBookkeepingPaymentMethod(method) {
+      return method in ['cash', 'transfer', 'qris', 'other'];
+    }
+
+    function isValidManualIncomeBookkeepingEntryCreate(data, entryId) {
+      return data.size() == 16
+        && data.keys().hasOnly([
+          'sourceModule',
+          'sourceType',
+          'sourceId',
+          'entryType',
+          'category',
+          'description',
+          'amount',
+          'currency',
+          'settlementStatus',
+          'paymentMethod',
+          'referenceNumber',
+          'notes',
+          'occurredAt',
+          'createdAt',
+          'createdByUid',
+          'version'
+        ])
+        && data.sourceModule == 'bookkeeping'
+        && data.sourceType == 'manual'
+        && data.sourceId == entryId
+        && data.entryType == 'income'
+        && isValidBookkeepingManualIncomeCategory(data.category)
+        && data.description is string
+        && data.description.size() >= 2
+        && data.description.size() <= 240
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && data.settlementStatus == 'paid'
+        && isValidBookkeepingPaymentMethod(data.paymentMethod)
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && data.notes is string
+        && data.notes.size() <= 400
+        && data.occurredAt is timestamp
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && data.version == 1;
+    }
+
+    function isValidManualExpenseBookkeepingEntryCreate(data, entryId) {
+      let paidSettlement = data.paidOnCreate == true && data.lastSettlementId is string && data.lastSettlementId.size() > 0
+        ? getAfter(/databases/$(database)/documents/bookkeepingSettlements/$(data.lastSettlementId))
+        : null;
+      return data.size() == 24
+        && data.keys().hasOnly([
+          'sourceModule',
+          'sourceType',
+          'sourceId',
+          'entryType',
+          'category',
+          'description',
+          'amount',
+          'currency',
+          'settlementStatus',
+          'amountSettled',
+          'remainingAmount',
+          'paidOnCreate',
+          'dueDate',
+          'paymentMethod',
+          'referenceNumber',
+          'notes',
+          'lastSettlementId',
+          'lastSettledAt',
+          'occurredAt',
+          'createdAt',
+          'createdByUid',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && data.sourceModule == 'bookkeeping'
+        && data.sourceType == 'manual'
+        && data.sourceId == entryId
+        && data.entryType == 'expense_accrual'
+        && isValidBookkeepingManualExpenseCategory(data.category)
+        && data.description is string
+        && data.description.size() >= 2
+        && data.description.size() <= 240
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && (data.dueDate == null || (data.dueDate is string && data.dueDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && data.notes is string
+        && data.notes.size() <= 400
+        && data.occurredAt is timestamp
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && data.updatedByUid == request.auth.uid
+        && data.version == 1
+        && data.paidOnCreate is bool
+        && (
+          data.paidOnCreate == true
+            ? (
+              data.settlementStatus == 'paid'
+              && data.amountSettled == data.amount
+              && data.remainingAmount == 0
+              && data.dueDate == null
+              && isValidBookkeepingPaymentMethod(data.paymentMethod)
+              && data.lastSettlementId is string
+              && data.lastSettlementId.size() > 0
+              && data.lastSettledAt is timestamp
+              && existsAfter(/databases/$(database)/documents/bookkeepingSettlements/$(data.lastSettlementId))
+              && paidSettlement != null
+              && paidSettlement.data.entryId == entryId
+              && paidSettlement.data.amount == data.amount
+            )
+            : (
+              data.settlementStatus == 'unpaid'
+              && data.amountSettled == 0
+              && data.remainingAmount == data.amount
+              && data.paymentMethod == ''
+              && data.lastSettlementId == null
+              && data.lastSettledAt == null
+            )
+        );
+    }
+
+    function isValidManualReversalBookkeepingEntryCreate(data, entryId) {
+      let orig = exists(/databases/$(database)/documents/bookkeepingEntries/$(data.reversalOfEntryId))
+        ? get(/databases/$(database)/documents/bookkeepingEntries/$(data.reversalOfEntryId))
+        : null;
+      let origAfter = existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(data.reversalOfEntryId))
+        ? getAfter(/databases/$(database)/documents/bookkeepingEntries/$(data.reversalOfEntryId))
+        : null;
+      return data.size() == 16
+        && data.keys().hasOnly([
+          'sourceModule',
+          'sourceType',
+          'sourceId',
+          'entryType',
+          'reversalOfEntryId',
+          'originalEntryType',
+          'category',
+          'description',
+          'amount',
+          'currency',
+          'settlementStatus',
+          'notes',
+          'occurredAt',
+          'createdAt',
+          'createdByUid',
+          'version'
+        ])
+        && data.sourceModule == 'bookkeeping'
+        && data.sourceType == 'manual_reversal'
+        && data.entryType == 'reversal'
+        && data.reversalOfEntryId is string
+        && data.reversalOfEntryId.size() > 0
+        && entryId == 'bk_rev_' + data.reversalOfEntryId
+        && data.sourceId == data.reversalOfEntryId
+        && data.originalEntryType in ['income', 'expense_accrual']
+        && data.description is string
+        && data.description.size() >= 3
+        && data.description.size() <= 280
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && data.settlementStatus == 'reversed'
+        && data.notes is string
+        && data.notes.size() >= 3
+        && data.notes.size() <= 300
+        && data.occurredAt is timestamp
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && data.version == 1
+        && orig != null
+        && orig.data.sourceModule == 'bookkeeping'
+        && orig.data.sourceType == 'manual'
+        && orig.data.entryType == data.originalEntryType
+        && orig.data.category == data.category
+        && orig.data.amount == data.amount
+        && orig.data.settlementStatus != 'reversed'
+        && (orig.data.entryType == 'income' || (orig.data.get('amountSettled', 0) == 0 && orig.data.settlementStatus == 'unpaid'))
+        && origAfter != null
+        && origAfter.data.settlementStatus == 'reversed'
+        && origAfter.data.reversedByEntryId == entryId;
+    }
+
+    function isBookkeepingImmutableFieldsUnchanged(reqData, resData) {
+      return reqData.sourceModule == resData.sourceModule
+        && reqData.sourceType == resData.sourceType
+        && reqData.sourceId == resData.sourceId
+        && reqData.entryType == resData.entryType
+        && reqData.category == resData.category
+        && reqData.description == resData.description
+        && reqData.amount == resData.amount
+        && reqData.currency == resData.currency
+        && reqData.occurredAt == resData.occurredAt
+        && reqData.createdAt == resData.createdAt
+        && reqData.createdByUid == resData.createdByUid
+        && reqData.get('postedAt', null) == resData.get('postedAt', null)
+        && reqData.updatedAt is timestamp
+        && reqData.updatedByUid == request.auth.uid
+        && reqData.version == resData.get('version', 1) + 1;
+    }
+
+    function isValidBookkeepingSettlementAggregateUpdate(reqData, resData, entryId) {
+      let prevSettled = resData.get('amountSettled', 0);
+      let prevRemaining = resData.get('remainingAmount', resData.amount);
+      let settleAfter = reqData.lastSettlementId is string && reqData.lastSettlementId.size() > 0
+        ? getAfter(/databases/$(database)/documents/bookkeepingSettlements/$(reqData.lastSettlementId))
+        : null;
+      return resData.entryType == 'expense_accrual'
+        && resData.settlementStatus in ['unpaid', 'partially_paid']
+        && prevRemaining > 0
+        && reqData.diff(resData).affectedKeys().hasOnly([
+          'amountSettled',
+          'remainingAmount',
+          'settlementStatus',
+          'lastSettlementId',
+          'lastSettledAt',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && reqData.lastSettlementId is string
+        && reqData.lastSettlementId.size() > 0
+        && reqData.lastSettlementId != resData.get('lastSettlementId', '')
+        && reqData.lastSettledAt is timestamp
+        && existsAfter(/databases/$(database)/documents/bookkeepingSettlements/$(reqData.lastSettlementId))
+        && settleAfter != null
+        && settleAfter.data.entryId == entryId
+        && settleAfter.data.amount > 0
+        && reqData.amountSettled is int
+        && reqData.amountSettled == prevSettled + settleAfter.data.amount
+        && reqData.remainingAmount is int
+        && reqData.remainingAmount == resData.amount - reqData.amountSettled
+        && reqData.remainingAmount >= 0
+        && reqData.settlementStatus == (reqData.remainingAmount == 0 ? 'paid' : 'partially_paid');
+    }
+
+    function isValidManualBookkeepingReversalMarkUpdate(reqData, resData, entryId) {
+      return resData.sourceModule == 'bookkeeping'
+        && resData.sourceType == 'manual'
+        && resData.settlementStatus != 'reversed'
+        && (resData.entryType == 'income' || (resData.get('amountSettled', 0) == 0 && resData.settlementStatus == 'unpaid'))
+        && reqData.diff(resData).affectedKeys().hasOnly([
+          'settlementStatus',
+          'reversedByEntryId',
+          'reversalReason',
+          'reversedAt',
+          'reversedByUid',
+          'updatedAt',
+          'updatedByUid',
+          'version',
+          'remainingAmount'
+        ])
+        && reqData.settlementStatus == 'reversed'
+        && reqData.reversedByEntryId == 'bk_rev_' + entryId
+        && reqData.reversalReason is string
+        && reqData.reversalReason.size() >= 3
+        && reqData.reversalReason.size() <= 300
+        && reqData.reversedAt is timestamp
+        && reqData.reversedByUid == request.auth.uid
+        && (resData.entryType != 'expense_accrual' || reqData.remainingAmount == 0)
+        && existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(reqData.reversedByEntryId));
+    }
+
+    function isValidBookkeepingSettlementCreate(data, settlementId) {
+      let prevEntry = exists(/databases/$(database)/documents/bookkeepingEntries/$(data.entryId))
+        ? get(/databases/$(database)/documents/bookkeepingEntries/$(data.entryId))
+        : null;
+      let entryAfter = getAfter(/databases/$(database)/documents/bookkeepingEntries/$(data.entryId));
+      return data.size() == 14
+        && data.keys().hasOnly([
+          'entryId',
+          'sourceModule',
+          'sourceType',
+          'sourceId',
+          'settlementType',
+          'amount',
+          'currency',
+          'paymentMethod',
+          'paidAt',
+          'referenceNumber',
+          'notes',
+          'operationId',
+          'createdAt',
+          'createdByUid'
+        ])
+        && data.entryId is string
+        && data.entryId.size() > 0
+        && data.sourceModule == 'bookkeeping'
+        && data.sourceType in ['manual', 'commission_batch']
+        && data.sourceId is string
+        && data.sourceId.size() > 0
+        && data.settlementType == 'expense_payment'
+        && data.amount is int
+        && data.amount > 0
+        && data.currency == 'IDR'
+        && isValidBookkeepingPaymentMethod(data.paymentMethod)
+        && data.paidAt is timestamp
+        && data.referenceNumber is string
+        && data.referenceNumber.size() <= 120
+        && data.notes is string
+        && data.notes.size() <= 400
+        && data.operationId == settlementId
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/bookkeepingEntries/$(data.entryId))
+        && entryAfter != null
+        && entryAfter.data.entryType == 'expense_accrual'
+        && entryAfter.data.sourceType == data.sourceType
+        && entryAfter.data.sourceId == data.sourceId
+        && entryAfter.data.lastSettlementId == settlementId
+        && entryAfter.data.settlementStatus != 'reversed'
+        && (
+          prevEntry == null
+            ? (
+              entryAfter.data.sourceModule == 'bookkeeping'
+              && entryAfter.data.paidOnCreate == true
+              && entryAfter.data.amount == data.amount
+            )
+            : (
+              entryAfter.data.version == prevEntry.data.get('version', 1) + 1
+              && data.amount <= prevEntry.data.get('remainingAmount', prevEntry.data.amount)
+            )
+        );
+    }
+
+    function isValidBookkeepingSettingsWrite(data) {
+      return data.size() == 5
+        && data.keys().hasOnly([
+          'openingCashBalance',
+          'openingBalanceAsOf',
+          'openingBalanceNote',
+          'updatedAt',
+          'updatedByUid'
+        ])
+        && (data.openingCashBalance == null || (data.openingCashBalance is int && data.openingCashBalance >= 0))
+        && (data.openingBalanceAsOf == null || (data.openingBalanceAsOf is string && data.openingBalanceAsOf.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && data.openingBalanceNote is string
+        && data.openingBalanceNote.size() <= 200
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
+    match /staffProfiles/{uid} {
+      allow get: if request.auth != null
+                 && request.auth.uid == uid;
+    }
+
+    match /systemOperations/{operationId} {
+      allow get: if isActiveOwner() && operationId == 'factoryReset';
+      allow list: if false;
+
+      allow create: if isActiveOwner()
+        && operationId == 'factoryReset'
+        && isValidFactoryResetOperationCreate(request.resource.data);
+
+      allow update: if isActiveOwner()
+        && operationId == 'factoryReset'
+        && isValidFactoryResetOperationUpdate(request.resource.data, resource.data);
+
+      allow delete: if false;
+    }
+
+    match /settings/pricing {
+      allow get: if isActiveStaff();
+      allow list: if false;
+
+      allow create: if isActiveOwner()
+        && isValidPricingSettings(request.resource.data)
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveOwner()
+        && isValidPricingSettings(request.resource.data)
+        && request.resource.data.version == resource.data.version + 1;
+
+      allow delete: if false;
+    }
+
+    function isValidClientReservationBackfillOperation(data) {
+      return data.keys().hasOnly([
+          'schemaVersion', 'status', 'lastRequestId', 'processedCount',
+          'projectedCount', 'skippedCount', 'startedAt', 'updatedAt',
+          'updatedByUid', 'version'
+        ])
+        && data.size() == 10
+        && data.schemaVersion == 1
+        && data.status in ['running', 'completed']
+        && data.lastRequestId is string
+        && data.lastRequestId.size() <= 128
+        && data.processedCount is int
+        && data.processedCount >= 0
+        && data.projectedCount is int
+        && data.projectedCount >= 0
+        && data.skippedCount is int
+        && data.skippedCount >= 0
+        && data.startedAt is timestamp
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    match /systemOperations/clientReservationBackfill {
+      allow get: if isActiveOwner();
+      allow list: if false;
+      allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && isValidClientReservationBackfillOperation(request.resource.data)
+        && request.resource.data.status in ['running', 'completed']
+        && request.resource.data.lastRequestId == ''
+        && request.resource.data.processedCount == 0
+        && request.resource.data.projectedCount == 0
+        && request.resource.data.skippedCount == 0
+        && request.resource.data.version == 1;
+      allow update: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && isValidClientReservationBackfillOperation(request.resource.data)
+        && request.resource.data.version == resource.data.version + 1
+        && request.resource.data.processedCount >= resource.data.processedCount
+        && request.resource.data.projectedCount >= resource.data.projectedCount
+        && request.resource.data.skippedCount >= resource.data.skippedCount
+        && request.resource.data.startedAt == resource.data.startedAt;
+      allow delete: if false;
+    }
+
+    function isValidBookingPolicies(data) {
+      return data.keys().hasOnly([
+          'schemaVersion', 'defaultDepositPolicy', 'defaultHoldPolicy',
+          'defaultBalanceDuePolicy', 'serviceOverrides', 'optionOverrides',
+          'version', 'updatedAt', 'updatedByUid'
+        ])
+        && data.size() == 9
+        && data.schemaVersion == 1
+        && data.defaultDepositPolicy is map
+        && data.defaultDepositPolicy.size() == 4
+        && data.defaultDepositPolicy.type in ['none', 'fixed', 'percentage']
+        && data.defaultDepositPolicy.fixedAmount is int
+        && data.defaultDepositPolicy.fixedAmount >= 0
+        && data.defaultDepositPolicy.percentage is int
+        && data.defaultDepositPolicy.percentage >= 0
+        && data.defaultDepositPolicy.percentage <= 100
+        && data.defaultDepositPolicy.calculationBase in ['total_amount', 'subtotal']
+        && data.defaultHoldPolicy is map
+        && data.defaultHoldPolicy.size() == 3
+        && (
+          data.defaultHoldPolicy.defaultHours == null
+          || (
+            data.defaultHoldPolicy.defaultHours is int
+            && data.defaultHoldPolicy.defaultHours >= 1
+            && data.defaultHoldPolicy.defaultHours <= 168
+          )
+        )
+        && data.defaultHoldPolicy.minMinutesBeforeSessionStart is int
+        && data.defaultHoldPolicy.minMinutesBeforeSessionStart >= 0
+        && data.defaultHoldPolicy.minMinutesBeforeSessionStart <= 1440
+        && data.defaultHoldPolicy.allowPerBookingOverride is bool
+        && data.defaultBalanceDuePolicy is map
+        && data.defaultBalanceDuePolicy.size() == 2
+        && data.defaultBalanceDuePolicy.trigger in ['before_session', 'at_check_in', 'before_delivery']
+        && data.defaultBalanceDuePolicy.offsetHoursBeforeStart is int
+        && data.defaultBalanceDuePolicy.offsetHoursBeforeStart >= 0
+        && data.defaultBalanceDuePolicy.offsetHoursBeforeStart <= 168
+        && data.serviceOverrides is map
+        && data.serviceOverrides.size() <= 20
+        && data.optionOverrides is map
+        && data.optionOverrides.size() <= 100
+        && data.version is int
+        && data.version >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
+    match /settings/clientReservationBackfill {
+      allow get: if isActiveOwner();
+      allow list: if false;
+      allow create, update: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && request.resource.data.keys().hasOnly([
+          'schemaVersion', 'status', 'cursorBookingId', 'processedCount',
+          'projectedCount', 'skippedCount', 'version', 'updatedAt', 'updatedByUid'
+        ])
+        && request.resource.data.size() == 9
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.status in ['running', 'completed']
+        && request.resource.data.cursorBookingId is string
+        && request.resource.data.cursorBookingId.size() <= 140
+        && request.resource.data.processedCount is int
+        && request.resource.data.processedCount >= 0
+        && request.resource.data.projectedCount is int
+        && request.resource.data.projectedCount >= 0
+        && request.resource.data.skippedCount is int
+        && request.resource.data.skippedCount >= 0
+        && request.resource.data.version is int
+        && request.resource.data.version >= 1
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedByUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /settings/bookingPolicies {
+      allow get: if isActiveStaff();
+      allow list: if false;
+      allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && isValidBookingPolicies(request.resource.data)
+        && request.resource.data.version == 1;
+      allow update: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && isValidBookingPolicies(request.resource.data)
+        && request.resource.data.version == resource.data.version + 1;
+      allow delete: if false;
+    }
+
+    match /settings/studioProfile {
+      allow get: if isActiveStaff();
+      allow list: if false;
+
+      allow create: if isActiveOwner()
+        && isValidStudioProfile(request.resource.data)
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveOwner()
+        && isValidStudioProfile(request.resource.data)
+        && request.resource.data.version == resource.data.version + 1;
+
+      allow delete: if false;
+    }
+
+    match /customers/{customerId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidCustomerShape(request.resource.data, customerId)
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.status == 'active'
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidCustomerShape(request.resource.data, customerId)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.version == resource.data.version + 1
+        && (resource.data.status != 'merged'
+            || (request.resource.data.status == 'merged'
+                && request.resource.data.mergedIntoCustomerId == resource.data.mergedIntoCustomerId));
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /customerPhoneIndex/{phoneHash} {
+      allow get: if isActiveStaff();
+      allow list: if isActiveOwner();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidPhoneIndex(request.resource.data)
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidPhoneIndex(request.resource.data)
+        && request.resource.data.version == resource.data.version + 1;
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidBookingCreate(request.resource.data);
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidBookingUpdate(request.resource.data, resource.data, bookingId);
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    function isValidClientReservationShape(data, bookingId) {
+      let booking = getAfter(/databases/$(database)/documents/bookings/$(bookingId));
+      return data.keys().hasOnly([
+          'schemaVersion', 'bookingId', 'bookingReference', 'customerId', 'clientUid',
+          'sourceRequestId', 'acceptedOfferId', 'invoiceId', 'studioId', 'studioName',
+          'serviceTypeName', 'serviceOptionName', 'date', 'startMinute', 'endMinute',
+          'durationMinutes', 'timeZone', 'reservationStatus', 'sessionStatus', 'holdExpiresAt',
+          'effectiveTotalAmount', 'minimumDepositAmount', 'depositStatus', 'paymentStatus',
+          'createdAt', 'updatedAt', 'version'
+        ])
+        && data.size() == 27
+        && data.schemaVersion == 1
+        && data.bookingId == bookingId
+        && data.bookingReference is string
+        && data.customerId is string
+        && data.clientUid is string
+        && data.clientUid.size() > 0
+        && data.invoiceId == 'inv_' + bookingId
+        && data.studioId in ['room-a', 'room-b']
+        && data.studioName is string
+        && data.serviceTypeName is string
+        && data.serviceOptionName is string
+        && data.date is string
+        && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.startMinute is int
+        && data.endMinute is int
+        && data.durationMinutes is int
+        && data.endMinute == data.startMinute + data.durationMinutes
+        && data.timeZone == 'Asia/Jakarta'
+        && data.reservationStatus in ['deposit_hold', 'confirmed', 'expired', 'cancelled']
+        && data.sessionStatus in ['pending_confirmation', 'upcoming', 'in_progress', 'completed', 'no_show', 'cancelled']
+        && (data.holdExpiresAt == null || data.holdExpiresAt is timestamp)
+        && data.effectiveTotalAmount is int
+        && data.effectiveTotalAmount >= 0
+        && (data.minimumDepositAmount == null || data.minimumDepositAmount is int)
+        && (data.depositStatus == null || data.depositStatus is string)
+        && data.paymentStatus is string
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.version is int
+        && existsAfter(/databases/$(database)/documents/bookings/$(bookingId))
+        && booking.data.clientUid == data.clientUid
+        && booking.data.customerId == data.customerId
+        && booking.data.date == data.date
+        && booking.data.studioId == data.studioId
+        && booking.data.version == data.version;
+    }
+
+    match /clientReservations/{bookingId} {
+      allow get, list: if isActiveStaff()
+        || (
+          resource.data.clientUid == request.auth.uid
+          && isClientUidOwner(resource.data.clientUid)
+        );
+      allow create, update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidClientReservationShape(request.resource.data, bookingId);
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /bookingSlots/{slotId} {
+      allow read: if isActiveStaff();
+
+      allow create, update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && request.resource.data.keys().hasOnly([
+          'bookingId',
+          'date',
+          'studioId',
+          'slotStartMinute',
+          'createdAt'
+        ])
+        && request.resource.data.bookingId is string
+        && request.resource.data.bookingId.size() > 0
+        && request.resource.data.date is string
+        && request.resource.data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.studioId in ['room-a', 'room-b']
+        && request.resource.data.slotStartMinute is int
+        && request.resource.data.slotStartMinute >= 600
+        && request.resource.data.slotStartMinute < 1380
+        && request.resource.data.slotStartMinute % 30 == 0
+        && existsAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        )
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.date == request.resource.data.date
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.studioId == request.resource.data.studioId
+        && getAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        ).data.sessionStatus != 'cancelled';
+
+      allow delete: if canFactoryResetDelete()
+        || (!isFactoryResetLocked() && isActiveStaff());
+    }
+
+    match /bookingEvents/{eventId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && request.resource.data.keys().hasOnly([
+          'bookingId',
+          'eventType',
+          'actorUid',
+          'createdAt',
+          'previousValue',
+          'newValue',
+          'note'
+        ])
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.bookingId is string
+        && request.resource.data.bookingId.size() > 0
+        && request.resource.data.eventType is string
+        && request.resource.data.eventType.size() > 0
+        && existsAfter(
+          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
+        );
+
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /invoices/{invoiceId} {
+      allow get: if isActiveStaff()
+        || (resource != null && isClientReadableInvoiceData(resource.data));
+
+      allow list: if isActiveStaff()
+        || (
+          resource.data.invoiceStatus in ['issued', 'void']
+          && isClientDocumentOwner(resource.data)
+        );
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidInvoiceBase(request.resource.data, invoiceId)
+        && request.resource.data.invoiceStatus in ['draft', 'issued']
+        && request.resource.data.voidReason == ''
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.version == 1
+        && (request.resource.data.get('clientPaymentEvidenceRequired', false) == false
+          || request.resource.data.amountPaid == 0)
+        && existsAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
+        && (
+          !('clientUid' in request.resource.data)
+          || (
+            getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.get('clientUid', '') == request.resource.data.clientUid
+            && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.customerId == request.resource.data.customerId
+          )
+        )
+        && isValidInitialInvoicePaymentLinkAfter(request.resource.data, invoiceId);
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidInvoiceBase(request.resource.data, invoiceId)
+        && request.resource.data.version == resource.data.version + 1
+        && (
+          (
+            isInvoiceImmutableFieldsUnchanged(request.resource.data, resource.data)
+            && (
+              isValidInvoicePaymentAggregateUpdate(request.resource.data, resource.data, invoiceId)
+              || isValidInvoiceVoidUpdate(request.resource.data, resource.data)
+              || isValidInvoiceDueDateUpdate(request.resource.data, resource.data)
+            )
+          )
+          || isLegacyInvoiceClientUidUpdate(request.resource.data, resource.data, invoiceId)
+        );
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /paymentTransactions/{transactionId} {
+      allow get: if isActiveStaff()
+        || (
+          resource != null
+          && (
+            isClientReadableParentInvoice(resource.data)
+          )
+        );
+
+      allow list: if isActiveStaff()
+        || isClientReadableParentInvoice(resource.data);
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidPaymentTransactionCreate(request.resource.data, transactionId);
+
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /paymentEvidence/{evidenceId} {
+      allow get: if isActiveStaff()
+        || (
+          resource != null
+          && isClientReadableParentInvoice(resource.data)
+        );
+
+      allow list: if isActiveStaff()
+        || isClientReadableParentInvoice(resource.data);
+
+      allow create: if !isFactoryResetLocked()
+        && (
+          (request.resource.data.evidenceSource == 'client_portal'
+            && isValidClientEvidenceCreate(request.resource.data, evidenceId))
+          || (request.resource.data.evidenceSource == 'admin_manual'
+            && isActiveStaff()
+            && isValidAdminAttachedEvidenceCreate(request.resource.data, evidenceId))
+        );
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && resource != null
+        && resource.data.evidenceSource == 'client_portal'
+        && resource.data.status == 'pending_review'
+        && isValidPaymentEvidenceBase(request.resource.data)
+        && isPaymentEvidenceImmutableFieldsUnchanged(request.resource.data, resource.data)
+        && request.resource.data.reviewedByUid == request.auth.uid
+        && request.resource.data.reviewedAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.version == resource.data.version + 1
+        && (
+          (request.resource.data.status == 'verified'
+            && isValidStaffEvidenceVerifyUpdate(request.resource.data, evidenceId))
+          || (request.resource.data.status == 'rejected'
+            && isValidStaffEvidenceRejectUpdate(request.resource.data))
+        );
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /commissionBatches/{batchId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && isValidCommissionBatchCreate(request.resource.data, batchId);
+
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /commissionPostingItems/{itemId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && isValidCommissionPostingItemCreate(request.resource.data, itemId);
+
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /bookkeepingEntries/{entryId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && (
+          isValidCommissionBookkeepingEntryCreate(request.resource.data, entryId)
+          || isValidManualIncomeBookkeepingEntryCreate(request.resource.data, entryId)
+          || isValidManualExpenseBookkeepingEntryCreate(request.resource.data, entryId)
+          || isValidManualReversalBookkeepingEntryCreate(request.resource.data, entryId)
+        );
+
+      allow update: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && isBookkeepingImmutableFieldsUnchanged(request.resource.data, resource.data)
+        && (
+          isValidBookkeepingSettlementAggregateUpdate(request.resource.data, resource.data, entryId)
+          || isValidManualBookkeepingReversalMarkUpdate(request.resource.data, resource.data, entryId)
+        );
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /bookkeepingSettlements/{settlementId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && isValidBookkeepingSettlementCreate(request.resource.data, settlementId);
+
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /bookkeepingSettings/{docId} {
+      allow read: if isActiveOwner();
+
+      allow create, update: if isActiveOwner()
+        && docId == 'default'
+        && isValidBookkeepingSettingsWrite(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    match /commissionReviewResolutions/{resolutionId} {
+      allow read: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && isValidCommissionReviewResolutionCreate(request.resource.data, resolutionId);
+
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /inventoryItems/{itemId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidInventoryItemShape(request.resource.data)
+        && request.resource.data.isActive == true
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.version == 1
+        && isValidInventoryInitialLink(request.resource.data, itemId);
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidInventoryItemShape(request.resource.data)
+        && request.resource.data.itemType == resource.data.itemType
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.version == resource.data.version + 1
+        && (
+          isValidInventoryMetadataUpdate(request.resource.data, resource.data)
+          || isValidInventoryArchiveOrReactivateUpdate(request.resource.data, resource.data)
+          || isValidInventoryMovementLinkedUpdate(request.resource.data, resource.data, itemId)
+        );
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /inventoryMovements/{movementId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidInventoryMovementCreate(request.resource.data, movementId);
+
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    function isValidGalleryItemShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'title',
+          'category',
+          'altText',
+          'caption',
+          'cloudinaryPublicId',
+          'cloudinaryAssetId',
+          'secureUrl',
+          'resourceType',
+          'format',
+          'width',
+          'height',
+          'bytes',
+          'status',
+          'sortOrder',
+          'uploadedAt',
+          'uploadedByUid',
+          'createdAt',
+          'createdByUid',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && data.size() == 22
+        && data.schemaVersion == 1
+        && data.title is string
+        && data.title.trim().size() >= 2
+        && data.title.trim().size() <= 120
+        && data.category is string
+        && data.category.trim().size() >= 2
+        && data.category.trim().size() <= 60
+        && data.altText is string
+        && data.altText.size() <= 220
+        && data.caption is string
+        && data.caption.size() <= 400
+        && data.cloudinaryPublicId is string
+        && data.cloudinaryPublicId.trim().size() >= 1
+        && data.cloudinaryPublicId.size() <= 240
+        && data.cloudinaryAssetId is string
+        && data.cloudinaryAssetId.trim().size() >= 1
+        && data.cloudinaryAssetId.size() <= 120
+        && data.secureUrl is string
+        && data.secureUrl.size() <= 600
+        && data.secureUrl.matches('^https://res\\.cloudinary\\.com/[a-zA-Z0-9_-]+/image/upload/[^\\s]+$')
+        && data.resourceType == 'image'
+        && data.format is string
+        && data.format in ['jpg', 'jpeg', 'png', 'webp', 'avif']
+        && data.width is int
+        && data.width >= 1
+        && data.width <= 6000
+        && data.height is int
+        && data.height >= 1
+        && data.height <= 6000
+        && data.bytes is int
+        && data.bytes >= 1
+        && data.bytes <= 10485760
+        && data.status is string
+        && data.status in ['draft', 'published', 'archived']
+        && (data.status != 'published' || data.altText.trim().size() >= 3)
+        && data.sortOrder is int
+        && data.sortOrder >= 0
+        && data.uploadedAt is timestamp
+        && data.uploadedByUid is string
+        && data.uploadedByUid.size() >= 1
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.createdByUid.size() >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidGalleryItemCreate(data) {
+      return isValidGalleryItemShape(data)
+        && data.version == 1
+        && data.uploadedByUid == request.auth.uid
+        && data.createdByUid == request.auth.uid;
+    }
+
+    function isValidGalleryItemUpdate(nextData, prevData) {
+      return isValidGalleryItemShape(nextData)
+        && nextData.version == prevData.version + 1
+        && nextData.cloudinaryPublicId == prevData.cloudinaryPublicId
+        && nextData.cloudinaryAssetId == prevData.cloudinaryAssetId
+        && nextData.secureUrl == prevData.secureUrl
+        && nextData.resourceType == prevData.resourceType
+        && nextData.format == prevData.format
+        && nextData.width == prevData.width
+        && nextData.height == prevData.height
+        && nextData.bytes == prevData.bytes
+        && nextData.uploadedAt == prevData.uploadedAt
+        && nextData.uploadedByUid == prevData.uploadedByUid
+        && nextData.createdAt == prevData.createdAt
+        && nextData.createdByUid == prevData.createdByUid
+        && !(prevData.status == 'archived' && nextData.status == 'published');
+    }
+
+    match /galleryItems/{galleryItemId} {
+      allow get: if (resource != null && resource.data.status == 'published')
+        || isActiveOwner();
+
+      allow list: if resource.data.status == 'published'
+        || isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidGalleryItemCreate(request.resource.data);
+
+      allow update: if isActiveOwner()
+        && isValidGalleryItemUpdate(request.resource.data, resource.data);
+
+      allow delete: if false;
+    }
+
+    function isValidHeroFeaturedCopy(copy) {
+      return copy is map
+        && copy.keys().hasOnly([
+          'topSticker',
+          'captionTitle',
+          'captionSubtitle',
+          'floatingBadgeTitle',
+          'floatingBadgeSubtitle'
+        ])
+        && copy.size() == 5
+        && copy.topSticker is string
+        && copy.topSticker.size() <= 60
+        && copy.captionTitle is string
+        && copy.captionTitle.trim().size() >= 2
+        && copy.captionTitle.trim().size() <= 100
+        && copy.captionSubtitle is string
+        && copy.captionSubtitle.size() <= 160
+        && copy.floatingBadgeTitle is string
+        && copy.floatingBadgeTitle.size() <= 80
+        && copy.floatingBadgeSubtitle is string
+        && copy.floatingBadgeSubtitle.size() <= 120;
+    }
+
+    function isValidRoomPlacementCopy(copy) {
+      return copy is map
+        && copy.keys().hasOnly([
+          'sticker',
+          'name',
+          'capacityLabel',
+          'tags',
+          'ctaLabel'
+        ])
+        && copy.size() == 5
+        && copy.sticker is string
+        && copy.sticker.size() <= 60
+        && copy.name is string
+        && copy.name.trim().size() >= 2
+        && copy.name.trim().size() <= 100
+        && copy.capacityLabel is string
+        && copy.capacityLabel.trim().size() >= 2
+        && copy.capacityLabel.trim().size() <= 180
+        && copy.tags is list
+        && copy.tags.size() >= 1
+        && copy.tags.size() <= 6
+        && copy.tags[0] is string
+        && copy.tags[0].trim().size() >= 1
+        && copy.tags[0].size() <= 60
+        && copy.ctaLabel is string
+        && copy.ctaLabel.trim().size() >= 2
+        && copy.ctaLabel.trim().size() <= 60;
+    }
+
+    function isValidStudioExteriorCopy(copy) {
+      return copy is map
+        && copy.keys().hasOnly(['caption'])
+        && copy.size() == 1
+        && copy.caption is string
+        && copy.caption.size() <= 180;
+    }
+
+    function isValidLandingPagePlacementCopy(placementId, copy) {
+      return (placementId == 'hero-featured' && isValidHeroFeaturedCopy(copy))
+        || ((placementId == 'room-a' || placementId == 'room-b') && isValidRoomPlacementCopy(copy))
+        || (placementId == 'studio-exterior' && isValidStudioExteriorCopy(copy));
+    }
+
+    function isValidLandingPagePlacementShape(data, placementId) {
+      return placementId in ['hero-featured', 'room-a', 'room-b', 'studio-exterior']
+        && data.keys().hasOnly([
+          'schemaVersion',
+          'placementId',
+          'sourceGalleryItemId',
+          'cloudinaryPublicId',
+          'cloudinaryAssetId',
+          'secureUrl',
+          'resourceType',
+          'format',
+          'width',
+          'height',
+          'bytes',
+          'altText',
+          'copy',
+          'status',
+          'version',
+          'createdAt',
+          'createdByUid',
+          'updatedAt',
+          'updatedByUid'
+        ])
+        && data.size() == 19
+        && data.schemaVersion == 1
+        && data.placementId == placementId
+        && data.sourceGalleryItemId is string
+        && data.sourceGalleryItemId.trim().size() >= 1
+        && data.sourceGalleryItemId.size() <= 120
+        && data.cloudinaryPublicId is string
+        && data.cloudinaryPublicId.trim().size() >= 1
+        && data.cloudinaryPublicId.size() <= 240
+        && data.cloudinaryAssetId is string
+        && data.cloudinaryAssetId.trim().size() >= 1
+        && data.cloudinaryAssetId.size() <= 120
+        && data.secureUrl is string
+        && data.secureUrl.size() <= 600
+        && data.secureUrl.matches('^https://res\\.cloudinary\\.com/[a-zA-Z0-9_-]+/image/upload/[^\\s]+$')
+        && data.resourceType == 'image'
+        && data.format is string
+        && data.format in ['jpg', 'jpeg', 'png', 'webp', 'avif']
+        && data.width is int
+        && data.width >= 1
+        && data.width <= 6000
+        && data.height is int
+        && data.height >= 1
+        && data.height <= 6000
+        && data.bytes is int
+        && data.bytes >= 1
+        && data.bytes <= 10485760
+        && data.altText is string
+        && data.altText.trim().size() >= 3
+        && data.altText.size() <= 220
+        && isValidLandingPagePlacementCopy(placementId, data.copy)
+        && data.status is string
+        && data.status in ['draft', 'published']
+        && data.version is int
+        && data.version >= 1
+        && data.createdAt is timestamp
+        && data.createdByUid is string
+        && data.createdByUid.size() >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
+    function isValidLandingPagePlacementCreate(data, placementId) {
+      return isValidLandingPagePlacementShape(data, placementId)
+        && data.version == 1
+        && data.createdByUid == request.auth.uid;
+    }
+
+    function isValidLandingPagePlacementUpdate(nextData, prevData, placementId) {
+      return isValidLandingPagePlacementShape(nextData, placementId)
+        && nextData.version == prevData.version + 1
+        && nextData.createdAt == prevData.createdAt
+        && nextData.createdByUid == prevData.createdByUid;
+    }
+
+    match /landingPagePlacements/{placementId} {
+      allow get: if (resource != null && resource.data.status == 'published')
+        || isActiveOwner();
+
+      allow list: if resource.data.status == 'published'
+        || isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && isValidLandingPagePlacementCreate(request.resource.data, placementId);
+
+      allow update: if isActiveOwner()
+        && isValidLandingPagePlacementUpdate(request.resource.data, resource.data, placementId);
+
+      allow delete: if false;
+    }
+
+    function isValidPublicAvailabilityProjectionShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'date',
+          'studioId',
+          'startMinute',
+          'endMinute',
+          'updatedAt'
+        ])
+        && data.size() == 6
+        && data.schemaVersion == 1
+        && data.date is string
+        && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.studioId in ['room-a', 'room-b']
+        && data.startMinute is int
+        && data.startMinute >= 600
+        && data.startMinute < 1380
+        && data.startMinute % 30 == 0
+        && data.endMinute is int
+        && data.endMinute > data.startMinute
+        && data.endMinute <= 1380
+        && data.endMinute % 30 == 0
+        && data.updatedAt is timestamp;
+    }
+
+    function isPublicAvailabilityMatchedToCanonicalBookingAfter(data, bookingId) {
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(bookingId));
+      return existsAfter(/databases/$(database)/documents/bookings/$(bookingId))
+        && bookingAfter != null
+        && bookingAfter.data.date == data.date
+        && bookingAfter.data.studioId == data.studioId
+        && bookingAfter.data.startMinute == data.startMinute
+        && bookingAfter.data.endMinute == data.endMinute
+        && !(bookingAfter.data.sessionStatus in ['cancelled', 'no_show']);
+    }
+
+    function isPublicAvailabilityDeleteAllowedAfter(bookingId) {
+      return !existsAfter(/databases/$(database)/documents/bookings/$(bookingId))
+        || getAfter(/databases/$(database)/documents/bookings/$(bookingId)).data.sessionStatus in ['cancelled', 'no_show'];
+    }
+
+    function isValidPublicAvailabilityMetadataShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'isReady',
+          'backfilledFromDate',
+          'backfillCompletedAt',
+          'updatedAt'
+        ])
+        && data.size() == 5
+        && data.schemaVersion == 1
+        && data.isReady is bool
+        && data.backfilledFromDate is string
+        && (data.backfilledFromDate == '' || data.backfilledFromDate.matches('^\\d{4}-\\d{2}-\\d{2}$'))
+        && (data.backfillCompletedAt == null || data.backfillCompletedAt is timestamp)
+        && data.updatedAt is timestamp;
+    }
+
+    match /publicAvailability/{bookingId} {
+      allow read: if true;
+
+      allow create, update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidPublicAvailabilityProjectionShape(request.resource.data)
+        && isPublicAvailabilityMatchedToCanonicalBookingAfter(request.resource.data, bookingId);
+
+      allow delete: if canFactoryResetDelete()
+        || (!isFactoryResetLocked() && isActiveStaff() && isPublicAvailabilityDeleteAllowedAfter(bookingId));
+    }
+
+    match /publicAvailabilityMetadata/{docId} {
+      allow get: if docId == 'status';
+      allow list: if false;
+
+      allow create, update: if isActiveOwner()
+        && docId == 'status'
+        && isValidPublicAvailabilityMetadataShape(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    function isValidPublicPricingCatalogShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'version',
+          'serviceTypes',
+          'serviceOptionIndex',
+          'policyVersion',
+          'updatedAt'
+        ])
+        && (data.size() == 5 || data.size() == 6)
+        && !data.keys().hasAny([
+          'fees',
+          'operationalSettings',
+          'updatedByUid',
+          'defaultStaffCommission',
+          'defaultOwnerCommission',
+          'staffCommissionAmount',
+          'recordingOperatorCommissionAmount',
+          'rehearsalStaffCommissionPerHour',
+          'dailyMealAllowancePerStaff'
+        ])
+        && data.schemaVersion in [3, 4]
+        && (data.schemaVersion == 3
+          ? (!('policyVersion' in data) && data.size() == 5)
+          : (data.policyVersion is int && data.policyVersion >= 0 && data.size() == 6))
+        && data.version is int
+        && data.version >= 1
+        && data.serviceTypes is list
+        && data.serviceTypes.size() <= 20
+        && data.serviceOptionIndex is list
+        && data.serviceOptionIndex.size() <= 500
+        && data.updatedAt is timestamp;
+    }
+
+    match /publicPricingCatalog/{docId} {
+      allow get: if docId == 'current';
+      allow list: if false;
+
+      allow create, update: if isActiveOwner()
+        && docId == 'current'
+        && isValidPublicPricingCatalogShape(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    function isValidPublicSiteSettingsShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'studioName',
+          'tagline',
+          'publicWhatsappNumber',
+          'publicEmail',
+          'publicAddress',
+          'city',
+          'mapsUrl',
+          'operatingHours',
+          'publishedServices',
+          'publishedRooms',
+          'socialLinks',
+          'verifiedTestimonials',
+          'seoTitle',
+          'seoDescription',
+          'isPublished',
+          'updatedAt'
+        ])
+        && data.size() == 17
+        && data.schemaVersion == 1
+        && data.studioName is string
+        && data.studioName.trim().size() >= 2
+        && data.studioName.trim().size() <= 100
+        && data.tagline is string
+        && data.tagline.size() <= 160
+        && data.publicWhatsappNumber is string
+        && data.publicWhatsappNumber.size() <= 20
+        && (data.publicWhatsappNumber == '' || data.publicWhatsappNumber.matches('^\\+[1-9][0-9]{7,14}$'))
+        && data.publicEmail is string
+        && data.publicEmail.size() <= 120
+        && (data.publicEmail == '' || data.publicEmail.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$'))
+        && data.publicAddress is string
+        && data.publicAddress.size() <= 300
+        && data.city is string
+        && data.city.size() <= 80
+        && data.mapsUrl is string
+        && data.mapsUrl.size() <= 500
+        && (data.mapsUrl == '' || data.mapsUrl.matches('^https?://[^\\s]+$'))
+        && data.operatingHours is string
+        && data.operatingHours.trim().size() >= 2
+        && data.operatingHours.size() <= 80
+        && data.publishedServices is list
+        && data.publishedServices.size() >= 1
+        && data.publishedServices.size() <= 6
+        && data.publishedRooms is list
+        && data.publishedRooms.size() >= 1
+        && data.publishedRooms.size() <= 4
+        && data.socialLinks is list
+        && data.socialLinks.size() <= 6
+        && data.verifiedTestimonials is list
+        && data.verifiedTestimonials.size() <= 12
+        && data.seoTitle is string
+        && data.seoTitle.trim().size() >= 5
+        && data.seoTitle.size() <= 120
+        && data.seoDescription is string
+        && data.seoDescription.trim().size() >= 10
+        && data.seoDescription.size() <= 260
+        && data.isPublished is bool
+        && data.updatedAt is timestamp;
+    }
+
+    match /publicSiteSettings/{docId} {
+      allow get: if docId == 'site';
+      allow list: if false;
+
+      allow create, update: if isActiveOwner()
+        && docId == 'site'
+        && isValidPublicSiteSettingsShape(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    function isValidPublicBookingRequestKeys(data) {
+      return data.keys().hasOnly([
+        'schemaVersion',
+        'requestReference',
+        'requestType',
+        'status',
+        'statusReason',
+        'customerName',
+        'bandName',
+        'contactPhone',
+        'publicServiceId',
+        'serviceLabelSnapshot',
+        'requestedRoomId',
+        'preferredDate',
+        'preferredStartMinute',
+        'preferredDurationMinutes',
+        'targetDeadline',
+        'notes',
+        'privacyConsent',
+        'consentVersion',
+        'source',
+        'assignedStaffUid',
+        'assignedStaffName',
+        'lastCommunicationAt',
+        'lastCommunicationType',
+        'lastCommunicationStatus',
+        'linkedBookingId',
+        'confirmedBookingSnapshot',
+        'confirmedAt',
+        'confirmedByUid',
+        'appCheckState',
+        'createdAt',
+        'updatedAt',
+        'updatedByUid',
+        'version'
+      ]) && data.size() == 33;
+    }
+
+    function isValidClientBookingRequestKeys(data) {
+      return data.keys().hasOnly([
+        'schemaVersion',
+        'requestReference',
+        'requestType',
+        'status',
+        'statusReason',
+        'customerName',
+        'bandName',
+        'contactPhone',
+        'publicServiceId',
+        'serviceLabelSnapshot',
+        'requestedRoomId',
+        'preferredDate',
+        'preferredStartMinute',
+        'preferredDurationMinutes',
+        'targetDeadline',
+        'notes',
+        'privacyConsent',
+        'consentVersion',
+        'source',
+        'clientUid',
+        'customerId',
+        'serviceOptionId',
+        'serviceOptionName',
+        'pricingVersion',
+        'assignedStaffUid',
+        'assignedStaffName',
+        'lastCommunicationAt',
+        'lastCommunicationType',
+        'lastCommunicationStatus',
+        'linkedBookingId',
+        'confirmedBookingSnapshot',
+        'confirmedAt',
+        'confirmedByUid',
+        'appCheckState',
+        'createdAt',
+        'updatedAt',
+        'updatedByUid',
+        'version'
+      ]) && data.size() == 38;
+    }
+
+    function isValidPublicBookingRequestScheduleShape(data) {
+      return (
+        data.requestType == 'studio_booking'
+        && data.requestedRoomId in ['room-a', 'room-b', 'any']
+        && data.preferredDate is string
+        && data.preferredDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.preferredStartMinute is int
+        && data.preferredStartMinute >= 600
+        && data.preferredStartMinute < 1380
+        && data.preferredStartMinute % 30 == 0
+        && data.preferredDurationMinutes is int
+        && data.preferredDurationMinutes >= 60
+        && data.preferredDurationMinutes <= 780
+        && data.preferredDurationMinutes % 30 == 0
+        && data.preferredStartMinute + data.preferredDurationMinutes <= 1380
+        && data.targetDeadline == null
+      ) || (
+        data.requestType == 'post_production_inquiry'
+        && data.requestedRoomId == null
+        && data.preferredDate == null
+        && data.preferredStartMinute == null
+        && data.preferredDurationMinutes == null
+        && (data.targetDeadline == null || (data.targetDeadline is string && data.targetDeadline.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+      );
+    }
+
+    function isValidClientPortalProjectDetails(data) {
+      return data.requestType != 'post_production_inquiry'
+        || (
+          data.bandName is string
+          && data.bandName.trim().size() >= 2
+          && data.notes is string
+          && data.notes.matches('^.*Project Brief: .{10,}$')
+        );
+    }
+
+    function isValidClientBookingCatalogSnapshot(data) {
+      let catalog = get(/databases/$(database)/documents/publicPricingCatalog/current);
+      return catalog.data.schemaVersion in [3, 4]
+        && data.pricingVersion == catalog.data.version
+        && catalog.data.serviceOptionIndex is list
+        && catalog.data.serviceOptionIndex.hasAny([{
+          'serviceTypeId': data.publicServiceId,
+          'serviceLabelSnapshot': data.serviceLabelSnapshot,
+          'serviceOptionId': data.serviceOptionId,
+          'serviceOptionName': data.serviceOptionName,
+          'deliveryMode': data.requestType == 'studio_booking' ? 'studio' : 'wfa'
+        }]);
+    }
+
+    function isValidClientPortalBookingRequestCreate(data) {
+      return isActiveClient()
+        && isValidClientBookingRequestKeys(data)
+        && data.source == 'client_portal'
+        && data.clientUid == request.auth.uid
+        && data.customerId == getClientAccountDoc(request.auth.uid).data.customerId
+        && data.publicServiceId is string
+        && data.publicServiceId.trim().size() >= 2
+        && data.publicServiceId.size() <= 80
+        && data.serviceOptionId is string
+        && data.serviceOptionId.trim().size() >= 1
+        && data.serviceOptionId.size() <= 80
+        && data.serviceOptionName is string
+        && data.serviceOptionName.trim().size() >= 1
+        && data.serviceOptionName.size() <= 100
+        && data.pricingVersion is int
+        && data.pricingVersion >= 1
+        && exists(/databases/$(database)/documents/publicPricingCatalog/current)
+        && isValidClientBookingCatalogSnapshot(data)
+        && isValidClientPortalProjectDetails(data);
+    }
+
+
+    function isValidAnonymousPublicBookingRequestCreate(data) {
+      return isValidPublicBookingRequestKeys(data)
+        && data.source in ['public_landing_page', 'public_availability_calendar']
+        && (
+          (data.requestType == 'studio_booking' && data.publicServiceId in ['rehearsal', 'recording'])
+          || (data.requestType == 'post_production_inquiry' && data.publicServiceId == 'mix-master')
+        );
+    }
+
+    function isValidPublicBookingRequestCreate(data, requestId) {
+      return requestId is string
+        && requestId.size() >= 8
+        && requestId.size() <= 80
+        && data.schemaVersion == 1
+        && data.requestReference is string
+        && data.requestReference.matches('^REQ-[A-Z0-9]{8}$')
+        && data.status == 'new'
+        && data.statusReason == ''
+        && data.version == 1
+        && data.privacyConsent == true
+        && data.consentVersion == 'v1'
+        && data.customerName is string
+        && data.customerName.trim().size() >= 2
+        && data.customerName.trim().size() <= 100
+        && data.bandName is string
+        && data.bandName.size() <= 100
+        && data.contactPhone is string
+        && data.contactPhone.matches('^\\+[1-9][0-9]{7,14}$')
+        && data.serviceLabelSnapshot is string
+        && data.serviceLabelSnapshot.trim().size() >= 2
+        && data.serviceLabelSnapshot.size() <= 80
+        && data.notes is string
+        && data.notes.size() <= 600
+        && data.appCheckState in ['verified', 'unconfigured']
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.updatedByUid == ''
+        && data.assignedStaffUid == ''
+        && data.assignedStaffName == ''
+        && data.lastCommunicationAt == null
+        && data.lastCommunicationType == ''
+        && data.lastCommunicationStatus == ''
+        && data.linkedBookingId == null
+        && data.confirmedBookingSnapshot == null
+        && data.confirmedAt == null
+        && data.confirmedByUid == ''
+        && isValidPublicBookingRequestScheduleShape(data)
+        && (
+          isValidAnonymousPublicBookingRequestCreate(data)
+          || isValidClientPortalBookingRequestCreate(data)
+        );
+    }
+
+    function isBookingRequestCustomerFieldsUnchanged(nextData, prevData) {
+      return nextData.schemaVersion == prevData.schemaVersion
+        && nextData.requestReference == prevData.requestReference
+        && nextData.requestType == prevData.requestType
+        && nextData.customerName == prevData.customerName
+        && nextData.bandName == prevData.bandName
+        && nextData.contactPhone == prevData.contactPhone
+        && nextData.publicServiceId == prevData.publicServiceId
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.requestedRoomId == prevData.requestedRoomId
+        && nextData.preferredDate == prevData.preferredDate
+        && nextData.preferredStartMinute == prevData.preferredStartMinute
+        && nextData.preferredDurationMinutes == prevData.preferredDurationMinutes
+        && nextData.targetDeadline == prevData.targetDeadline
+        && nextData.notes == prevData.notes
+        && nextData.privacyConsent == prevData.privacyConsent
+        && nextData.consentVersion == prevData.consentVersion
+        && nextData.source == prevData.source
+        && nextData.get('clientUid', '') == prevData.get('clientUid', '')
+        && nextData.get('customerId', '') == prevData.get('customerId', '')
+        && nextData.get('serviceOptionId', '') == prevData.get('serviceOptionId', '')
+        && nextData.get('serviceOptionName', '') == prevData.get('serviceOptionName', '')
+        && nextData.get('pricingVersion', null) == prevData.get('pricingVersion', null)
+        && nextData.appCheckState == prevData.appCheckState
+        && nextData.createdAt == prevData.createdAt;
+    }
+
+    function isValidConfirmedBookingSnapshot(snap, bookingId, bookingData) {
+      return snap is map
+        && snap.size() == 10
+        && snap.bookingId == bookingId
+        && snap.bookingReference is string
+        && snap.bookingReference.size() >= 3
+        && snap.studioId == bookingData.studioId
+        && snap.studioName is string
+        && snap.serviceTypeName is string
+        && snap.serviceOptionName is string
+        && snap.date == bookingData.date
+        && snap.startMinute == bookingData.startMinute
+        && snap.endMinute == bookingData.endMinute
+        && snap.durationMinutes == bookingData.durationMinutes;
+    }
+
+    function isBookingRequestLinkedBookingValidAfter(nextData) {
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(nextData.linkedBookingId));
+      return nextData.linkedBookingId is string
+        && nextData.linkedBookingId.size() > 0
+        && existsAfter(/databases/$(database)/documents/bookings/$(nextData.linkedBookingId))
+        && bookingAfter != null
+        && bookingAfter.data.sessionStatus != 'cancelled'
+        && isValidConfirmedBookingSnapshot(
+          nextData.confirmedBookingSnapshot,
+          nextData.linkedBookingId,
+          bookingAfter.data
+        );
+    }
+
+    function isValidBookingRequestStatusTransition(nextData, prevData) {
+      return (
+        nextData.status == prevData.status
+        && nextData.statusReason == prevData.statusReason
+        && nextData.linkedBookingId == prevData.linkedBookingId
+        && nextData.confirmedBookingSnapshot == prevData.confirmedBookingSnapshot
+        && nextData.confirmedAt == prevData.confirmedAt
+        && nextData.confirmedByUid == prevData.confirmedByUid
+      ) || (
+        nextData.status == 'confirmed'
+        && prevData.requestType == 'studio_booking'
+        && prevData.status in ['new', 'in_review', 'awaiting_customer', 'accepted']
+        && prevData.linkedBookingId == null
+        && nextData.linkedBookingId is string
+        && nextData.linkedBookingId.size() > 0
+        && nextData.confirmedAt is timestamp
+        && nextData.confirmedByUid == request.auth.uid
+        && isBookingRequestLinkedBookingValidAfter(nextData)
+      ) || (
+        nextData.status != 'confirmed'
+        && nextData.linkedBookingId == prevData.linkedBookingId
+        && nextData.confirmedBookingSnapshot == prevData.confirmedBookingSnapshot
+        && nextData.confirmedAt == prevData.confirmedAt
+        && nextData.confirmedByUid == prevData.confirmedByUid
+        && (
+          (prevData.status == 'new' && nextData.status in ['in_review', 'awaiting_customer', 'accepted', 'declined', 'closed'])
+          || (prevData.status == 'in_review' && nextData.status in ['awaiting_customer', 'accepted', 'declined', 'closed'])
+          || (prevData.status == 'awaiting_customer' && nextData.status in ['in_review', 'accepted', 'declined', 'closed'])
+          || (prevData.status == 'accepted' && nextData.status in ['in_review', 'awaiting_customer', 'declined', 'closed'])
+          || (prevData.status == 'declined' && nextData.status == 'closed')
+        )
+        && (
+          !(nextData.status in ['declined', 'closed'])
+          || (nextData.statusReason is string && nextData.statusReason.trim().size() >= 3 && nextData.statusReason.size() <= 400)
+        )
+      );
+    }
+
+    function isValidBookingRequestStaffUpdate(nextData, prevData) {
+      return (
+          prevData.source == 'client_portal'
+            ? isValidClientBookingRequestKeys(nextData)
+            : isValidPublicBookingRequestKeys(nextData)
+        )
+        && isBookingRequestCustomerFieldsUnchanged(nextData, prevData)
+        && nextData.version == prevData.version + 1
+        && nextData.updatedByUid == request.auth.uid
+        && nextData.updatedAt is timestamp
+        && nextData.assignedStaffUid is string
+        && nextData.assignedStaffUid.size() <= 128
+        && nextData.assignedStaffName is string
+        && nextData.assignedStaffName.size() <= 120
+        && (nextData.lastCommunicationAt == null || nextData.lastCommunicationAt is timestamp)
+        && nextData.lastCommunicationType is string
+        && nextData.lastCommunicationType.size() <= 60
+        && nextData.lastCommunicationStatus is string
+        && nextData.lastCommunicationStatus.size() <= 60
+        && isValidBookingRequestStatusTransition(nextData, prevData);
+    }
+
+    function isValidBookingRequestCommunicationCreate(data) {
+      return data.keys().hasOnly([
+          'templateId',
+          'templateLabel',
+          'messageBodySnapshot',
+          'eventType',
+          'preparedAt',
+          'preparedByUid',
+          'manuallyMarkedSentAt',
+          'manuallyMarkedSentByUid',
+          'createdAt'
+        ])
+        && data.size() == 9
+        && data.templateId is string
+        && data.templateId.size() <= 80
+        && data.templateLabel is string
+        && data.templateLabel.size() <= 120
+        && data.messageBodySnapshot is string
+        && data.messageBodySnapshot.trim().size() >= 1
+        && data.messageBodySnapshot.size() <= 1800
+        && data.eventType in ['whatsapp_message_prepared', 'whatsapp_message_marked_sent', 'staff_note_added']
+        && (data.preparedAt == null || data.preparedAt is timestamp)
+        && data.preparedByUid is string
+        && (data.manuallyMarkedSentAt == null || data.manuallyMarkedSentAt is timestamp)
+        && data.manuallyMarkedSentByUid is string
+        && (data.preparedByUid == request.auth.uid || data.manuallyMarkedSentByUid == request.auth.uid)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidBookingRequestActivityCreate(data) {
+      return data.keys().hasOnly([
+          'eventType',
+          'fromStatus',
+          'toStatus',
+          'linkedBookingId',
+          'note',
+          'actorUid',
+          'actorName',
+          'createdAt'
+        ])
+        && data.size() == 8
+        && data.eventType in ['request_created', 'status_changed', 'booking_confirmed', 'staff_assigned']
+        && (data.fromStatus == null || data.fromStatus is string)
+        && (data.toStatus == null || data.toStatus is string)
+        && (data.linkedBookingId == null || data.linkedBookingId is string)
+        && data.note is string
+        && data.note.size() <= 500
+        && data.actorUid == request.auth.uid
+        && data.actorName is string
+        && data.actorName.size() <= 120
+        && data.createdAt is timestamp;
+    }
+
+    match /publicBookingRequests/{requestId} {
+      allow get: if isActiveStaff()
+        || (
+          isActiveClient()
+          && resource != null
+          && resource.data.source == 'client_portal'
+          && resource.data.clientUid == request.auth.uid
+        );
+
+      allow list: if isActiveStaff()
+        || (
+          isActiveClient()
+          && resource.data.source == 'client_portal'
+          && resource.data.clientUid == request.auth.uid
+        );
+
+      allow create: if !isFactoryResetLocked()
+        && isValidPublicBookingRequestCreate(request.resource.data, requestId);
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidBookingRequestStaffUpdate(request.resource.data, resource.data);
+
+      allow delete: if canFactoryResetDelete();
+
+      match /communications/{eventId} {
+        allow read: if isActiveStaff();
+        allow create: if isActiveStaff()
+          && !isFactoryResetLocked()
+          && isValidBookingRequestCommunicationCreate(request.resource.data);
+        allow update: if false;
+        allow delete: if canFactoryResetDelete();
+      }
+
+      match /activities/{eventId} {
+        allow read: if isActiveStaff();
+        allow create: if isActiveStaff()
+          && !isFactoryResetLocked()
+          && isValidBookingRequestActivityCreate(request.resource.data);
+        allow update: if false;
+        allow delete: if canFactoryResetDelete();
+      }
+    }
+
+    function isValidBookingRequestMessageTemplateWrite(data, templateId) {
+      return templateId is string
+        && templateId.size() >= 2
+        && templateId.size() <= 80
+        && data.keys().hasOnly([
+          'schemaVersion',
+          'label',
+          'category',
+          'description',
+          'body',
+          'allowedVariables',
+          'requiredVariables',
+          'requiresConfirmedBooking',
+          'isActive',
+          'isBuiltIn',
+          'sortOrder',
+          'version',
+          'updatedAt',
+          'updatedByUid'
+        ])
+        && data.size() == 14
+        && data.schemaVersion == 1
+        && data.label is string
+        && data.label.trim().size() >= 2
+        && data.label.trim().size() <= 80
+        && data.category in [
+          'initial_response',
+          'follow_up',
+          'scheduling',
+          'approval',
+          'confirmation',
+          'closing',
+          'post_production'
+        ]
+        && data.description is string
+        && data.description.size() <= 300
+        && data.body is string
+        && data.body.trim().size() >= 5
+        && data.body.size() <= 1500
+        && data.allowedVariables is list
+        && data.allowedVariables.size() <= 15
+        && data.requiredVariables is list
+        && data.requiredVariables.size() <= 15
+        && data.requiresConfirmedBooking is bool
+        && data.isActive is bool
+        && data.isBuiltIn is bool
+        && data.sortOrder is int
+        && data.version is int
+        && data.version >= 1
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
+    }
+
+    match /bookingRequestMessageTemplates/{templateId} {
+      allow read: if isActiveStaff();
+
+      allow create, update: if isActiveOwner()
+        && isValidBookingRequestMessageTemplateWrite(request.resource.data, templateId);
+
+      allow delete: if false;
+    }
+
+    function isValidSha256Hex(value) {
+      return value is string && value.matches('^[0-9a-f]{64}$');
+    }
+
+    function isBookingEligibleForReviewInvitation(bookingId) {
+      let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
+      let booking = get(bookingPath);
+      return exists(bookingPath)
+        && booking.data.sessionStatus == 'completed'
+        && booking.data.actualCompletedAt is timestamp
+        && booking.data.deliveryMode == 'studio'
+        && booking.data.customerId is string
+        && booking.data.customerId.size() >= 1;
+    }
+
+    function isValidReviewInvitationShape(data) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'bookingId',
+          'serviceLabelSnapshot',
+          'sessionDate',
+          'studioId',
+          'status',
+          'issuedByUid',
+          'issuedAt',
+          'expiresAt',
+          'submittedAt',
+          'revokedAt',
+          'revokedByUid',
+          'version'
+        ])
+        && data.size() == 13
+        && data.schemaVersion == 1
+        && data.bookingId is string
+        && data.bookingId.size() >= 1
+        && data.bookingId.size() <= 120
+        && data.serviceLabelSnapshot is string
+        && data.serviceLabelSnapshot.trim().size() >= 1
+        && data.serviceLabelSnapshot.size() <= 120
+        && data.sessionDate is string
+        && data.sessionDate.size() <= 20
+        && data.studioId in ['', 'room-a', 'room-b']
+        && data.status in ['active', 'submitted', 'revoked']
+        && data.issuedByUid is string
+        && data.issuedByUid.size() <= 128
+        && data.issuedAt is timestamp
+        && data.expiresAt is timestamp
+        && (data.submittedAt == null || data.submittedAt is timestamp)
+        && (data.revokedAt == null || data.revokedAt is timestamp)
+        && data.revokedByUid is string
+        && data.revokedByUid.size() <= 128
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidReviewInvitationStaffCreate(data, tokenHash) {
+      return isValidSha256Hex(tokenHash)
+        && isValidReviewInvitationShape(data)
+        && data.status == 'active'
+        && data.issuedByUid == request.auth.uid
+        && data.issuedAt == request.time
+        && data.expiresAt > request.time
+        && data.submittedAt == null
+        && data.revokedAt == null
+        && data.revokedByUid == ''
+        && data.version == 1
+        && isBookingEligibleForReviewInvitation(data.bookingId)
+        && !exists(/databases/$(database)/documents/customerReviews/$(data.bookingId))
+        && getAfter(/databases/$(database)/documents/reviewInvitationIndexes/$(data.bookingId)).data.activeInvitationId == tokenHash;
+    }
+
+    function isValidReviewInvitationStaffRevoke(nextData, prevData) {
+      return isValidReviewInvitationShape(nextData)
+        && prevData.status == 'active'
+        && nextData.status == 'revoked'
+        && nextData.schemaVersion == prevData.schemaVersion
+        && nextData.bookingId == prevData.bookingId
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.sessionDate == prevData.sessionDate
+        && nextData.studioId == prevData.studioId
+        && nextData.issuedByUid == prevData.issuedByUid
+        && nextData.issuedAt == prevData.issuedAt
+        && nextData.expiresAt == prevData.expiresAt
+        && nextData.submittedAt == null
+        && prevData.submittedAt == null
+        && nextData.revokedAt == request.time
+        && nextData.revokedByUid == request.auth.uid
+        && nextData.version == prevData.version + 1;
+    }
+
+    function isValidReviewInvitationPublicSubmitUpdate(nextData, prevData, tokenHash) {
+      let reviewPath = /databases/$(database)/documents/customerReviews/$(prevData.bookingId);
+      let reviewAfter = getAfter(reviewPath);
+      return isValidSha256Hex(tokenHash)
+        && isValidReviewInvitationShape(nextData)
+        && prevData.status == 'active'
+        && prevData.expiresAt > request.time
+        && nextData.status == 'submitted'
+        && nextData.schemaVersion == prevData.schemaVersion
+        && nextData.bookingId == prevData.bookingId
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.sessionDate == prevData.sessionDate
+        && nextData.studioId == prevData.studioId
+        && nextData.issuedByUid == prevData.issuedByUid
+        && nextData.issuedAt == prevData.issuedAt
+        && nextData.expiresAt == prevData.expiresAt
+        && nextData.revokedAt == prevData.revokedAt
+        && nextData.revokedByUid == prevData.revokedByUid
+        && nextData.submittedAt == request.time
+        && nextData.version == prevData.version + 1
+        && !exists(reviewPath)
+        && reviewAfter.data.bookingId == prevData.bookingId
+        && reviewAfter.data.invitationId == tokenHash
+        && reviewAfter.data.status == 'pending';
+    }
+
+    match /reviewInvitations/{tokenHash} {
+      allow get: if isActiveStaff()
+        || (
+          resource != null
+          && isValidSha256Hex(tokenHash)
+          && (
+            (resource.data.status == 'active' && resource.data.expiresAt > request.time)
+            || resource.data.status == 'submitted'
+          )
+        );
+
+      allow list: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidReviewInvitationStaffCreate(request.resource.data, tokenHash);
+
+      allow update: if !isFactoryResetLocked()
+        && (
+          (isActiveStaff() && isValidReviewInvitationStaffRevoke(request.resource.data, resource.data))
+          || (
+            request.auth == null
+            && isValidReviewInvitationPublicSubmitUpdate(request.resource.data, resource.data, tokenHash)
+          )
+        );
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    function isValidReviewInvitationIndexShape(data, bookingId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'bookingId',
+          'activeInvitationId',
+          'issuedAt',
+          'expiresAt',
+          'version'
+        ])
+        && data.size() == 6
+        && data.schemaVersion == 1
+        && data.bookingId == bookingId
+        && isValidSha256Hex(data.activeInvitationId)
+        && data.issuedAt == request.time
+        && data.expiresAt is timestamp
+        && data.expiresAt > request.time
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    match /reviewInvitationIndexes/{bookingId} {
+      allow read: if isActiveStaff();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidReviewInvitationIndexShape(request.resource.data, bookingId)
+        && request.resource.data.version == 1
+        && isBookingEligibleForReviewInvitation(bookingId)
+        && !exists(/databases/$(database)/documents/customerReviews/$(bookingId))
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.bookingId == bookingId
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.status == 'active';
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidReviewInvitationIndexShape(request.resource.data, bookingId)
+        && request.resource.data.version == resource.data.version + 1
+        && isBookingEligibleForReviewInvitation(bookingId)
+        && !exists(/databases/$(database)/documents/customerReviews/$(bookingId))
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.bookingId == bookingId
+        && getAfter(/databases/$(database)/documents/reviewInvitations/$(request.resource.data.activeInvitationId)).data.status == 'active';
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+    function isValidCustomerReviewShape(data, bookingId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'bookingId',
+          'invitationId',
+          'displayName',
+          'rating',
+          'reviewText',
+          'serviceLabelSnapshot',
+          'sessionDate',
+          'consentToPublish',
+          'consentVersion',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'publishedAt',
+          'version'
+        ])
+        && data.size() == 15
+        && data.schemaVersion == 1
+        && data.bookingId == bookingId
+        && bookingId is string
+        && bookingId.size() >= 1
+        && bookingId.size() <= 120
+        && isValidSha256Hex(data.invitationId)
+        && data.displayName is string
+        && data.displayName.trim().size() >= 2
+        && data.displayName.size() <= 80
+        && data.rating is int
+        && data.rating >= 1
+        && data.rating <= 5
+        && data.reviewText is string
+        && data.reviewText.trim().size() >= 10
+        && data.reviewText.size() <= 1500
+        && data.serviceLabelSnapshot is string
+        && data.serviceLabelSnapshot.size() <= 120
+        && data.sessionDate is string
+        && data.sessionDate.size() <= 20
+        && data.consentToPublish == true
+        && data.consentVersion == 'customer-review-publication-v1'
+        && data.status in ['pending', 'published', 'rejected', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (data.publishedAt == null || data.publishedAt is timestamp)
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidCustomerReviewPublicCreate(data, bookingId) {
+      let invPath = /databases/$(database)/documents/reviewInvitations/$(data.invitationId);
+      let inv = get(invPath);
+      let invAfter = getAfter(invPath);
+      return isValidCustomerReviewShape(data, bookingId)
+        && data.status == 'pending'
+        && data.createdAt == request.time
+        && data.updatedAt == request.time
+        && data.publishedAt == null
+        && data.version == 1
+        && exists(invPath)
+        && inv.data.status == 'active'
+        && inv.data.expiresAt > request.time
+        && inv.data.bookingId == bookingId
+        && data.serviceLabelSnapshot == inv.data.serviceLabelSnapshot
+        && data.sessionDate == inv.data.sessionDate
+        && invAfter.data.status == 'submitted'
+        && invAfter.data.submittedAt == request.time;
+    }
+
+    function isValidCustomerReviewModerationUpdate(nextData, prevData, bookingId) {
+      return isValidCustomerReviewShape(nextData, bookingId)
+        && nextData.schemaVersion == prevData.schemaVersion
+        && nextData.bookingId == prevData.bookingId
+        && nextData.invitationId == prevData.invitationId
+        && nextData.displayName == prevData.displayName
+        && nextData.rating == prevData.rating
+        && nextData.reviewText == prevData.reviewText
+        && nextData.serviceLabelSnapshot == prevData.serviceLabelSnapshot
+        && nextData.sessionDate == prevData.sessionDate
+        && nextData.consentToPublish == prevData.consentToPublish
+        && nextData.consentVersion == prevData.consentVersion
+        && nextData.createdAt == prevData.createdAt
+        && nextData.updatedAt == request.time
+        && nextData.version == prevData.version + 1
+        && (
+          (prevData.status == 'pending' && nextData.status == 'published' && nextData.publishedAt == request.time)
+          || (prevData.status == 'pending' && nextData.status == 'rejected' && nextData.publishedAt == null)
+          || (prevData.status == 'rejected' && nextData.status == 'pending' && nextData.publishedAt == null)
+          || (prevData.status == 'rejected' && nextData.status == 'published' && nextData.publishedAt == request.time)
+          || (prevData.status == 'published' && nextData.status == 'archived' && nextData.publishedAt == null)
+          || (prevData.status == 'archived' && nextData.status == 'published' && nextData.publishedAt == request.time)
+          || (prevData.status == 'archived' && nextData.status == 'rejected' && nextData.publishedAt == null)
+        );
+    }
+
+    match /customerReviews/{bookingId} {
+      allow get: if isActiveStaff()
+        || (resource != null && resource.data.status == 'published');
+
+      allow list: if isActiveStaff()
+        || resource.data.status == 'published';
+
+      allow create: if request.auth == null
+        && !isFactoryResetLocked()
+        && isValidCustomerReviewPublicCreate(request.resource.data, bookingId);
+
+      allow update: if isActiveOwner()
+        && isValidCustomerReviewModerationUpdate(request.resource.data, resource.data, bookingId);
+
+      allow delete: if false;
+    }
+
+    function isValidPublicReviewStatsWrite(data) {
+      let dist = data.ratingDistribution;
+      let distCount = dist['1'] + dist['2'] + dist['3'] + dist['4'] + dist['5'];
+      let distWeightedSum = dist['1'] * 1 + dist['2'] * 2 + dist['3'] * 3 + dist['4'] * 4 + dist['5'] * 5;
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'publishedCount',
+          'ratingSum',
+          'ratingDistribution',
+          'updatedAt'
+        ])
+        && data.size() == 5
+        && data.schemaVersion == 1
+        && data.publishedCount is int
+        && data.publishedCount >= 0
+        && data.ratingSum is int
+        && data.ratingSum >= 0
+        && dist is map
+        && dist.keys().hasOnly(['1', '2', '3', '4', '5'])
+        && dist.size() == 5
+        && dist['1'] is int && dist['1'] >= 0
+        && dist['2'] is int && dist['2'] >= 0
+        && dist['3'] is int && dist['3'] >= 0
+        && dist['4'] is int && dist['4'] >= 0
+        && dist['5'] is int && dist['5'] >= 0
+        && distCount == data.publishedCount
+        && distWeightedSum == data.ratingSum
+        && data.updatedAt == request.time;
+    }
+
+    match /publicReviewStats/{docId} {
+      allow get: if docId == 'summary';
+      allow list: if false;
+
+      allow create, update: if isActiveOwner()
+        && docId == 'summary'
+        && isValidPublicReviewStatsWrite(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // CLIENT PORTAL PHASE 1 — ACCOUNTS, VERIFIED EMAIL INDEX & CLIENT PROFILES
+    // =========================================================================
+
+    function isValidCustomerEmailIndex(data, normalizedEmail) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'emailNormalized',
+          'customerId',
+          'status',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
+        && data.size() == 7
+        && data.schemaVersion == 1
+        && isValidNormalizedEmail(normalizedEmail)
+        && data.emailNormalized == normalizedEmail
+        && data.status in ['active', 'ambiguous']
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid
+        && data.version is int
+        && data.version >= 1
+        && (
+          (
+            data.status == 'active'
+            && data.customerId is string
+            && data.customerId.size() >= 1
+            && data.customerId.size() <= 120
+            && existsAfter(/databases/$(database)/documents/customers/$(data.customerId))
+            && existsAfter(/databases/$(database)/documents/clientProfiles/$(data.customerId))
+          ) || (
+            data.status == 'ambiguous'
+            && data.customerId == ''
+          )
+        );
+    }
+
+    match /customerEmailIndex/{normalizedEmail} {
+      allow get: if isActiveStaff()
+        || (
+          hasVerifiedGoogleEmail()
+          && !isAnyStaffProfile()
+          && normalizedAuthEmail() == normalizedEmail
+        );
+
+      allow list: if isActiveOwner();
+
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidCustomerEmailIndex(request.resource.data, normalizedEmail)
+        && request.resource.data.version == 1;
+
+      allow update: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && isValidCustomerEmailIndex(request.resource.data, normalizedEmail)
+        && request.resource.data.version == resource.data.version + 1;
+
+      allow delete: if (isActiveStaff() && !isFactoryResetLocked())
+        || canFactoryResetDelete();
+    }
+
+    function isValidClientProfileShape(data, customerId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'customerId',
+          'ownerUid',
+          'profileSource',
+          'displayName',
+          'emailNormalized',
+          'phoneDisplay',
+          'photoURL',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'version'
+        ])
+        && data.size() == 12
+        && data.schemaVersion == 1
+        && customerId is string
+        && customerId.size() >= 1
+        && customerId.size() <= 140
+        && data.customerId == customerId
+        && (data.ownerUid == null || (data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128))
+        && data.profileSource in ['linked_customer', 'isolated_client_profile']
+        && data.displayName is string
+        && data.displayName.trim().size() >= 1
+        && data.displayName.size() <= 120
+        && data.emailNormalized is string
+        && (data.emailNormalized == '' || isValidNormalizedEmail(data.emailNormalized))
+        && data.phoneDisplay is string
+        && data.phoneDisplay.size() <= 40
+        && data.photoURL is string
+        && data.photoURL.size() <= 500
+        && data.status in ['active', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidClientAccountShape(data, uid) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'uid',
+          'role',
+          'status',
+          'customerId',
+          'profileSource',
+          'emailNormalized',
+          'displayName',
+          'photoURL',
+          'authProvider',
+          'emailVerified',
+          'createdAt',
+          'updatedAt',
+          'version'
+        ])
+        && data.size() == 14
+        && data.schemaVersion == 1
+        && data.uid == uid
+        && data.role == 'client'
+        && data.status in ['active', 'suspended']
+        && data.customerId is string
+        && data.customerId.size() >= 1
+        && data.customerId.size() <= 140
+        && data.profileSource in ['linked_customer', 'isolated_client_profile']
+        && isValidNormalizedEmail(data.emailNormalized)
+        && data.displayName is string
+        && data.displayName.trim().size() >= 1
+        && data.displayName.size() <= 120
+        && data.photoURL is string
+        && data.photoURL.size() <= 500
+        && data.authProvider in ['google.com', 'password']
+        && data.emailVerified is bool
+        && (data.authProvider != 'google.com' || data.emailVerified == true)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.version is int
+        && data.version >= 1;
+    }
+
+    function isValidClientCustomerLinkShape(data, customerId) {
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'customerId',
+          'ownerUid',
+          'emailNormalized',
+          'profileSource',
+          'createdAt',
+          'version'
+        ])
+        && data.size() == 7
+        && data.schemaVersion == 1
+        && customerId is string
+        && customerId.size() >= 1
+        && customerId.size() <= 140
+        && data.customerId == customerId
+        && data.ownerUid is string
+        && data.ownerUid.size() >= 1
+        && data.ownerUid.size() <= 128
+        && isValidNormalizedEmail(data.emailNormalized)
+        && data.profileSource in ['linked_customer', 'isolated_client_profile']
+        && data.createdAt is timestamp
+        && data.version is int
+        && data.version == 1;
+    }
+
+    function isClientAccountCreateLinkMatched(data, uid) {
+      let linkAfter = getAfter(/databases/$(database)/documents/clientCustomerLinks/$(data.customerId));
+      return linkAfter.data.ownerUid == uid
+        && linkAfter.data.customerId == data.customerId
+        && linkAfter.data.profileSource == data.profileSource;
+    }
+
+    function isClientAccountCreateIsolatedProfileMatched(data, uid) {
+      let profileAfter = getAfter(/databases/$(database)/documents/clientProfiles/$(data.customerId));
+      return profileAfter.data.ownerUid == uid
+        && profileAfter.data.customerId == data.customerId
+        && profileAfter.data.profileSource == 'isolated_client_profile'
+        && profileAfter.data.status == 'active';
+    }
+
+    function isClientAccountCreateLinkedCustomerMatched(data, emailNormalized) {
+      let emailIdx = get(/databases/$(database)/documents/customerEmailIndex/$(emailNormalized));
+      let profile = get(/databases/$(database)/documents/clientProfiles/$(data.customerId));
+      return emailIdx.data.status == 'active'
+        && emailIdx.data.customerId == data.customerId
+        && profile.data.status == 'active'
+        && profile.data.emailNormalized == emailNormalized;
+    }
+
+    function isClientCustomerLinkCreateAccountMatched(data, uid, customerId) {
+      let acctAfter = getAfter(/databases/$(database)/documents/clientAccounts/$(uid));
+      return acctAfter.data.customerId == customerId
+        && acctAfter.data.profileSource == data.profileSource;
+    }
+
+    function isClientCustomerLinkCreateEmailIndexMatched(customerId, emailNormalized) {
+      let emailIdx = get(/databases/$(database)/documents/customerEmailIndex/$(emailNormalized));
+      return emailIdx.data.status == 'active'
+        && emailIdx.data.customerId == customerId;
+    }
+
+    match /clientAccounts/{uid} {
+      allow get: if isActiveOwner()
+        || (request.auth != null && request.auth.uid == uid);
+
+      allow list: if isActiveOwner();
+
+      allow create: if hasEligibleClientAuth()
+        && !isAnyStaffProfile()
+        && !isFactoryResetLocked()
+        && request.auth.uid == uid
+        && isValidClientAccountShape(request.resource.data, uid)
+        && request.resource.data.role == 'client'
+        && request.resource.data.status == 'active'
+        && request.resource.data.emailNormalized == normalizedAuthEmail()
+        && request.resource.data.authProvider == request.auth.token.firebase.sign_in_provider
+        && request.resource.data.emailVerified == (
+          ('email_verified' in request.auth.token) && request.auth.token.email_verified == true
+        )
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.version == 1
+        && !exists(/databases/$(database)/documents/clientCustomerLinks/$(request.resource.data.customerId))
+        && isClientAccountCreateLinkMatched(request.resource.data, uid)
+        && (
+          (
+            request.resource.data.profileSource == 'isolated_client_profile'
+            && request.resource.data.customerId == ('client_' + uid)
+            && isClientAccountCreateIsolatedProfileMatched(request.resource.data, uid)
+          ) || (
+            hasVerifiedGoogleEmail()
+            && request.resource.data.profileSource == 'linked_customer'
+            && exists(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail()))
+            && exists(/databases/$(database)/documents/clientProfiles/$(request.resource.data.customerId))
+            && isClientAccountCreateLinkedCustomerMatched(request.resource.data, normalizedAuthEmail())
+          )
+        );
+
+      allow update: if (
+          isActiveOwner()
+          && isValidClientAccountShape(request.resource.data, uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'version'])
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.version == resource.data.version + 1
+        ) || (
+          isActiveClient()
+          && request.auth.uid == uid
+          && resource.data.status == 'active'
+          && isValidClientAccountShape(request.resource.data, uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt', 'version'])
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.version == resource.data.version + 1
+        );
+
+      allow delete: if false;
+    }
+
+    match /clientCustomerLinks/{customerId} {
+      allow get: if isActiveOwner()
+        || (request.auth != null && resource != null && resource.data.ownerUid == request.auth.uid);
+
+      allow list: if isActiveOwner();
+
+      allow create: if hasEligibleClientAuth()
+        && !isAnyStaffProfile()
+        && !isFactoryResetLocked()
+        && isValidClientCustomerLinkShape(request.resource.data, customerId)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.emailNormalized == normalizedAuthEmail()
+        && request.resource.data.createdAt == request.time
+        && isClientCustomerLinkCreateAccountMatched(request.resource.data, request.auth.uid, customerId)
+        && (
+          (
+            request.resource.data.profileSource == 'isolated_client_profile'
+            && customerId == ('client_' + request.auth.uid)
+          ) || (
+            hasVerifiedGoogleEmail()
+            && request.resource.data.profileSource == 'linked_customer'
+            && exists(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail()))
+            && isClientCustomerLinkCreateEmailIndexMatched(customerId, normalizedAuthEmail())
+          )
+        );
+
+      allow update: if false;
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /clientProfiles/{customerId} {
+      allow get: if isActiveStaff()
+        || isClientOwnerOfCustomer(customerId);
+
+      allow list: if isActiveStaff();
+
+      allow create: if !isFactoryResetLocked()
+        && (
+          (
+            isActiveStaff()
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.ownerUid == null
+            && request.resource.data.profileSource == 'linked_customer'
+            && existsAfter(/databases/$(database)/documents/customers/$(customerId))
+          ) || (
+            hasEligibleClientAuth()
+            && !isAnyStaffProfile()
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && customerId == ('client_' + request.auth.uid)
+            && request.resource.data.ownerUid == request.auth.uid
+            && request.resource.data.profileSource == 'isolated_client_profile'
+            && request.resource.data.emailNormalized == normalizedAuthEmail()
+            && request.resource.data.phoneDisplay == ''
+            && request.resource.data.status == 'active'
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.version == 1
+            && getAfter(/databases/$(database)/documents/clientAccounts/$(request.auth.uid)).data.customerId == customerId
+            && getAfter(/databases/$(database)/documents/clientCustomerLinks/$(customerId)).data.ownerUid == request.auth.uid
+          )
+        );
+
+      allow update: if !isFactoryResetLocked()
+        && (
+          (
+            isActiveStaff()
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.customerId == resource.data.customerId
+            && request.resource.data.ownerUid == resource.data.ownerUid
+            && request.resource.data.profileSource == resource.data.profileSource
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.version == resource.data.version + 1
+          ) || (
+            isActiveClient()
+            && resource.data.profileSource == 'isolated_client_profile'
+            && resource.data.ownerUid == request.auth.uid
+            && getClientAccountDoc(request.auth.uid).data.customerId == customerId
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt', 'version'])
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.version == resource.data.version + 1
+          )
+        );
+
+      allow delete: if canFactoryResetDelete();
+    }
+
+  }
+}
+)
         && existsAfter(/databases/$(database)/documents/paymentEvidence/$(evidenceId))
         && evAfter != null
+        && invAfter != null
         && evAfter.data.evidenceSource == 'client_portal'
         && evAfter.data.status == 'verified'
         && evAfter.data.invoiceId == data.invoiceId
         && evAfter.data.bookingId == data.bookingId
         && evAfter.data.customerId == data.customerId
-        && evAfter.data.get('clientUid', '') == data.get('clientUid', '')
+        && (
+          invAfter.data.get('clientUid', '') == ''
+          || evAfter.data.clientUid == invAfter.data.clientUid
+        )
         && evAfter.data.verifiedAmount == data.amount
         && evAfter.data.linkedTransactionId == transactionId;
     }
