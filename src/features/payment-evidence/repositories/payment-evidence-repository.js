@@ -34,6 +34,16 @@ function createRepositoryError(code, message) {
   return err;
 }
 
+const CLIENT_EVIDENCE_IN_QUERY_CHUNK_SIZE = 10;
+
+function chunkInvoiceIds(values = [], size = CLIENT_EVIDENCE_IN_QUERY_CHUNK_SIZE) {
+  const chunks = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 export function createFirestorePaymentEvidenceRepositoryAdapter() {
   return {
     async runAtomicTransaction(transactionWork) {
@@ -199,12 +209,19 @@ export function createFirestorePaymentEvidenceRepositoryAdapter() {
     subscribeClientCustomerEvidence({
       customerId,
       clientUid,
+      invoiceIds = [],
       maxLimit = PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT,
       onData,
       onError,
     }) {
       const cleanCustomerId = String(customerId || '').trim();
       const cleanClientUid = String(clientUid || '').trim();
+      const targetInvoiceIds = Array.from(new Set(
+        (Array.isArray(invoiceIds) ? invoiceIds : [])
+          .map((value) => String(value || '').trim())
+          .filter(Boolean),
+      ));
+
       if (!cleanCustomerId && !cleanClientUid) {
         queueMicrotask(() => onError?.(createRepositoryError(
           'permission-denied',
@@ -214,28 +231,50 @@ export function createFirestorePaymentEvidenceRepositoryAdapter() {
       }
 
       const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT);
-      let unsubscribes = [];
-      let isCancelled = false;
-      const snapshots = new Map();
-      const expectedSources = [
-        ...(cleanCustomerId ? ['customer'] : []),
-        ...(cleanClientUid ? ['uid'] : []),
+      if (targetInvoiceIds.length === 0) {
+        queueMicrotask(() => onData?.({
+          items: [],
+          hasMore: false,
+          isTruncated: false,
+          maxLimit: safeLimit,
+        }));
+        return () => {};
+      }
+
+      const chunks = chunkInvoiceIds(targetInvoiceIds);
+      const owners = [
+        ...(cleanCustomerId ? [{ key: 'customer', field: 'customerId', value: cleanCustomerId }] : []),
+        ...(cleanClientUid ? [{ key: 'uid', field: 'clientUid', value: cleanClientUid }] : []),
       ];
+      const sources = chunks.flatMap((invoiceChunk, chunkIndex) =>
+        owners.map((owner) => ({
+          ...owner,
+          invoiceChunk,
+          key: `${owner.key}:${chunkIndex}`,
+        })),
+      );
+      const snapshots = new Map();
+      const unsubscribes = [];
+      let isCancelled = false;
 
       const emitMerged = () => {
-        if (isCancelled || expectedSources.some((source) => !snapshots.has(source))) return;
+        if (isCancelled || sources.some((source) => !snapshots.has(source.key))) return;
         const unique = new Map();
-        for (const source of expectedSources) {
-          for (const docSnap of snapshots.get(source) || []) {
+        for (const source of sources) {
+          for (const docSnap of snapshots.get(source.key) || []) {
             const raw = docSnap.data();
-            if (!raw) continue;
-            if (raw.clientUid !== cleanClientUid && raw.customerId !== cleanCustomerId) continue;
+            if (!raw || !targetInvoiceIds.includes(raw.invoiceId)) continue;
+            const ownerMatches = source.key.startsWith('uid:')
+              ? raw.clientUid === cleanClientUid
+              : raw.customerId === cleanCustomerId;
+            if (!ownerMatches) continue;
             unique.set(docSnap.id, projectClientPaymentEvidenceRecord(docSnap.id, raw));
           }
         }
+
         const sorted = sortPaymentEvidenceRecords(Array.from(unique.values()).filter(Boolean));
         const hasMore =
-          expectedSources.some((source) => (snapshots.get(source) || []).length > safeLimit) ||
+          sources.some((source) => (snapshots.get(source.key) || []).length > safeLimit) ||
           sorted.length > safeLimit;
         onData?.({
           items: sorted.slice(0, safeLimit),
@@ -253,14 +292,25 @@ export function createFirestorePaymentEvidenceRepositoryAdapter() {
           if (typeof onSnapshot !== 'function') {
             throw createRepositoryError('unavailable', 'Realtime Firestore listener unavailable.');
           }
+
           const ref = collection(getFirebaseDb(), FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE);
-          const attach = (source, field, value) => {
-            const q = query(ref, where(field, '==', value), limit(safeLimit + 1));
+          for (const source of sources) {
+            const isSingleInvoice = source.invoiceChunk.length === 1;
+            const q = query(
+              ref,
+              where(source.field, '==', source.value),
+              where(
+                'invoiceId',
+                isSingleInvoice ? '==' : 'in',
+                isSingleInvoice ? source.invoiceChunk[0] : source.invoiceChunk,
+              ),
+              limit(safeLimit + 1),
+            );
             const unsubscribe = onSnapshot(
               q,
               (snapshot) => {
                 if (isCancelled) return;
-                snapshots.set(source, snapshot.docs || []);
+                snapshots.set(source.key, snapshot.docs || []);
                 emitMerged();
               },
               (error) => {
@@ -268,10 +318,7 @@ export function createFirestorePaymentEvidenceRepositoryAdapter() {
               },
             );
             unsubscribes.push(unsubscribe);
-          };
-
-          if (cleanCustomerId) attach('customer', 'customerId', cleanCustomerId);
-          if (cleanClientUid) attach('uid', 'clientUid', cleanClientUid);
+          }
         } catch (error) {
           if (!isCancelled) onError?.(error);
         }
@@ -614,17 +661,34 @@ export function createInMemoryPaymentEvidenceRepositoryAdapter({
 
     subscribeClientCustomerEvidence({
       customerId,
+      clientUid,
+      invoiceIds = [],
       maxLimit = PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT,
       onData,
       onError,
     }) {
       const cleanCustomerId = String(customerId || '').trim();
+      const cleanClientUid = String(clientUid || '').trim();
+      const targetInvoiceIds = new Set(
+        (Array.isArray(invoiceIds) ? invoiceIds : [])
+          .map((value) => String(value || '').trim())
+          .filter(Boolean),
+      );
       const safeLimit = Math.max(1, Number(maxLimit) || PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT);
 
-      if (!cleanCustomerId) {
+      if (!cleanCustomerId && !cleanClientUid) {
         queueMicrotask(() => {
-          onError?.(createRepositoryError('permission-denied', 'Missing customer ID.'));
+          onError?.(createRepositoryError('permission-denied', 'Missing client identity.'));
         });
+        return () => {};
+      }
+      if (targetInvoiceIds.size === 0) {
+        queueMicrotask(() => onData?.({
+          items: [],
+          hasMore: false,
+          isTruncated: false,
+          maxLimit: safeLimit,
+        }));
         return () => {};
       }
 
@@ -637,7 +701,12 @@ export function createInMemoryPaymentEvidenceRepositoryAdapter({
         }
         const matching = sortPaymentEvidenceRecords(
           Array.from(paymentEvidence.values())
-            .filter((ev) => ev && ev.customerId === cleanCustomerId)
+            .filter((ev) => ev
+              && targetInvoiceIds.has(ev.invoiceId)
+              && (
+                (cleanCustomerId && ev.customerId === cleanCustomerId)
+                || (cleanClientUid && ev.clientUid === cleanClientUid)
+              ))
             .map((ev) => projectClientPaymentEvidenceRecord(ev.id, ev))
             .filter(Boolean),
         );
