@@ -236,9 +236,6 @@ export function createClientReservationBackfillService() {
 
       for (const candidate of documents) {
         const bookingId = candidate.id;
-        const candidateData = candidate.data() || {};
-        const candidateCustomerId = String(candidateData.customerId || '').trim();
-        const candidateRequestId = String(candidateData.sourceRequestId || '').trim();
         lastBookingId = bookingId;
         processed += 1;
 
@@ -246,31 +243,32 @@ export function createClientReservationBackfillService() {
           const bookingRef = doc(db, COLLECTIONS.BOOKINGS, bookingId);
           const invoiceRef = doc(db, COLLECTIONS.INVOICES, `inv_${bookingId}`);
           const reservationRef = doc(db, COLLECTIONS.RESERVATIONS, bookingId);
+
+          // Read the canonical booking first. All identity-dependent references below are
+          // derived from this transactional snapshot, never from the earlier page query.
+          const bookingSnapshot = await transaction.get(bookingRef);
+          if (!bookingSnapshot.exists()) return 'skipped';
+
+          const booking = { id: bookingId, ...bookingSnapshot.data() };
+          const customerId = String(booking.customerId || '').trim();
+          if (!customerId) return 'skipped';
+
+          const candidateRequestId = String(booking.sourceRequestId || '').trim();
           const requestRef = candidateRequestId
             ? doc(db, COLLECTIONS.REQUESTS, candidateRequestId)
             : null;
-          const linkRef = candidateCustomerId
-            ? doc(db, 'clientCustomerLinks', candidateCustomerId)
-            : null;
-
+          const linkRef = doc(db, 'clientCustomerLinks', customerId);
           const [
-            bookingSnapshot,
             requestSnapshot,
             invoiceSnapshot,
             linkSnapshot,
             reservationSnapshot,
           ] = await Promise.all([
-            transaction.get(bookingRef),
             requestRef ? transaction.get(requestRef) : Promise.resolve(null),
             transaction.get(invoiceRef),
-            linkRef ? transaction.get(linkRef) : Promise.resolve(null),
+            transaction.get(linkRef),
             transaction.get(reservationRef),
           ]);
-          if (!bookingSnapshot.exists()) return 'skipped';
-
-          const booking = { id: bookingId, ...bookingSnapshot.data() };
-          const customerId = String(booking.customerId || '').trim();
-          if (!customerId || customerId !== candidateCustomerId) return 'skipped';
 
           const invoice = invoiceSnapshot.exists() ? invoiceSnapshot.data() : null;
           if (
