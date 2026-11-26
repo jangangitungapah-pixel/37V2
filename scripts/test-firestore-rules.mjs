@@ -4431,6 +4431,27 @@ async function runTests() {
   const evPaidInvNumber = '37MS-20261128-EVPAID000001';
   const evVoidInvNumber = '37MS-20261128-EVVOID000001';
   const evClientBInvNumber = '37MS-20261128-EVCLIENTB001';
+  const evUidOnlyInvNumber = '37MS-20261128-EVUIDONLY001';
+  const TOKEN_CLIENT_UID_ONLY = makeEmulatorJwt('client-uid-only-1', 'uid-only@gmail.com', {
+    signInProvider: 'google.com',
+    emailVerified: true,
+  });
+
+  // An isolated Client account without a CRM link exercises UID-only parent-invoice ownership.
+  await adminSetDoc('clientAccounts/client-uid-only-1', {
+    schemaVersion: 1,
+    uid: 'client-uid-only-1',
+    role: 'client',
+    status: 'active',
+    customerId: 'cust_uid_only_1',
+    profileSource: 'isolated_client_profile',
+    emailNormalized: 'uid-only@gmail.com',
+    displayName: 'UID Only Client',
+    photoURL: '',
+    authProvider: 'google.com',
+    emailVerified: true,
+    version: 1,
+  });
 
   await adminSetDoc('bookings/bkg_ev_client_a', {
     customerId: 'cust_email_matched',
@@ -4603,6 +4624,105 @@ async function runTests() {
     updatedAt: SERVER_TS,
     updatedByUid: 'staff-1',
     version: 1,
+  });
+
+  await adminSetDoc('invoices/inv_bkg_ev_uid_only', {
+    invoiceNumber: evUidOnlyInvNumber,
+    bookingId: 'bkg_ev_uid_only',
+    customerId: 'cust_uid_only_1',
+    clientUid: 'client-uid-only-1',
+    invoiceStatus: 'issued',
+    currency: 'IDR',
+    amountPaid: 0,
+    balanceDue: 120000,
+    paymentStatus: 'unpaid',
+    invoiceDate: SERVER_TS,
+    dueDate: null,
+    lastPaymentTransactionId: null,
+    voidReason: '',
+    clientPaymentEvidenceRequired: false,
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  });
+  await adminSetDoc('paymentEvidence/ev_uid_only_own', {
+    schemaVersion: 1,
+    invoiceId: 'inv_bkg_ev_uid_only',
+    invoiceNumber: evUidOnlyInvNumber,
+    bookingId: 'bkg_ev_uid_only',
+    customerId: 'cust_uid_only_1',
+    clientUid: '',
+    evidenceSource: 'admin_manual',
+    status: 'attached',
+    claimedAmount: 50000,
+    paymentMethod: 'cash',
+    claimedPaidAt: '2026-11-28',
+    referenceNumber: '',
+  });
+  await adminSetDoc('paymentEvidence/ev_uid_only_wrong_customer', {
+    schemaVersion: 1,
+    invoiceId: 'inv_bkg_ev_uid_only',
+    invoiceNumber: evUidOnlyInvNumber,
+    bookingId: 'bkg_uid_only',
+    customerId: 'cust_another_client',
+    clientUid: '',
+    evidenceSource: 'admin_manual',
+    status: 'attached',
+    claimedAmount: 50000,
+    paymentMethod: 'cash',
+    claimedPaidAt: '2026-11-28',
+    referenceNumber: '',
+  });
+  await adminSetDoc('paymentEvidence/ev_uid_only_wrong_uid', {
+    schemaVersion: 1,
+    invoiceId: 'inv_bkg_ev_uid_only',
+    invoiceNumber: evUidOnlyInvNumber,
+    bookingId: 'bkg_ev_uid_only',
+    customerId: 'cust_uid_only_1',
+    clientUid: 'client-someone-else',
+    evidenceSource: 'admin_manual',
+    status: 'attached',
+    claimedAmount: 50000,
+    paymentMethod: 'cash',
+    claimedPaidAt: '2026-11-28',
+    referenceNumber: '',
+  });
+  await adminSetDoc('paymentTransactions/tx_uid_only_own', {
+    invoiceId: 'inv_bkg_ev_uid_only',
+    invoiceNumber: evUidOnlyInvNumber,
+    bookingId: 'bkg_ev_uid_only',
+    customerId: 'cust_uid_only_1',
+    clientUid: '',
+    transactionType: 'payment',
+    amount: 50000,
+    currency: 'IDR',
+    paymentMethod: 'cash',
+    receivedAt: SERVER_TS,
+    referenceNumber: '',
+    notes: '',
+    source: 'manual',
+    reversalOfTransactionId: null,
+    recordedByUid: 'staff-1',
+    createdAt: SERVER_TS,
+  });
+  await adminSetDoc('paymentTransactions/tx_uid_child_bypass', {
+    invoiceId: 'inv_bkg_1',
+    bookingId: 'bkg_1',
+    customerId: 'cust_1',
+    clientUid: 'client-uid-only-1',
+    transactionType: 'payment',
+    amount: 50000,
+    currency: 'IDR',
+    paymentMethod: 'cash',
+    receivedAt: SERVER_TS,
+    referenceNumber: '',
+    notes: '',
+    source: 'manual',
+    reversalOfTransactionId: null,
+    recordedByUid: 'staff-1',
+    createdAt: SERVER_TS,
   });
 
   function makeClientEvidenceCreateWrite(evidenceId, overrides = {}) {
@@ -4832,6 +4952,31 @@ async function runTests() {
     (await userRequest('GET', '/paymentEvidence/ev_client_a_1', TOKEN_CLIENT_MATCHED)).status,
     200,
     'Client A can GET own paymentEvidence',
+  );
+  assert.equal(
+    (await userRequest('GET', '/paymentEvidence/ev_uid_only_own', TOKEN_CLIENT_UID_ONLY)).status,
+    200,
+    'UID-only Client can GET legacy admin_manual evidence for an owned parent invoice',
+  );
+  assert.equal(
+    (await userRequest('GET', '/paymentEvidence/ev_uid_only_wrong_customer', TOKEN_CLIENT_UID_ONLY)).status,
+    403,
+    'UID-only Client denied evidence whose customerId conflicts with its parent invoice',
+  );
+  assert.equal(
+    (await userRequest('GET', '/paymentEvidence/ev_uid_only_wrong_uid', TOKEN_CLIENT_UID_ONLY)).status,
+    403,
+    'UID-only Client denied evidence with a conflicting child clientUid',
+  );
+  assert.equal(
+    (await userRequest('GET', '/paymentTransactions/tx_uid_only_own', TOKEN_CLIENT_UID_ONLY)).status,
+    200,
+    'UID-only Client can GET a legacy payment transaction for an owned parent invoice',
+  );
+  assert.equal(
+    (await userRequest('GET', '/paymentTransactions/tx_uid_child_bypass', TOKEN_CLIENT_UID_ONLY)).status,
+    403,
+    'Child clientUid alone cannot bypass parent invoice ownership on paymentTransactions',
   );
   const clientAListEv = await userRequest('POST', ':runQuery', TOKEN_CLIENT_MATCHED, {
     structuredQuery: {
