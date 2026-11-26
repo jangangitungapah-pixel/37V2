@@ -271,11 +271,27 @@ export function createFirestoreClientPortalRepositoryAdapter() {
         throw createRepositoryError('client-identity/invalid-reason', 'Alasan review wajib 10–1000 karakter.');
       }
 
-      const [{ collection, doc, limit, query, runTransaction, serverTimestamp, where }, { getFirebaseDb }] = await Promise.all([
+      const [{ collection, doc, getDocs, limit, query, runTransaction, serverTimestamp, where }, { getFirebaseDb }] = await Promise.all([
         import('firebase/firestore'),
         import('@/lib/firebase/firestore'),
       ]);
       const db = getFirebaseDb();
+
+      // Firestore Web SDK transactions support DocumentReference reads, not Query reads.
+      // Detect pre-existing orphan account claims before the transaction; the atomic
+      // target-link/profile writes below remain the canonical lock for normal concurrent links.
+      const accountClaimsQuery = query(
+        collection(db, FIRESTORE_COLLECTIONS.CLIENT_ACCOUNTS),
+        where('customerId', '==', cleanTargetCustomerId),
+        limit(2),
+      );
+      const accountClaimsSnapshot = await getDocs(accountClaimsQuery);
+      if (accountClaimsSnapshot.docs.some((candidate) => candidate.id !== cleanUid)) {
+        throw createRepositoryError(
+          'client-identity/customer-already-claimed',
+          'Customer target sudah tertaut ke akun Client lain.',
+        );
+      }
 
       return runTransaction(db, async (tx) => {
         const isolatedCustomerId = buildIsolatedClientCustomerId(cleanUid);
@@ -300,7 +316,6 @@ export function createFirestoreClientPortalRepositoryAdapter() {
           targetProfileSnapshot,
           targetLinkSnapshot,
           auditSnapshot,
-          accountClaimsSnapshot,
         ] = await Promise.all([
           tx.get(accountRef),
           tx.get(sourceLinkRef),
@@ -309,7 +324,6 @@ export function createFirestoreClientPortalRepositoryAdapter() {
           tx.get(targetProfileRef),
           tx.get(targetLinkRef),
           tx.get(auditRef),
-          tx.get(accountClaimsQuery),
         ]);
 
         if (!accountSnapshot.exists()) {
@@ -365,10 +379,7 @@ export function createFirestoreClientPortalRepositoryAdapter() {
         if (!customerSnapshot.exists() || customerSnapshot.data()?.status !== 'active') {
           throw createRepositoryError('client-identity/customer-not-eligible', 'Customer target tidak ditemukan atau tidak aktif.');
         }
-        const accountClaimedByAnotherUid = accountClaimsSnapshot.docs.some(
-          (candidate) => candidate.id !== cleanUid,
-        );
-        if (targetLinkSnapshot.exists() || accountClaimedByAnotherUid) {
+        if (targetLinkSnapshot.exists()) {
           throw createRepositoryError('client-identity/customer-already-claimed', 'Customer target sudah tertaut ke akun Client lain.');
         }
         const customer = customerSnapshot.data() || {};
