@@ -453,7 +453,7 @@ export function createFirestoreBookingRepositoryAdapter() {
 
       (async () => {
         try {
-          const [{ collection, limit, onSnapshot, query, where }, { getFirebaseDb }] =
+          const [{ collection, limit, onSnapshot, orderBy, query, where }, { getFirebaseDb }] =
             await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
           if (cancelled) return;
 
@@ -462,6 +462,7 @@ export function createFirestoreBookingRepositoryAdapter() {
             const reservationsQuery = query(
               reservationsRef,
               where(owner.field, '==', owner.value),
+              orderBy('updatedAt', 'desc'),
               limit(safeLimit + 1),
             );
             const unsubscribe = onSnapshot(
