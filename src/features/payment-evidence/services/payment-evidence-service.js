@@ -305,6 +305,10 @@ export async function verifyClientPaymentEvidence({
       tx.getInvoice(existingEvidence.invoiceId),
       tx.getPaymentTransaction(deterministicTxId),
     ]);
+    const existingClientReservation =
+      existingInvoice?.bookingId && typeof tx.getClientReservation === 'function'
+        ? await tx.getClientReservation(existingInvoice.bookingId)
+        : null;
 
     // Strict Idempotency: repeated verification of already-verified evidence NEVER double-counts
     if (
@@ -376,6 +380,7 @@ export async function verifyClientPaymentEvidence({
       transactionId: deterministicTxId,
       existingInvoice,
       existingTransaction,
+      existingClientReservation,
       expectedVersion: expectedInvoiceVersion,
       amount: amountValidation.data.verifiedAmount,
       paymentMethod: existingEvidence.paymentMethod,
