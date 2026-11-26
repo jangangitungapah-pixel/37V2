@@ -71,10 +71,13 @@ export function buildReceivedAtValue(receivedDateIso, tx) {
  */
 function isMatchingClientReservation(reservation, invoice) {
   if (!reservation || !invoice?.bookingId) return false;
+  const reservationUid = String(reservation.clientUid || '').trim();
+  const invoiceUid = String(invoice.clientUid || '').trim();
   return (
     reservation.bookingId === invoice.bookingId &&
     reservation.invoiceId === invoice.id &&
-    String(reservation.customerId || '') === String(invoice.customerId || '')
+    String(reservation.customerId || '') === String(invoice.customerId || '') &&
+    (!reservationUid || !invoiceUid || reservationUid === invoiceUid)
   );
 }
 
