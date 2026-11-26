@@ -65,6 +65,12 @@ The existing six-hour Staff booking Rules test uses 12 half-hour slot locks and 
 
 The test must pass in the local Firestore Emulator before the budget is considered verified.
 
+### Source-size integrity
+
+The branch initially contained an accidental duplicate of 2,158 Rules lines outside the Firestore document match closure. The duplicate was byte-for-byte identical to the preceding policy block apart from its dangling closing fragment. It was removed without changing the retained policy predicates.
+
+The resulting `firestore.rules` source is **198,704 bytes** in the current Git tree, below the published **256 KiB** source limit by 63,440 bytes. The retained file has one `/databases/{database}/documents` root, one match block for each audited collection, and retains the four reservation projection validators. No deployment was performed; compiled ruleset quota and deployed-project validation remain outside this gate's no-deploy boundary.
+
 ## 5. Bounded batch inventory
 
 | Workflow | Bound |
