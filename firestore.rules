@@ -1050,7 +1050,22 @@ service cloud.firestore {
       let evidenceId = transactionId[13:transactionId.size()];
       let evAfter = getAfter(/databases/$(database)/documents/paymentEvidence/$(evidenceId));
       let invAfter = getAfter(/databases/$(database)/documents/invoices/$(data.invoiceId));
-      return transactionId.matches('^pay_evidence_[A-Za-z0-9_-]{4,120}
+      return transactionId.matches('^pay_evidence_[A-Za-z0-9_-]{4,120}$')
+        && existsAfter(/databases/$(database)/documents/paymentEvidence/$(evidenceId))
+        && evAfter != null
+        && invAfter != null
+        && evAfter.data.evidenceSource == 'client_portal'
+        && evAfter.data.status == 'verified'
+        && evAfter.data.invoiceId == data.invoiceId
+        && evAfter.data.bookingId == data.bookingId
+        && evAfter.data.customerId == data.customerId
+        && (
+          invAfter.data.get('clientUid', '') == ''
+          || evAfter.data.clientUid == invAfter.data.clientUid
+        )
+        && evAfter.data.verifiedAmount == data.amount
+        && evAfter.data.linkedTransactionId == transactionId;
+    }
 
     function isValidPaymentTxPolicyAfter(data, transactionId) {
       let invAfter = getAfter(/databases/$(database)/documents/invoices/$(data.invoiceId));
