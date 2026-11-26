@@ -7033,6 +7033,32 @@ async function runTests() {
     `CRM-linked Client can list its own reservation projections: ${JSON.stringify(gate3OwnReservationQuery.body)}`,
   );
 
+  const gate3ProjectionFinancialSync = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/${gate3WalkInReservationId}`,
+          fields: toFsFields({ paymentStatus: 'partial' }),
+        },
+        updateMask: { fieldPaths: ['paymentStatus'] },
+        updateTransforms: [
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    gate3ProjectionFinancialSync.status,
+    200,
+    `Staff can sync customer-safe paymentStatus without changing booking identity: ${JSON.stringify(gate3ProjectionFinancialSync.body)}`,
+  );
+  assert.equal(
+    (await userRequest('GET', `/clientReservations/${gate3WalkInReservationId}`, TOKEN_GATE2_UPDATE_CLIENT)).status,
+    200,
+    'CRM-linked Client continues to read the reservation after payment summary synchronization',
+  );
+
   const gate3ForeignReservationQuery = await userRequest('POST', ':runQuery', TOKEN_GATE2_CLIENT, {
     structuredQuery: {
       from: [{ collectionId: 'clientReservations' }],
