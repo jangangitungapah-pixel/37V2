@@ -123,6 +123,7 @@ export function useClientPaymentTransactions({
     };
   }, [
     cleanCustomerId,
+    cleanUid,
     cleanSingleInvoiceId,
     effectiveLimit,
     isClientReady,
