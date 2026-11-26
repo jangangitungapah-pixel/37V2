@@ -90,6 +90,7 @@ service cloud.firestore {
       return acct.data.uid == uid
         && acct.data.role == 'client'
         && acct.data.status == 'active'
+        && acct.data.profileSource == 'linked_customer'
         && acct.data.customerId == customerId
         && link.data.ownerUid == uid;
     }
@@ -881,12 +882,38 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.linkedBookingId == bookingId;
     }
 
+    function isLegacyBookingCrmClientUidUpdate(reqData, resData, affected, bookingId) {
+      let customerId = resData.get('customerId', '');
+      let clientUid = reqData.get('clientUid', '');
+      let reservationPath = /databases/$(database)/documents/clientReservations/$(bookingId);
+      let reservationAfter = getAfter(reservationPath);
+      return resData.get('clientUid', '') == ''
+        && customerId is string
+        && customerId.size() > 0
+        && clientUid is string
+        && clientUid.size() > 0
+        && clientUid.size() <= 128
+        && reqData.get('customerId', '') == customerId
+        && affected.hasOnly(['clientUid', 'updatedAt', 'updatedByUid', 'version'])
+        && reqData.updatedAt is timestamp
+        && reqData.updatedByUid == request.auth.uid
+        && reqData.version is int
+        && reqData.version == resData.version + 1
+        && isActiveClientCustomerMatch(clientUid, customerId)
+        && existsAfter(reservationPath)
+        && reservationAfter.data.bookingId == bookingId
+        && reservationAfter.data.customerId == customerId
+        && reservationAfter.data.clientUid == clientUid
+        && reservationAfter.data.version == reqData.version;
+    }
+
     function isValidBookingUpdate(reqData, resData, bookingId) {
       let affected = reqData.diff(resData).affectedKeys();
       return isValidBookingFocusedPricingUpdate(reqData, resData, affected)
         || isBookingLifecycleOnlyUpdate(reqData, resData, affected)
         || isLegacyBookingCustomerLinkUpdate(reqData, resData, affected)
         || isLegacyBookingClientUidUpdate(reqData, resData, affected, bookingId)
+        || isLegacyBookingCrmClientUidUpdate(reqData, resData, affected, bookingId)
         || isValidBookingStandardUpdate(reqData, resData, affected);
     }
 
