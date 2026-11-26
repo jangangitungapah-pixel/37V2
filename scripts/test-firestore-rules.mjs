@@ -6441,6 +6441,457 @@ async function runTests() {
   );
   console.log('✓ Bookings V2 Check-In / lifecycle / edit / price-recalc / legacy-link & security denials passed');
 
+  // =========================================================================
+  // GATE 2 — OWNER-REVIEWED LEGACY CLIENT ↔ CRM IDENTITY LINKING
+  // =========================================================================
+  const gate2ClientUid = 'gate2-client-1';
+  const gate2Email = 'gate2-client@gmail.com';
+  const gate2SourceCustomerId = `client_${gate2ClientUid}`;
+  const gate2TargetCustomerId = 'cust_gate2_target';
+  const gate2OperationId = `link_${gate2ClientUid}_${gate2TargetCustomerId}`;
+  const TOKEN_GATE2_CLIENT = makeEmulatorJwt(gate2ClientUid, gate2Email, {
+    signInProvider: 'password',
+    emailVerified: false,
+  });
+
+  await adminSetDoc(`clientAccounts/${gate2ClientUid}`, {
+    schemaVersion: 1,
+    uid: gate2ClientUid,
+    role: 'client',
+    status: 'active',
+    customerId: gate2SourceCustomerId,
+    profileSource: 'isolated_client_profile',
+    emailNormalized: gate2Email,
+    displayName: 'Gate 2 Legacy Client',
+    photoURL: '',
+    authProvider: 'password',
+    emailVerified: false,
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc(`clientCustomerLinks/${gate2SourceCustomerId}`, {
+    schemaVersion: 1,
+    customerId: gate2SourceCustomerId,
+    ownerUid: gate2ClientUid,
+    emailNormalized: gate2Email,
+    profileSource: 'isolated_client_profile',
+    createdAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc(`clientProfiles/${gate2SourceCustomerId}`, {
+    schemaVersion: 1,
+    customerId: gate2SourceCustomerId,
+    ownerUid: gate2ClientUid,
+    profileSource: 'isolated_client_profile',
+    displayName: 'Gate 2 Legacy Client',
+    emailNormalized: gate2Email,
+    phoneDisplay: '',
+    photoURL: '',
+    status: 'active',
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc(`customers/${gate2TargetCustomerId}`, {
+    displayName: 'Gate 2 Verified CRM',
+    normalizedName: 'gate 2 verified crm',
+    phoneDisplay: '+62 812-3333-4444',
+    phoneNormalized: '+6281233334444',
+    email: 'crm-gate2@example.com',
+    emailNormalized: 'crm-gate2@example.com',
+    nameAliases: [],
+    previousPhones: [],
+    status: 'active',
+    mergedIntoCustomerId: null,
+    historyCustomerIds: [gate2TargetCustomerId],
+    bookingCount: 2,
+    firstBookingDate: '2026-01-01',
+    lastBookingDate: '2026-11-20',
+    notes: 'Private CRM note must never be copied into clientProfiles.',
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 3,
+  });
+
+  const ownerReviewedLinkRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/${gate2ClientUid}`,
+          fields: toFsFields({
+            customerId: gate2TargetCustomerId,
+            profileSource: 'linked_customer',
+            version: 2,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['customerId', 'profileSource', 'updatedAt', 'version'],
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/${gate2TargetCustomerId}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: gate2TargetCustomerId,
+            ownerUid: gate2ClientUid,
+            emailNormalized: gate2Email,
+            profileSource: 'linked_customer',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientProfiles/${gate2TargetCustomerId}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: gate2TargetCustomerId,
+            ownerUid: gate2ClientUid,
+            profileSource: 'linked_customer',
+            displayName: 'Gate 2 Verified CRM',
+            emailNormalized: 'crm-gate2@example.com',
+            phoneDisplay: '+62 812-3333-4444',
+            photoURL: '',
+            status: 'active',
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientIdentityLinkAudits/${gate2OperationId}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            operationId: gate2OperationId,
+            action: 'owner_reviewed_legacy_link',
+            clientUid: gate2ClientUid,
+            actorUid: 'owner-1',
+            fromCustomerId: gate2SourceCustomerId,
+            toCustomerId: gate2TargetCustomerId,
+            fromProfileSource: 'isolated_client_profile',
+            toProfileSource: 'linked_customer',
+            reviewReason: 'Owner verified account ownership directly with the Client.',
+            accountVersionBefore: 1,
+            accountVersionAfter: 2,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'reviewedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    ownerReviewedLinkRes.status,
+    200,
+    `Owner-reviewed identity link transaction failed: ${JSON.stringify(ownerReviewedLinkRes.body)}`,
+  );
+
+  // A successful bind updates only the Client account + target identity projections + audit.
+  // It leaves the old synthetic link/profile intact and never rewrites bookings or billing history.
+  assert.equal(
+    (await userRequest('GET', `/clientAccounts/${gate2ClientUid}`, TOKEN_OWNER)).status,
+    200,
+    'Owner can inspect the linked Client account',
+  );
+  assert.equal(
+    (await userRequest('GET', `/clientProfiles/${gate2TargetCustomerId}`, TOKEN_GATE2_CLIENT)).status,
+    200,
+    'Newly linked Client can read the explicitly assigned CRM clientProfile',
+  );
+  assert.equal(
+    (await userRequest('GET', `/clientCustomerLinks/${gate2TargetCustomerId}`, TOKEN_GATE2_CLIENT)).status,
+    200,
+    'Newly linked Client can read its target one-to-one link',
+  );
+  assert.equal(
+    (await userRequest('GET', `/clientCustomerLinks/${gate2SourceCustomerId}`, TOKEN_GATE2_CLIENT)).status,
+    403,
+    'Old isolated synthetic link is no longer an active ownership binding',
+  );
+  assert.equal(
+    (await userRequest('GET', `/clientProfiles/${gate2SourceCustomerId}`, TOKEN_GATE2_CLIENT)).status,
+    403,
+    'Old isolated synthetic profile is no longer owned after canonical binding changes',
+  );
+  assert.equal(
+    (await userRequest('GET', `/clientIdentityLinkAudits/${gate2OperationId}`, TOKEN_OWNER)).status,
+    200,
+    'Owner can read identity link audit event',
+  );
+  assert.equal(
+    (await userRequest('GET', `/clientIdentityLinkAudits/${gate2OperationId}`, TOKEN_GATE2_CLIENT)).status,
+    403,
+    'Client cannot read internal identity audit event',
+  );
+  assert.equal(
+    (await userRequest('GET', `/clientIdentityLinkAudits/${gate2OperationId}`, TOKEN_STAFF)).status,
+    403,
+    'Staff cannot read Owner-only identity audit event',
+  );
+
+  // Client and Staff cannot directly change canonical identity bindings.
+  for (const [actorToken, actorUid, label] of [
+    [TOKEN_GATE2_CLIENT, gate2ClientUid, 'Client'],
+    [TOKEN_STAFF, 'staff-1', 'Staff'],
+  ]) {
+    const directBindingAttempt = await userRequest('POST', ':commit', actorToken, {
+      writes: [
+        {
+          update: {
+            name: `${DB_ROOT}/clientAccounts/${gate2ClientUid}`,
+            fields: toFsFields({
+              customerId: 'cust_gate2_direct_attempt',
+              profileSource: 'linked_customer',
+              version: 3,
+            }),
+          },
+          updateMask: {
+            fieldPaths: ['customerId', 'profileSource', 'updatedAt', 'version'],
+          },
+          updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+          currentDocument: { exists: true },
+        },
+      ],
+    });
+    assert.equal(directBindingAttempt.status, 403, `${label} ${actorUid} cannot directly mutate Client identity binding`);
+  }
+
+  // Audit events are append-only, even for Owner.
+  const auditTamperRes = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientIdentityLinkAudits/${gate2OperationId}`,
+          fields: toFsFields({
+            reviewReason: 'Overwritten audit content',
+          }),
+        },
+        updateMask: { fieldPaths: ['reviewReason'] },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(auditTamperRes.status, 403, 'Owner cannot rewrite identity audit events');
+  assert.equal(
+    (await userRequest('DELETE', `/clientIdentityLinkAudits/${gate2OperationId}`, TOKEN_OWNER)).status,
+    403,
+    'Owner cannot delete identity audit events',
+  );
+
+  // A CRM Customer already claimed by another Client cannot be claimed again.
+  const gate2ExistingUid = 'gate2-existing-owner';
+  const gate2SecondUid = 'gate2-second-client';
+  const gate2ClaimedCustomerId = 'cust_gate2_claimed';
+  const gate2ClaimedOperationId = `link_${gate2SecondUid}_${gate2ClaimedCustomerId}`;
+  const TOKEN_GATE2_SECOND_CLIENT = makeEmulatorJwt(gate2SecondUid, 'gate2-second@gmail.com', {
+    signInProvider: 'password',
+    emailVerified: false,
+  });
+  await adminSetDoc(`clientAccounts/${gate2ExistingUid}`, {
+    schemaVersion: 1,
+    uid: gate2ExistingUid,
+    role: 'client',
+    status: 'active',
+    customerId: gate2ClaimedCustomerId,
+    profileSource: 'linked_customer',
+    emailNormalized: 'existing@example.com',
+    displayName: 'Existing Owner',
+    photoURL: '',
+    authProvider: 'google.com',
+    emailVerified: true,
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc(`clientCustomerLinks/${gate2ClaimedCustomerId}`, {
+    schemaVersion: 1,
+    customerId: gate2ClaimedCustomerId,
+    ownerUid: gate2ExistingUid,
+    emailNormalized: 'existing@example.com',
+    profileSource: 'linked_customer',
+    createdAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc(`clientProfiles/${gate2ClaimedCustomerId}`, {
+    schemaVersion: 1,
+    customerId: gate2ClaimedCustomerId,
+    ownerUid: gate2ExistingUid,
+    profileSource: 'linked_customer',
+    displayName: 'Already Claimed CRM',
+    emailNormalized: 'claimed@example.com',
+    phoneDisplay: '+62 812-1111-2222',
+    photoURL: '',
+    status: 'active',
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc(`customers/${gate2ClaimedCustomerId}`, {
+    displayName: 'Already Claimed CRM',
+    normalizedName: 'already claimed crm',
+    phoneDisplay: '+62 812-1111-2222',
+    phoneNormalized: '+6281211112222',
+    email: 'claimed@example.com',
+    emailNormalized: 'claimed@example.com',
+    nameAliases: [],
+    previousPhones: [],
+    status: 'active',
+    mergedIntoCustomerId: null,
+    historyCustomerIds: [gate2ClaimedCustomerId],
+    bookingCount: 1,
+    firstBookingDate: '2026-11-01',
+    lastBookingDate: '2026-11-01',
+    notes: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  });
+  await adminSetDoc(`clientAccounts/${gate2SecondUid}`, {
+    schemaVersion: 1,
+    uid: gate2SecondUid,
+    role: 'client',
+    status: 'active',
+    customerId: `client_${gate2SecondUid}`,
+    profileSource: 'isolated_client_profile',
+    emailNormalized: 'gate2-second@gmail.com',
+    displayName: 'Second Client',
+    photoURL: '',
+    authProvider: 'password',
+    emailVerified: false,
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc(`clientCustomerLinks/client_${gate2SecondUid}`, {
+    schemaVersion: 1,
+    customerId: `client_${gate2SecondUid}`,
+    ownerUid: gate2SecondUid,
+    emailNormalized: 'gate2-second@gmail.com',
+    profileSource: 'isolated_client_profile',
+    createdAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc(`clientProfiles/client_${gate2SecondUid}`, {
+    schemaVersion: 1,
+    customerId: `client_${gate2SecondUid}`,
+    ownerUid: gate2SecondUid,
+    profileSource: 'isolated_client_profile',
+    displayName: 'Second Client',
+    emailNormalized: 'gate2-second@gmail.com',
+    phoneDisplay: '',
+    photoURL: '',
+    status: 'active',
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  });
+
+  const claimedTargetAttempt = await userRequest('POST', ':commit', TOKEN_OWNER, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientAccounts/${gate2SecondUid}`,
+          fields: toFsFields({
+            customerId: gate2ClaimedCustomerId,
+            profileSource: 'linked_customer',
+            version: 2,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['customerId', 'profileSource', 'updatedAt', 'version'],
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientCustomerLinks/${gate2ClaimedCustomerId}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: gate2ClaimedCustomerId,
+            ownerUid: gate2SecondUid,
+            emailNormalized: 'gate2-second@gmail.com',
+            profileSource: 'linked_customer',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientProfiles/${gate2ClaimedCustomerId}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            customerId: gate2ClaimedCustomerId,
+            ownerUid: gate2SecondUid,
+            profileSource: 'linked_customer',
+            displayName: 'Already Claimed CRM',
+            emailNormalized: 'claimed@example.com',
+            phoneDisplay: '+62 812-1111-2222',
+            photoURL: '',
+            status: 'active',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['ownerUid', 'updatedAt', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientIdentityLinkAudits/${gate2ClaimedOperationId}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            operationId: gate2ClaimedOperationId,
+            action: 'owner_reviewed_legacy_link',
+            clientUid: gate2SecondUid,
+            actorUid: 'owner-1',
+            fromCustomerId: `client_${gate2SecondUid}`,
+            toCustomerId: gate2ClaimedCustomerId,
+            fromProfileSource: 'isolated_client_profile',
+            toProfileSource: 'linked_customer',
+            reviewReason: 'Owner attempted to claim a Customer already bound to a different Client.',
+            accountVersionBefore: 1,
+            accountVersionAfter: 2,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'reviewedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(claimedTargetAttempt.status, 403, 'Owner cannot reassign an already claimed CRM customer to another Client');
+  assert.equal(
+    (await userRequest('GET', `/clientIdentityLinkAudits/${gate2ClaimedOperationId}`, TOKEN_OWNER)).status,
+    404,
+    'Rejected one-to-one claim creates no audit event',
+  );
+  console.log('✓ Gate 2 Owner-reviewed legacy identity link, one-to-one lock, audit immutability & RBAC passed');
+
   if (aggregateAssertionMode && assertionFailures.length > 0) {
     printAggregateAssertionSummary();
     process.exitCode = 1;
