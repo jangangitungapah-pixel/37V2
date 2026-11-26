@@ -242,8 +242,7 @@ export function createClientReservationBackfillService() {
         lastBookingId = bookingId;
         processed += 1;
 
-        try {
-          const outcome = await runTransaction(db, async (transaction) => {
+        const outcome = await runTransaction(db, async (transaction) => {
             const bookingRef = doc(db, COLLECTIONS.BOOKINGS, bookingId);
             const invoiceRef = doc(db, COLLECTIONS.INVOICES, `inv_${bookingId}`);
             const reservationRef = doc(db, COLLECTIONS.RESERVATIONS, bookingId);
@@ -408,12 +407,9 @@ export function createClientReservationBackfillService() {
               transaction.set(reservationRef, projection);
             }
             return 'projected';
-          });
-          if (outcome === 'projected') newlyProjected += 1;
-          else skipped += 1;
-        } catch {
-          skipped += 1;
-        }
+        });
+        if (outcome === 'projected') newlyProjected += 1;
+        else skipped += 1;
       }
 
       const totalProcessed = (Number(previous.processedCount) || 0) + processed;
