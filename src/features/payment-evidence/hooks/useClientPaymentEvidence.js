@@ -108,6 +108,7 @@ export function useClientPaymentEvidence({
   }, [
     cleanCustomerId,
     cleanInvoiceId,
+    cleanUid,
     effectiveLimit,
     isClientReady,
     resolvedAdapter,
