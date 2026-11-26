@@ -132,6 +132,8 @@ function areProjectionValuesEqual(left, right) {
 
 function isClientReservationProjectionUnchanged(existing, next) {
   if (!existing || !next) return false;
+  const nextKeys = new Set(Object.keys(next));
+  if (Object.keys(existing).some((key) => !nextKeys.has(key))) return false;
   return Object.keys(next)
     .filter((key) => key !== 'updatedAt')
     .every((key) => areProjectionValuesEqual(existing[key], next[key]));
