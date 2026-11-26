@@ -63,7 +63,7 @@ The Client Portal now subscribes to two distinct bounded sources:
 - `publicBookingRequests`: source of truth for unconfirmed requests and inquiries.
 - `clientReservations`: source of truth for confirmed/operational studio sessions, including CRM-linked walk-ins.
 
-The Firestore repository makes two equality subscriptions (one for `clientUid`, one for `customerId`), each with `limit(maxLimit + 1)`. Results are deduplicated by booking ID, merged, sorted client-side, and truncated to the Client Portal limit. This uses built-in single-field indexes; it introduces no composite index requirement.
+The Firestore repository makes two bounded subscriptions (one for `clientUid`, one for `customerId`), each ordered by `updatedAt DESC` with `limit(maxLimit + 1)`. Results are deduplicated by booking ID, merged, sorted client-side, and truncated to the Client Portal limit. Two explicit composite indexes support these bounded owner/activity queries: `clientUid ASC + updatedAt DESC` and `customerId ASC + updatedAt DESC`.
 
 When a projection is present, the Client UI uses its latest schedule and lifecycle state instead of stale `confirmedBookingSnapshot` values. A matching request contributes context such as the original request reference, but cannot override the canonical schedule. Older confirmed requests without a projection remain visible as a compatibility fallback until reconciled.
 
