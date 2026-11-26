@@ -40,6 +40,38 @@ export function getEffectiveClientBookingSchedule(record) {
     };
   }
 
+  const reservation = record.clientReservation;
+  if (reservation && isValidIsoDateString(reservation.date)) {
+    const startMinute = Number.isInteger(Number(reservation.startMinute))
+      ? Number(reservation.startMinute)
+      : null;
+    const durationMinutes = Number.isInteger(Number(reservation.durationMinutes))
+      ? Number(reservation.durationMinutes)
+      : null;
+    const endMinute = Number.isInteger(Number(reservation.endMinute))
+      ? Number(reservation.endMinute)
+      : (
+        startMinute !== null && durationMinutes !== null
+          ? startMinute + durationMinutes
+          : null
+      );
+
+    return {
+      isConfirmedSnapshot: true,
+      isPostProduction: false,
+      bookingReference: String(reservation.bookingReference || '').trim(),
+      date: reservation.date,
+      startMinute,
+      endMinute,
+      durationMinutes,
+      targetDeadline: '',
+      studioId: String(reservation.studioId || '').trim(),
+      studioName: String(reservation.studioName || '').trim(),
+      serviceTypeName: String(reservation.serviceTypeName || '').trim(),
+      serviceOptionName: String(reservation.serviceOptionName || '').trim(),
+    };
+  }
+
   const snap = record.confirmedBookingSnapshot;
   if (
     record.status === BOOKING_REQUEST_STATUS.CONFIRMED &&
@@ -122,6 +154,67 @@ export function getClientBookingStatusMeta(
   record,
   { isPastConfirmed = false, isInProgressWindow = false } = {},
 ) {
+  const reservation = record?.clientReservation;
+  if (reservation) {
+    const reservationStatus = String(reservation.reservationStatus || 'confirmed');
+    const sessionStatus = String(reservation.sessionStatus || 'upcoming');
+
+    if (reservationStatus === 'expired') {
+      return {
+        label: 'Reservation Expired',
+        tone: 'danger',
+        helperText: 'This reservation hold expired and no longer occupies a studio slot.',
+      };
+    }
+    if (reservationStatus === 'cancelled' || sessionStatus === 'cancelled') {
+      return {
+        label: 'Cancelled',
+        tone: 'danger',
+        helperText: 'This studio booking was cancelled.',
+      };
+    }
+    if (sessionStatus === 'no_show') {
+      return {
+        label: 'No Show',
+        tone: 'danger',
+        helperText: 'The session was closed as a No Show.',
+      };
+    }
+    if (sessionStatus === 'completed') {
+      return {
+        label: 'Completed',
+        tone: 'neutral',
+        helperText: 'Your studio session has been completed.',
+      };
+    }
+    if (sessionStatus === 'in_progress') {
+      return {
+        label: 'In Session',
+        tone: 'lime',
+        helperText: 'Your studio session is currently in progress.',
+      };
+    }
+    if (reservationStatus === 'deposit_hold') {
+      return {
+        label: 'Deposit Pending',
+        tone: 'orange',
+        helperText: 'Your time slot is temporarily held while the required deposit is pending.',
+      };
+    }
+    if (isPastConfirmed) {
+      return {
+        label: 'Completed',
+        tone: 'neutral',
+        helperText: 'Confirmed studio session completed.',
+      };
+    }
+    return {
+      label: 'Confirmed',
+      tone: 'emerald',
+      helperText: 'Your studio room and time slot are confirmed.',
+    };
+  }
+
   const status = String(record?.status || BOOKING_REQUEST_STATUS.NEW).trim();
 
   if (status === BOOKING_REQUEST_STATUS.CONFIRMED) {
@@ -231,6 +324,83 @@ function getLatestActivityMillis(record) {
 }
 
 /**
+ * Merges pending request workflow records with the canonical Client reservation projection.
+ * A confirmed request is suppressed only after its matching reservation projection is present;
+ * older confirmed requests remain visible as a backwards-compatible fallback.
+ */
+export function mergeClientBookingRecords({
+  requests = [],
+  reservations = [],
+  maxLimit = 100,
+} = {}) {
+  const requestRecords = Array.isArray(requests) ? requests.filter(Boolean) : [];
+  const reservationRecords = Array.isArray(reservations) ? reservations.filter(Boolean) : [];
+  const requestsById = new Map(requestRecords.map((item) => [item.id, item]));
+  const requestsByBookingId = new Map(
+    requestRecords
+      .filter((item) => item.linkedBookingId)
+      .map((item) => [item.linkedBookingId, item]),
+  );
+  const consumedRequestIds = new Set();
+
+  const projectedRecords = reservationRecords.map((reservation) => {
+    const bookingId = String(reservation.bookingId || reservation.id || '').trim();
+    const sourceRequestId = String(reservation.sourceRequestId || '').trim();
+    const linkedRequest =
+      (sourceRequestId ? requestsById.get(sourceRequestId) : null) ||
+      requestsByBookingId.get(bookingId) ||
+      null;
+
+    if (linkedRequest?.id) consumedRequestIds.add(linkedRequest.id);
+
+    return {
+      ...(linkedRequest || {}),
+      id: bookingId,
+      source: 'client_reservation',
+      requestReference: String(linkedRequest?.requestReference || '').trim(),
+      requestType: BOOKING_REQUEST_TYPES.STUDIO_BOOKING,
+      status: BOOKING_REQUEST_STATUS.CONFIRMED,
+      serviceLabelSnapshot: String(
+        reservation.serviceTypeName || linkedRequest?.serviceLabelSnapshot || '',
+      ).trim(),
+      serviceOptionName: String(
+        reservation.serviceOptionName || linkedRequest?.serviceOptionName || '',
+      ).trim(),
+      createdAt: reservation.createdAt || linkedRequest?.createdAt || null,
+      confirmedAt: linkedRequest?.confirmedAt || reservation.createdAt || null,
+      updatedAt: reservation.updatedAt || linkedRequest?.updatedAt || reservation.createdAt || null,
+      linkedBookingId: bookingId,
+      confirmedBookingSnapshot: {
+        bookingId,
+        bookingReference: String(reservation.bookingReference || '').trim(),
+        studioId: String(reservation.studioId || '').trim(),
+        studioName: String(reservation.studioName || '').trim(),
+        serviceTypeName: String(reservation.serviceTypeName || '').trim(),
+        serviceOptionName: String(reservation.serviceOptionName || '').trim(),
+        date: String(reservation.date || ''),
+        startMinute: reservation.startMinute,
+        endMinute: reservation.endMinute,
+        durationMinutes: reservation.durationMinutes,
+      },
+      clientReservation: reservation,
+    };
+  }).filter((record) => record.id);
+
+  const unprojectedRequests = requestRecords.filter((record) => !consumedRequestIds.has(record.id));
+  const merged = [...projectedRecords, ...unprojectedRequests].sort((a, b) => {
+    const activityDiff = getLatestActivityMillis(b) - getLatestActivityMillis(a);
+    if (activityDiff !== 0) return activityDiff;
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
+
+  const safeLimit = Math.max(1, Number(maxLimit) || 100);
+  return {
+    records: merged.slice(0, safeLimit),
+    isTruncated: merged.length > safeLimit,
+  };
+}
+
+/**
  * Classifies client portal booking records into Upcoming Sessions, Booking Requests,
  * History, Next Session spotlight, and Recent Activity feed using Asia/Jakarta time.
  */
@@ -247,6 +417,66 @@ export function classifyClientBookings(records = [], now = new Date()) {
 
     const schedule = getEffectiveClientBookingSchedule(record);
     const status = String(record.status || BOOKING_REQUEST_STATUS.NEW).trim();
+
+    if (record.clientReservation) {
+      const reservationStatus = String(record.clientReservation.reservationStatus || 'confirmed');
+      const sessionStatus = String(record.clientReservation.sessionStatus || 'upcoming');
+      const isTerminal =
+        ['expired', 'cancelled'].includes(reservationStatus) ||
+        ['completed', 'no_show', 'cancelled'].includes(sessionStatus);
+      const hasValidConfirmedWindow =
+        Boolean(schedule.date) &&
+        Number.isInteger(schedule.startMinute) &&
+        Number.isInteger(schedule.endMinute);
+      const isUpcoming =
+        !isTerminal &&
+        hasValidConfirmedWindow &&
+        (
+          schedule.date > todayIso ||
+          (schedule.date === todayIso && schedule.endMinute > minuteOfDay)
+        );
+
+      if (isUpcoming) {
+        const isToday = schedule.date === todayIso;
+        const isInProgressWindow =
+          sessionStatus === 'in_progress' ||
+          (isToday && minuteOfDay >= schedule.startMinute && minuteOfDay < schedule.endMinute);
+        const enriched = {
+          ...record,
+          _view: {
+            group: 'upcoming',
+            schedule,
+            isPastConfirmed: false,
+            isToday,
+            isInProgressWindow,
+            statusMeta: getClientBookingStatusMeta(record, {
+              isPastConfirmed: false,
+              isInProgressWindow,
+            }),
+          },
+        };
+        items.push(enriched);
+        upcoming.push(enriched);
+      } else {
+        const enriched = {
+          ...record,
+          _view: {
+            group: 'history',
+            schedule,
+            isPastConfirmed: sessionStatus === 'completed' || schedule.date < todayIso,
+            isToday: false,
+            isInProgressWindow: false,
+            statusMeta: getClientBookingStatusMeta(record, {
+              isPastConfirmed: sessionStatus === 'completed' || schedule.date < todayIso,
+              isInProgressWindow: false,
+            }),
+          },
+        };
+        items.push(enriched);
+        history.push(enriched);
+      }
+      continue;
+    }
 
     if (status === BOOKING_REQUEST_STATUS.CONFIRMED) {
       const hasValidConfirmedWindow =
