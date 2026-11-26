@@ -17,7 +17,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:watch": "vitest --watch",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-studio37-rules \"node scripts/test-firestore-rules.mjs\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-studio37-rules \"node scripts/test-firestore-rules.mjs\"",
+    "test:rules:diagnostics": "node scripts/run-firestore-rules-diagnostics.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
