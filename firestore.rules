@@ -2545,7 +2545,7 @@ service cloud.firestore {
       let expectedOptionName = bookingAfter.data.get('serviceOptionName', '') != ''
         ? bookingAfter.data.serviceOptionName
         : bookingAfter.data.get('packageLabel', '');
-      return existsAfter(bookingPath)
+      return bookingAfter != null
         && bookingAfter.data.clientUid == data.clientUid
         && bookingAfter.data.customerId == data.customerId
         && bookingAfter.data.get('sourceRequestId', '') == data.sourceRequestId
@@ -2574,9 +2574,10 @@ service cloud.firestore {
       let invoicePath = /databases/$(database)/documents/invoices/$(invoiceId);
       let bookingAfter = getAfter(bookingPath);
       let invoiceAfter = existsAfter(invoicePath) ? getAfter(invoicePath) : null;
-      let legacyTotal = bookingAfter.data.get('totalAmount', 0);
-      let legacyPaid = bookingAfter.data.get('initialPaidAmount', 0);
-      return invoiceAfter != null
+      let legacyTotal = bookingAfter != null ? bookingAfter.data.get('totalAmount', 0) : 0;
+      let legacyPaid = bookingAfter != null ? bookingAfter.data.get('initialPaidAmount', 0) : 0;
+      return bookingAfter != null && (
+        invoiceAfter != null
         ? invoiceAfter.data.bookingId == bookingId
           && invoiceAfter.data.customerId == data.customerId
           && invoiceAfter.data.financialSnapshot.totalAmount == data.effectiveTotalAmount
@@ -2594,17 +2595,18 @@ service cloud.firestore {
               : (legacyPaid > 0 ? 'partial' : 'unpaid')
           )
           && data.minimumDepositAmount == bookingAfter.data.get('minimumDepositAmount', null)
-          && data.depositStatus == bookingAfter.data.get('depositStatus', null);
+          && data.depositStatus == bookingAfter.data.get('depositStatus', null)
+      );
     }
 
     function isClientReservationBackedByCanonicalMutation(bookingId) {
       let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
       let invoiceId = 'inv_' + bookingId;
       let invoicePath = /databases/$(database)/documents/invoices/$(invoiceId);
-      let bookingBefore = exists(bookingPath) ? get(bookingPath) : null;
-      let bookingAfter = existsAfter(bookingPath) ? getAfter(bookingPath) : null;
-      let invoiceBefore = exists(invoicePath) ? get(invoicePath) : null;
-      let invoiceAfter = existsAfter(invoicePath) ? getAfter(invoicePath) : null;
+      let bookingBefore = get(bookingPath);
+      let bookingAfter = getAfter(bookingPath);
+      let invoiceBefore = get(invoicePath);
+      let invoiceAfter = getAfter(invoicePath);
       return (
           bookingBefore == null && bookingAfter != null
         )
