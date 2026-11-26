@@ -6603,6 +6603,62 @@ async function runTests() {
     `Owner-reviewed identity link transaction failed: ${JSON.stringify(ownerReviewedLinkRes.body)}`,
   );
 
+  // Existing UID-pinned invoice/ledger records remain unchanged by identity linking.
+  const gate2HistoricalInvoiceId = 'inv_gate2_uid_pinned';
+  const gate2HistoricalTransactionId = 'pay_gate2_uid_pinned';
+  const gate2HistoricalEvidenceId = 'ev_gate2_uid_pinned';
+  const gate2HistoricalOwnerUid = 'legacy-financial-owner-uid';
+  await adminSetDoc(`invoices/${gate2HistoricalInvoiceId}`, {
+    invoiceStatus: 'issued',
+    customerId: gate2TargetCustomerId,
+    clientUid: gate2HistoricalOwnerUid,
+    bookingId: 'bkg_gate2_legacy',
+    invoiceNumber: '37MS-GATE2-HISTORIC',
+  });
+  await adminSetDoc(`paymentTransactions/${gate2HistoricalTransactionId}`, {
+    invoiceId: gate2HistoricalInvoiceId,
+    customerId: gate2TargetCustomerId,
+    clientUid: gate2HistoricalOwnerUid,
+    bookingId: 'bkg_gate2_legacy',
+    invoiceNumber: '37MS-GATE2-HISTORIC',
+    amount: 100000,
+  });
+  await adminSetDoc(`paymentEvidence/${gate2HistoricalEvidenceId}`, {
+    invoiceId: gate2HistoricalInvoiceId,
+    customerId: gate2TargetCustomerId,
+    clientUid: gate2HistoricalOwnerUid,
+    bookingId: 'bkg_gate2_legacy',
+    invoiceNumber: '37MS-GATE2-HISTORIC',
+    evidenceSource: 'client_portal',
+    status: 'pending_review',
+  });
+  const unchangedHistoricalInvoice = await userRequest(
+    'GET',
+    `/invoices/${gate2HistoricalInvoiceId}`,
+    TOKEN_OWNER,
+  );
+  assert.equal(unchangedHistoricalInvoice.status, 200, 'Owner retains access to the original historical invoice');
+  assert.equal(
+    unchangedHistoricalInvoice.body?.fields?.clientUid?.stringValue,
+    gate2HistoricalOwnerUid,
+    'Identity linking must not rewrite historical invoice clientUid',
+  );
+  assert.equal(
+    (await userRequest('GET', `/invoices/${gate2HistoricalInvoiceId}`, TOKEN_GATE2_CLIENT)).status,
+    200,
+    'Owner-reviewed CRM binding grants the Client customer-level invoice read access',
+  );
+  assert.equal(
+    (await userRequest('GET', `/paymentTransactions/${gate2HistoricalTransactionId}`, TOKEN_GATE2_CLIENT)).status,
+    403,
+    'UID-pinned payment transaction remains inaccessible to a different Client UID',
+  );
+  assert.equal(
+    (await userRequest('GET', `/paymentEvidence/${gate2HistoricalEvidenceId}`, TOKEN_GATE2_CLIENT)).status,
+    403,
+    'UID-pinned payment evidence remains inaccessible to a different Client UID',
+  );
+
   // A successful bind updates only the Client account + target identity projections + audit.
   // It leaves the old synthetic link/profile intact and never rewrites bookings or billing history.
   assert.equal(
