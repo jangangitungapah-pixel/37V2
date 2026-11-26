@@ -12,8 +12,8 @@ import { mapPaymentEvidenceErrorToMessage } from '../services/payment-evidence-s
 /**
  * Customer-scoped realtime hook for `paymentEvidence`.
  * - Pass `invoiceId` to scope to one invoice (`ClientInvoiceDetailDrawer`).
- * - Omit `invoiceId` to subscribe once across all customer evidence (`ClientInvoicesPage`)
- *   and group by `invoiceId` without N+1 listeners.
+ * - Omit `invoiceId` to subscribe across the currently loaded Client-visible invoice set
+ *   (`ClientInvoicesPage`); the repository uses bounded invoiceId chunks and groups by invoice.
  */
 export function useClientPaymentEvidence({
   invoiceId = '',
