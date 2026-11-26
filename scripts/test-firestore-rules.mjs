@@ -4982,15 +4982,42 @@ async function runTests() {
     structuredQuery: {
       from: [{ collectionId: 'paymentEvidence' }],
       where: {
-        fieldFilter: {
-          field: { fieldPath: 'customerId' },
-          op: 'EQUAL',
-          value: { stringValue: 'cust_email_matched' },
+        compositeFilter: {
+          op: 'AND',
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: 'customerId' },
+                op: 'EQUAL',
+                value: { stringValue: 'cust_email_matched' },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: 'invoiceId' },
+                op: 'IN',
+                value: {
+                  arrayValue: {
+                    values: [
+                      { stringValue: 'inv_bkg_ev_client_a' },
+                      { stringValue: 'inv_bkg_ev_admin_manual' },
+                      { stringValue: 'inv_bkg_ev_paid' },
+                      { stringValue: 'inv_bkg_ev_void' },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
         },
       },
     },
   });
-  assert.equal(clientAListEv.status, 200, 'Client A can LIST own scoped paymentEvidence');
+  assert.equal(
+    clientAListEv.status,
+    200,
+    `Client A can LIST paymentEvidence scoped to owned invoices: ${JSON.stringify(clientAListEv.body)}`,
+  );
   assert.equal(
     (await userRequest('GET', '/paymentEvidence/ev_client_a_1', TOKEN_CLIENT_B)).status,
     403,
