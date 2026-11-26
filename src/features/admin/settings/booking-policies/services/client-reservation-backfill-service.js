@@ -112,6 +112,31 @@ export function buildClientReservationProjection(booking, invoice, timestamp) {
   };
 }
 
+function areProjectionValuesEqual(left, right) {
+  if (left === right) return true;
+  if (left == null || right == null) return left === right;
+  if (typeof left === 'object' && typeof right === 'object') {
+    if (
+      Number.isFinite(Number(left.seconds)) &&
+      Number.isFinite(Number(right.seconds))
+    ) {
+      return (
+        Number(left.seconds) === Number(right.seconds) &&
+        Number(left.nanoseconds || 0) === Number(right.nanoseconds || 0)
+      );
+    }
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  return left === right;
+}
+
+function isClientReservationProjectionUnchanged(existing, next) {
+  if (!existing || !next) return false;
+  return Object.keys(next)
+    .filter((key) => key !== 'updatedAt')
+    .every((key) => areProjectionValuesEqual(existing[key], next[key]));
+}
+
 export function createClientReservationBackfillService() {
   return {
     subscribeStatus({ actorUid, actorRole, onData, onError }) {
@@ -219,6 +244,7 @@ export function createClientReservationBackfillService() {
           const outcome = await runTransaction(db, async (transaction) => {
             const bookingRef = doc(db, COLLECTIONS.BOOKINGS, bookingId);
             const invoiceRef = doc(db, COLLECTIONS.INVOICES, `inv_${bookingId}`);
+            const reservationRef = doc(db, COLLECTIONS.RESERVATIONS, bookingId);
             const requestRef = candidateRequestId
               ? doc(db, COLLECTIONS.REQUESTS, candidateRequestId)
               : null;
@@ -226,11 +252,18 @@ export function createClientReservationBackfillService() {
               ? doc(db, 'clientCustomerLinks', candidateCustomerId)
               : null;
 
-            const [bookingSnapshot, requestSnapshot, invoiceSnapshot, linkSnapshot] = await Promise.all([
+            const [
+              bookingSnapshot,
+              requestSnapshot,
+              invoiceSnapshot,
+              linkSnapshot,
+              reservationSnapshot,
+            ] = await Promise.all([
               transaction.get(bookingRef),
               requestRef ? transaction.get(requestRef) : Promise.resolve(null),
               transaction.get(invoiceRef),
               linkRef ? transaction.get(linkRef) : Promise.resolve(null),
+              transaction.get(reservationRef),
             ]);
             if (!bookingSnapshot.exists()) return 'skipped';
 
@@ -305,6 +338,9 @@ export function createClientReservationBackfillService() {
             }
 
             const nowValue = serverTimestamp();
+            const existingReservation = reservationSnapshot?.exists()
+              ? reservationSnapshot.data()
+              : null;
             const nextSourceRequestId = isPortalOrigin
               ? candidateRequestId
               : String(booking.sourceRequestId || '');
@@ -334,6 +370,13 @@ export function createClientReservationBackfillService() {
             };
             const projection = buildClientReservationProjection(nextBooking, invoice, nowValue);
             if (!projection) return 'skipped';
+            if (!booking.createdAt && existingReservation?.createdAt) {
+              projection.createdAt = existingReservation.createdAt;
+            }
+            const projectionChanged = !isClientReservationProjectionUnchanged(
+              existingReservation,
+              projection,
+            );
 
             if (bookingNeedsLink) {
               const patch = {
@@ -359,7 +402,9 @@ export function createClientReservationBackfillService() {
               });
             }
 
-            transaction.set(doc(db, COLLECTIONS.RESERVATIONS, bookingId), projection);
+            if (projectionChanged) {
+              transaction.set(reservationRef, projection);
+            }
             return 'projected';
           });
           if (outcome === 'projected') newlyProjected += 1;
