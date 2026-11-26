@@ -97,8 +97,8 @@ Legacy projection creation derives `paymentStatus` from an existing invoice when
 
 ## 7. Indexes, bounds, and transaction discipline
 
-- Client reservation subscriptions use equality filters by `clientUid` or `customerId`, each limited to `maxLimit + 1`; no compound orderBy is applied.
-- Client-side sorting avoids a new composite index for the reservation list.
+- Client reservation subscriptions use equality filters by `clientUid` or `customerId`, each ordered by `updatedAt DESC` and limited to `maxLimit + 1`.
+- The two bounded owner/activity queries require the committed composite indexes in `firestore.indexes.json`: `clientUid ASC + updatedAt DESC` and `customerId ASC + updatedAt DESC`. Results from the two subscriptions are merged, deduplicated by booking ID, globally sorted by latest activity, then truncated.
 - Owner backfill page size is five bookings; each booking is handled in a separate bounded transaction.
 - Existing Customer batch writes remain capped at five writes.
 - Existing commission posting remains capped at five booking items per posting batch.
