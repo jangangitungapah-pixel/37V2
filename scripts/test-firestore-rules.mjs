@@ -1,4 +1,5 @@
 import strictAssert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 
 const aggregateAssertionMode = process.env.FIRESTORE_RULES_AGGREGATE === '1';
 const assertionFailures = [];
@@ -16,7 +17,7 @@ const assert = aggregateAssertionMode
             const label =
               typeof args[args.length - 1] === 'string'
                 ? args[args.length - 1]
-                : error.message.split('\\n')[0];
+                : error.message.split('\n')[0];
             assertionFailures.push({
               method: String(property),
               label,
@@ -36,19 +37,18 @@ const assert = aggregateAssertionMode
 function printAggregateAssertionSummary() {
   if (!aggregateAssertionMode || assertionFailures.length === 0) return;
 
-  console.error('\\n========== FIRESTORE RULES AGGREGATE SUMMARY ==========');
+  console.error('\n========== FIRESTORE RULES AGGREGATE SUMMARY ==========');
   console.error(`Assertion failures collected: ${assertionFailures.length}`);
   assertionFailures.forEach((failure, index) => {
-    console.error(`\\n${index + 1}. [${failure.method}] ${failure.label}`);
+    console.error(`\n${index + 1}. [${failure.method}] ${failure.label}`);
     console.error(failure.message);
   });
   console.error(
-    '\\nNOTE: A failed write can cause later dependent assertions to fail too. ' +
+    '\nNOTE: A failed write can cause later dependent assertions to fail too. ' +
       'Treat later failures as possible cascades until the earliest failed operation is fixed.',
   );
-  console.error('========================================================\\n');
+  console.error('========================================================\n');
 }
-import { createHash } from 'node:crypto';
 
 const PROJECT_ID = 'demo-studio37-rules';
 const EMULATOR_HOST = '127.0.0.1:8088';
@@ -6447,7 +6447,7 @@ async function runTests() {
     return;
   }
 
-  console.log('\\nALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!');
+  console.log('\nALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!');
 }
 
 runTests().catch((err) => {
