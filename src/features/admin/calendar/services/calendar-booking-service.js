@@ -1632,6 +1632,7 @@ export function createInMemoryBookingRepositoryAdapter(
   const bookingRequestNewSubscribers = new Set();
   const bookingRequestListSubscribers = new Set();
   const bookingRequestClientSubscribers = new Set();
+  const clientReservationSubscribers = new Set();
   const bookingRequestDocSubscribers = new Map();
   const bookingRequestActivitySubscribers = new Map();
   const bookingRequestCommSubscribers = new Map();
@@ -1694,6 +1695,27 @@ export function createInMemoryBookingRepositoryAdapter(
         .filter((c) => c.requestId === targetRequestId)
         .sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
       bookingRequestCommSubscribers.get(targetRequestId)?.forEach((cb) => cb([...comms]));
+    }
+  }
+
+  function notifyClientReservations() {
+    for (const sub of clientReservationSubscribers) {
+      const matches = Array.from(clientReservations.values())
+        .filter((reservation) =>
+          (sub.clientUid && reservation.clientUid === sub.clientUid) ||
+          (sub.customerId && reservation.customerId === sub.customerId),
+        )
+        .sort((a, b) => {
+          const dateDiff = String(b.date || '').localeCompare(String(a.date || ''));
+          if (dateDiff !== 0) return dateDiff;
+          return Number(b.startMinute || 0) - Number(a.startMinute || 0);
+        });
+      const limited = matches.slice(0, sub.maxLimit);
+      sub.onData?.({
+        reservations: limited.map((reservation) => ({ ...reservation })),
+        isTruncated: matches.length > sub.maxLimit,
+        maxLimit: sub.maxLimit,
+      });
     }
   }
 
@@ -1961,6 +1983,8 @@ export function createInMemoryBookingRepositoryAdapter(
       transactionSubscribers,
       invoiceTransactionSubscribers,
       paymentEvidenceSubscribers,
+      clientReservations,
+      clientReservationSubscribers,
       commissionSubscribers,
       bookkeepingSubscribers,
       bookingRequestNewSubscribers,
@@ -1984,6 +2008,13 @@ export function createInMemoryBookingRepositoryAdapter(
       notifyCommissions: notifyCommissionSubscribers,
       notifyBookkeeping: notifyBookkeepingSubscribers,
       notifyBookingRequests,
+    },
+
+    _seedClientReservation(id, data = {}) {
+      const cleanId = String(id || data.bookingId || '').trim();
+      if (!cleanId) return;
+      clientReservations.set(cleanId, { id: cleanId, ...data, bookingId: cleanId });
+      notifyClientReservations();
     },
 
     _inspectState() {
@@ -2228,6 +2259,7 @@ export function createInMemoryBookingRepositoryAdapter(
         notifyCustomerSubscribers();
         notifyInvoiceSubscribers();
         notifyTransactionSubscribers();
+        notifyClientReservations();
         for (const listener of paymentEvidenceSubscribers) {
           listener();
         }
@@ -2244,6 +2276,33 @@ export function createInMemoryBookingRepositoryAdapter(
 
         return result;
       });
+    },
+
+    subscribeClientReservations({
+      clientUid = '',
+      customerId = '',
+      maxLimit = 100,
+      onData,
+      onError,
+    }) {
+      const cleanClientUid = String(clientUid || '').trim();
+      const cleanCustomerId = String(customerId || '').trim();
+      if (!cleanClientUid && !cleanCustomerId) {
+        queueMicrotask(() => onError?.(new Error('Missing Client identity for reservation subscription.')));
+        return () => {};
+      }
+
+      const sub = {
+        clientUid: cleanClientUid,
+        customerId: cleanCustomerId,
+        maxLimit: Math.max(1, Number(maxLimit) || 100),
+        onData,
+      };
+      clientReservationSubscribers.add(sub);
+      notifyClientReservations();
+      return () => {
+        clientReservationSubscribers.delete(sub);
+      };
     },
 
     subscribeBookingsInRange({
