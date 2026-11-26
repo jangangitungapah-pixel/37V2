@@ -2578,8 +2578,8 @@ service cloud.firestore {
           && invoiceAfter.data.customerId == data.customerId
           && invoiceAfter.data.financialSnapshot.totalAmount == data.effectiveTotalAmount
           && invoiceAfter.data.paymentStatus == data.paymentStatus
-          && invoiceAfter.data.get('minimumDepositAmount', null) == data.minimumDepositAmount
-          && invoiceAfter.data.get('depositStatus', null) == data.depositStatus
+          && bookingAfter.data.get('minimumDepositAmount', null) == data.minimumDepositAmount
+          && bookingAfter.data.get('depositStatus', null) == data.depositStatus
           && (
             invoiceAfter.data.get('clientUid', '') == ''
             || invoiceAfter.data.clientUid == data.clientUid
