@@ -1179,7 +1179,7 @@ describe('Phase H — Public Booking Request Workflow, Calendar Conversion & Wha
       );
 
       await screen.findByRole('heading', { level: 1, name: /^booking requests$/i });
-      expect(screen.queryByRole('button', { name: /kelola template whatsapp/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /template whatsapp/i })).toBeNull();
 
       cleanup();
 
@@ -1193,7 +1193,7 @@ describe('Phase H — Public Booking Request Workflow, Calendar Conversion & Wha
         </AuthContext.Provider>,
       );
 
-      await user.click(await screen.findByRole('button', { name: /kelola template whatsapp/i }));
+      await user.click(await screen.findByRole('button', { name: /^template whatsapp$/i }));
       const dialog = await screen.findByRole('dialog', {
         name: /kelola template pesan whatsapp/i,
       });
@@ -1267,7 +1267,7 @@ describe('Phase H — Public Booking Request Workflow, Calendar Conversion & Wha
 
       await user.click(within(drawer).getByRole('button', { name: /decline request/i }));
       await user.type(within(drawer).getByLabelText(/alasan penolakan/i), 'Jadwal sudah penuh.');
-      await user.click(within(drawer).getByRole('button', { name: /konfirmasi decline/i }));
+      await user.click(within(drawer).getByRole('button', { name: /^konfirmasi$/i }));
 
       await waitFor(() => {
         expect(requestAdapter._inspectState().requests.get('req_BADGE_01')?.status).toBe(
