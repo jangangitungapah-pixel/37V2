@@ -288,6 +288,19 @@ export function getClientBookingStatusMeta(
 }
 
 function getRecentActivityActionLabel(item, _view) {
+  const reservation = item?.clientReservation;
+  if (reservation) {
+    const reservationStatus = String(reservation.reservationStatus || 'confirmed');
+    const sessionStatus = String(reservation.sessionStatus || 'upcoming');
+    if (reservationStatus === 'expired') return 'Reservation expired';
+    if (reservationStatus === 'cancelled' || sessionStatus === 'cancelled') return 'Booking cancelled';
+    if (sessionStatus === 'no_show') return 'Marked as No Show';
+    if (sessionStatus === 'completed') return 'Session completed';
+    if (sessionStatus === 'in_progress') return 'Session in progress';
+    if (reservationStatus === 'deposit_hold') return 'Deposit pending';
+    return 'Session confirmed';
+  }
+
   const status = String(item?.status || BOOKING_REQUEST_STATUS.NEW).trim();
 
   if (status === BOOKING_REQUEST_STATUS.CONFIRMED) {
