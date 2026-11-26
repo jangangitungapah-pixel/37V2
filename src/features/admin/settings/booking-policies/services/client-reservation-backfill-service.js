@@ -274,7 +274,7 @@ export function createClientReservationBackfillService() {
           });
           if (outcome === 'projected') newlyProjected += 1;
           else skipped += 1;
-        } catch (error) {
+        } catch {
           skipped += 1;
         }
       }
