@@ -194,6 +194,46 @@ describe('Owner-reviewed legacy Client identity linking', () => {
     expect(after.clientIdentityLinkAudits.size).toBe(before.clientIdentityLinkAudits.size);
   });
 
+  it('rejects an orphaned CRM account claim even when its one-to-one link document is missing', async () => {
+    const customerAdapter = createInMemoryCustomerRepositoryAdapter();
+    const clientAdapter = createInMemoryClientPortalRepositoryAdapter(customerAdapter);
+    const customer = await createManualCustomer({
+      actorUid: 'staff-1',
+      input: {
+        displayName: 'Orphaned CRM Claim',
+        phone: '081234567895',
+        email: 'orphaned@example.com',
+        notes: '',
+      },
+      adapter: customerAdapter,
+    });
+
+    // Simulate a pre-existing inconsistent account record whose reverse link was lost.
+    clientAdapter._seedClientAccount('orphan-owner', {
+      customerId: customer.id,
+      profileSource: 'linked_customer',
+      status: 'active',
+      version: 3,
+    });
+    seedClientIdentity({ adapter: clientAdapter, uid: 'orphan-attempt' });
+
+    await expect(
+      linkLegacyClientAccountToCustomer({
+        actorUid: 'owner-1',
+        actorRole: 'owner',
+        clientUid: 'orphan-attempt',
+        targetCustomerId: customer.id,
+        reviewReason: 'Owner reviewed but target account claim is inconsistent.',
+        adapter: clientAdapter,
+      }),
+    ).rejects.toMatchObject({ code: 'client-identity/customer-already-claimed' });
+
+    const after = clientAdapter._inspectState();
+    expect(after.clientAccounts.get('orphan-attempt').customerId).toBe('client_orphan-attempt');
+    expect(after.clientCustomerLinks.has(customer.id)).toBe(false);
+    expect(after.clientIdentityLinkAudits.size).toBe(0);
+  });
+
   it('rejects an account already linked to another real CRM customer instead of silently reassigning it', async () => {
     const customerAdapter = createInMemoryCustomerRepositoryAdapter();
     const clientAdapter = createInMemoryClientPortalRepositoryAdapter(customerAdapter);
