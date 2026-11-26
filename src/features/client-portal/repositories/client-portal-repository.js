@@ -271,7 +271,7 @@ export function createFirestoreClientPortalRepositoryAdapter() {
         throw createRepositoryError('client-identity/invalid-reason', 'Alasan review wajib 10–1000 karakter.');
       }
 
-      const [{ doc, runTransaction, serverTimestamp }, { getFirebaseDb }] = await Promise.all([
+      const [{ collection, doc, limit, query, runTransaction, serverTimestamp, where }, { getFirebaseDb }] = await Promise.all([
         import('firebase/firestore'),
         import('@/lib/firebase/firestore'),
       ]);
@@ -286,6 +286,11 @@ export function createFirestoreClientPortalRepositoryAdapter() {
         const targetProfileRef = doc(db, FIRESTORE_COLLECTIONS.CLIENT_PROFILES, cleanTargetCustomerId);
         const targetLinkRef = doc(db, FIRESTORE_COLLECTIONS.CLIENT_CUSTOMER_LINKS, cleanTargetCustomerId);
         const auditRef = doc(db, 'clientIdentityLinkAudits', cleanOperationId);
+        const accountClaimsQuery = query(
+          collection(db, FIRESTORE_COLLECTIONS.CLIENT_ACCOUNTS),
+          where('customerId', '==', cleanTargetCustomerId),
+          limit(2),
+        );
 
         const [
           accountSnapshot,
@@ -295,6 +300,7 @@ export function createFirestoreClientPortalRepositoryAdapter() {
           targetProfileSnapshot,
           targetLinkSnapshot,
           auditSnapshot,
+          accountClaimsSnapshot,
         ] = await Promise.all([
           tx.get(accountRef),
           tx.get(sourceLinkRef),
@@ -303,6 +309,7 @@ export function createFirestoreClientPortalRepositoryAdapter() {
           tx.get(targetProfileRef),
           tx.get(targetLinkRef),
           tx.get(auditRef),
+          tx.get(accountClaimsQuery),
         ]);
 
         if (!accountSnapshot.exists()) {
@@ -358,7 +365,10 @@ export function createFirestoreClientPortalRepositoryAdapter() {
         if (!customerSnapshot.exists() || customerSnapshot.data()?.status !== 'active') {
           throw createRepositoryError('client-identity/customer-not-eligible', 'Customer target tidak ditemukan atau tidak aktif.');
         }
-        if (targetLinkSnapshot.exists()) {
+        const accountClaimedByAnotherUid = accountClaimsSnapshot.docs.some(
+          (candidate) => candidate.id !== cleanUid,
+        );
+        if (targetLinkSnapshot.exists() || accountClaimedByAnotherUid) {
           throw createRepositoryError('client-identity/customer-already-claimed', 'Customer target sudah tertaut ke akun Client lain.');
         }
         const customer = customerSnapshot.data() || {};
@@ -852,7 +862,11 @@ export function createInMemoryClientPortalRepositoryAdapter(customerAdapterOrBri
         if (!customer || customer.status !== 'active') {
           throw createRepositoryError('client-identity/customer-not-eligible', 'Customer target tidak ditemukan atau tidak aktif.');
         }
-        if (clientCustomerLinksMap.has(cleanTargetCustomerId)) {
+        const accountClaimedByAnotherUid = Array.from(clientAccountsMap.entries()).some(
+          ([candidateUid, candidate]) =>
+            candidateUid !== cleanUid && candidate?.customerId === cleanTargetCustomerId,
+        );
+        if (clientCustomerLinksMap.has(cleanTargetCustomerId) || accountClaimedByAnotherUid) {
           throw createRepositoryError('client-identity/customer-already-claimed', 'Customer target sudah tertaut ke akun Client lain.');
         }
         const existingProfile = clientProfilesMap.get(cleanTargetCustomerId) || null;
