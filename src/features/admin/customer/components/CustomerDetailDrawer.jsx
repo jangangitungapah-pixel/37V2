@@ -8,6 +8,7 @@ import {
   ExternalLink,
   GitMerge,
   History,
+  Link2,
   Music2,
   Phone,
   PhoneForwarded,
@@ -46,6 +47,7 @@ export function CustomerDetailDrawer({
   onUpdatePhone,
   onToggleArchive,
   onOpenMerge,
+  onLinkClient,
 }) {
   const [selectedBooking, setSelectedBooking] = useState(null);
 
@@ -160,6 +162,17 @@ export function CustomerDetailDrawer({
                     >
                       <GitMerge className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
                       <span>Gabung Riwayat</span>
+                    </button>
+                  ) : null}
+
+                  {!isArchived && onLinkClient ? (
+                    <button
+                      type="button"
+                      onClick={() => onLinkClient(customer)}
+                      className="sa-control sa-btn-lime inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold"
+                    >
+                      <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Hubungkan Akun Client</span>
                     </button>
                   ) : null}
 
