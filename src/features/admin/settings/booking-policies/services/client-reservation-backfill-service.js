@@ -1,5 +1,3 @@
-import { getTodayLocalDateString } from '@/lib/booking-date';
-
 const COLLECTIONS = {
   BOOKINGS: 'bookings',
   REQUESTS: 'publicBookingRequests',
@@ -132,11 +130,10 @@ export function createClientReservationBackfillService() {
       return () => { cancelled = true; unsubscribe?.(); };
     },
 
-    async runNextBatch({ actorUid, actorRole, now = new Date() }) {
+    async runNextBatch({ actorUid, actorRole, now = new Date(), restart = false }) {
       const ownerUid = validateClientReservationBackfillActor(actorUid, actorRole);
-      const todayIso = getTodayLocalDateString(now);
       const [
-        { collection, doc, getDoc, getDocs, limit, orderBy, query, runTransaction, serverTimestamp, setDoc, startAfter, where },
+        { collection, doc, getDoc, getDocs, limit, orderBy, query, runTransaction, serverTimestamp, setDoc, startAfter },
         { getFirebaseDb },
       ] = await Promise.all([
         import('firebase/firestore'),
@@ -145,9 +142,11 @@ export function createClientReservationBackfillService() {
       const db = getFirebaseDb();
       const statusRef = doc(db, COLLECTIONS.SETTINGS, STATUS_DOC_ID);
       const statusSnap = await getDoc(statusRef);
-      const previous = statusSnap.exists() ? { ...defaultBackfillStatus(), ...statusSnap.data() } : defaultBackfillStatus();
+      let previous = statusSnap.exists()
+        ? { ...defaultBackfillStatus(), ...statusSnap.data() }
+        : defaultBackfillStatus();
 
-      if (previous.status === 'completed') {
+      if (previous.status === 'completed' && !restart) {
         return {
           isComplete: true,
           newlyProjected: 0,
@@ -156,12 +155,16 @@ export function createClientReservationBackfillService() {
           skippedCount: previous.skippedCount,
         };
       }
+      if (previous.status === 'completed' && restart) {
+        previous = {
+          ...defaultBackfillStatus(),
+          version: Number(previous.version) || 0,
+        };
+      }
 
-      const constraints = [
-        where('source', '==', 'client_portal'),
-        where('date', '>=', todayIso),
-        orderBy('date', 'asc'),
-      ];
+      // A single-field ordered scan covers portal-origin bookings and linked CRM walk-ins,
+      // including history. No composite index or unbounded query is introduced.
+      const constraints = [orderBy('date', 'asc')];
       if (previous.cursorBookingId) {
         const cursorSnapshot = await getDoc(doc(db, COLLECTIONS.BOOKINGS, previous.cursorBookingId));
         if (cursorSnapshot.exists()) constraints.push(startAfter(cursorSnapshot));
@@ -178,7 +181,7 @@ export function createClientReservationBackfillService() {
           updatedByUid: ownerUid,
           version: (Number(previous.version) || 0) + 1,
         };
-        await setDoc(statusRef, completed);
+        await setDoc(statusRef, completed, { merge: true });
         return {
           isComplete: true,
           newlyProjected: 0,
@@ -195,52 +198,125 @@ export function createClientReservationBackfillService() {
 
       for (const candidate of documents) {
         const bookingId = candidate.id;
+        const candidateData = candidate.data() || {};
+        const candidateCustomerId = String(candidateData.customerId || '').trim();
+        const candidateRequestId = String(candidateData.sourceRequestId || '').trim();
         lastBookingId = bookingId;
         processed += 1;
+
         try {
           const outcome = await runTransaction(db, async (transaction) => {
             const bookingRef = doc(db, COLLECTIONS.BOOKINGS, bookingId);
-            const candidateData = candidate.data() || {};
-            const requestId = String(candidateData.sourceRequestId || '').trim();
-            if (!requestId) return 'skipped';
-
-            const requestRef = doc(db, COLLECTIONS.REQUESTS, requestId);
             const invoiceRef = doc(db, COLLECTIONS.INVOICES, `inv_${bookingId}`);
-            const [bookingSnapshot, requestSnapshot, invoiceSnapshot] = await Promise.all([
+            const requestRef = candidateRequestId
+              ? doc(db, COLLECTIONS.REQUESTS, candidateRequestId)
+              : null;
+            const linkRef = candidateCustomerId
+              ? doc(db, 'clientCustomerLinks', candidateCustomerId)
+              : null;
+
+            const [bookingSnapshot, requestSnapshot, invoiceSnapshot, linkSnapshot] = await Promise.all([
               transaction.get(bookingRef),
-              transaction.get(requestRef),
+              requestRef ? transaction.get(requestRef) : Promise.resolve(null),
               transaction.get(invoiceRef),
+              linkRef ? transaction.get(linkRef) : Promise.resolve(null),
             ]);
-            if (!bookingSnapshot.exists() || !requestSnapshot.exists()) return 'skipped';
+            if (!bookingSnapshot.exists()) return 'skipped';
 
             const booking = { id: bookingId, ...bookingSnapshot.data() };
-            const request = requestSnapshot.data() || {};
-            const invoice = invoiceSnapshot.exists() ? invoiceSnapshot.data() : null;
-            const requestUid = String(request.clientUid || '').trim();
-            if (
-              request.source !== 'client_portal' ||
-              request.status !== 'confirmed' ||
-              request.linkedBookingId !== bookingId ||
-              !requestUid ||
-              ['cancelled', 'no_show'].includes(booking.sessionStatus) ||
-              booking.date < todayIso
-            ) return 'skipped';
+            const customerId = String(booking.customerId || '').trim();
+            if (!customerId || customerId !== candidateCustomerId) return 'skipped';
 
-            if (booking.clientUid && booking.clientUid !== requestUid) return 'skipped';
-            if (invoice?.clientUid && invoice.clientUid !== requestUid) return 'skipped';
+            const invoice = invoiceSnapshot.exists() ? invoiceSnapshot.data() : null;
+            if (
+              invoice &&
+              (
+                (invoice.bookingId && invoice.bookingId !== bookingId) ||
+                (invoice.customerId && invoice.customerId !== customerId) ||
+                (invoice.clientUid && booking.clientUid && invoice.clientUid !== booking.clientUid)
+              )
+            ) {
+              return 'skipped';
+            }
+
+            let resolvedClientUid = '';
+            let linkedPortalRequest = null;
+            const isPortalOrigin = String(booking.source || '') === 'client_portal';
+
+            if (isPortalOrigin || candidateRequestId) {
+              if (!requestSnapshot?.exists()) return 'skipped';
+              linkedPortalRequest = requestSnapshot.data() || {};
+              const requestUid = String(linkedPortalRequest.clientUid || '').trim();
+              if (
+                linkedPortalRequest.source !== 'client_portal' ||
+                linkedPortalRequest.status !== 'confirmed' ||
+                linkedPortalRequest.linkedBookingId !== bookingId ||
+                String(linkedPortalRequest.customerId || '') !== customerId ||
+                !requestUid
+              ) {
+                return 'skipped';
+              }
+              resolvedClientUid = requestUid;
+            } else {
+              if (!linkSnapshot?.exists()) return 'skipped';
+              const link = linkSnapshot.data() || {};
+              const linkedUid = String(link.ownerUid || '').trim();
+              if (
+                link.customerId !== customerId ||
+                !linkedUid
+              ) {
+                return 'skipped';
+              }
+
+              const accountSnapshot = await transaction.get(
+                doc(db, 'clientAccounts', linkedUid),
+              );
+              if (!accountSnapshot.exists()) return 'skipped';
+              const account = accountSnapshot.data() || {};
+              if (
+                account.uid !== linkedUid ||
+                account.role !== 'client' ||
+                account.status !== 'active' ||
+                account.customerId !== customerId ||
+                account.profileSource !== 'linked_customer'
+              ) {
+                return 'skipped';
+              }
+              resolvedClientUid = linkedUid;
+            }
+
+            if (
+              !resolvedClientUid ||
+              (booking.clientUid && booking.clientUid !== resolvedClientUid) ||
+              (invoice?.clientUid && invoice.clientUid !== resolvedClientUid)
+            ) {
+              return 'skipped';
+            }
 
             const nowValue = serverTimestamp();
+            const nextSourceRequestId = isPortalOrigin
+              ? candidateRequestId
+              : String(booking.sourceRequestId || '');
+            const nextAcceptedOfferId = isPortalOrigin
+              ? String(booking.acceptedOfferId || linkedPortalRequest?.acceptedOfferId || '')
+              : String(booking.acceptedOfferId || '');
             const bookingNeedsLink =
-              !booking.clientUid ||
-              booking.source !== 'client_portal' ||
-              booking.sourceRequestId !== requestId ||
-              typeof booking.acceptedOfferId !== 'string';
+              booking.clientUid !== resolvedClientUid ||
+              (isPortalOrigin && (
+                booking.source !== 'client_portal' ||
+                booking.sourceRequestId !== nextSourceRequestId ||
+                booking.acceptedOfferId !== nextAcceptedOfferId
+              ));
             const nextBooking = {
               ...booking,
-              clientUid: requestUid,
-              source: 'client_portal',
-              sourceRequestId: requestId,
-              acceptedOfferId: String(booking.acceptedOfferId || request.acceptedOfferId || ''),
+              clientUid: resolvedClientUid,
+              ...(isPortalOrigin
+                ? {
+                    source: 'client_portal',
+                    sourceRequestId: nextSourceRequestId,
+                    acceptedOfferId: nextAcceptedOfferId,
+                  }
+                : {}),
               version: (Number(booking.version) || 1) + (bookingNeedsLink ? 1 : 0),
               updatedAt: bookingNeedsLink ? nowValue : booking.updatedAt,
               updatedByUid: bookingNeedsLink ? ownerUid : booking.updatedByUid,
@@ -250,20 +326,22 @@ export function createClientReservationBackfillService() {
 
             if (bookingNeedsLink) {
               const patch = {
-                clientUid: requestUid,
-                source: 'client_portal',
-                sourceRequestId: requestId,
-                acceptedOfferId: nextBooking.acceptedOfferId,
+                clientUid: resolvedClientUid,
                 updatedAt: nowValue,
                 updatedByUid: ownerUid,
                 version: nextBooking.version,
               };
+              if (isPortalOrigin) {
+                patch.source = 'client_portal';
+                patch.sourceRequestId = nextSourceRequestId;
+                patch.acceptedOfferId = nextAcceptedOfferId;
+              }
               transaction.update(bookingRef, patch);
             }
 
             if (invoice && !invoice.clientUid) {
               transaction.update(invoiceRef, {
-                clientUid: requestUid,
+                clientUid: resolvedClientUid,
                 updatedAt: nowValue,
                 updatedByUid: ownerUid,
                 version: (Number(invoice.version) || 1) + 1,
@@ -300,11 +378,11 @@ export function createClientReservationBackfillService() {
       return {
         isComplete,
         newlyProjected,
-        projectedCount: totalProjected,
         processedCount: totalProcessed,
+        projectedCount: totalProjected,
         skippedCount: totalSkipped,
       };
-    },
+    }
   };
 }
 
