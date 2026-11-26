@@ -92,6 +92,31 @@ function buildIsolatedProfilePayload({
   };
 }
 
+function buildLinkedClientProfilePayload({
+  customerId,
+  ownerUid,
+  customer,
+  existingProfile = null,
+  timestamp,
+}) {
+  return {
+    schemaVersion: CLIENT_PORTAL_SCHEMA_VERSION,
+    customerId,
+    ownerUid,
+    profileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+    displayName: String(existingProfile?.displayName || customer?.displayName || '').trim(),
+    emailNormalized: String(
+      existingProfile?.emailNormalized || customer?.emailNormalized || customer?.email || '',
+    ).trim().toLowerCase(),
+    phoneDisplay: String(existingProfile?.phoneDisplay || customer?.phoneDisplay || '').trim(),
+    photoURL: String(existingProfile?.photoURL || '').trim(),
+    status: 'active',
+    createdAt: existingProfile?.createdAt || timestamp,
+    updatedAt: timestamp,
+    version: existingProfile ? (Number(existingProfile.version) || 1) + 1 : 1,
+  };
+}
+
 export function createFirestoreClientPortalRepositoryAdapter() {
   return {
     async hasStaffProfile(uid) {
@@ -202,6 +227,199 @@ export function createFirestoreClientPortalRepositoryAdapter() {
         }
         throw err;
       }
+    },
+
+    async listOwnerEligibleClientAccounts({ maxResults = 100 } = {}) {
+      if (!isFirebaseConfigured()) return [];
+      const safeLimit = Math.max(1, Math.min(200, Number(maxResults) || 100));
+      const [{ collection, getDocs, limit, query, where }, { getFirebaseDb }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@/lib/firebase/firestore'),
+      ]);
+      const accountsQuery = query(
+        collection(getFirebaseDb(), FIRESTORE_COLLECTIONS.CLIENT_ACCOUNTS),
+        where('profileSource', '==', CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE),
+        limit(safeLimit),
+      );
+      const snapshot = await getDocs(accountsQuery);
+      return snapshot.docs
+        .map((item) => normalizeClientAccountRecord(item.id, item.data()))
+        .filter(
+          (account) =>
+            account?.role === CLIENT_ROLE &&
+            account.status === CLIENT_ACCOUNT_STATUS.ACTIVE &&
+            account.profileSource === CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE &&
+            account.customerId === buildIsolatedClientCustomerId(account.uid),
+        )
+        .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    },
+
+    async linkLegacyClientToCustomer({
+      uid,
+      targetCustomerId,
+      actorUid,
+      reviewReason,
+      operationId,
+    }) {
+      const cleanUid = String(uid || '').trim();
+      const cleanTargetCustomerId = String(targetCustomerId || '').trim();
+      const cleanActorUid = String(actorUid || '').trim();
+      const cleanReason = String(reviewReason || '').trim();
+      const cleanOperationId = String(operationId || '').trim();
+      if (!cleanUid || !cleanTargetCustomerId || !cleanActorUid || !cleanOperationId) {
+        throw createRepositoryError('client-identity/invalid-input', 'Data identity link belum lengkap.');
+      }
+      if (cleanReason.length < 10 || cleanReason.length > 1000) {
+        throw createRepositoryError('client-identity/invalid-reason', 'Alasan review wajib 10–1000 karakter.');
+      }
+
+      const [{ doc, runTransaction, serverTimestamp }, { getFirebaseDb }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@/lib/firebase/firestore'),
+      ]);
+      const db = getFirebaseDb();
+
+      return runTransaction(db, async (tx) => {
+        const isolatedCustomerId = buildIsolatedClientCustomerId(cleanUid);
+        const accountRef = doc(db, FIRESTORE_COLLECTIONS.CLIENT_ACCOUNTS, cleanUid);
+        const sourceLinkRef = doc(db, FIRESTORE_COLLECTIONS.CLIENT_CUSTOMER_LINKS, isolatedCustomerId);
+        const sourceProfileRef = doc(db, FIRESTORE_COLLECTIONS.CLIENT_PROFILES, isolatedCustomerId);
+        const customerRef = doc(db, FIRESTORE_COLLECTIONS.CUSTOMERS, cleanTargetCustomerId);
+        const targetProfileRef = doc(db, FIRESTORE_COLLECTIONS.CLIENT_PROFILES, cleanTargetCustomerId);
+        const targetLinkRef = doc(db, FIRESTORE_COLLECTIONS.CLIENT_CUSTOMER_LINKS, cleanTargetCustomerId);
+        const auditRef = doc(db, 'clientIdentityLinkAudits', cleanOperationId);
+
+        const [
+          accountSnapshot,
+          sourceLinkSnapshot,
+          sourceProfileSnapshot,
+          customerSnapshot,
+          targetProfileSnapshot,
+          targetLinkSnapshot,
+          auditSnapshot,
+        ] = await Promise.all([
+          tx.get(accountRef),
+          tx.get(sourceLinkRef),
+          tx.get(sourceProfileRef),
+          tx.get(customerRef),
+          tx.get(targetProfileRef),
+          tx.get(targetLinkRef),
+          tx.get(auditRef),
+        ]);
+
+        if (auditSnapshot.exists()) {
+          throw createRepositoryError('client-identity/duplicate-operation', 'Operation ID identity link sudah digunakan.');
+        }
+        if (!accountSnapshot.exists()) {
+          throw createRepositoryError('client-identity/account-not-found', 'Akun Client tidak ditemukan.');
+        }
+
+        const account = normalizeClientAccountRecord(cleanUid, accountSnapshot.data());
+        if (account.profileSource === CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER) {
+          if (account.customerId === cleanTargetCustomerId) {
+            const existingLink = targetLinkSnapshot.exists() ? targetLinkSnapshot.data() : null;
+            if (existingLink?.ownerUid === cleanUid) return { account, alreadyLinked: true };
+          }
+          throw createRepositoryError(
+            'client-identity/reassignment-blocked',
+            'Akun ini sudah tertaut ke CRM lain. Reassignment memerlukan proses dispute terpisah.',
+          );
+        }
+        if (
+          account.role !== CLIENT_ROLE ||
+          account.status !== CLIENT_ACCOUNT_STATUS.ACTIVE ||
+          account.profileSource !== CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE ||
+          account.customerId !== isolatedCustomerId
+        ) {
+          throw createRepositoryError('client-identity/account-not-eligible', 'Akun Client bukan profil terisolasi yang eligible.');
+        }
+        if (
+          !sourceLinkSnapshot.exists() ||
+          sourceLinkSnapshot.data()?.ownerUid !== cleanUid ||
+          sourceLinkSnapshot.data()?.profileSource !== CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE ||
+          !sourceProfileSnapshot.exists() ||
+          sourceProfileSnapshot.data()?.ownerUid !== cleanUid ||
+          sourceProfileSnapshot.data()?.profileSource !== CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE
+        ) {
+          throw createRepositoryError('client-identity/source-binding-invalid', 'Binding profil terisolasi tidak konsisten.');
+        }
+        if (!customerSnapshot.exists() || customerSnapshot.data()?.status !== 'active') {
+          throw createRepositoryError('client-identity/customer-not-eligible', 'Customer target tidak ditemukan atau tidak aktif.');
+        }
+        if (targetLinkSnapshot.exists()) {
+          throw createRepositoryError('client-identity/customer-already-claimed', 'Customer target sudah tertaut ke akun Client lain.');
+        }
+        const customer = customerSnapshot.data() || {};
+        const existingProfile = targetProfileSnapshot.exists() ? targetProfileSnapshot.data() : null;
+        if (
+          existingProfile &&
+          (
+            existingProfile.ownerUid != null ||
+            existingProfile.profileSource !== CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER ||
+            existingProfile.status !== 'active'
+          )
+        ) {
+          throw createRepositoryError('client-identity/profile-already-claimed', 'Client profile target sudah memiliki Owner atau tidak aktif.');
+        }
+
+        const timestamp = serverTimestamp();
+        const nextAccount = {
+          ...accountSnapshot.data(),
+          customerId: cleanTargetCustomerId,
+          profileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+          updatedAt: timestamp,
+          version: account.version + 1,
+        };
+        const nextProfile = buildLinkedClientProfilePayload({
+          customerId: cleanTargetCustomerId,
+          ownerUid: cleanUid,
+          customer,
+          existingProfile,
+          timestamp,
+        });
+        const linkPayload = buildNewClientCustomerLinkPayload({
+          customerId: cleanTargetCustomerId,
+          ownerUid: cleanUid,
+          emailNormalized: account.emailNormalized,
+          profileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+          timestamp,
+        });
+        const auditPayload = {
+          schemaVersion: 1,
+          operationId: cleanOperationId,
+          action: 'owner_reviewed_legacy_link',
+          clientUid: cleanUid,
+          actorUid: cleanActorUid,
+          fromCustomerId: isolatedCustomerId,
+          toCustomerId: cleanTargetCustomerId,
+          fromProfileSource: CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE,
+          toProfileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+          reviewReason: cleanReason,
+          reviewedAt: timestamp,
+          createdAt: timestamp,
+          accountVersionBefore: account.version,
+          accountVersionAfter: account.version + 1,
+          version: 1,
+        };
+
+        tx.update(accountRef, {
+          customerId: cleanTargetCustomerId,
+          profileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+          updatedAt: timestamp,
+          version: account.version + 1,
+        });
+        if (existingProfile) tx.update(targetProfileRef, nextProfile);
+        else tx.set(targetProfileRef, nextProfile);
+        tx.set(targetLinkRef, linkPayload);
+        tx.set(auditRef, auditPayload);
+
+        return {
+          account: normalizeClientAccountRecord(cleanUid, nextAccount),
+          clientProfile: normalizeClientProfileRecord(cleanTargetCustomerId, nextProfile),
+          audit: auditPayload,
+          alreadyLinked: false,
+        };
+      });
     },
 
     async provisionClientAccountLinked({
@@ -392,6 +610,7 @@ export function createInMemoryClientPortalRepositoryAdapter(customerAdapterOrBri
   const clientCustomerLinksMap = new Map();
   const emailIndexMap = bridge?.emailIndex || new Map();
   const clientProfilesMap = bridge?.clientProfiles || new Map();
+  const identityLinkAuditsMap = new Map();
   const subscribersByUid = new Map();
 
   let localQueue = Promise.resolve();
@@ -422,6 +641,7 @@ export function createInMemoryClientPortalRepositoryAdapter(customerAdapterOrBri
         clientCustomerLinks: new Map(clientCustomerLinksMap),
         emailIndex: new Map(emailIndexMap),
         clientProfiles: new Map(clientProfilesMap),
+        clientIdentityLinkAudits: new Map(identityLinkAuditsMap),
       };
     },
 
@@ -534,6 +754,152 @@ export function createInMemoryClientPortalRepositoryAdapter(customerAdapterOrBri
     async getEmailIndexForOwnEmail(emailNormalized) {
       const existing = emailIndexMap.get(emailNormalized);
       return existing ? normalizeEmailIndexRecord(emailNormalized, existing) : null;
+    },
+
+    async listOwnerEligibleClientAccounts({ maxResults = 100 } = {}) {
+      const safeLimit = Math.max(1, Math.min(200, Number(maxResults) || 100));
+      return Array.from(clientAccountsMap.entries())
+        .map(([uid, raw]) => normalizeClientAccountRecord(uid, raw))
+        .filter(
+          (account) =>
+            account?.role === CLIENT_ROLE &&
+            account.status === CLIENT_ACCOUNT_STATUS.ACTIVE &&
+            account.profileSource === CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE &&
+            account.customerId === buildIsolatedClientCustomerId(account.uid),
+        )
+        .sort((a, b) => a.displayName.localeCompare(b.displayName))
+        .slice(0, safeLimit);
+    },
+
+    async linkLegacyClientToCustomer({
+      uid,
+      targetCustomerId,
+      actorUid,
+      reviewReason,
+      operationId,
+    }) {
+      const cleanUid = String(uid || '').trim();
+      const cleanTargetCustomerId = String(targetCustomerId || '').trim();
+      const cleanActorUid = String(actorUid || '').trim();
+      const cleanReason = String(reviewReason || '').trim();
+      const cleanOperationId = String(operationId || '').trim();
+      if (!cleanUid || !cleanTargetCustomerId || !cleanActorUid || !cleanOperationId) {
+        throw createRepositoryError('client-identity/invalid-input', 'Data identity link belum lengkap.');
+      }
+      if (cleanReason.length < 10 || cleanReason.length > 1000) {
+        throw createRepositoryError('client-identity/invalid-reason', 'Alasan review wajib 10–1000 karakter.');
+      }
+
+      return runSerial(async () => {
+        const isolatedCustomerId = buildIsolatedClientCustomerId(cleanUid);
+        const account = normalizeClientAccountRecord(cleanUid, clientAccountsMap.get(cleanUid));
+        if (!account) {
+          throw createRepositoryError('client-identity/account-not-found', 'Akun Client tidak ditemukan.');
+        }
+        if (account.profileSource === CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER) {
+          const existingLink = clientCustomerLinksMap.get(cleanTargetCustomerId);
+          if (account.customerId === cleanTargetCustomerId && existingLink?.ownerUid === cleanUid) {
+            return { account, alreadyLinked: true };
+          }
+          throw createRepositoryError(
+            'client-identity/reassignment-blocked',
+            'Akun ini sudah tertaut ke CRM lain. Reassignment memerlukan proses dispute terpisah.',
+          );
+        }
+        if (
+          account.role !== CLIENT_ROLE ||
+          account.status !== CLIENT_ACCOUNT_STATUS.ACTIVE ||
+          account.profileSource !== CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE ||
+          account.customerId !== isolatedCustomerId
+        ) {
+          throw createRepositoryError('client-identity/account-not-eligible', 'Akun Client bukan profil terisolasi yang eligible.');
+        }
+        const sourceLink = clientCustomerLinksMap.get(isolatedCustomerId);
+        const sourceProfile = clientProfilesMap.get(isolatedCustomerId);
+        if (
+          !sourceLink ||
+          sourceLink.ownerUid !== cleanUid ||
+          sourceLink.profileSource !== CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE ||
+          !sourceProfile ||
+          sourceProfile.ownerUid !== cleanUid ||
+          sourceProfile.profileSource !== CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE
+        ) {
+          throw createRepositoryError('client-identity/source-binding-invalid', 'Binding profil terisolasi tidak konsisten.');
+        }
+        const customer = bridge?.customers?.get(cleanTargetCustomerId);
+        if (!customer || customer.status !== 'active') {
+          throw createRepositoryError('client-identity/customer-not-eligible', 'Customer target tidak ditemukan atau tidak aktif.');
+        }
+        if (clientCustomerLinksMap.has(cleanTargetCustomerId)) {
+          throw createRepositoryError('client-identity/customer-already-claimed', 'Customer target sudah tertaut ke akun Client lain.');
+        }
+        const existingProfile = clientProfilesMap.get(cleanTargetCustomerId) || null;
+        if (
+          existingProfile &&
+          (
+            existingProfile.ownerUid != null ||
+            existingProfile.profileSource !== CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER ||
+            existingProfile.status !== 'active'
+          )
+        ) {
+          throw createRepositoryError('client-identity/profile-already-claimed', 'Client profile target sudah memiliki Owner atau tidak aktif.');
+        }
+        if (identityLinkAuditsMap.has(cleanOperationId)) {
+          throw createRepositoryError('client-identity/duplicate-operation', 'Operation ID identity link sudah digunakan.');
+        }
+
+        const timestamp = new Date().toISOString();
+        const nextAccount = normalizeClientAccountRecord(cleanUid, {
+          ...account,
+          customerId: cleanTargetCustomerId,
+          profileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+          updatedAt: timestamp,
+          version: account.version + 1,
+        });
+        const nextProfile = buildLinkedClientProfilePayload({
+          customerId: cleanTargetCustomerId,
+          ownerUid: cleanUid,
+          customer,
+          existingProfile,
+          timestamp,
+        });
+        const linkPayload = buildNewClientCustomerLinkPayload({
+          customerId: cleanTargetCustomerId,
+          ownerUid: cleanUid,
+          emailNormalized: account.emailNormalized,
+          profileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+          timestamp,
+        });
+        const auditPayload = {
+          schemaVersion: 1,
+          operationId: cleanOperationId,
+          action: 'owner_reviewed_legacy_link',
+          clientUid: cleanUid,
+          actorUid: cleanActorUid,
+          fromCustomerId: isolatedCustomerId,
+          toCustomerId: cleanTargetCustomerId,
+          fromProfileSource: CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE,
+          toProfileSource: CLIENT_PROFILE_SOURCE.LINKED_CUSTOMER,
+          reviewReason: cleanReason,
+          reviewedAt: timestamp,
+          createdAt: timestamp,
+          accountVersionBefore: account.version,
+          accountVersionAfter: account.version + 1,
+          version: 1,
+        };
+
+        clientAccountsMap.set(cleanUid, nextAccount);
+        clientCustomerLinksMap.set(cleanTargetCustomerId, linkPayload);
+        clientProfilesMap.set(cleanTargetCustomerId, nextProfile);
+        identityLinkAuditsMap.set(cleanOperationId, auditPayload);
+        notifyUid(cleanUid);
+        return {
+          account: { ...nextAccount },
+          clientProfile: { ...nextProfile },
+          audit: { ...auditPayload },
+          alreadyLinked: false,
+        };
+      });
     },
 
     async provisionClientAccountLinked({
