@@ -102,7 +102,7 @@ export function buildClientReservationProjection(booking, invoice = null, timest
   ) return null;
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     bookingId,
     bookingReference: String(booking.bookingReference || booking.bookingCode || bookingId),
     customerId: String(booking.customerId || ''),
