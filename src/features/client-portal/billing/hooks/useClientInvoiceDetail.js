@@ -81,7 +81,7 @@ export function useClientInvoiceDetail({
       isCancelled = true;
       unsubscribe?.();
     };
-  }, [cleanCustomerId, cleanInvoiceId, isClientReady, resolvedAdapter, subscriptionKey]);
+  }, [cleanCustomerId, cleanInvoiceId, cleanUid, isClientReady, resolvedAdapter, subscriptionKey]);
 
   const txResult = useClientPaymentTransactions({
     invoiceId: cleanInvoiceId,
