@@ -443,7 +443,11 @@ export function createFirestoreBookingRepositoryAdapter() {
           }
         }
 
-        const reservations = Array.from(unique.values());
+        const reservations = Array.from(unique.values()).sort((a, b) => {
+          const activityDiff = getTimestampMillis(b.updatedAt) - getTimestampMillis(a.updatedAt);
+          if (activityDiff !== 0) return activityDiff;
+          return String(b.id || '').localeCompare(String(a.id || ''));
+        });
         onData?.({
           reservations: reservations.slice(0, safeLimit),
           isTruncated: sourceHasMore || reservations.length > safeLimit,
