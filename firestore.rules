@@ -4402,21 +4402,55 @@ service cloud.firestore {
         && auditAfter.data.reviewedAt == request.time;
     }
 
-    function isValidClientIdentityLinkAudit(data, operationId) {
+    function isClientIdentityAuditSourceMatches(data) {
       let uid = data.clientUid;
       let sourceCustomerId = data.fromCustomerId;
-      let targetCustomerId = data.toCustomerId;
       let accountPath = /databases/$(database)/documents/clientAccounts/$(uid);
       let sourceLinkPath = /databases/$(database)/documents/clientCustomerLinks/$(sourceCustomerId);
       let sourceProfilePath = /databases/$(database)/documents/clientProfiles/$(sourceCustomerId);
-      let targetCustomerPath = /databases/$(database)/documents/customers/$(targetCustomerId);
       let currentAccount = get(accountPath);
       let sourceLink = get(sourceLinkPath);
       let sourceProfile = get(sourceProfilePath);
+      return exists(accountPath)
+        && exists(sourceLinkPath)
+        && exists(sourceProfilePath)
+        && currentAccount.data.uid == uid
+        && currentAccount.data.role == 'client'
+        && currentAccount.data.status == 'active'
+        && currentAccount.data.profileSource == 'isolated_client_profile'
+        && currentAccount.data.customerId == sourceCustomerId
+        && currentAccount.data.version == data.accountVersionBefore
+        && sourceLink.data.ownerUid == uid
+        && sourceLink.data.profileSource == 'isolated_client_profile'
+        && sourceProfile.data.ownerUid == uid
+        && sourceProfile.data.profileSource == 'isolated_client_profile';
+    }
+
+    function isClientIdentityAuditTargetMatches(data) {
+      let uid = data.clientUid;
+      let targetCustomerId = data.toCustomerId;
+      let targetCustomerPath = /databases/$(database)/documents/customers/$(targetCustomerId);
       let targetCustomer = get(targetCustomerPath);
-      let accountAfter = getAfter(accountPath);
+      let accountAfter = getAfter(/databases/$(database)/documents/clientAccounts/$(uid));
       let targetLinkAfter = getAfter(/databases/$(database)/documents/clientCustomerLinks/$(targetCustomerId));
       let targetProfileAfter = getAfter(/databases/$(database)/documents/clientProfiles/$(targetCustomerId));
+      return exists(targetCustomerPath)
+        && targetCustomer.data.status == 'active'
+        && accountAfter.data.customerId == targetCustomerId
+        && accountAfter.data.profileSource == 'linked_customer'
+        && accountAfter.data.status == 'active'
+        && accountAfter.data.version == data.accountVersionAfter
+        && targetLinkAfter.data.ownerUid == uid
+        && targetLinkAfter.data.profileSource == 'linked_customer'
+        && targetLinkAfter.data.customerId == targetCustomerId
+        && targetProfileAfter.data.ownerUid == uid
+        && targetProfileAfter.data.profileSource == 'linked_customer'
+        && targetProfileAfter.data.status == 'active';
+    }
+
+    function isValidClientIdentityLinkAudit(data, operationId) {
+      let uid = data.clientUid;
+      let targetCustomerId = data.toCustomerId;
       return data.keys().hasOnly([
           'schemaVersion', 'operationId', 'action', 'clientUid', 'actorUid',
           'fromCustomerId', 'toCustomerId', 'fromProfileSource', 'toProfileSource',
@@ -4432,7 +4466,7 @@ service cloud.firestore {
         && uid.size() >= 1
         && uid.size() <= 128
         && data.actorUid == request.auth.uid
-        && sourceCustomerId == ('client_' + uid)
+        && data.fromCustomerId == ('client_' + uid)
         && targetCustomerId is string
         && targetCustomerId.size() >= 1
         && targetCustomerId.size() <= 140
@@ -4447,31 +4481,8 @@ service cloud.firestore {
         && data.accountVersionBefore >= 1
         && data.accountVersionAfter == data.accountVersionBefore + 1
         && data.version == 1
-        && exists(accountPath)
-        && exists(sourceLinkPath)
-        && exists(sourceProfilePath)
-        && exists(targetCustomerPath)
-        && currentAccount.data.uid == uid
-        && currentAccount.data.role == 'client'
-        && currentAccount.data.status == 'active'
-        && currentAccount.data.profileSource == 'isolated_client_profile'
-        && currentAccount.data.customerId == sourceCustomerId
-        && currentAccount.data.version == data.accountVersionBefore
-        && sourceLink.data.ownerUid == uid
-        && sourceLink.data.profileSource == 'isolated_client_profile'
-        && sourceProfile.data.ownerUid == uid
-        && sourceProfile.data.profileSource == 'isolated_client_profile'
-        && targetCustomer.data.status == 'active'
-        && accountAfter.data.customerId == targetCustomerId
-        && accountAfter.data.profileSource == 'linked_customer'
-        && accountAfter.data.status == 'active'
-        && accountAfter.data.version == data.accountVersionAfter
-        && targetLinkAfter.data.ownerUid == uid
-        && targetLinkAfter.data.profileSource == 'linked_customer'
-        && targetLinkAfter.data.customerId == targetCustomerId
-        && targetProfileAfter.data.ownerUid == uid
-        && targetProfileAfter.data.profileSource == 'linked_customer'
-        && targetProfileAfter.data.status == 'active';
+        && isClientIdentityAuditSourceMatches(data)
+        && isClientIdentityAuditTargetMatches(data);
     }
 
     match /clientAccounts/{uid} {
