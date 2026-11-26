@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getBookingRequestRepositoryAdapter } from '@/features/admin/booking-requests/repositories/booking-request-repository';
 import { mapBookingRequestErrorToMessage } from '@/features/admin/booking-requests/services/booking-request-service';
+import { getBookingRepositoryAdapter } from '@/features/admin/calendar/repositories/calendar-booking-repository';
 import { useAuth } from '@/features/auth/AuthContext';
 
-import { classifyClientBookings } from '../utils/client-bookings-utils';
+import { classifyClientBookings, mergeClientBookingRecords } from '../utils/client-bookings-utils';
 
 /**
- * Live realtime subscription hook for the authenticated active Client's own
- * Client Portal booking requests & confirmed sessions (`publicBookingRequests`
- * where `source == 'client_portal' && clientUid == uid`).
+ * Subscribes to both request workflow records and the canonical customer-safe reservation
+ * projection. Requests remain the source for unconfirmed inquiries; clientReservations is
+ * authoritative for every confirmed / operational booking, including CRM-linked walk-ins.
  */
 export function useClientBookings({
   enabled = true,
@@ -19,104 +20,161 @@ export function useClientBookings({
 } = {}) {
   const { user, clientAccount } = useAuth();
   const cleanClientUid = String(user?.uid || '').trim();
-  const isClientReady = Boolean(enabled && cleanClientUid && clientAccount?.status === 'active');
+  const cleanCustomerId = String(clientAccount?.customerId || '').trim();
+  const isClientReady = Boolean(
+    enabled && cleanClientUid && clientAccount?.status === 'active',
+  );
 
-  const resolvedAdapter = customAdapter || getBookingRequestRepositoryAdapter();
+  const requestAdapter = customAdapter || getBookingRequestRepositoryAdapter();
+  const reservationAdapter = getBookingRepositoryAdapter();
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const subscriptionKey = isClientReady
-    ? `${cleanClientUid}:${maxLimit}:${refreshNonce}`
+    ? `${cleanClientUid}:${cleanCustomerId}:${maxLimit}:${refreshNonce}`
     : 'disabled';
 
-  const [snapshotState, setSnapshotState] = useState({
-    resolvedAdapter: null,
-    resolvedKey: '',
-    records: [],
-    isTruncated: false,
-    error: '',
+  const [streamState, setStreamState] = useState({
+    requestAdapter: null,
+    reservationAdapter: null,
+    key: '',
+    requests: null,
+    reservations: null,
+    requestsTruncated: false,
+    reservationsTruncated: false,
+    requestError: '',
+    reservationError: '',
   });
 
   useEffect(() => {
-    if (!isClientReady) {
-      return undefined;
-    }
+    if (!isClientReady) return undefined;
 
-    let isCancelled = false;
+    let cancelled = false;
     const currentKey = subscriptionKey;
+    const publish = (patch) => {
+      if (cancelled) return;
+      setStreamState((previous) => ({
+        ...previous,
+        requestAdapter,
+        reservationAdapter,
+        key: currentKey,
+        ...patch,
+      }));
+    };
 
-    const unsubscribe = resolvedAdapter.subscribeClientBookingRequests({
+    const unsubscribeRequests = requestAdapter.subscribeClientBookingRequests({
       clientUid: cleanClientUid,
       maxLimit,
       onData: ({ requests, isTruncated }) => {
-        if (isCancelled) return;
-        setSnapshotState({
-          resolvedAdapter,
-          resolvedKey: currentKey,
-          records: Array.isArray(requests) ? requests : [],
-          isTruncated: Boolean(isTruncated),
-          error: '',
+        publish({
+          requests: Array.isArray(requests) ? requests : [],
+          requestsTruncated: Boolean(isTruncated),
+          requestError: '',
         });
       },
-      onError: (err) => {
-        if (isCancelled) return;
-        const mapped = mapBookingRequestErrorToMessage(err);
-        const friendlyError =
-          mapped && !mapped.includes('could not be submitted')
-            ? mapped
-            : 'Unable to load your bookings right now. Please check your connection and try again.';
-        setSnapshotState({
-          resolvedAdapter,
-          resolvedKey: currentKey,
-          records: [],
-          isTruncated: false,
-          error: friendlyError,
+      onError: (error) => {
+        const mapped = mapBookingRequestErrorToMessage(error);
+        publish({
+          requests: [],
+          requestsTruncated: false,
+          requestError:
+            mapped && !mapped.includes('could not be submitted')
+              ? mapped
+              : 'Unable to load your booking requests. Please check your connection and try again.',
+        });
+      },
+    });
+
+    const unsubscribeReservations = reservationAdapter.subscribeClientReservations({
+      clientUid: cleanClientUid,
+      customerId: cleanCustomerId,
+      maxLimit,
+      onData: ({ reservations, isTruncated }) => {
+        publish({
+          reservations: Array.isArray(reservations) ? reservations : [],
+          reservationsTruncated: Boolean(isTruncated),
+          reservationError: '',
+        });
+      },
+      onError: (error) => {
+        publish({
+          reservations: [],
+          reservationsTruncated: false,
+          reservationError:
+            error?.message ||
+            'Unable to load your confirmed studio sessions. Please try again.',
         });
       },
     });
 
     return () => {
-      isCancelled = true;
-      unsubscribe?.();
+      cancelled = true;
+      unsubscribeRequests?.();
+      unsubscribeReservations?.();
     };
-  }, [cleanClientUid, isClientReady, maxLimit, resolvedAdapter, subscriptionKey]);
+  }, [
+    cleanClientUid,
+    cleanCustomerId,
+    isClientReady,
+    maxLimit,
+    requestAdapter,
+    reservationAdapter,
+    subscriptionKey,
+  ]);
 
   const retry = useCallback(() => {
-    setRefreshNonce((prev) => prev + 1);
+    setRefreshNonce((previous) => previous + 1);
   }, []);
 
-  const isLoading = isClientReady
-    ? snapshotState.resolvedAdapter !== resolvedAdapter ||
-      snapshotState.resolvedKey !== subscriptionKey
-    : false;
+  const hasCurrentSubscription =
+    isClientReady &&
+    streamState.requestAdapter === requestAdapter &&
+    streamState.reservationAdapter === reservationAdapter &&
+    streamState.key === subscriptionKey;
 
-  const activeRecords = useMemo(
-    () =>
-      isClientReady &&
-      snapshotState.resolvedAdapter === resolvedAdapter &&
-      snapshotState.resolvedKey === subscriptionKey
-        ? snapshotState.records
-        : [],
-    [
-      isClientReady,
-      resolvedAdapter,
-      snapshotState.records,
-      snapshotState.resolvedAdapter,
-      snapshotState.resolvedKey,
-      subscriptionKey,
-    ],
-  );
+  const isLoading =
+    isClientReady &&
+    (!hasCurrentSubscription ||
+      streamState.requests === null ||
+      streamState.reservations === null);
+
+  const merged = useMemo(() => {
+    if (!hasCurrentSubscription) {
+      return { records: [], isTruncated: false };
+    }
+    return mergeClientBookingRecords({
+      requests: streamState.requests || [],
+      reservations: streamState.reservations || [],
+      maxLimit,
+    });
+  }, [
+    hasCurrentSubscription,
+    maxLimit,
+    streamState.requests,
+    streamState.reservations,
+  ]);
 
   const classified = useMemo(
-    () => classifyClientBookings(activeRecords, now),
-    [activeRecords, now],
+    () => classifyClientBookings(merged.records, now),
+    [merged.records, now],
   );
+
+  const error = hasCurrentSubscription
+    ? streamState.requestError || streamState.reservationError
+    : '';
 
   return {
     ...classified,
     isLoading,
-    isTruncated: Boolean(isClientReady && snapshotState.isTruncated),
-    error:
-      isClientReady && snapshotState.resolvedKey === subscriptionKey ? snapshotState.error : '',
+    isTruncated: Boolean(
+      isClientReady &&
+      hasCurrentSubscription &&
+      (
+        streamState.requestsTruncated ||
+        streamState.reservationsTruncated ||
+        merged.isTruncated
+      ),
+    ),
+    error,
     retry,
   };
 }
