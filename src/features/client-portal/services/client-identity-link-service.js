@@ -82,6 +82,9 @@ export function mapClientIdentityLinkError(error) {
   if (code.includes('customer-already-claimed') || code.includes('profile-already-claimed')) {
     return 'Customer ini sudah tertaut ke akun Client lain. Tidak ada data yang diubah.';
   }
+  if (code.includes('profile-conflict')) {
+    return 'Snapshot Client Profile tidak cocok dengan data CRM. Periksa konsistensi profil sebelum linking.';
+  }
   if (code.includes('reassignment-blocked')) {
     return 'Akun Client sudah tertaut ke Customer lain. Kasus reassignment harus ditinjau secara terpisah.';
   }
