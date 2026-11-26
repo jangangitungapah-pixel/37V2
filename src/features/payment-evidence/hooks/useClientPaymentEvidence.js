@@ -17,6 +17,7 @@ import { mapPaymentEvidenceErrorToMessage } from '../services/payment-evidence-s
  */
 export function useClientPaymentEvidence({
   invoiceId = '',
+  invoiceIds = [],
   enabled = true,
   maxLimit = null,
   customAdapter = null,
@@ -26,6 +27,15 @@ export function useClientPaymentEvidence({
   const cleanUid = String(user?.uid || '').trim();
   const cleanCustomerId = String(clientAccount?.customerId || '').trim();
   const cleanInvoiceId = String(invoiceId || '').trim();
+  const cleanInvoiceIds = useMemo(
+    () => Array.from(new Set(
+      (Array.isArray(invoiceIds) ? invoiceIds : [])
+        .map((value) => String(value || '').trim())
+        .filter(Boolean),
+    )).sort(),
+    [invoiceIds],
+  );
+  const invoiceScopeKey = cleanInvoiceIds.join('|');
   const effectiveLimit =
     Number(maxLimit) ||
     (cleanInvoiceId ? PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT : PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT);
@@ -42,7 +52,7 @@ export function useClientPaymentEvidence({
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const subscriptionKey = isClientReady
-    ? `${cleanUid}:${cleanCustomerId}:${cleanInvoiceId || 'all'}:${effectiveLimit}:${refreshNonce}`
+    ? `${cleanUid}:${cleanCustomerId}:${cleanInvoiceId || `all:${invoiceScopeKey}`}:${effectiveLimit}:${refreshNonce}`
     : 'disabled';
 
   const [snapshotState, setSnapshotState] = useState({
@@ -96,6 +106,7 @@ export function useClientPaymentEvidence({
       : resolvedAdapter.subscribeClientCustomerEvidence({
           customerId: cleanCustomerId,
           clientUid: cleanUid,
+          invoiceIds: cleanInvoiceIds,
           maxLimit: effectiveLimit,
           onData: handleData,
           onError: handleError,
