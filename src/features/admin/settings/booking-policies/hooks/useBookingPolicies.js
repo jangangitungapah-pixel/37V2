@@ -16,13 +16,6 @@ export function useBookingPolicies(customAdapter = null) {
 
   useEffect(() => {
     let cancelled = false;
-    setState((previous) => ({
-      ...previous,
-      adapter,
-      isLoading: true,
-      error: '',
-    }));
-
     const unsubscribe = adapter.subscribeBookingPolicies({
       onData: ({ policies, isPersisted }) => {
         if (cancelled) return;
@@ -52,8 +45,15 @@ export function useBookingPolicies(customAdapter = null) {
     };
   }, [adapter]);
 
+  const isCurrentAdapter = state.adapter === adapter;
+
   return {
     ...state,
-    isLoading: state.adapter !== adapter || state.isLoading,
+    policies: isCurrentAdapter
+      ? state.policies
+      : normalizeBookingPolicies(DEFAULT_BOOKING_POLICIES),
+    isPersisted: isCurrentAdapter && state.isPersisted,
+    isLoading: !isCurrentAdapter || state.isLoading,
+    error: isCurrentAdapter ? state.error : '',
   };
 }
