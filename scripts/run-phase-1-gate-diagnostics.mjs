@@ -16,14 +16,15 @@ function readGitValue(args, fallback) {
       windowsHide: true,
     });
     if (result.status !== 0) return fallback;
-    return result.stdout.trim() || fallback;
+    return result.stdout.trim();
   } catch {
     return fallback;
   }
 }
 
 const gitHead = readGitValue(['rev-parse', 'HEAD'], 'unavailable');
-const gitStatus = readGitValue(['status', '--short'], 'clean');
+const gitStatusOutput = readGitValue(['status', '--short'], 'unavailable');
+const gitStatus = gitStatusOutput === '' ? 'clean' : gitStatusOutput;
 
 const stages = [
   ['lint', 'lint'],
