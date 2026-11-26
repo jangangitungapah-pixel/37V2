@@ -6613,14 +6613,16 @@ async function runTests() {
     customerId: gate2TargetCustomerId,
     clientUid: gate2HistoricalOwnerUid,
     bookingId: 'bkg_gate2_legacy',
-    invoiceNumber: '37MS-GATE2-HISTORIC',
+    invoiceNumber: '37MS-20261128-GATE2UID0001',
+    clientPaymentEvidenceRequired: true,
+    balanceDue: 100000,
   });
   await adminSetDoc(`paymentTransactions/${gate2HistoricalTransactionId}`, {
     invoiceId: gate2HistoricalInvoiceId,
     customerId: gate2TargetCustomerId,
     clientUid: gate2HistoricalOwnerUid,
     bookingId: 'bkg_gate2_legacy',
-    invoiceNumber: '37MS-GATE2-HISTORIC',
+    invoiceNumber: '37MS-20261128-GATE2UID0001',
     amount: 100000,
   });
   await adminSetDoc(`paymentEvidence/${gate2HistoricalEvidenceId}`, {
@@ -6628,7 +6630,7 @@ async function runTests() {
     customerId: gate2TargetCustomerId,
     clientUid: gate2HistoricalOwnerUid,
     bookingId: 'bkg_gate2_legacy',
-    invoiceNumber: '37MS-GATE2-HISTORIC',
+    invoiceNumber: '37MS-20261128-GATE2UID0001',
     evidenceSource: 'client_portal',
     status: 'pending_review',
   });
@@ -6657,6 +6659,47 @@ async function runTests() {
     (await userRequest('GET', `/paymentEvidence/${gate2HistoricalEvidenceId}`, TOKEN_GATE2_CLIENT)).status,
     403,
     'UID-pinned payment evidence remains inaccessible to a different Client UID',
+  );
+
+  const gate2PinnedInvoiceEvidenceCreate = await userRequest('POST', ':commit', TOKEN_GATE2_CLIENT, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_gate2_new_uid_blocked`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: gate2HistoricalInvoiceId,
+            invoiceNumber: '37MS-20261128-GATE2UID0001',
+            bookingId: 'bkg_gate2_legacy',
+            customerId: gate2TargetCustomerId,
+            clientUid: gate2ClientUid,
+            evidenceSource: 'client_portal',
+            status: 'pending_review',
+            claimedAmount: 25000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-11-28',
+            referenceNumber: 'GATE2-NEW-UID',
+            evidence: validCloudinaryEvidenceAsset,
+            submittedByUid: gate2ClientUid,
+            submittedAt: SERVER_TS,
+            reviewedAt: null,
+            reviewedByUid: '',
+            rejectionReason: '',
+            verifiedAmount: null,
+            linkedTransactionId: null,
+            createdAt: SERVER_TS,
+            updatedAt: SERVER_TS,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(
+    gate2PinnedInvoiceEvidenceCreate.status,
+    403,
+    'CRM-linked Client cannot create new payment evidence against an invoice pinned to a different non-empty UID',
   );
 
   // A successful bind updates only the Client account + target identity projections + audit.
