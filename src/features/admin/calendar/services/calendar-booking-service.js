@@ -1717,9 +1717,9 @@ export function createInMemoryBookingRepositoryAdapter(
           (sub.customerId && reservation.customerId === sub.customerId),
         )
         .sort((a, b) => {
-          const dateDiff = String(b.date || '').localeCompare(String(a.date || ''));
-          if (dateDiff !== 0) return dateDiff;
-          return Number(b.startMinute || 0) - Number(a.startMinute || 0);
+          const activityDiff = getTimestampMillis(b.updatedAt) - getTimestampMillis(a.updatedAt);
+          if (activityDiff !== 0) return activityDiff;
+          return String(b.id || '').localeCompare(String(a.id || ''));
         });
       const limited = matches.slice(0, sub.maxLimit);
       sub.onData?.({
