@@ -4354,6 +4354,126 @@ service cloud.firestore {
         && emailIdx.data.customerId == customerId;
     }
 
+    // Owner-reviewed legacy linking is one-way: an active isolated Client account
+    // may be attached to one explicitly selected, currently unclaimed CRM Customer.
+    // The old synthetic link/profile are intentionally preserved as inert history.
+    function isClientIdentityLinkAuditId(uid, customerId) {
+      return 'link_' + uid + '_' + customerId;
+    }
+
+    function isOwnerReviewedIdentityBindingAfter(uid, customerId) {
+      let accountPath = /databases/$(database)/documents/clientAccounts/$(uid);
+      let linkPath = /databases/$(database)/documents/clientCustomerLinks/$(customerId);
+      let profilePath = /databases/$(database)/documents/clientProfiles/$(customerId);
+      let auditPath = /databases/$(database)/documents/clientIdentityLinkAudits/$(isClientIdentityLinkAuditId(uid, customerId));
+      let accountAfter = getAfter(accountPath);
+      let linkAfter = getAfter(linkPath);
+      let profileAfter = getAfter(profilePath);
+      let auditAfter = getAfter(auditPath);
+      let customer = get(/databases/$(database)/documents/customers/$(customerId));
+      return existsAfter(accountPath)
+        && existsAfter(linkPath)
+        && existsAfter(profilePath)
+        && existsAfter(auditPath)
+        && exists(/databases/$(database)/documents/customers/$(customerId))
+        && customer.data.status == 'active'
+        && accountAfter.data.uid == uid
+        && accountAfter.data.role == 'client'
+        && accountAfter.data.status == 'active'
+        && accountAfter.data.customerId == customerId
+        && accountAfter.data.profileSource == 'linked_customer'
+        && accountAfter.data.updatedAt == request.time
+        && linkAfter.data.customerId == customerId
+        && linkAfter.data.ownerUid == uid
+        && linkAfter.data.profileSource == 'linked_customer'
+        && linkAfter.data.emailNormalized == accountAfter.data.emailNormalized
+        && linkAfter.data.createdAt == request.time
+        && profileAfter.data.customerId == customerId
+        && profileAfter.data.ownerUid == uid
+        && profileAfter.data.profileSource == 'linked_customer'
+        && profileAfter.data.status == 'active'
+        && profileAfter.data.updatedAt == request.time
+        && auditAfter.data.operationId == isClientIdentityLinkAuditId(uid, customerId)
+        && auditAfter.data.action == 'owner_reviewed_legacy_link'
+        && auditAfter.data.clientUid == uid
+        && auditAfter.data.actorUid == request.auth.uid
+        && auditAfter.data.fromCustomerId == ('client_' + uid)
+        && auditAfter.data.toCustomerId == customerId
+        && auditAfter.data.reviewedAt == request.time;
+    }
+
+    function isValidClientIdentityLinkAudit(data, operationId) {
+      let uid = data.clientUid;
+      let sourceCustomerId = data.fromCustomerId;
+      let targetCustomerId = data.toCustomerId;
+      let accountPath = /databases/$(database)/documents/clientAccounts/$(uid);
+      let sourceLinkPath = /databases/$(database)/documents/clientCustomerLinks/$(sourceCustomerId);
+      let sourceProfilePath = /databases/$(database)/documents/clientProfiles/$(sourceCustomerId);
+      let targetCustomerPath = /databases/$(database)/documents/customers/$(targetCustomerId);
+      let currentAccount = get(accountPath);
+      let sourceLink = get(sourceLinkPath);
+      let sourceProfile = get(sourceProfilePath);
+      let targetCustomer = get(targetCustomerPath);
+      let accountAfter = getAfter(accountPath);
+      let targetLinkAfter = getAfter(/databases/$(database)/documents/clientCustomerLinks/$(targetCustomerId));
+      let targetProfileAfter = getAfter(/databases/$(database)/documents/clientProfiles/$(targetCustomerId));
+      return data.keys().hasOnly([
+          'schemaVersion', 'operationId', 'action', 'clientUid', 'actorUid',
+          'fromCustomerId', 'toCustomerId', 'fromProfileSource', 'toProfileSource',
+          'reviewReason', 'reviewedAt', 'createdAt',
+          'accountVersionBefore', 'accountVersionAfter', 'version'
+        ])
+        && data.size() == 15
+        && data.schemaVersion == 1
+        && operationId == isClientIdentityLinkAuditId(uid, targetCustomerId)
+        && data.operationId == operationId
+        && data.action == 'owner_reviewed_legacy_link'
+        && uid is string
+        && uid.size() >= 1
+        && uid.size() <= 128
+        && data.actorUid == request.auth.uid
+        && sourceCustomerId == ('client_' + uid)
+        && targetCustomerId is string
+        && targetCustomerId.size() >= 1
+        && targetCustomerId.size() <= 140
+        && data.fromProfileSource == 'isolated_client_profile'
+        && data.toProfileSource == 'linked_customer'
+        && data.reviewReason is string
+        && data.reviewReason.trim().size() >= 10
+        && data.reviewReason.size() <= 1000
+        && data.reviewedAt == request.time
+        && data.createdAt == request.time
+        && data.accountVersionBefore is int
+        && data.accountVersionBefore >= 1
+        && data.accountVersionAfter == data.accountVersionBefore + 1
+        && data.version == 1
+        && exists(accountPath)
+        && exists(sourceLinkPath)
+        && exists(sourceProfilePath)
+        && exists(targetCustomerPath)
+        && currentAccount.data.uid == uid
+        && currentAccount.data.role == 'client'
+        && currentAccount.data.status == 'active'
+        && currentAccount.data.profileSource == 'isolated_client_profile'
+        && currentAccount.data.customerId == sourceCustomerId
+        && currentAccount.data.version == data.accountVersionBefore
+        && sourceLink.data.ownerUid == uid
+        && sourceLink.data.profileSource == 'isolated_client_profile'
+        && sourceProfile.data.ownerUid == uid
+        && sourceProfile.data.profileSource == 'isolated_client_profile'
+        && targetCustomer.data.status == 'active'
+        && accountAfter.data.customerId == targetCustomerId
+        && accountAfter.data.profileSource == 'linked_customer'
+        && accountAfter.data.status == 'active'
+        && accountAfter.data.version == data.accountVersionAfter
+        && targetLinkAfter.data.ownerUid == uid
+        && targetLinkAfter.data.profileSource == 'linked_customer'
+        && targetLinkAfter.data.customerId == targetCustomerId
+        && targetProfileAfter.data.ownerUid == uid
+        && targetProfileAfter.data.profileSource == 'linked_customer'
+        && targetProfileAfter.data.status == 'active';
+    }
+
     match /clientAccounts/{uid} {
       allow get: if isActiveOwner()
         || (request.auth != null && request.auth.uid == uid);
@@ -4398,6 +4518,22 @@ service cloud.firestore {
           && request.resource.data.updatedAt == request.time
           && request.resource.data.version == resource.data.version + 1
         ) || (
+          isActiveOwner()
+          && !isFactoryResetLocked()
+          && resource.data.status == 'active'
+          && resource.data.profileSource == 'isolated_client_profile'
+          && resource.data.customerId == ('client_' + uid)
+          && isValidClientAccountShape(request.resource.data, uid)
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.profileSource == 'linked_customer'
+          && request.resource.data.customerId != resource.data.customerId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'customerId', 'profileSource', 'updatedAt', 'version'
+          ])
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.version == resource.data.version + 1
+          && isOwnerReviewedIdentityBindingAfter(uid, request.resource.data.customerId)
+        ) || (
           isActiveClient()
           && request.auth.uid == uid
           && resource.data.status == 'active'
@@ -4416,24 +4552,36 @@ service cloud.firestore {
 
       allow list: if isActiveOwner();
 
-      allow create: if hasEligibleClientAuth()
-        && !isAnyStaffProfile()
-        && !isFactoryResetLocked()
-        && isValidClientCustomerLinkShape(request.resource.data, customerId)
-        && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.emailNormalized == normalizedAuthEmail()
-        && request.resource.data.createdAt == request.time
-        && isClientCustomerLinkCreateAccountMatched(request.resource.data, request.auth.uid, customerId)
-        && (
-          (
-            request.resource.data.profileSource == 'isolated_client_profile'
-            && customerId == ('client_' + request.auth.uid)
-          ) || (
-            hasVerifiedGoogleEmail()
-            && request.resource.data.profileSource == 'linked_customer'
-            && exists(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail()))
-            && isClientCustomerLinkCreateEmailIndexMatched(customerId, normalizedAuthEmail())
+      allow create: if (
+          hasEligibleClientAuth()
+          && !isAnyStaffProfile()
+          && !isFactoryResetLocked()
+          && isValidClientCustomerLinkShape(request.resource.data, customerId)
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.emailNormalized == normalizedAuthEmail()
+          && request.resource.data.createdAt == request.time
+          && isClientCustomerLinkCreateAccountMatched(request.resource.data, request.auth.uid, customerId)
+          && (
+            (
+              request.resource.data.profileSource == 'isolated_client_profile'
+              && customerId == ('client_' + request.auth.uid)
+            ) || (
+              hasVerifiedGoogleEmail()
+              && request.resource.data.profileSource == 'linked_customer'
+              && exists(/databases/$(database)/documents/customerEmailIndex/$(normalizedAuthEmail()))
+              && isClientCustomerLinkCreateEmailIndexMatched(customerId, normalizedAuthEmail())
+            )
           )
+        ) || (
+          isActiveOwner()
+          && !isFactoryResetLocked()
+          && isValidClientCustomerLinkShape(request.resource.data, customerId)
+          && request.resource.data.profileSource == 'linked_customer'
+          && request.resource.data.createdAt == request.time
+          && isOwnerReviewedIdentityBindingAfter(request.resource.data.ownerUid, customerId)
+          && request.resource.data.emailNormalized == getAfter(
+            /databases/$(database)/documents/clientAccounts/$(request.resource.data.ownerUid)
+          ).data.emailNormalized
         );
 
       allow update: if false;
@@ -4454,6 +4602,16 @@ service cloud.firestore {
             && request.resource.data.ownerUid == null
             && request.resource.data.profileSource == 'linked_customer'
             && existsAfter(/databases/$(database)/documents/customers/$(customerId))
+          ) || (
+            isActiveOwner()
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.ownerUid is string
+            && request.resource.data.profileSource == 'linked_customer'
+            && request.resource.data.status == 'active'
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.version == 1
+            && isOwnerReviewedIdentityBindingAfter(request.resource.data.ownerUid, customerId)
           ) || (
             hasEligibleClientAuth()
             && !isAnyStaffProfile()
@@ -4483,6 +4641,19 @@ service cloud.firestore {
             && request.resource.data.createdAt == resource.data.createdAt
             && request.resource.data.version == resource.data.version + 1
           ) || (
+            isActiveOwner()
+            && resource.data.ownerUid == null
+            && resource.data.profileSource == 'linked_customer'
+            && resource.data.status == 'active'
+            && isValidClientProfileShape(request.resource.data, customerId)
+            && request.resource.data.ownerUid is string
+            && request.resource.data.profileSource == resource.data.profileSource
+            && request.resource.data.status == resource.data.status
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerUid', 'updatedAt', 'version'])
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.version == resource.data.version + 1
+            && isOwnerReviewedIdentityBindingAfter(request.resource.data.ownerUid, customerId)
+          ) || (
             isActiveClient()
             && resource.data.profileSource == 'isolated_client_profile'
             && resource.data.ownerUid == request.auth.uid
@@ -4495,6 +4666,17 @@ service cloud.firestore {
         );
 
       allow delete: if canFactoryResetDelete();
+    }
+
+    // Append-only audit log. Owner can review history; no actor can rewrite or remove it.
+    match /clientIdentityLinkAudits/{operationId} {
+      allow get, list: if isActiveOwner();
+
+      allow create: if isActiveOwner()
+        && !isFactoryResetLocked()
+        && isValidClientIdentityLinkAudit(request.resource.data, operationId);
+
+      allow update, delete: if false;
     }
 
   }
