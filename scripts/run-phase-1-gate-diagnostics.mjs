@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -7,6 +7,23 @@ const projectRoot = process.cwd();
 const logDirectory = path.resolve(projectRoot, 'logs', 'phase1');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const logPath = path.join(logDirectory, `phase1-gates-${timestamp}.txt`);
+
+function readGitValue(args, fallback) {
+  try {
+    const result = spawnSync('git', args, {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+    if (result.status !== 0) return fallback;
+    return result.stdout.trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+const gitHead = readGitValue(['rev-parse', 'HEAD'], 'unavailable');
+const gitStatus = readGitValue(['status', '--short'], 'clean');
 
 const stages = [
   ['lint', 'lint'],
@@ -24,6 +41,9 @@ await writeFile(
     `Working directory: ${projectRoot}`,
     `Node: ${process.version}`,
     `Platform: ${process.platform} ${process.arch}`,
+    `npm user agent: ${process.env.npm_config_user_agent || 'unavailable'}`,
+    `Git HEAD: ${gitHead}`,
+    `Git status: ${gitStatus}`,
     'Execution: sequential; continue after a failed stage to collect the full gate picture',
     '',
   ].join('\n'),
