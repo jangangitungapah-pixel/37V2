@@ -442,6 +442,11 @@ export async function reconcileNeedsReviewLegacyBooking({
       existingClientReservation?.bookingId === cleanBookingId &&
       existingClientReservation.invoiceId === invoiceId &&
       String(existingClientReservation.customerId || '') === String(invoiceDoc.customerId || '') &&
+      (
+        !String(existingClientReservation.clientUid || '').trim() ||
+        !String(invoiceDoc.clientUid || '').trim() ||
+        String(existingClientReservation.clientUid || '').trim() === String(invoiceDoc.clientUid || '').trim()
+      ) &&
       typeof tx.updateClientReservation === 'function'
     ) {
       tx.updateClientReservation(cleanBookingId, {
