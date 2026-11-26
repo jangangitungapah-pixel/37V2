@@ -399,6 +399,95 @@ export function createFirestoreBookingRepositoryAdapter() {
       });
     },
 
+    subscribeClientReservations({
+      clientUid = '',
+      customerId = '',
+      maxLimit = 100,
+      onData,
+      onError,
+    }) {
+      const cleanClientUid = String(clientUid || '').trim();
+      const cleanCustomerId = String(customerId || '').trim();
+      const safeLimit = Math.max(1, Number(maxLimit) || 100);
+      const owners = [
+        ...(cleanClientUid ? [{ key: 'uid', field: 'clientUid', value: cleanClientUid }] : []),
+        ...(cleanCustomerId
+          ? [{ key: 'customer', field: 'customerId', value: cleanCustomerId }]
+          : []),
+      ];
+
+      if (owners.length === 0) {
+        queueMicrotask(() => onError?.(new Error('Missing Client identity for reservation subscription.')));
+        return () => {};
+      }
+
+      let cancelled = false;
+      const snapshots = new Map();
+      const unsubscribes = [];
+
+      const emitMerged = () => {
+        if (cancelled || owners.some((owner) => !snapshots.has(owner.key))) return;
+        const unique = new Map();
+        let sourceHasMore = false;
+
+        for (const owner of owners) {
+          const docs = snapshots.get(owner.key) || [];
+          if (docs.length > safeLimit) sourceHasMore = true;
+          for (const snapshotDoc of docs) {
+            const data = snapshotDoc.data();
+            if (!data) continue;
+            const matchesOwner = owner.key === 'uid'
+              ? data.clientUid === cleanClientUid
+              : data.customerId === cleanCustomerId;
+            if (matchesOwner) unique.set(snapshotDoc.id, { id: snapshotDoc.id, ...data });
+          }
+        }
+
+        const reservations = Array.from(unique.values());
+        onData?.({
+          reservations: reservations.slice(0, safeLimit),
+          isTruncated: sourceHasMore || reservations.length > safeLimit,
+          maxLimit: safeLimit,
+        });
+      };
+
+      (async () => {
+        try {
+          const [{ collection, limit, onSnapshot, query, where }, { getFirebaseDb }] =
+            await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+          if (cancelled) return;
+
+          const reservationsRef = collection(getFirebaseDb(), FIRESTORE_COLLECTIONS.CLIENT_RESERVATIONS);
+          for (const owner of owners) {
+            const reservationsQuery = query(
+              reservationsRef,
+              where(owner.field, '==', owner.value),
+              limit(safeLimit + 1),
+            );
+            const unsubscribe = onSnapshot(
+              reservationsQuery,
+              (snapshot) => {
+                if (cancelled) return;
+                snapshots.set(owner.key, snapshot.docs || []);
+                emitMerged();
+              },
+              (error) => {
+                if (!cancelled) onError?.(error);
+              },
+            );
+            unsubscribes.push(unsubscribe);
+          }
+        } catch (error) {
+          if (!cancelled) onError?.(error);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+        unsubscribes.forEach((unsubscribe) => unsubscribe?.());
+      };
+    },
+
     subscribeBookingsInRange({
       startDate,
       endDate,
