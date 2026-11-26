@@ -1133,6 +1133,7 @@ describe('Phase H — Public Booking Request Workflow, Calendar Conversion & Wha
       await user.click(screen.getByRole('button', { name: /^mark as sent$/i }));
       expect(await screen.findByText('Manually marked sent')).toBeTruthy();
 
+      await user.click(screen.getByRole('button', { name: /catatan internal staff/i }));
       await user.type(
         screen.getByLabelText(/catatan internal staff/i),
         'Customer minta jadwal jam 19:00.',
@@ -1177,7 +1178,7 @@ describe('Phase H — Public Booking Request Workflow, Calendar Conversion & Wha
         </AuthContext.Provider>,
       );
 
-      await screen.findByRole('heading', { name: /incoming booking requests/i });
+      await screen.findByRole('heading', { level: 1, name: /^booking requests$/i });
       expect(screen.queryByRole('button', { name: /kelola template whatsapp/i })).toBeNull();
 
       cleanup();
@@ -1259,7 +1260,7 @@ describe('Phase H — Public Booking Request Workflow, Calendar Conversion & Wha
       });
 
       await user.click(within(drawer).getByRole('button', { name: /accept request/i }));
-      expect(await within(drawer).findByText(/accepted ≠ confirmed/i)).toBeTruthy();
+      expect(await within(drawer).findByText(/accepted belum confirmed/i)).toBeTruthy();
       expect(
         within(drawer).getByTestId('convert-to-calendar-booking-link').getAttribute('href'),
       ).toBe('/admin/calendar?action=new-booking&requestId=req_BADGE_01');
