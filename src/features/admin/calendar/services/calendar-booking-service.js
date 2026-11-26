@@ -916,7 +916,7 @@ export async function updateOrRescheduleBooking({
     // 1. READ EXISTING BOOKING & EVENT FIRST
     const existingBooking = await tx.getBooking(cleanBookingId);
     const existingEvent = await tx.getEvent(cleanEventId);
-    const existingInvoice = existingBooking?.clientUid
+    const existingInvoice = existingBooking
       ? await tx.getInvoice?.(`inv_${cleanBookingId}`)
       : null;
 
@@ -1265,7 +1265,7 @@ export async function cancelBooking({
     // 1. READS FIRST
     const existingBooking = await tx.getBooking(cleanBookingId);
     const existingEvent = await tx.getEvent(cleanEventId);
-    const existingInvoice = existingBooking?.clientUid
+    const existingInvoice = existingBooking
       ? await tx.getInvoice?.(`inv_${cleanBookingId}`)
       : null;
 
@@ -1413,7 +1413,7 @@ export async function transitionBookingSession({
     // 1. READS FIRST
     const existingBooking = await tx.getBooking(cleanBookingId);
     const existingEvent = await tx.getEvent(cleanEventId);
-    const existingInvoice = existingBooking?.clientUid
+    const existingInvoice = existingBooking
       ? await tx.getInvoice?.(`inv_${cleanBookingId}`)
       : null;
 
