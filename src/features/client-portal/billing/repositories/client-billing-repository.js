@@ -267,7 +267,7 @@ export function createFirestoreClientBillingRepositoryAdapter() {
         if (cancelled || expectedKeys.some((key) => !streams.has(key))) return;
         const unique = new Map();
         let sourceHasMore = false;
-        for (const [key, snapshotData] of streams.entries()) {
+        for (const snapshotData of streams.values()) {
           if (snapshotData.hasMore) sourceHasMore = true;
           for (const record of snapshotData.records) unique.set(record.id, record);
         }
