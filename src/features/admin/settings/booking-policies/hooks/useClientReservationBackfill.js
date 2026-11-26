@@ -62,14 +62,18 @@ export function useClientReservationBackfill({
     ? subscriptionState.error || (runError.key === subscriptionKey ? runError.message : '')
     : '';
 
-  const runNextBatch = useCallback(async () => {
+  const runNextBatch = useCallback(async ({ restart = false } = {}) => {
     if (!canSubscribe) {
       throw new Error('Hanya Owner aktif yang boleh menjalankan identity backfill.');
     }
     setIsRunning(true);
     setRunError({ key: subscriptionKey, message: '' });
     try {
-      return await service.runNextBatch({ actorUid, actorRole: normalizedActorRole });
+      return await service.runNextBatch({
+        actorUid,
+        actorRole: normalizedActorRole,
+        restart,
+      });
     } catch (nextError) {
       setRunError({
         key: subscriptionKey,
