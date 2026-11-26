@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCheck,
@@ -78,29 +78,30 @@ export function WhatsAppMessageComposer({
     pickInitialTemplateId(request, enabledTemplates),
   );
   const [customBodyOverride, setCustomBodyOverride] = useState(null);
-  const [composerState, setComposerState] = useState(() =>
+  const persistedComposerState =
     request?.lastCommunicationStatus === 'manually_marked_sent'
       ? 'sent'
       : request?.lastCommunicationStatus === 'prepared_in_whatsapp'
         ? 'prepared'
-        : 'draft',
-  );
+        : 'draft';
+  const [composerStateOverride, setComposerStateOverride] = useState(null);
+  const composerState =
+    composerStateOverride?.requestId === request?.id &&
+    composerStateOverride?.savedStatus === request?.lastCommunicationStatus
+      ? composerStateOverride.value
+      : persistedComposerState;
+  const setComposerState = (value) => {
+    setComposerStateOverride({
+      requestId: request?.id || '',
+      savedStatus: request?.lastCommunicationStatus || '',
+      value,
+    });
+  };
   const [isSavingAction, setIsSavingAction] = useState(false);
   const [actionError, setActionError] = useState('');
   const [staffNoteText, setStaffNoteText] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [isNoteComposerOpen, setIsNoteComposerOpen] = useState(false);
-
-  useEffect(() => {
-    const savedStatus = request?.lastCommunicationStatus;
-    setComposerState(
-      savedStatus === 'manually_marked_sent'
-        ? 'sent'
-        : savedStatus === 'prepared_in_whatsapp'
-          ? 'prepared'
-          : 'draft',
-    );
-  }, [request?.id, request?.lastCommunicationStatus]);
 
   const activeTemplate = useMemo(
     () =>
@@ -506,6 +507,7 @@ export function WhatsAppMessageComposer({
             </label>
             <textarea
               id="request-staff-note-input"
+              aria-label="Catatan internal staff"
               rows={3}
               maxLength={800}
               value={staffNoteText}
