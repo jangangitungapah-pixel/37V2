@@ -1263,7 +1263,6 @@ service cloud.firestore {
 
     function isValidClientEvidenceParentInvoice(data) {
       let inv = get(/databases/$(database)/documents/invoices/$(data.invoiceId));
-      let invoiceClientUid = inv.data.get('clientUid', '');
       return inv != null
         && inv.data.customerId == data.customerId
         && inv.data.bookingId == data.bookingId
@@ -1271,10 +1270,10 @@ service cloud.firestore {
         && inv.data.invoiceStatus == 'issued'
         && inv.data.get('clientPaymentEvidenceRequired', false) == true
         && (
-          invoiceClientUid == ''
+          inv.data.get('clientUid', '') == ''
             ? isClientOwnerOfCustomer(data.customerId)
             : (
-              invoiceClientUid == data.clientUid
+              inv.data.clientUid == data.clientUid
               && isClientUidOwner(data.clientUid)
             )
         )
