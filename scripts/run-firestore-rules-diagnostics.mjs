@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { appendFile, mkdir, writeFile } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const logDirectory = path.resolve(process.cwd(), 'logs', 'firestore-rules');
@@ -15,11 +16,12 @@ await writeFile(
     `Working directory: ${process.cwd()}`,
     'Mode: FIRESTORE_RULES_AGGREGATE=1',
     '',
-  ].join('\\n'),
+  ].join('\n'),
   'utf8',
 );
+const logStream = createWriteStream(logPath, { flags: 'a' });
 
-console.log(`Firestore Rules diagnostic run started.\\nLog: ${logPath}\\n`);
+console.log(`Firestore Rules diagnostic run started.\nLog: ${logPath}\n`);
 
 const childEnv = {
   ...process.env,
@@ -42,22 +44,23 @@ const child = process.env.npm_execpath
       windowsHide: true,
     });
 
-function mirrorOutput(stream, chunk) {
-  stream.write(chunk);
-  void appendFile(logPath, chunk);
-}
+child.stdout.on('data', (chunk) => {
+  process.stdout.write(chunk);
+  logStream.write(chunk);
+});
+child.stderr.on('data', (chunk) => {
+  process.stderr.write(chunk);
+  logStream.write(chunk);
+});
 
-child.stdout.on('data', (chunk) => mirrorOutput(process.stdout, chunk));
-child.stderr.on('data', (chunk) => mirrorOutput(process.stderr, chunk));
-
-child.on('error', async (error) => {
-  const message = `\\nRunner spawn error: ${error.stack || error.message}\\n`;
+child.on('error', (error) => {
+  const message = `\nRunner spawn error: ${error.stack || error.message}\n`;
   process.stderr.write(message);
-  await appendFile(logPath, message);
+  logStream.write(message);
   process.exitCode = 1;
 });
 
-child.on('close', async (code, signal) => {
+child.on('close', (code, signal) => {
   const exitCode = Number.isInteger(code) ? code : 1;
   const footer = [
     '',
@@ -66,9 +69,11 @@ child.on('close', async (code, signal) => {
     `Signal: ${signal || 'none'}`,
     `Log file: ${logPath}`,
     '',
-  ].join('\\n');
-  await appendFile(logPath, footer, 'utf8');
-  console.log(`\\nDiagnostic run finished (exit ${exitCode}).`);
-  console.log(`Full log saved: ${logPath}`);
-  process.exitCode = exitCode;
+  ].join('\n');
+
+  logStream.end(footer, () => {
+    console.log(`\nDiagnostic run finished (exit ${exitCode}).`);
+    console.log(`Full log saved: ${logPath}`);
+    process.exitCode = exitCode;
+  });
 });
