@@ -886,8 +886,9 @@ service cloud.firestore {
       let customerId = resData.get('customerId', '');
       let clientUid = reqData.get('clientUid', '');
       let reservationPath = /databases/$(database)/documents/clientReservations/$(bookingId);
-      let reservationAfter = getAfter(reservationPath);
-      return resData.get('clientUid', '') == ''
+      return isActiveOwner()
+        && existsAfter(reservationPath)
+        && resData.get('clientUid', '') == ''
         && customerId is string
         && customerId.size() > 0
         && clientUid is string
@@ -900,11 +901,10 @@ service cloud.firestore {
         && reqData.version is int
         && reqData.version == resData.version + 1
         && isActiveClientCustomerMatch(clientUid, customerId)
-        && existsAfter(reservationPath)
-        && reservationAfter.data.bookingId == bookingId
-        && reservationAfter.data.customerId == customerId
-        && reservationAfter.data.clientUid == clientUid
-        && reservationAfter.data.version == reqData.version;
+        && getAfter(reservationPath).data.bookingId == bookingId
+        && getAfter(reservationPath).data.customerId == customerId
+        && getAfter(reservationPath).data.clientUid == clientUid
+        && getAfter(reservationPath).data.version == reqData.version;
     }
 
     function isValidBookingUpdate(reqData, resData, bookingId) {
