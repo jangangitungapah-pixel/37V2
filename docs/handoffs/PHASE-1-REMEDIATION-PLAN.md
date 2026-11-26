@@ -195,6 +195,8 @@ Check each transaction against:
 
 The Phase 0 architecture specification and data-contract document define the expected transactions and lookup assumptions. Compare current implementation to those contracts instead of guessing.
 
+The source review, discovered defect, corrective change, regression coverage, Rules lookup-budget case, batch inventory, and remaining local-verification steps are recorded in [PHASE-1-GATE-3-TRANSACTION-PROJECTION-AUDIT.md](../architecture/PHASE-1-GATE-3-TRANSACTION-PROJECTION-AUDIT.md).
+
 ## 10. Phase 1 acceptance checklist
 
 Phase 1 remains open until every item is explicitly closed:
