@@ -114,7 +114,7 @@ export function useClientInvoices({
       isCancelled = true;
       unsubscribe?.();
     };
-  }, [cleanCustomerId, effectiveLimit, isClientReady, resolvedAdapter, subscriptionKey]);
+  }, [cleanCustomerId, cleanUid, effectiveLimit, isClientReady, resolvedAdapter, subscriptionKey]);
 
   const retry = useCallback(() => {
     setRefreshNonce((prev) => prev + 1);
