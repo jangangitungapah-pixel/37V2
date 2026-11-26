@@ -358,7 +358,7 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       version: 5,
     });
 
-    expect(projected.schemaVersion).toBe(3);
+    expect(projected.schemaVersion).toBe(4);
     expect(projected.version).toBe(5);
     expect(projected.serviceOptionIndex).toEqual(
       projected.serviceTypes.flatMap((service) =>
@@ -850,7 +850,9 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
     renderAppAt('/admin/booking-requests');
     expect(await screen.findByText('REQ-CPINT001')).toBeTruthy();
     expect(screen.getAllByText('Client Portal').length).toBeGreaterThan(0);
-    expect(screen.getByText(/Rehearsal · Paket 3 Hours/i)).toBeTruthy();
+    const requestRow = screen.getByTestId('booking-request-row-req_client_portal_int1');
+    expect(within(requestRow).getByText('Rehearsal')).toBeTruthy();
+    expect(within(requestRow).getByText('Paket 3 Hours')).toBeTruthy();
 
     await user.click(screen.getByText('REQ-CPINT001'));
     expect(await screen.findByText(/Katalog Publik v2/i)).toBeTruthy();
