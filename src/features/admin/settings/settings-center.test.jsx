@@ -122,17 +122,12 @@ describe('Settings Center Overview (/admin/settings)', () => {
       screen.getByRole('link', { name: /open account & security/i }).getAttribute('href'),
     ).toBe('/admin/settings/account-security');
 
-    // Strictly non-interactive planned cards
-    const operationsHeading = screen.getByRole('heading', {
-      level: 3,
-      name: 'Operations & Booking Rules',
-    });
-    const operationsCard = operationsHeading.closest('article');
-    expect(operationsCard.getAttribute('aria-disabled')).toBe('true');
-    expect(within(operationsCard).getByText('PLANNED')).toBeTruthy();
-    expect(within(operationsCard).queryAllByRole('link')).toHaveLength(0);
-    expect(within(operationsCard).queryAllByRole('button')).toHaveLength(0);
+    // Booking Policies is now an active, separately scoped module.
+    expect(
+      screen.getByRole('link', { name: /open booking policies/i }).getAttribute('href'),
+    ).toBe('/admin/settings/booking-policies');
 
+    // Strictly non-interactive planned cards
     const notificationsHeading = screen.getByRole('heading', {
       level: 3,
       name: 'Notifications & Devices',
