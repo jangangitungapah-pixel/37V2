@@ -27,15 +27,21 @@ export function useClientPaymentEvidence({
   const cleanUid = String(user?.uid || '').trim();
   const cleanCustomerId = String(clientAccount?.customerId || '').trim();
   const cleanInvoiceId = String(invoiceId || '').trim();
-  const cleanInvoiceIds = useMemo(
-    () => Array.from(new Set(
+  const invoiceScopeKey = Array.from(
+    new Set(
       (Array.isArray(invoiceIds) ? invoiceIds : [])
         .map((value) => String(value || '').trim())
         .filter(Boolean),
-    )).sort(),
-    [invoiceIds],
+    ),
+  )
+    .sort()
+    .join('|');
+  // Keep the normalized array stable by its contents so an inline invoiceIds
+  // array from a caller does not cause a subscription restart on every render.
+  const cleanInvoiceIds = useMemo(
+    () => (invoiceScopeKey ? invoiceScopeKey.split('|') : []),
+    [invoiceScopeKey],
   );
-  const invoiceScopeKey = cleanInvoiceIds.join('|');
   const effectiveLimit =
     Number(maxLimit) ||
     (cleanInvoiceId ? PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT : PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT);
@@ -119,6 +125,7 @@ export function useClientPaymentEvidence({
   }, [
     cleanCustomerId,
     cleanInvoiceId,
+    cleanInvoiceIds,
     cleanUid,
     effectiveLimit,
     isClientReady,
