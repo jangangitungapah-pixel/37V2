@@ -7182,12 +7182,44 @@ async function runTests() {
           value: { stringValue: gate2UpdateTargetId },
         },
       },
+      orderBy: [
+        {
+          field: { fieldPath: 'updatedAt' },
+          direction: 'DESCENDING',
+        },
+      ],
+      limit: 101,
     },
   });
   assert.equal(
     gate3OwnReservationQuery.status,
     200,
-    `CRM-linked Client can list its own reservation projections: ${JSON.stringify(gate3OwnReservationQuery.body)}`,
+    `CRM-linked Client can list its own reservation projections ordered by latest activity: ${JSON.stringify(gate3OwnReservationQuery.body)}`,
+  );
+
+  const gate3OwnUidReservationQuery = await userRequest('POST', ':runQuery', TOKEN_GATE2_UPDATE_CLIENT, {
+    structuredQuery: {
+      from: [{ collectionId: 'clientReservations' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'clientUid' },
+          op: 'EQUAL',
+          value: { stringValue: gate2UpdateUid },
+        },
+      },
+      orderBy: [
+        {
+          field: { fieldPath: 'updatedAt' },
+          direction: 'DESCENDING',
+        },
+      ],
+      limit: 101,
+    },
+  });
+  assert.equal(
+    gate3OwnUidReservationQuery.status,
+    200,
+    `CRM-linked Client can list its UID-owned reservation projections ordered by latest activity: ${JSON.stringify(gate3OwnUidReservationQuery.body)}`,
   );
 
   const gate3InvoiceId = `inv_${gate3WalkInReservationId}`;
