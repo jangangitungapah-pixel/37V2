@@ -2645,7 +2645,7 @@ service cloud.firestore {
         && data.serviceTypeName is string
         && data.serviceOptionName is string
         && data.date is string
-        && data.date.matches('^\\d{4}-\\d{2}-\\d{2}
+        && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
         && data.startMinute is int
         && data.endMinute is int
         && data.durationMinutes is int
