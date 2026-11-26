@@ -2535,16 +2535,24 @@ service cloud.firestore {
     function isClientReservationBookingMatched(data, bookingId) {
       let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
       let bookingAfter = getAfter(bookingPath);
-      let expectedServiceName = bookingAfter.data.get('serviceTypeName', '') != ''
-        ? bookingAfter.data.serviceTypeName
-        : (
-          bookingAfter.data.get('serviceTypeId', '') != ''
-            ? bookingAfter.data.serviceTypeId
-            : bookingAfter.data.get('serviceLabel', '')
-        );
-      let expectedOptionName = bookingAfter.data.get('serviceOptionName', '') != ''
-        ? bookingAfter.data.serviceOptionName
-        : bookingAfter.data.get('packageLabel', '');
+      let expectedServiceName = bookingAfter != null
+        ? (
+          bookingAfter.data.get('serviceTypeName', '') != ''
+            ? bookingAfter.data.serviceTypeName
+            : (
+              bookingAfter.data.get('serviceTypeId', '') != ''
+                ? bookingAfter.data.serviceTypeId
+                : bookingAfter.data.get('serviceLabel', '')
+            )
+        )
+        : '';
+      let expectedOptionName = bookingAfter != null
+        ? (
+          bookingAfter.data.get('serviceOptionName', '') != ''
+            ? bookingAfter.data.serviceOptionName
+            : bookingAfter.data.get('packageLabel', '')
+        )
+        : '';
       return bookingAfter != null
         && bookingAfter.data.clientUid == data.clientUid
         && bookingAfter.data.customerId == data.customerId
@@ -2573,7 +2581,7 @@ service cloud.firestore {
       let invoiceId = 'inv_' + bookingId;
       let invoicePath = /databases/$(database)/documents/invoices/$(invoiceId);
       let bookingAfter = getAfter(bookingPath);
-      let invoiceAfter = existsAfter(invoicePath) ? getAfter(invoicePath) : null;
+      let invoiceAfter = getAfter(invoicePath);
       let legacyTotal = bookingAfter != null ? bookingAfter.data.get('totalAmount', 0) : 0;
       let legacyPaid = bookingAfter != null ? bookingAfter.data.get('initialPaidAmount', 0) : 0;
       return bookingAfter != null && (
