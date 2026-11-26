@@ -243,170 +243,170 @@ export function createClientReservationBackfillService() {
         processed += 1;
 
         const outcome = await runTransaction(db, async (transaction) => {
-            const bookingRef = doc(db, COLLECTIONS.BOOKINGS, bookingId);
-            const invoiceRef = doc(db, COLLECTIONS.INVOICES, `inv_${bookingId}`);
-            const reservationRef = doc(db, COLLECTIONS.RESERVATIONS, bookingId);
-            const requestRef = candidateRequestId
-              ? doc(db, COLLECTIONS.REQUESTS, candidateRequestId)
-              : null;
-            const linkRef = candidateCustomerId
-              ? doc(db, 'clientCustomerLinks', candidateCustomerId)
-              : null;
+          const bookingRef = doc(db, COLLECTIONS.BOOKINGS, bookingId);
+          const invoiceRef = doc(db, COLLECTIONS.INVOICES, `inv_${bookingId}`);
+          const reservationRef = doc(db, COLLECTIONS.RESERVATIONS, bookingId);
+          const requestRef = candidateRequestId
+            ? doc(db, COLLECTIONS.REQUESTS, candidateRequestId)
+            : null;
+          const linkRef = candidateCustomerId
+            ? doc(db, 'clientCustomerLinks', candidateCustomerId)
+            : null;
 
-            const [
-              bookingSnapshot,
-              requestSnapshot,
-              invoiceSnapshot,
-              linkSnapshot,
-              reservationSnapshot,
-            ] = await Promise.all([
-              transaction.get(bookingRef),
-              requestRef ? transaction.get(requestRef) : Promise.resolve(null),
-              transaction.get(invoiceRef),
-              linkRef ? transaction.get(linkRef) : Promise.resolve(null),
-              transaction.get(reservationRef),
-            ]);
-            if (!bookingSnapshot.exists()) return 'skipped';
+          const [
+            bookingSnapshot,
+            requestSnapshot,
+            invoiceSnapshot,
+            linkSnapshot,
+            reservationSnapshot,
+          ] = await Promise.all([
+            transaction.get(bookingRef),
+            requestRef ? transaction.get(requestRef) : Promise.resolve(null),
+            transaction.get(invoiceRef),
+            linkRef ? transaction.get(linkRef) : Promise.resolve(null),
+            transaction.get(reservationRef),
+          ]);
+          if (!bookingSnapshot.exists()) return 'skipped';
 
-            const booking = { id: bookingId, ...bookingSnapshot.data() };
-            const customerId = String(booking.customerId || '').trim();
-            if (!customerId || customerId !== candidateCustomerId) return 'skipped';
+          const booking = { id: bookingId, ...bookingSnapshot.data() };
+          const customerId = String(booking.customerId || '').trim();
+          if (!customerId || customerId !== candidateCustomerId) return 'skipped';
 
-            const invoice = invoiceSnapshot.exists() ? invoiceSnapshot.data() : null;
+          const invoice = invoiceSnapshot.exists() ? invoiceSnapshot.data() : null;
+          if (
+            invoice &&
+            (
+              (invoice.bookingId && invoice.bookingId !== bookingId) ||
+              (invoice.customerId && invoice.customerId !== customerId) ||
+              (invoice.clientUid && booking.clientUid && invoice.clientUid !== booking.clientUid)
+            )
+          ) {
+            return 'skipped';
+          }
+
+          let resolvedClientUid = '';
+          let linkedPortalRequest = null;
+          const isPortalOrigin = String(booking.source || '') === 'client_portal';
+
+          if (isPortalOrigin || candidateRequestId) {
+            if (!requestSnapshot?.exists()) return 'skipped';
+            linkedPortalRequest = requestSnapshot.data() || {};
+            const requestUid = String(linkedPortalRequest.clientUid || '').trim();
             if (
-              invoice &&
-              (
-                (invoice.bookingId && invoice.bookingId !== bookingId) ||
-                (invoice.customerId && invoice.customerId !== customerId) ||
-                (invoice.clientUid && booking.clientUid && invoice.clientUid !== booking.clientUid)
-              )
+              linkedPortalRequest.source !== 'client_portal' ||
+              linkedPortalRequest.status !== 'confirmed' ||
+              linkedPortalRequest.linkedBookingId !== bookingId ||
+              String(linkedPortalRequest.customerId || '') !== customerId ||
+              !requestUid
+            ) {
+              return 'skipped';
+            }
+            resolvedClientUid = requestUid;
+          } else {
+            if (!linkSnapshot?.exists()) return 'skipped';
+            const link = linkSnapshot.data() || {};
+            const linkedUid = String(link.ownerUid || '').trim();
+            if (
+              link.customerId !== customerId ||
+              !linkedUid
             ) {
               return 'skipped';
             }
 
-            let resolvedClientUid = '';
-            let linkedPortalRequest = null;
-            const isPortalOrigin = String(booking.source || '') === 'client_portal';
-
-            if (isPortalOrigin || candidateRequestId) {
-              if (!requestSnapshot?.exists()) return 'skipped';
-              linkedPortalRequest = requestSnapshot.data() || {};
-              const requestUid = String(linkedPortalRequest.clientUid || '').trim();
-              if (
-                linkedPortalRequest.source !== 'client_portal' ||
-                linkedPortalRequest.status !== 'confirmed' ||
-                linkedPortalRequest.linkedBookingId !== bookingId ||
-                String(linkedPortalRequest.customerId || '') !== customerId ||
-                !requestUid
-              ) {
-                return 'skipped';
-              }
-              resolvedClientUid = requestUid;
-            } else {
-              if (!linkSnapshot?.exists()) return 'skipped';
-              const link = linkSnapshot.data() || {};
-              const linkedUid = String(link.ownerUid || '').trim();
-              if (
-                link.customerId !== customerId ||
-                !linkedUid
-              ) {
-                return 'skipped';
-              }
-
-              const accountSnapshot = await transaction.get(
-                doc(db, 'clientAccounts', linkedUid),
-              );
-              if (!accountSnapshot.exists()) return 'skipped';
-              const account = accountSnapshot.data() || {};
-              if (
-                account.uid !== linkedUid ||
-                account.role !== 'client' ||
-                account.status !== 'active' ||
-                account.customerId !== customerId ||
-                account.profileSource !== 'linked_customer'
-              ) {
-                return 'skipped';
-              }
-              resolvedClientUid = linkedUid;
-            }
-
-            if (
-              !resolvedClientUid ||
-              (booking.clientUid && booking.clientUid !== resolvedClientUid) ||
-              (invoice?.clientUid && invoice.clientUid !== resolvedClientUid)
-            ) {
-              return 'skipped';
-            }
-
-            const nowValue = serverTimestamp();
-            const existingReservation = reservationSnapshot?.exists()
-              ? reservationSnapshot.data()
-              : null;
-            const nextSourceRequestId = isPortalOrigin
-              ? candidateRequestId
-              : String(booking.sourceRequestId || '');
-            const nextAcceptedOfferId = isPortalOrigin
-              ? String(booking.acceptedOfferId || linkedPortalRequest?.acceptedOfferId || '')
-              : String(booking.acceptedOfferId || '');
-            const bookingNeedsLink =
-              booking.clientUid !== resolvedClientUid ||
-              (isPortalOrigin && (
-                booking.source !== 'client_portal' ||
-                booking.sourceRequestId !== nextSourceRequestId ||
-                booking.acceptedOfferId !== nextAcceptedOfferId
-              ));
-            const nextBooking = {
-              ...booking,
-              clientUid: resolvedClientUid,
-              ...(isPortalOrigin
-                ? {
-                    source: 'client_portal',
-                    sourceRequestId: nextSourceRequestId,
-                    acceptedOfferId: nextAcceptedOfferId,
-                  }
-                : {}),
-              version: (Number(booking.version) || 1) + (bookingNeedsLink ? 1 : 0),
-              updatedAt: bookingNeedsLink ? nowValue : booking.updatedAt,
-              updatedByUid: bookingNeedsLink ? ownerUid : booking.updatedByUid,
-            };
-            const projection = buildClientReservationProjection(nextBooking, invoice, nowValue);
-            if (!projection) return 'skipped';
-            if (!booking.createdAt && existingReservation?.createdAt) {
-              projection.createdAt = existingReservation.createdAt;
-            }
-            const projectionChanged = !isClientReservationProjectionUnchanged(
-              existingReservation,
-              projection,
+            const accountSnapshot = await transaction.get(
+              doc(db, 'clientAccounts', linkedUid),
             );
-
-            if (bookingNeedsLink) {
-              const patch = {
-                clientUid: resolvedClientUid,
-                updatedAt: nowValue,
-                updatedByUid: ownerUid,
-                version: nextBooking.version,
-              };
-              if (isPortalOrigin) {
-                patch.source = 'client_portal';
-                patch.sourceRequestId = nextSourceRequestId;
-                patch.acceptedOfferId = nextAcceptedOfferId;
-              }
-              transaction.update(bookingRef, patch);
+            if (!accountSnapshot.exists()) return 'skipped';
+            const account = accountSnapshot.data() || {};
+            if (
+              account.uid !== linkedUid ||
+              account.role !== 'client' ||
+              account.status !== 'active' ||
+              account.customerId !== customerId ||
+              account.profileSource !== 'linked_customer'
+            ) {
+              return 'skipped';
             }
+            resolvedClientUid = linkedUid;
+          }
 
-            if (invoice && !invoice.clientUid) {
-              transaction.update(invoiceRef, {
-                clientUid: resolvedClientUid,
-                updatedAt: nowValue,
-                updatedByUid: ownerUid,
-                version: (Number(invoice.version) || 1) + 1,
-              });
-            }
+          if (
+            !resolvedClientUid ||
+            (booking.clientUid && booking.clientUid !== resolvedClientUid) ||
+            (invoice?.clientUid && invoice.clientUid !== resolvedClientUid)
+          ) {
+            return 'skipped';
+          }
 
-            if (projectionChanged) {
-              transaction.set(reservationRef, projection);
+          const nowValue = serverTimestamp();
+          const existingReservation = reservationSnapshot?.exists()
+            ? reservationSnapshot.data()
+            : null;
+          const nextSourceRequestId = isPortalOrigin
+            ? candidateRequestId
+            : String(booking.sourceRequestId || '');
+          const nextAcceptedOfferId = isPortalOrigin
+            ? String(booking.acceptedOfferId || linkedPortalRequest?.acceptedOfferId || '')
+            : String(booking.acceptedOfferId || '');
+          const bookingNeedsLink =
+            booking.clientUid !== resolvedClientUid ||
+            (isPortalOrigin && (
+              booking.source !== 'client_portal' ||
+              booking.sourceRequestId !== nextSourceRequestId ||
+              booking.acceptedOfferId !== nextAcceptedOfferId
+            ));
+          const nextBooking = {
+            ...booking,
+            clientUid: resolvedClientUid,
+            ...(isPortalOrigin
+              ? {
+                  source: 'client_portal',
+                  sourceRequestId: nextSourceRequestId,
+                  acceptedOfferId: nextAcceptedOfferId,
+                }
+              : {}),
+            version: (Number(booking.version) || 1) + (bookingNeedsLink ? 1 : 0),
+            updatedAt: bookingNeedsLink ? nowValue : booking.updatedAt,
+            updatedByUid: bookingNeedsLink ? ownerUid : booking.updatedByUid,
+          };
+          const projection = buildClientReservationProjection(nextBooking, invoice, nowValue);
+          if (!projection) return 'skipped';
+          if (!booking.createdAt && existingReservation?.createdAt) {
+            projection.createdAt = existingReservation.createdAt;
+          }
+          const projectionChanged = !isClientReservationProjectionUnchanged(
+            existingReservation,
+            projection,
+          );
+
+          if (bookingNeedsLink) {
+            const patch = {
+              clientUid: resolvedClientUid,
+              updatedAt: nowValue,
+              updatedByUid: ownerUid,
+              version: nextBooking.version,
+            };
+            if (isPortalOrigin) {
+              patch.source = 'client_portal';
+              patch.sourceRequestId = nextSourceRequestId;
+              patch.acceptedOfferId = nextAcceptedOfferId;
             }
-            return 'projected';
+            transaction.update(bookingRef, patch);
+          }
+
+          if (invoice && !invoice.clientUid) {
+            transaction.update(invoiceRef, {
+              clientUid: resolvedClientUid,
+              updatedAt: nowValue,
+              updatedByUid: ownerUid,
+              version: (Number(invoice.version) || 1) + 1,
+            });
+          }
+
+          if (projectionChanged) {
+            transaction.set(reservationRef, projection);
+          }
+          return 'projected';
         });
         if (outcome === 'projected') newlyProjected += 1;
         else skipped += 1;
