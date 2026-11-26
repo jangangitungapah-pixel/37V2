@@ -130,7 +130,7 @@ export function createClientReservationBackfillService() {
       return () => { cancelled = true; unsubscribe?.(); };
     },
 
-    async runNextBatch({ actorUid, actorRole, now = new Date(), restart = false }) {
+    async runNextBatch({ actorUid, actorRole, restart = false }) {
       const ownerUid = validateClientReservationBackfillActor(actorUid, actorRole);
       const [
         { collection, doc, getDoc, getDocs, limit, orderBy, query, runTransaction, serverTimestamp, setDoc, startAfter },
