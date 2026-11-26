@@ -1071,6 +1071,87 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       },
     ]);
 
+    const reservationFixture = (overrides = {}) => ({
+      schemaVersion: 1,
+      bookingId: 'bkg_fixture',
+      bookingReference: 'BKG_FIXTURE',
+      customerId: 'cust_book_client_1',
+      clientUid: 'client-book-uid-1',
+      sourceRequestId: '',
+      acceptedOfferId: '',
+      invoiceId: 'inv_bkg_fixture',
+      studioId: 'room-a',
+      studioName: 'Room A — Live Room',
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      date: tomorrowIso,
+      startMinute: 600,
+      endMinute: 660,
+      durationMinutes: 60,
+      timeZone: 'Asia/Jakarta',
+      reservationStatus: 'confirmed',
+      sessionStatus: 'upcoming',
+      holdExpiresAt: null,
+      effectiveTotalAmount: 420000,
+      minimumDepositAmount: null,
+      depositStatus: null,
+      paymentStatus: 'unpaid',
+      createdAt: `${todayIso}T07:00:00.000Z`,
+      updatedAt: `${todayIso}T11:00:00.000Z`,
+      version: 2,
+      ...overrides,
+    });
+
+    // Canonical projection intentionally disagrees with the old request snapshot:
+    // the Client must see the latest Calendar schedule, not the stale confirmedBookingSnapshot.
+    bookingAdapter._seedClientReservation('bkg_cp_up_1', reservationFixture({
+      bookingId: 'bkg_cp_up_1',
+      bookingReference: 'BKG_LIVE_UP1',
+      sourceRequestId: 'req_cp_confirmed_upcoming',
+      studioId: 'room-b',
+      studioName: 'Room B — Control + Booth',
+      serviceTypeName: 'Recording',
+      serviceOptionName: 'Tracking Updated',
+      date: dayAfterIso,
+      startMinute: 900,
+      endMinute: 960,
+      durationMinutes: 60,
+    }));
+    bookingAdapter._seedClientReservation('bkg_cp_past_1', reservationFixture({
+      bookingId: 'bkg_cp_past_1',
+      bookingReference: 'BKG_LIVE_PAST',
+      sourceRequestId: 'req_cp_past_confirmed',
+      date: yesterdayIso,
+      sessionStatus: 'completed',
+    }));
+    bookingAdapter._seedClientReservation('bkg_walkin_001', reservationFixture({
+      bookingId: 'bkg_walkin_001',
+      bookingReference: 'BKG_WALKIN01',
+      clientUid: '',
+      sourceRequestId: '',
+      serviceOptionName: 'Walk-in',
+      date: addDaysToIsoDate(todayIso, 5),
+      startMinute: 600,
+      endMinute: 660,
+    }));
+    bookingAdapter._seedClientReservation('bkg_cancelled_001', reservationFixture({
+      bookingId: 'bkg_cancelled_001',
+      bookingReference: 'BKG_CANCELLED',
+      sessionStatus: 'cancelled',
+      reservationStatus: 'cancelled',
+    }));
+    bookingAdapter._seedClientReservation('bkg_no_show_001', reservationFixture({
+      bookingId: 'bkg_no_show_001',
+      bookingReference: 'BKG_NO_SHOW',
+      sessionStatus: 'no_show',
+    }));
+    bookingAdapter._seedClientReservation('bkg_other_client_001', reservationFixture({
+      bookingId: 'bkg_other_client_001',
+      bookingReference: 'BKG_OTHER_SECRET',
+      customerId: 'cust_other_999',
+      clientUid: 'other-client-uid-999',
+    }));
+
     renderAppAt('/portal/bookings');
 
     const bookingsPage = await screen.findByTestId('client-bookings-page');
@@ -1085,10 +1166,17 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
     const requestsSection = screen.getByTestId('client-bookings-section-requests');
     const historySection = screen.getByTestId('client-bookings-section-history');
 
-    expect(within(upcomingSection).getByText('BKG_CP_UP_1')).toBeTruthy();
+    expect(within(upcomingSection).getByText('BKG_LIVE_UP1')).toBeTruthy();
     expect(within(requestsSection).getByText('REQ-PEND0002')).toBeTruthy();
     expect(within(requestsSection).getByText('REQ-MIX00003')).toBeTruthy();
-    expect(within(historySection).getByText('BKG_CP_PAST1')).toBeTruthy();
+    expect(within(historySection).getByText('BKG_LIVE_PAST')).toBeTruthy();
+    expect(within(upcomingSection).getByText('BKG_WALKIN01')).toBeTruthy();
+    expect(within(upcomingSection).getByText('Room B — Control + Booth')).toBeTruthy();
+    expect(within(upcomingSection).getByText(/Recording.*Tracking Updated/)).toBeTruthy();
+    expect(within(historySection).getByText('BKG_CANCELLED')).toBeTruthy();
+    expect(within(historySection).getByText('BKG_NO_SHOW')).toBeTruthy();
+    expect(within(historySection).getByText('No Show')).toBeTruthy();
+    expect(bookingsPage.textContent).not.toContain('BKG_OTHER_SECRET');
     expect(within(historySection).getByText('REQ-DECL0005')).toBeTruthy();
     expect(within(historySection).getByText('Room maintenance scheduled.')).toBeTruthy();
 
@@ -1135,11 +1223,11 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
     expect(overviewPage.textContent).not.toContain('Schedule Integration Pending');
 
     const nextSessionCard = screen.getByTestId('client-overview-next-session');
-    expect(await within(nextSessionCard).findByText('BKG_CP_UP_1')).toBeTruthy();
+    expect(await within(nextSessionCard).findByText('BKG_LIVE_UP1')).toBeTruthy();
     expect(within(nextSessionCard).getByText('Room A — Live Room')).toBeTruthy();
 
     const activityCard = screen.getByTestId('client-overview-recent-activity');
-    expect(within(activityCard).getByText('BKG_CP_UP_1')).toBeTruthy();
+    expect(within(activityCard).getByText('BKG_LIVE_UP1')).toBeTruthy();
     cleanup();
 
     // Error + Try Again retry flow on /portal/bookings
