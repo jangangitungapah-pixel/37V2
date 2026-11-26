@@ -38,6 +38,7 @@ import {
   PAYMENT_SOURCE,
   SUPPORTED_PAYMENT_METHODS,
   TRANSACTION_TYPE,
+  computeStoredPaymentStatus,
 } from '@/features/admin/payment/utils/invoice-status';
 import {
   PAYMENT_EVIDENCE_SCHEMA_VERSION,
@@ -127,7 +128,7 @@ export function buildClientReservationProjection(booking, invoice = null, timest
     holdExpiresAt: booking.holdExpiresAt || null,
     effectiveTotalAmount: Math.max(
       0,
-      Math.round(Number(invoice?.effectiveTotalAmount ?? invoice?.totalAmount ?? booking.totalAmount) || 0),
+      Math.round(Number(invoice?.effectiveTotalAmount ?? invoice?.financialSnapshot?.totalAmount ?? invoice?.totalAmount ?? booking.totalAmount) || 0),
     ),
     minimumDepositAmount:
       Number.isInteger(invoice?.minimumDepositAmount)
@@ -141,7 +142,16 @@ export function buildClientReservationProjection(booking, invoice = null, timest
         : typeof booking.depositStatus === 'string'
           ? booking.depositStatus
           : null,
-    paymentStatus: String(invoice?.paymentStatus || booking.paymentStatus || 'unpaid'),
+    paymentStatus: String(
+      invoice?.paymentStatus ||
+      computeStoredPaymentStatus(
+        invoice?.effectiveTotalAmount ??
+          invoice?.financialSnapshot?.totalAmount ??
+          invoice?.totalAmount ??
+          booking.totalAmount,
+        invoice?.amountPaid ?? booking.initialPaidAmount,
+      ),
+    ),
     createdAt: booking.createdAt || timestamp || booking.updatedAt,
     updatedAt: timestamp || booking.updatedAt || booking.createdAt,
     version: Number(booking.version) || 1,
