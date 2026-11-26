@@ -43,7 +43,7 @@ The transaction re-reads and validates:
 3. The selected CRM Customer exists and is active.
 4. The target `clientCustomerLinks/{customerId}` does not already exist.
 5. The target `clientProfiles/{customerId}`, when present, is active, uses `linked_customer`, and has no `ownerUid`.
-6. No other `clientAccounts` document already claims the target `customerId`. This check is made inside the Firestore transaction to detect orphaned account claims even if a reverse-link document is missing.
+6. An Owner-authorized preflight query checks whether another `clientAccounts` document already claims the target `customerId`, including orphaned account claims whose reverse-link document is missing. This is deliberately outside the Firestore transaction because the Firestore Web SDK transaction API accepts document-reference reads, not query reads. The transaction then re-reads the target `clientCustomerLinks` and `clientProfiles` documents and uses their atomic creation/update as the canonical one-to-one lock for concurrent identity-link operations.
 7. The deterministic audit operation has not already been used.
 
 A Client account already bound to a different real CRM Customer is rejected as `reassignment-blocked`. Reassignment, unlinking, duplicate-identity disputes, and conflicting bindings require a separate explicit review process. They are not silently handled by this workflow.
