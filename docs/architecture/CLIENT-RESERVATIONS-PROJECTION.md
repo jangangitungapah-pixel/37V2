@@ -19,7 +19,7 @@ An empty `clientUid` does not grant access by itself. Client read access is gran
 1. The authenticated, active Client UID matching a non-empty `clientUid`; or
 2. The active account's canonical `customerId` matching the projection, with the matching one-to-one `clientCustomerLinks/{customerId}` binding owned by that UID.
 
-A Client can never create, update, or delete this projection. Staff/Owner transactions own projection writes.
+A Client can never create, update, or delete this projection. Staff may write a projection only in the same atomic commit as a matching canonical booking or invoice mutation. Owner may also create or repair a legacy projection through the explicit, bounded reconciliation action. Deletion remains restricted to the existing Factory Reset boundary.
 
 ## 2. Schema v2
 
@@ -39,8 +39,9 @@ Firestore Rules enforce:
 - Exact allowlisted keys and schema version 2.
 - Stable `bookingId` and expected invoice path.
 - Valid studio/time/status/amount field types.
-- Agreement with the post-transaction canonical booking for `clientUid`, `customerId`, date, studio, and version.
-- Staff-only create/update and factory-reset-only deletion.
+- Agreement with the post-transaction canonical booking for identity, request references, date/time, studio, service labels, lifecycle state, and version.
+- Agreement with the post-transaction invoice for the customer-safe total and payment status, while deposit fields remain sourced from the canonical booking.
+- Staff create/update only when the same commit also creates or advances the canonical booking or invoice; Owner create/repair for bounded legacy reconciliation; factory-reset-only deletion.
 - Client read ownership using the same canonical account/link boundary described above.
 
 ## 3. Atomic write lifecycle
@@ -54,7 +55,7 @@ The Calendar service builds the projection from the canonical booking and invoic
 
 When no safe `customerId` or `clientUid` exists, projection creation fails closed. When the booking has CRM identity but no Client Portal UID, it is still projected with `clientUid: ''`; Rules continue to require a valid CRM link for Client access.
 
-The in-memory booking adapter mirrors the same projection writes and exposes an owner-scoped realtime subscription for deterministic integration tests.
+The in-memory booking adapter mirrors the same projection writes and exposes an identity-scoped realtime subscription for deterministic integration tests. Booking create/edit/reschedule/cancel/lifecycle and payment summary changes retain the canonical booking/invoice mutation and the projection write in one transaction.
 
 ## 4. Client Portal read path
 
@@ -83,6 +84,8 @@ Eligibility checks:
 
 On a valid CRM-linked walk-in, the transaction may fill an empty `clientUid` pointer on the canonical booking and invoice, and write the customer-safe projection. It never overwrites a different existing UID. The payment ledger, payment evidence, paid amount, received dates, references, and reversal history are not rewritten.
 
+Ordinary eligibility or identity conflicts are counted as skipped records. An unexpected transaction, Rules, or infrastructure exception is propagated instead of being mislabeled as a skip. Because the batch progress document is written only after all candidate transactions finish, a failed batch does not advance its cursor; rerunning is safe because each candidate is transactionally reconciled and unchanged projections are not rewritten.
+
 The scan includes historical bookings and terminal session states so the Client can see its own history. It can be restarted manually after completion to reconcile later Owner-reviewed links. Unchanged projections are not rewritten; unexpected extra fields in an existing projection force a replacement with the strict allowlisted shape.
 
 **No production backfill has been run by this remediation.** Deploying rules or operating the Owner action remains a separate, explicitly approved step.
@@ -91,7 +94,7 @@ The scan includes historical bookings and terminal session states so the Client 
 
 The existing Phase 8 manual payment, Client evidence verification, and reversal flows now update `clientReservations.paymentStatus` inside the same transaction that writes the payment transaction and updates the invoice, when a projection exists.
 
-The payment status is a customer-safe summary only. It does not become a second payment ledger. The invoice and append-only payment transaction records remain authoritative.
+The payment status is a customer-safe summary only. It does not become a second payment ledger. The invoice and append-only payment transaction records remain authoritative. Before synchronizing an existing projection, the payment services require the booking ID, invoice ID, CRM customer ID, and any non-empty Client UID on the reservation and invoice to agree. A legacy blank UID is tolerated, but two conflicting non-empty UIDs prevent the projection update.
 
 Legacy projection creation derives `paymentStatus` from an existing invoice when available; otherwise it computes the base state from the booking's legacy total and initial paid amount. The projection's `effectiveTotalAmount` also uses the invoice financial snapshot when available before falling back to booking totals.
 
@@ -115,7 +118,10 @@ The Phase 1 diagnostics must be rerun on the latest commit. Added regression cov
 - Cancelled and No Show projection states render as terminal history.
 - Another CRM Customer's projection is not exposed.
 - Owner backfill projection builder emits the exact schema v2 shape and accepts a blank UID only when a CRM Customer ID exists.
-- Firestore Emulator allows a linked Client to read and query its own CRM walk-in projection, denies another Client, denies Client mutation, and rejects Staff projection fields that disagree with canonical booking identity.
-- Manual payment, Client evidence verification, and reversal update projection `paymentStatus` consistently.
+- Firestore Emulator allows a linked Client to read and query its own CRM walk-in projection, denies another Client and Client mutation, rejects a Staff-only projection create, and rejects a standalone Staff payment-summary mutation.
+- Firestore Emulator permits Owner creation of a legacy projection and a Staff atomic payment-ledger + invoice aggregate + projection summary update.
+- Manual payment, Client evidence verification, and reversal update projection `paymentStatus` consistently when reservation/invoice identity matches.
+- The payment service does not update a projection when its non-empty Client UID conflicts with the invoice UID.
+- The in-memory merged reservation subscription returns the most recently updated reservation first.
 
 A passing local diagnostic run is still required before Gate 3 can be marked PASS. Gate 2's earlier successful local run does not substitute for a rerun after these subsequent Gate 3 changes.
