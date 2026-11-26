@@ -6949,7 +6949,15 @@ async function runTests() {
   // Client reservation projections can be read through an explicit CRM binding
   // even when the source walk-in booking has no Client Portal UID.
   const gate3WalkInReservationId = 'bkg_gate3_crm_walkin_projection';
-  await adminSetDoc(`clientReservations/${gate3WalkInReservationId}`, {
+  await adminSetDoc(`bookings/${gate3WalkInReservationId}`, {
+    customerId: gate2UpdateTargetId,
+    clientUid: '',
+    date: '2026-11-27',
+    studioId: 'room-a',
+    version: 1,
+    sessionStatus: 'upcoming',
+  });
+  const gate3WalkInProjection = {
     schemaVersion: 2,
     bookingId: gate3WalkInReservationId,
     bookingReference: 'BKG-GATE3-WALKIN',
@@ -6974,10 +6982,28 @@ async function runTests() {
     minimumDepositAmount: null,
     depositStatus: null,
     paymentStatus: 'unpaid',
-    createdAt: SERVER_TS,
-    updatedAt: SERVER_TS,
     version: 1,
+  };
+  const gate3StaffProjectionCreate = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/${gate3WalkInReservationId}`,
+          fields: toFsFields(gate3WalkInProjection),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
   });
+  assert.equal(
+    gate3StaffProjectionCreate.status,
+    200,
+    `Staff can atomically create schema v2 reservation projection for a CRM walk-in with blank clientUid: ${JSON.stringify(gate3StaffProjectionCreate.body)}`,
+  );
   assert.equal(
     (await userRequest('GET', `/clientReservations/${gate3WalkInReservationId}`, TOKEN_GATE2_UPDATE_CLIENT)).status,
     200,
@@ -7024,6 +7050,43 @@ async function runTests() {
     403,
     'A different active Client cannot list another CRM Customer reservation projections',
   );
+
+  const gate3ClientMutationDenied = await userRequest('POST', ':commit', TOKEN_GATE2_UPDATE_CLIENT, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/${gate3WalkInReservationId}`,
+          fields: toFsFields({ sessionStatus: 'completed' }),
+        },
+        updateMask: { fieldPaths: ['sessionStatus'] },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    gate3ClientMutationDenied.status,
+    403,
+    'Client cannot mutate its server-owned reservation projection',
+  );
+
+  const gate3MismatchedProjectionUpdate = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/${gate3WalkInReservationId}`,
+          fields: toFsFields({ customerId: 'cust_someone_else' }),
+        },
+        updateMask: { fieldPaths: ['customerId'] },
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(
+    gate3MismatchedProjectionUpdate.status,
+    403,
+    'Staff cannot detach reservation projection from canonical booking identity',
+  );
+  console.log('✓ Gate 3 CRM walk-in reservation projection create, query ownership & write boundary passed');
 
   // A CRM Customer already claimed by another Client cannot be claimed again.
   const gate2ExistingUid = 'gate2-existing-owner';
