@@ -165,7 +165,7 @@ describe('Phase 4 — Admin Shell, Sidebar, Mobile Drawer & Eight Nested Routes'
         expect(screen.getByText(/jadwal studio/i)).toBeTruthy();
       } else if (mod.label === 'Booking Requests') {
         expect(
-          screen.getByRole('heading', { level: 2, name: /incoming booking requests/i }),
+          screen.getByRole('heading', { level: 2, name: /permintaan masuk/i }),
         ).toBeTruthy();
       } else if (mod.label === 'Customer') {
         expect(screen.getByText(/daftar pelanggan & riwayat booking/i)).toBeTruthy();
