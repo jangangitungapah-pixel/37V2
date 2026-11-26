@@ -42,7 +42,8 @@ function defaultBackfillStatus() {
 export function buildClientReservationProjection(booking, invoice, timestamp) {
   const bookingId = String(booking?.id || '').trim();
   const clientUid = String(booking?.clientUid || '').trim();
-  if (!bookingId || !clientUid) return null;
+  const customerId = String(booking?.customerId || '').trim();
+  if (!bookingId || (!clientUid && !customerId)) return null;
   const studioId = String(booking.studioId || '');
   if (!['room-a', 'room-b'].includes(studioId)) return null;
   const startMinute = Number(booking.startMinute);
@@ -56,7 +57,7 @@ export function buildClientReservationProjection(booking, invoice, timestamp) {
   ) return null;
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     bookingId,
     bookingReference: String(booking.bookingReference || booking.bookingCode || bookingId),
     customerId: String(booking.customerId || ''),
