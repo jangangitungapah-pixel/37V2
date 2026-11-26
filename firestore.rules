@@ -2628,7 +2628,7 @@ service cloud.firestore {
         );
 
       allow list: if isActiveStaff()
-        || isClientReadableParentInvoice(resource.data.invoiceId, resource.data.customerId)
+        || isClientReadableParentInvoice(resource.data)
 ;
 
       allow create: if isActiveStaff()
@@ -2643,11 +2643,11 @@ service cloud.firestore {
       allow get: if isActiveStaff()
         || (
           resource != null
-          && isClientReadableParentInvoice(resource.data.invoiceId, resource.data.customerId)
+          && isClientReadableParentInvoice(resource.data)
         );
 
       allow list: if isActiveStaff()
-        || isClientReadableParentInvoice(resource.data.invoiceId, resource.data.customerId);
+        || isClientReadableParentInvoice(resource.data);
 
       allow create: if !isFactoryResetLocked()
         && (
