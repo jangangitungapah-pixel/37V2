@@ -1,7 +1,7 @@
 # HANDOFF — 37V2 Phase 1 Remediation
 
 **Project:** 37 Music Studio / 37V2  
-**Repository:** https://github.com/jangangitungapah-pixel/37V2  
+**Repository:** <https://github.com/jangangitungapah-pixel/37V2>  
 **Branch:** feature/phase-1-core-domain-identity-policy-foundation  
 **Status:** Phase 1 REMEDIATED LOCALLY (Gate 3 `verify:phase1` PASS `4/4`, uncommitted over `0256e79179b305f444dba380c172104eb8419690`) — NOT ACCEPTED UNTIL OWNER ACCEPTANCE — PHASE 2 BLOCKED
 **Previous branch tip:** 0256e79179b305f444dba380c172104eb8419690
@@ -43,6 +43,7 @@ The approved backend boundary is Firebase Authentication + Cloud Firestore + Fir
 ## 3. What we are actually building
 
 The Booking Lifecycle initiative separates:
+
 - Booking Request
 - Offer and Offer revisions
 - Reservation and room-slot locks
@@ -91,6 +92,7 @@ The full issue details, file paths, test fixture evidence, required regression m
 ## 6. Next-session operating instructions
 
 Start by confirming:
+
 - Current branch is feature/phase-1-core-domain-identity-policy-foundation.
 - Current HEAD is the latest documentation commit on that branch.
 - Local git status and user edits are understood and preserved.
@@ -101,6 +103,7 @@ Continue **Phase 1 Remediation only**. Work one gate at a time and report verifi
 ## 7. Hard safety boundaries
 
 Without explicit Owner authorization:
+
 - Do not merge or update main.
 - Do not create or merge a PR.
 - Do not deploy Firebase Rules, indexes or Hosting.
