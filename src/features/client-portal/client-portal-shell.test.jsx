@@ -100,6 +100,11 @@ import {
   resetBookingRequestRepositoryAdapter,
   setBookingRequestRepositoryAdapter,
 } from '@/features/admin/booking-requests/repositories/booking-request-repository';
+import {
+  resetBookingRepositoryAdapter,
+  setBookingRepositoryAdapter,
+} from '@/features/admin/calendar/repositories/calendar-booking-repository';
+import { createInMemoryBookingRepositoryAdapter } from '@/features/admin/calendar/services/calendar-booking-service';
 import { DEFAULT_PRICING_SETTINGS } from '@/features/admin/settings/pricing/config/default-pricing-settings';
 import {
   createInMemoryPublicAvailabilityRepositoryAdapter,
@@ -242,9 +247,11 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
         buildPublicPricingProjection(DEFAULT_PRICING_SETTINGS),
       ),
     );
-    setBookingRequestRepositoryAdapter(createInMemoryBookingRequestRepositoryAdapter());
-    setClientBillingRepositoryAdapter(createInMemoryClientBillingRepositoryAdapter());
-    setPaymentEvidenceRepositoryAdapter(createInMemoryPaymentEvidenceRepositoryAdapter());
+    const bookingAdapter = createInMemoryBookingRepositoryAdapter();
+    setBookingRepositoryAdapter(bookingAdapter);
+    setBookingRequestRepositoryAdapter(createInMemoryBookingRequestRepositoryAdapter(bookingAdapter));
+    setClientBillingRepositoryAdapter(createInMemoryClientBillingRepositoryAdapter({ bookingAdapter }));
+    setPaymentEvidenceRepositoryAdapter(createInMemoryPaymentEvidenceRepositoryAdapter({ bookingAdapter }));
     setPublicAvailabilityRepositoryAdapter(
       createInMemoryPublicAvailabilityRepositoryAdapter({
         initialMetadata: { isReady: true, backfilledFromDate: '2026-01-01' },
@@ -270,6 +277,7 @@ describe('Client Portal Phase 2 — Spatial Ambient Shell, Responsive Drawer & F
     resetClientBillingRepositoryAdapter();
     resetPaymentEvidenceRepositoryAdapter();
     resetBookingRequestRepositoryAdapter();
+    resetBookingRepositoryAdapter();
     resetPublicPricingCatalogRepositoryAdapter();
     resetPublicAvailabilityRepositoryAdapter();
     shellMocks.listeners.clear();

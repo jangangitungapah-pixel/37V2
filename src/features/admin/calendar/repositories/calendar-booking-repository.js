@@ -422,11 +422,12 @@ export function createFirestoreBookingRepositoryAdapter() {
       }
 
       let cancelled = false;
+      let hasErrored = false;
       const snapshots = new Map();
       const unsubscribes = [];
 
       const emitMerged = () => {
-        if (cancelled || owners.some((owner) => !snapshots.has(owner.key))) return;
+        if (cancelled || hasErrored || owners.some((owner) => !snapshots.has(owner.key))) return;
         const unique = new Map();
         let sourceHasMore = false;
 
@@ -460,6 +461,11 @@ export function createFirestoreBookingRepositoryAdapter() {
           const [{ collection, limit, onSnapshot, orderBy, query, where }, { getFirebaseDb }] =
             await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
           if (cancelled) return;
+          if (typeof onSnapshot !== 'function') {
+            hasErrored = true;
+            onError?.(new Error('Realtime Firestore listener unavailable.'));
+            return;
+          }
 
           const reservationsRef = collection(getFirebaseDb(), FIRESTORE_COLLECTIONS.CLIENT_RESERVATIONS);
           for (const owner of owners) {
@@ -472,24 +478,32 @@ export function createFirestoreBookingRepositoryAdapter() {
             const unsubscribe = onSnapshot(
               reservationsQuery,
               (snapshot) => {
-                if (cancelled) return;
+                if (cancelled || hasErrored) return;
                 snapshots.set(owner.key, snapshot.docs || []);
                 emitMerged();
               },
               (error) => {
-                if (!cancelled) onError?.(error);
+                if (cancelled) return;
+                hasErrored = true;
+                snapshots.delete(owner.key);
+                onError?.(error);
               },
             );
             unsubscribes.push(unsubscribe);
           }
         } catch (error) {
-          if (!cancelled) onError?.(error);
+          if (!cancelled) {
+            hasErrored = true;
+            onError?.(error);
+          }
         }
       })();
 
       return () => {
         cancelled = true;
-        unsubscribes.forEach((unsubscribe) => unsubscribe?.());
+        for (const unsubscribe of unsubscribes.splice(0)) {
+          unsubscribe?.();
+        }
       };
     },
 

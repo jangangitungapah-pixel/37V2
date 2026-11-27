@@ -1113,8 +1113,8 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
       serviceTypeName: 'Recording',
       serviceOptionName: 'Tracking Updated',
       date: dayAfterIso,
-      startMinute: 900,
-      endMinute: 960,
+      startMinute: 780,
+      endMinute: 840,
       durationMinutes: 60,
     }));
     bookingAdapter._seedClientReservation('bkg_cp_past_1', reservationFixture({
@@ -1223,7 +1223,10 @@ describe('Client Portal Phase 3 — Self-Service Booking, Project Inquiry, Prici
     await waitFor(() => {
       const nextUpcoming = screen.getByTestId('client-bookings-section-upcoming');
       expect(within(nextUpcoming).getByText('REQ-PEND0002')).toBeTruthy();
+      expect(within(nextUpcoming).getByText(/^BKG_[A-Z0-9-]{10}$/)).toBeTruthy();
+      expect(within(nextUpcoming).getAllByText('Room B — Control + Booth').length).toBeGreaterThanOrEqual(2);
     });
+    expect(screen.getByTestId('client-bookings-page').textContent).not.toMatch(/bkg_[a-z0-9-]{10,}/);
     expect(
       within(screen.getByTestId('client-bookings-section-requests')).queryByText('REQ-PEND0002'),
     ).toBeNull();

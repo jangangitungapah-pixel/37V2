@@ -33,7 +33,10 @@ vi.mock('@/lib/firebase/client', () => ({
 
 import { AppRoutes } from '@/App';
 import { AppProviders } from '@/app/providers/AppProviders';
-import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
+import {
+  addDaysToIsoDate,
+  getJakartaTodayIso,
+} from '@/features/admin/calendar/utils/calendar-date';
 import {
   resetBookingRepositoryAdapter,
   setBookingRepositoryAdapter,
@@ -157,11 +160,13 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
   describe('B. Public Route (/availability), Room Query Params, Navigation & Inquiry Carry-Over', () => {
     it('renders /availability without authentication, protects /admin routes, initializes room filter from query param, and carries selected slot into Landing Page inquiry form', async () => {
       const user = userEvent.setup();
+      const liveTodayIso = getJakartaTodayIso();
+      const liveTomorrowIso = addDaysToIsoDate(liveTodayIso, 1);
       const publicAdapter = createInMemoryPublicAvailabilityRepositoryAdapter({
         initialProjections: [
           {
             id: 'bkg_occ_1',
-            date: FIXED_TOMORROW_ISO,
+            date: liveTomorrowIso,
             studioId: 'room-b',
             startMinute: 1140, // 19:00
             endMinute: 1260, // 21:00
@@ -169,7 +174,7 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
         ],
         initialMetadata: {
           isReady: true,
-          backfilledFromDate: FIXED_TODAY_ISO,
+          backfilledFromDate: liveTodayIso,
         },
       });
       setPublicAvailabilityRepositoryAdapter(publicAdapter);
@@ -178,7 +183,7 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
         <AppProviders>
           <MemoryRouter
             initialEntries={[
-              `/availability?room=room-b&date=${FIXED_TOMORROW_ISO}&view=day&service=recording`,
+              `/availability?room=room-b&date=${liveTomorrowIso}&view=day&service=recording`,
             ]}
           >
             <AppRoutes />
@@ -196,12 +201,12 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
       expect(screen.queryByTestId('public-availability-room-room-a')).toBeNull();
 
       // Occupied slot 19:00–19:30 is marked occupied and not a selectable button
-      const occupiedSlot = screen.getByTestId(`slot-room-b-${FIXED_TOMORROW_ISO}-19:00`);
+      const occupiedSlot = screen.getByTestId(`slot-room-b-${liveTomorrowIso}-19:00`);
       expect(occupiedSlot.getAttribute('data-slot-state')).toBe('occupied');
       expect(occupiedSlot.tagName).not.toBe('BUTTON');
 
       // Available slot 21:00–21:30 is selectable
-      const availableSlotBtn = screen.getByTestId(`slot-room-b-${FIXED_TOMORROW_ISO}-21:00`);
+      const availableSlotBtn = screen.getByTestId(`slot-room-b-${liveTomorrowIso}-21:00`);
       expect(availableSlotBtn.getAttribute('data-slot-state')).toBe('available');
       await user.click(availableSlotBtn);
 
@@ -217,7 +222,7 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
       expect(
         await screen.findByRole('heading', { level: 2, name: /send booking request/i }),
       ).toBeTruthy();
-      expect(screen.getByLabelText(/preferred date/i).value).toBe(FIXED_TOMORROW_ISO);
+      expect(screen.getByLabelText(/preferred date/i).value).toBe(liveTomorrowIso);
       expect(screen.getByLabelText(/preferred start time/i).value).toBe('21:00');
       expect(screen.getByLabelText(/room preference/i).value).toBe('room-b');
       expect(
@@ -845,13 +850,14 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
 
   describe('G. Auto-Initialization, Failure Recovery, WhatsApp Fallback & Batch Guards', () => {
     it('auto-initializes live schedule on /availability only for authenticated active Owners while keeping public/staff read-only', async () => {
+      const liveTomorrowIso = addDaysToIsoDate(getJakartaTodayIso(), 1);
       const bookingAdapter = createInMemoryBookingRepositoryAdapter([
         {
           id: 'auto_sync_bkg_1',
           customerName: 'Secret Band',
           phone: '081200001111',
           studioId: 'room-a',
-          date: FIXED_TOMORROW_ISO,
+          date: liveTomorrowIso,
           startMinute: 960,
           durationMinutes: 120,
           endMinute: 1080,
@@ -903,7 +909,7 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
       mockAuthenticatedActor('owner', 'owner-uid-1');
       render(
         <AppProviders>
-          <MemoryRouter initialEntries={[`/availability?date=${FIXED_TOMORROW_ISO}&view=day`]}>
+          <MemoryRouter initialEntries={[`/availability?date=${liveTomorrowIso}&view=day`]}>
             <AppRoutes />
           </MemoryRouter>
         </AppProviders>,
@@ -912,7 +918,7 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
       expect(await screen.findByTestId('public-availability-room-room-a')).toBeTruthy();
       expect(
         screen
-          .getByTestId(`slot-room-a-${FIXED_TOMORROW_ISO}-16:00`)
+          .getByTestId(`slot-room-a-${liveTomorrowIso}-16:00`)
           .getAttribute('data-slot-state'),
       ).toBe('occupied');
       const meta = await publicAdapter.getPublicAvailabilityMetadata();
@@ -921,6 +927,7 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
 
     it('stops retrying on Owner backfill failure on /availability and recovers on manual retry without infinite loops', async () => {
       const user = userEvent.setup();
+      const liveTomorrowIso = addDaysToIsoDate(getJakartaTodayIso(), 1);
       mockAuthenticatedActor('owner', 'owner-uid-1');
 
       const bookingAdapter = createInMemoryBookingRepositoryAdapter([
@@ -929,7 +936,7 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
           customerName: 'Retry Session',
           phone: '081244445555',
           studioId: 'room-b',
-          date: FIXED_TOMORROW_ISO,
+          date: liveTomorrowIso,
           startMinute: 720,
           durationMinutes: 60,
           endMinute: 780,
@@ -948,7 +955,7 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
 
       render(
         <AppProviders>
-          <MemoryRouter initialEntries={[`/availability?date=${FIXED_TOMORROW_ISO}&view=day`]}>
+          <MemoryRouter initialEntries={[`/availability?date=${liveTomorrowIso}&view=day`]}>
             <AppRoutes />
           </MemoryRouter>
         </AppProviders>,
@@ -974,7 +981,7 @@ describe('Public Availability Calendar & Sanitized Projection Architecture', () 
       expect(await screen.findByTestId('public-availability-room-room-b')).toBeTruthy();
       expect(
         screen
-          .getByTestId(`slot-room-b-${FIXED_TOMORROW_ISO}-12:00`)
+          .getByTestId(`slot-room-b-${liveTomorrowIso}-12:00`)
           .getAttribute('data-slot-state'),
       ).toBe('occupied');
     });

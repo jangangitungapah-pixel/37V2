@@ -217,10 +217,12 @@ export function applyValidatedPaymentInTransaction(
     createdAt: effectiveNow,
   };
 
+  const existingClientUid = String(existingInvoice.clientUid || '').trim();
   const updatedInvoiceDoc = {
     invoiceNumber: existingInvoice.invoiceNumber,
     bookingId: existingInvoice.bookingId,
     customerId: existingInvoice.customerId,
+    ...(existingClientUid ? { clientUid: existingClientUid } : {}),
     invoiceStatus: existingInvoice.invoiceStatus,
     currency: existingInvoice.currency,
     clientPaymentEvidenceRequired: Boolean(existingInvoice.clientPaymentEvidenceRequired),
@@ -531,10 +533,12 @@ export async function reversePaymentTransaction({
       createdAt: now,
     };
 
+    const existingClientUid = String(existingInvoice.clientUid || '').trim();
     const updatedInvoiceDoc = {
       invoiceNumber: existingInvoice.invoiceNumber,
       bookingId: existingInvoice.bookingId,
       customerId: existingInvoice.customerId,
+      ...(existingClientUid ? { clientUid: existingClientUid } : {}),
       invoiceStatus: existingInvoice.invoiceStatus,
       currency: existingInvoice.currency,
       clientPaymentEvidenceRequired: Boolean(existingInvoice.clientPaymentEvidenceRequired),

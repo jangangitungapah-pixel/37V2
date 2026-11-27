@@ -602,6 +602,107 @@ describe('Phase 8 — Payment & Bill Management (Invoice Generation & Customer P
       expect(
         bookingAdapter._inspectState().clientReservations.get(booking.id)?.paymentStatus,
       ).toBe(PAYMENT_STATUS.UNPAID);
+
+      // Reversal, due-date edit, and void must also preserve non-empty invoice clientUid
+      const reversal = await reversePaymentTransaction({
+        invoiceId,
+        originalTransactionId: payment.transaction.id,
+        expectedVersion: payment.invoice.version,
+        reason: 'Koreksi input untuk verifikasi retensi clientUid',
+        actorUid: 'owner-uid-1',
+        adapter: paymentAdapter,
+      });
+      expect(reversal.invoice.clientUid).toBe('invoice-client-uid');
+      expect(
+        bookingAdapter._inspectState().clientReservations.get(booking.id)?.paymentStatus,
+      ).toBe(PAYMENT_STATUS.UNPAID);
+
+      const dueUpdated = await updateInvoiceDueDate({
+        invoiceId,
+        expectedVersion: reversal.invoice.version,
+        dueDate: '2026-12-05',
+        actorUid: 'owner-uid-1',
+        adapter: paymentAdapter,
+      });
+      expect(dueUpdated.clientUid).toBe('invoice-client-uid');
+
+      const voided = await voidInvoice({
+        invoiceId,
+        expectedVersion: dueUpdated.version,
+        reason: 'Pembatalan invoice uji retensi clientUid',
+        actorUid: 'owner-uid-1',
+        adapter: paymentAdapter,
+      });
+      expect(voided.clientUid).toBe('invoice-client-uid');
+    });
+
+    it('synchronizes Client reservation paymentStatus when non-empty UIDs match cleanly and keeps empty UID rules strict', async () => {
+      const booking = await createBooking({
+        bookingId: 'bkg-p8-uid-match',
+        eventId: 'evt-p8-uid-match',
+        actorUid: 'owner-uid-1',
+        formValues: buildBookingForm({
+          date: '2026-11-28',
+          initialPaymentStatus: INITIAL_PAYMENT_STATUS.UNPAID,
+          dpAmount: '0',
+        }),
+        adapter: bookingAdapter,
+      });
+      const invoiceId = buildInvoiceId(booking.id);
+      const currentReservation = bookingAdapter._inspectState().clientReservations.get(booking.id);
+
+      await paymentAdapter.runAtomicTransaction(async (tx) => {
+        const invoice = await tx.getInvoice(invoiceId);
+        tx.updateInvoice(invoiceId, {
+          ...invoice,
+          clientUid: 'matched-client-uid',
+        });
+      });
+      bookingAdapter._seedClientReservation(booking.id, {
+        ...currentReservation,
+        clientUid: 'matched-client-uid',
+      });
+
+      const payment = await recordInvoicePayment({
+        transactionId: 'pay-p8-uid-match',
+        invoiceId,
+        expectedVersion: 1,
+        amount: 25000,
+        paymentMethod: 'cash',
+        actorUid: 'staff-uid-2',
+        adapter: paymentAdapter,
+      });
+
+      expect(payment.invoice.clientUid).toBe('matched-client-uid');
+      expect(
+        bookingAdapter._inspectState().clientReservations.get(booking.id)?.paymentStatus,
+      ).toBe(PAYMENT_STATUS.PARTIAL);
+
+      // Invoice with empty clientUid never invents an identity when booking/reservation has a different UID
+      const bookingNoInvUid = await createBooking({
+        bookingId: 'bkg-p8-empty-inv-uid',
+        eventId: 'evt-p8-empty-inv-uid',
+        actorUid: 'owner-uid-1',
+        formValues: buildBookingForm({
+          date: '2026-11-29',
+          initialPaymentStatus: INITIAL_PAYMENT_STATUS.UNPAID,
+          dpAmount: '0',
+        }),
+        adapter: bookingAdapter,
+      });
+      const paymentNoUid = await recordInvoicePayment({
+        transactionId: 'pay-p8-empty-inv-uid',
+        invoiceId: buildInvoiceId(bookingNoInvUid.id),
+        expectedVersion: 1,
+        amount: 25000,
+        paymentMethod: 'cash',
+        actorUid: 'staff-uid-2',
+        adapter: paymentAdapter,
+      });
+      expect(paymentNoUid.invoice.clientUid).toBe('');
+      expect(
+        bookingAdapter._inspectState().clientReservations.get(bookingNoInvUid.id)?.paymentStatus,
+      ).toBe(PAYMENT_STATUS.PARTIAL);
     });
   });
 

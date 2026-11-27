@@ -59,14 +59,19 @@ export function buildClientReservationProjection(booking, invoice, timestamp) {
   return {
     schemaVersion: 2,
     bookingId,
-    bookingReference: String(booking.bookingReference || booking.bookingCode || bookingId),
+    bookingReference: String(
+      booking.bookingReference || booking.bookingCode || bookingId.slice(0, 14).toUpperCase(),
+    ),
     customerId: String(booking.customerId || ''),
     clientUid,
     sourceRequestId: String(booking.sourceRequestId || ''),
     acceptedOfferId: String(booking.acceptedOfferId || ''),
     invoiceId: `inv_${bookingId}`,
     studioId,
-    studioName: String(booking.studioName || ''),
+    studioName: String(
+      booking.studioName ||
+        (studioId === 'room-b' ? 'Room B — Control + Booth' : 'Room A — Live Room'),
+    ),
     serviceTypeName: String(booking.serviceTypeName || booking.serviceTypeId || booking.serviceLabel || ''),
     serviceOptionName: String(booking.serviceOptionName || booking.packageLabel || ''),
     date: String(booking.date || ''),
@@ -282,7 +287,7 @@ export function createClientReservationBackfillService() {
             return 'skipped';
           }
 
-          let resolvedClientUid = '';
+          let resolvedClientUid;
           let linkedPortalRequest = null;
           const isPortalOrigin = String(booking.source || '') === 'client_portal';
 

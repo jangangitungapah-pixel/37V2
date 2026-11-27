@@ -5,6 +5,7 @@ import { mapBookingRequestErrorToMessage } from '@/features/admin/booking-reques
 import { getBookingRepositoryAdapter } from '@/features/admin/calendar/repositories/calendar-booking-repository';
 import { useAuth } from '@/features/auth/AuthContext';
 
+import { CLIENT_PROFILE_SOURCE } from '../config/client-portal-config';
 import { classifyClientBookings, mergeClientBookingRecords } from '../utils/client-bookings-utils';
 
 /**
@@ -20,7 +21,10 @@ export function useClientBookings({
 } = {}) {
   const { user, clientAccount } = useAuth();
   const cleanClientUid = String(user?.uid || '').trim();
-  const cleanCustomerId = String(clientAccount?.customerId || '').trim();
+  const cleanCustomerId =
+    clientAccount?.profileSource === CLIENT_PROFILE_SOURCE.ISOLATED_CLIENT_PROFILE
+      ? ''
+      : String(clientAccount?.customerId || '').trim();
   const isClientReady = Boolean(
     enabled && cleanClientUid && clientAccount?.status === 'active',
   );
@@ -52,13 +56,29 @@ export function useClientBookings({
     const currentKey = subscriptionKey;
     const publish = (patch) => {
       if (cancelled) return;
-      setStreamState((previous) => ({
-        ...previous,
-        requestAdapter,
-        reservationAdapter,
-        key: currentKey,
-        ...patch,
-      }));
+      setStreamState((previous) => {
+        const isSameStream =
+          previous.requestAdapter === requestAdapter &&
+          previous.reservationAdapter === reservationAdapter &&
+          previous.key === currentKey;
+        const base = isSameStream
+          ? previous
+          : {
+              requestAdapter,
+              reservationAdapter,
+              key: currentKey,
+              requests: null,
+              reservations: null,
+              requestsTruncated: false,
+              reservationsTruncated: false,
+              requestError: '',
+              reservationError: '',
+            };
+        return {
+          ...base,
+          ...patch,
+        };
+      });
     };
 
     const unsubscribeRequests = requestAdapter.subscribeClientBookingRequests({
@@ -96,12 +116,14 @@ export function useClientBookings({
         });
       },
       onError: (error) => {
+        const mapped = mapBookingRequestErrorToMessage(error);
         publish({
           reservations: [],
           reservationsTruncated: false,
           reservationError:
-            error?.message ||
-            'Unable to load your confirmed studio sessions. Please try again.',
+            mapped && !mapped.includes('could not be submitted')
+              ? mapped
+              : 'Unable to load your confirmed studio sessions. Please check your connection and try again.',
         });
       },
     });

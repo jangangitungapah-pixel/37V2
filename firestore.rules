@@ -87,12 +87,24 @@ service cloud.firestore {
     function isActiveClientCustomerMatch(uid, customerId) {
       let acct = getClientAccountDoc(uid);
       let link = get(/databases/$(database)/documents/clientCustomerLinks/$(customerId));
-      return acct.data.uid == uid
+      return acct != null
+        && link != null
+        && acct.data.uid == uid
         && acct.data.role == 'client'
         && acct.data.status == 'active'
-        && acct.data.profileSource == 'linked_customer'
+        && acct.data.profileSource in ['linked_customer', 'isolated_client_profile']
         && acct.data.customerId == customerId
-        && link.data.ownerUid == uid;
+        && link.data.ownerUid == uid
+        && link.data.profileSource == acct.data.profileSource
+        && (
+          acct.data.profileSource == 'linked_customer'
+          || customerId == ('client_' + uid)
+        );
+    }
+
+    function isActiveLinkedCrmClientCustomerMatch(uid, customerId) {
+      return isActiveClientCustomerMatch(uid, customerId)
+        && getClientAccountDoc(uid).data.profileSource == 'linked_customer';
     }
 
     function isClientOwnerOfCustomer(customerId) {
@@ -100,8 +112,6 @@ service cloud.firestore {
         && !isAnyStaffProfile()
         && customerId is string
         && customerId.size() >= 1
-        && exists(/databases/$(database)/documents/clientAccounts/$(request.auth.uid))
-        && exists(/databases/$(database)/documents/clientCustomerLinks/$(customerId))
         && isActiveClientCustomerMatch(request.auth.uid, customerId);
     }
 
@@ -726,6 +736,7 @@ service cloud.firestore {
 
     function hasValidBookingCustomerLinkAfter(data) {
       let sourceRequestId = data.get('sourceRequestId', '');
+      let clientUid = data.get('clientUid', '');
       return ('customerId' in data)
         && data.customerId is string
         && data.customerId.size() > 0
@@ -736,13 +747,13 @@ service cloud.firestore {
           isLinkedCustomerPhoneMatchedAfter(data.customerId, data.phoneNormalized, true)
           || (
             data.get('source', '') == 'client_portal'
-            && data.get('clientUid', '') is string
-            && data.clientUid.size() > 0
+            && clientUid is string
+            && clientUid.size() > 0
             && sourceRequestId is string
             && sourceRequestId.size() > 0
             && exists(/databases/$(database)/documents/publicBookingRequests/$(sourceRequestId))
             && get(/databases/$(database)/documents/publicBookingRequests/$(sourceRequestId)).data.source == 'client_portal'
-            && get(/databases/$(database)/documents/publicBookingRequests/$(sourceRequestId)).data.clientUid == data.clientUid
+            && get(/databases/$(database)/documents/publicBookingRequests/$(sourceRequestId)).data.clientUid == clientUid
             && get(/databases/$(database)/documents/publicBookingRequests/$(sourceRequestId)).data.customerId == data.customerId
           )
         );
@@ -861,13 +872,14 @@ service cloud.firestore {
 
     function isLegacyBookingClientUidUpdate(reqData, resData, affected, bookingId) {
       let requestId = reqData.get('sourceRequestId', '');
+      let clientUid = reqData.get('clientUid', '');
       return resData.get('clientUid', '') == ''
         && requestId is string
         && requestId.size() > 0
-        && reqData.clientUid is string
-        && reqData.clientUid.size() > 0
-        && reqData.source == 'client_portal'
-        && reqData.acceptedOfferId is string
+        && clientUid is string
+        && clientUid.size() > 0
+        && reqData.get('source', '') == 'client_portal'
+        && reqData.get('acceptedOfferId', '') is string
         && reqData.updatedByUid == request.auth.uid
         && reqData.updatedAt is timestamp
         && reqData.version == resData.version + 1
@@ -877,7 +889,7 @@ service cloud.firestore {
         ])
         && exists(/databases/$(database)/documents/publicBookingRequests/$(requestId))
         && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.source == 'client_portal'
-        && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.clientUid == reqData.clientUid
+        && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.clientUid == clientUid
         && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.status == 'confirmed'
         && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.linkedBookingId == bookingId;
     }
@@ -900,7 +912,7 @@ service cloud.firestore {
         && reqData.updatedByUid == request.auth.uid
         && reqData.version is int
         && reqData.version == resData.version + 1
-        && isActiveClientCustomerMatch(clientUid, customerId)
+        && isActiveLinkedCrmClientCustomerMatch(clientUid, customerId)
         && getAfter(reservationPath).data.bookingId == bookingId
         && getAfter(reservationPath).data.customerId == customerId
         && getAfter(reservationPath).data.clientUid == clientUid
@@ -1019,11 +1031,13 @@ service cloud.firestore {
 
     function isLegacyInvoiceClientUidUpdate(reqData, resData, invoiceId) {
       let booking = getAfter(/databases/$(database)/documents/bookings/$(resData.bookingId));
+      let clientUid = reqData.get('clientUid', '');
       return resData.get('clientUid', '') == ''
-        && reqData.clientUid is string
-        && reqData.clientUid.size() > 0
+        && clientUid is string
+        && clientUid.size() > 0
         && invoiceId == 'inv_' + reqData.bookingId
-        && booking.data.clientUid == reqData.clientUid
+        && booking != null
+        && booking.data.get('clientUid', '') == clientUid
         && reqData.diff(resData).affectedKeys().hasOnly([
           'clientUid', 'updatedAt', 'updatedByUid', 'version'
         ])
@@ -2554,7 +2568,7 @@ service cloud.firestore {
         )
         : '';
       return bookingAfter != null
-        && bookingAfter.data.clientUid == data.clientUid
+        && bookingAfter.data.get('clientUid', '') == data.clientUid
         && bookingAfter.data.customerId == data.customerId
         && bookingAfter.data.get('sourceRequestId', '') == data.sourceRequestId
         && bookingAfter.data.get('acceptedOfferId', '') == data.acceptedOfferId

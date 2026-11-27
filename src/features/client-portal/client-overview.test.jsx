@@ -13,6 +13,10 @@ import {
   resetBookingRequestRepositoryAdapter,
   setBookingRequestRepositoryAdapter,
 } from '@/features/admin/booking-requests/repositories/booking-request-repository';
+import {
+  resetBookingRepositoryAdapter,
+  setBookingRepositoryAdapter,
+} from '@/features/admin/calendar/repositories/calendar-booking-repository';
 import { createInMemoryBookingRepositoryAdapter } from '@/features/admin/calendar/services/calendar-booking-service';
 import { buildInvoiceNumber } from '@/features/admin/payment/utils/invoice-number';
 import { AuthContext } from '@/features/auth/AuthContext';
@@ -213,6 +217,7 @@ describe('Client Portal Overview — Account Snapshot, Real Billing, Next Sessio
     clientBillingAdapter = createInMemoryClientBillingRepositoryAdapter({ bookingAdapter });
     paymentEvidenceAdapter = createInMemoryPaymentEvidenceRepositoryAdapter({ bookingAdapter });
 
+    setBookingRepositoryAdapter(bookingAdapter);
     setBookingRequestRepositoryAdapter(bookingRequestAdapter);
     setClientBillingRepositoryAdapter(clientBillingAdapter);
     setPaymentEvidenceRepositoryAdapter(paymentEvidenceAdapter);
@@ -223,6 +228,7 @@ describe('Client Portal Overview — Account Snapshot, Real Billing, Next Sessio
     resetClientBillingRepositoryAdapter();
     resetBookingRequestRepositoryAdapter();
     resetPaymentEvidenceRepositoryAdapter();
+    resetBookingRepositoryAdapter();
   });
 
   it('counts confirmed upcoming sessions separately from pending requests, clarifies Next Session & Recent Activity, and keeps IDs private', async () => {

@@ -2032,6 +2032,26 @@ async function runTests() {
     200,
     'Isolated client can GET own isolated clientProfile',
   );
+  assert.equal(
+    (await userRequest('GET', '/clientProfiles/client_client-new-1', TOKEN_CLIENT_MATCHED)).status,
+    403,
+    'Other active Client denied reading another isolated clientProfile',
+  );
+  assert.equal(
+    (await userRequest('GET', '/clientProfiles/client_client-new-1', null)).status,
+    403,
+    'Unauthenticated visitor denied reading isolated clientProfile',
+  );
+  assert.equal(
+    (await userRequest('GET', '/clientProfiles/cust_email_matched', TOKEN_CLIENT_NEW)).status,
+    403,
+    'Isolated client denied reading unrelated linked CRM clientProfile',
+  );
+  assert.equal(
+    (await userRequest('GET', '/clientProfiles/client_client-new-1', TOKEN_STAFF)).status,
+    200,
+    'Active Staff can read clientProfile per Staff RBAC',
+  );
 
   // Client cannot escalate role/status/customerId, but can update safe displayName/photoURL
   const fetchedNewAcct = await userRequest('GET', '/clientAccounts/client-new-1', TOKEN_CLIENT_NEW);

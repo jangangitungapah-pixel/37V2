@@ -59,14 +59,24 @@ export function getEffectiveClientBookingSchedule(record) {
     return {
       isConfirmedSnapshot: true,
       isPostProduction: false,
-      bookingReference: String(reservation.bookingReference || '').trim(),
+      bookingReference: String(
+        reservation.bookingReference ||
+          (reservation.bookingId ? String(reservation.bookingId).slice(0, 14).toUpperCase() : ''),
+      ).trim(),
       date: reservation.date,
       startMinute,
       endMinute,
       durationMinutes,
       targetDeadline: '',
       studioId: String(reservation.studioId || '').trim(),
-      studioName: String(reservation.studioName || '').trim(),
+      studioName: String(
+        reservation.studioName ||
+          (reservation.studioId === 'room-b'
+            ? 'Room B — Control + Booth'
+            : reservation.studioId === 'room-a'
+              ? 'Room A — Live Room'
+              : ''),
+      ).trim(),
       serviceTypeName: String(reservation.serviceTypeName || '').trim(),
       serviceOptionName: String(reservation.serviceOptionName || '').trim(),
     };

@@ -1,6 +1,6 @@
 # Phase 1 Gate 3 — Transaction, Projection and Rules Audit
 
-**Status:** Static source audit and remediation changes are committed on the Phase 1 feature branch. Final local diagnostics are pending; Gate 3 is **not yet marked PASS**.
+**Status:** Gate 3 remediation implemented and verified PASS locally (`npm run verify:phase1`, exit `0` — `4/4` stages passed on uncommitted working tree over `0256e79179b305f444dba380c172104eb8419690`). **Phase 1 remains pending explicit Owner acceptance; Phase 2 remains blocked.**
 **Scope:** Existing Phase 1 booking, CRM identity, invoice, payment/evidence, and Client reservation projection paths.
 **Out of scope:** Phase 2 booking-engine expansion, production deployment, production data migration, or execution of the Owner backfill.
 
@@ -83,15 +83,24 @@ The resulting `firestore.rules` source is **198,704 bytes** in the current Git t
 
 The preview scan page size is not a write-batch size. No full-collection write or production backfill is introduced.
 
-## 6. Verification status and safe execution boundary
+## 6. Verification status and Gate 3 remediation summary
 
-Code review and regression additions are committed, but no claim is made that the latest source has passed local lint, Vitest, Firestore Emulator, or production build. Gate 2's earlier successful diagnostic run does not verify these later changes.
+Gate 3 remediation on branch `feature/phase-1-core-domain-identity-policy-foundation` (over baseline `0256e79179b305f444dba380c172104eb8419690`, uncommitted for Owner review) resolved every recorded baseline failure without weakening Security Rules, identity ownership, projection allowlists, or past-slot guards:
 
-Run from the local repository root, on this branch:
+- **Firestore Rules (`firestore.rules` — `204,016` bytes on CRLF working tree, well under `256 KiB` limit):**
+  - Fixed unguarded `bookingAfter.data.clientUid` dereference inside `isClientReservationBookingMatched` using `bookingAfter.data.get('clientUid', '') == data.clientUid`, plus `.get('clientUid', '')` guards on legacy booking/invoice link helpers.
+  - Restored `isolated_client_profile` read matching inside `isActiveClientCustomerMatch` (with explicit `'linked_customer' | 'isolated_client_profile'` cross-check against `clientCustomerLinks` and `'client_' + uid`), while keeping `isActiveLinkedCrmClientCustomerMatch` strictly `'linked_customer'`-only for Owner CRM walk-in backfill.
+  - Added negative isolated/cross-customer GET regression assertions in `scripts/test-firestore-rules.mjs`.
+- **Lint (`client-reservation-backfill-service.js`):** Removed redundant `resolvedClientUid` initialization before mutually exclusive assignment branches.
+- **Client Portal (`calendar-booking-service.js`, `client-reservation-backfill-service.js`, `client-bookings-utils.js`, `useClientBookings.js`, `calendar-booking-repository.js` + test suites):** Fixed `bookingReference` fallback to emit uppercase short `bookingId.slice(0, 14).toUpperCase()` instead of raw UUIDs and derived missing `studioName` from `studioId`; resolved test schedule slot collision in `client-booking.test.jsx`; eliminated stale cross-key state carryover and raw error leakage in `useClientBookings.js`; suppressed invalid `customerId` query for isolated profiles; registered in-memory `bookingAdapter` in Client Overview/Shell/Portal test suites (fixing `NOT_FOUND` live listener teardown noise).
+- **Public Availability (`public-availability.test.jsx`):** Replaced expired hardcoded `'2026-11-26'` dates in `<AppRoutes />` integration tests with dynamic `Asia/Jakarta` `getJakartaTodayIso()` / `addDaysToIsoDate(..., 1)` while preserving all production past-date/slot guards and Owner auto-sync retry recovery.
+- **Payment & Evidence (`payment-service.js`, `invoice-service.js`, `payment-evidence-service.js`, `payment.test.jsx`):** Preserved non-empty `clientUid` across `applyValidatedPaymentInTransaction`, `reversePaymentTransaction`, `voidInvoice`, and `updateInvoiceDueDate` without loosening the UID conflict guard; aligned `submitClientPaymentEvidence` with Firestore Rules UID pinning when `invoice.clientUid` is non-empty.
 
-    git pull --ff-only origin feature/phase-1-core-domain-identity-policy-foundation
-    npm run verify:phase1
+### Verified aggregate diagnostic results (`npm run verify:phase1`)
+- Log: `logs/phase1/phase1-gates-2026-11-27T14-04-10-420Z.txt`
+- `npm run lint`: **PASS** (exit `0`)
+- `npm run test:run`: **PASS** (exit `0`, `29/29` test files, `250/250` tests passed)
+- `npm run test:rules:diagnostics`: **PASS** (exit `0`, `0` assertion failures in Firestore Emulator `demo-studio37-rules`, log `logs/firestore-rules/rules-diagnostics-2026-11-27T14-06-26-225Z.txt`)
+- `npm run build`: **PASS** (exit `0`, Vite `8.3.8`, `4,267` modules transformed in `16.10s`; existing chunk >500 kB warning noted as non-blocking follow-up)
 
-Record the exact HEAD, working-tree status, and full diagnostic output. If any stage fails, Gate 3 remains open and the failure must be fixed before rerunning the full suite.
-
-No Firebase Rules/indexes/Hosting deployment, production backfill, data migration, or destructive operation is authorized by this audit. Phase 2 remains blocked until Gate 3 passes and the Owner explicitly accepts Phase 1 closure.
+No Firebase Rules/indexes/Hosting deployment, production backfill, commit, push, merge, or destructive operation was performed. **Phase 1 remains not accepted until explicit Owner acceptance is recorded; Phase 2 remains blocked until Owner acceptance.**

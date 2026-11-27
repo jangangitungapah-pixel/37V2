@@ -146,8 +146,10 @@ export async function submitClientPaymentEvidence({
       }
 
       const invoiceClientUid = String(existingInvoice.clientUid || '').trim();
-      const ownsByClientUid = invoiceClientUid && invoiceClientUid === cleanUid;
-      if (existingInvoice.customerId !== cleanCustomerId && !ownsByClientUid) {
+      const ownsInvoice = invoiceClientUid
+        ? invoiceClientUid === cleanUid && existingInvoice.customerId === cleanCustomerId
+        : existingInvoice.customerId === cleanCustomerId;
+      if (!ownsInvoice) {
         throw createPaymentServiceError(
           'permission-denied',
           'You do not have permission to submit payment proof for this invoice.',

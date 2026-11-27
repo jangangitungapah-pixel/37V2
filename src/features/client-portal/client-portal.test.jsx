@@ -91,6 +91,11 @@ import {
   setBookingRequestRepositoryAdapter,
 } from '@/features/admin/booking-requests/repositories/booking-request-repository';
 import {
+  resetBookingRepositoryAdapter,
+  setBookingRepositoryAdapter,
+} from '@/features/admin/calendar/repositories/calendar-booking-repository';
+import { createInMemoryBookingRepositoryAdapter } from '@/features/admin/calendar/services/calendar-booking-service';
+import {
   createInMemoryCustomerRepositoryAdapter,
   resetCustomerRepositoryAdapter,
   setCustomerRepositoryAdapter,
@@ -254,10 +259,12 @@ describe('Client Portal Phase 1 — Google Auth, Instant Provisioning & Security
   beforeEach(() => {
     customerAdapter = createInMemoryCustomerRepositoryAdapter();
     clientAdapter = createInMemoryClientPortalRepositoryAdapter(customerAdapter);
+    const bookingAdapter = createInMemoryBookingRepositoryAdapter();
+    setBookingRepositoryAdapter(bookingAdapter);
     setCustomerRepositoryAdapter(customerAdapter);
     setClientPortalRepositoryAdapter(clientAdapter);
-    setBookingRequestRepositoryAdapter(createInMemoryBookingRequestRepositoryAdapter());
-    setClientBillingRepositoryAdapter(createInMemoryClientBillingRepositoryAdapter());
+    setBookingRequestRepositoryAdapter(createInMemoryBookingRequestRepositoryAdapter(bookingAdapter));
+    setClientBillingRepositoryAdapter(createInMemoryClientBillingRepositoryAdapter({ bookingAdapter }));
 
     authMockState.staffLookup = (uid) => clientAdapter.hasStaffProfile(uid);
     authMockState.auth.currentUser = null;
@@ -285,6 +292,7 @@ describe('Client Portal Phase 1 — Google Auth, Instant Provisioning & Security
     resetClientPortalRepositoryAdapter();
     resetClientBillingRepositoryAdapter();
     resetBookingRequestRepositoryAdapter();
+    resetBookingRepositoryAdapter();
     resetCustomerRepositoryAdapter();
     authMockState.listeners.clear();
     authMockState.staffLookup = null;

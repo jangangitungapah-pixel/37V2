@@ -2,7 +2,7 @@
 
 **Current branch:** feature/phase-1-core-domain-identity-policy-foundation  
 **Objective:** Close all Phase 1 acceptance gates without expanding product scope or starting Phase 2.  
-**Status:** Remediation not yet implemented. This document is the execution plan and investigation checklist.
+**Status:** Local remediation implemented across Gate 1–Gate 3 over baseline `0256e79179b305f444dba380c172104eb8419690` (`npm run verify:phase1`: **4/4 stages PASS**). **Phase 1: Not accepted until Owner acceptance is explicitly recorded. Phase 2: Blocked until Owner acceptance.**
 
 Read first:
 1. docs/project/37V2-PROJECT-CONTEXT.md
@@ -201,16 +201,16 @@ The source review, discovered defect, corrective change, regression coverage, Ru
 
 Phase 1 remains open until every item is explicitly closed:
 
-- [ ] Cross-customer paymentEvidence reads are denied by Firestore Rules and emulator regression tests.
-- [ ] Price & Fee Settings V2 module contract is fully restored; Booking Policies remains separately scoped.
-- [ ] npm run lint passes without errors; warnings are reviewed and cleared or explicitly justified.
-- [ ] npm run test:run passes all suites.
-- [ ] npm run test:rules passes the entire emulator suite.
-- [ ] npm run build passes.
-- [ ] Owner-reviewed one-to-one legacy identity-link workflow exists and its Rules/tests pass.
-- [ ] Client UID / CRM customer / booking / invoice / evidence / clientReservations transactional consistency is verified.
-- [ ] Batch and Rules lookup budgets are verified, not inferred from file size alone.
-- [ ] Phase 1 scope and acceptance criteria are reviewed against the PRD and architecture.
+- [x] Cross-customer paymentEvidence reads are denied by Firestore Rules and emulator regression tests.
+- [x] Price & Fee Settings V2 module contract is fully restored; Booking Policies remains separately scoped.
+- [x] npm run lint passes without errors; warnings are reviewed and cleared or explicitly justified.
+- [x] npm run test:run passes all suites (`29/29` files, `250/250` tests — `verify:phase1` log `2026-11-27T14-04-10-420Z`).
+- [x] npm run test:rules passes the entire emulator suite (`npm run test:rules:diagnostics` exit `0`).
+- [x] npm run build passes (Vite `8.3.8`, `4,267` modules transformed, exit `0`).
+- [x] Owner-reviewed one-to-one legacy identity-link workflow exists and its Rules/tests pass.
+- [x] Client UID / CRM customer / booking / invoice / evidence / clientReservations transactional consistency is verified.
+- [x] Batch and Rules lookup budgets are verified, not inferred from file size alone.
+- [x] Phase 1 scope and acceptance criteria are reviewed against the PRD and architecture.
 - [ ] Owner explicitly accepts Phase 1 closure.
 
 ## 11. Required final verification commands

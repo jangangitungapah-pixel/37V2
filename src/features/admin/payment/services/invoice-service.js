@@ -109,10 +109,12 @@ export async function voidInvoice({
     }
 
     const now = tx.nowValue();
+    const existingClientUid = String(existing.clientUid || '').trim();
     const updatedDoc = {
       invoiceNumber: existing.invoiceNumber,
       bookingId: existing.bookingId,
       customerId: existing.customerId,
+      ...(existingClientUid ? { clientUid: existingClientUid } : {}),
       invoiceStatus: INVOICE_STATUS.VOID,
       currency: existing.currency,
       clientPaymentEvidenceRequired: Boolean(existing.clientPaymentEvidenceRequired),
@@ -181,10 +183,12 @@ export async function updateInvoiceDueDate({
     }
 
     const now = tx.nowValue();
+    const existingClientUid = String(existing.clientUid || '').trim();
     const updatedDoc = {
       invoiceNumber: existing.invoiceNumber,
       bookingId: existing.bookingId,
       customerId: existing.customerId,
+      ...(existingClientUid ? { clientUid: existingClientUid } : {}),
       invoiceStatus: existing.invoiceStatus,
       currency: existing.currency,
       clientPaymentEvidenceRequired: Boolean(existing.clientPaymentEvidenceRequired),
