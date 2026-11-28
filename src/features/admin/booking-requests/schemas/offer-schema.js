@@ -75,24 +75,16 @@ export const OFFER_STATUS_META = Object.freeze({
 export const DEPOSIT_HOLD_OFFER_BLOCK_ERROR_CODE = 'offer/deposit-hold-timing-unresolved';
 
 /**
- * Enforces the Phase 2 Section 3 ADR boundary:
- * Until the Owner resolves the Spark security-boundary choice between:
- * - (A) Staff creates unpaid invoice atomically when issuing the provisional hold, or
- * - (B) Client accepts first and Staff runs a separate authorized invoice-issuance step,
- * ONLY `quote_only` Offers may be sent or accepted.
+ * Authorizes commercial Offer modes for Phase 2 under Owner ADR Option A (`2026-11-28`):
+ * - `quote_only`: commercial proposal; Staff converts to booking/hold + invoice after Client acceptance.
+ * - `deposit_hold_offer`: Staff atomically issues an unpaid provisional `deposit_hold` booking, slot
+ *   locks, and invoice (`inv_{provisionalBookingId}`) at Offer send time (`TX-02` / Option A), while
+ *   Client acceptance/rejection only mutates `offers`, `publicBookingRequests`, and `activities`.
  */
 export function assertOfferModeAuthorized(offerMode) {
   const cleanMode = String(offerMode || '').trim();
-  if (cleanMode === OFFER_MODES.QUOTE_ONLY) {
-    return OFFER_MODES.QUOTE_ONLY;
-  }
-
-  if (cleanMode === OFFER_MODES.DEPOSIT_HOLD_OFFER) {
-    const err = new Error(
-      'Mode deposit_hold_offer ditahan sementara menunggu keputusan Owner terkait waktu penerbitan invoice (Opsi A: Staff membuat invoice belum lunas saat mengirim hold vs Opsi B: Client menerima offer dulu lalu Staff menerbitkan invoice terpisah). Gunakan mode quote_only.',
-    );
-    err.code = DEPOSIT_HOLD_OFFER_BLOCK_ERROR_CODE;
-    throw err;
+  if (cleanMode === OFFER_MODES.QUOTE_ONLY || cleanMode === OFFER_MODES.DEPOSIT_HOLD_OFFER) {
+    return cleanMode;
   }
 
   const invalid = new Error(`Mode penawaran tidak dikenal: "${cleanMode}".`);
@@ -211,7 +203,7 @@ export function normalizeOfferRecord(offerId, raw = {}) {
 }
 
 /**
- * Builds the 9-key sanitized `activeOfferSummary` stored on parent `publicBookingRequests/{id}`.
+ * Builds the sanitized `activeOfferSummary` stored on parent `publicBookingRequests/{id}`.
  * Explicitly omits internal staff UIDs, commissions, or policy internals.
  */
 export function buildActiveOfferSummary(offer) {
@@ -224,6 +216,9 @@ export function buildActiveOfferSummary(offer) {
       offer.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER
         ? OFFER_MODES.DEPOSIT_HOLD_OFFER
         : OFFER_MODES.QUOTE_ONLY,
+    provisionalBookingId: offer.provisionalBookingId
+      ? String(offer.provisionalBookingId).trim()
+      : null,
     totalAmount: Math.max(0, Math.round(Number(offer.financialSnapshot?.totalAmount) || 0)),
     minimumDepositAmount: Math.max(
       0,
@@ -248,6 +243,7 @@ export function projectClientOfferRecord(offer) {
     revisionNumber: norm.revisionNumber,
     requestId: norm.requestId,
     offerMode: norm.offerMode,
+    provisionalBookingId: norm.provisionalBookingId,
     scheduleSnapshot: { ...norm.scheduleSnapshot },
     serviceSnapshot: {
       serviceTypeId: norm.serviceSnapshot.serviceTypeId,

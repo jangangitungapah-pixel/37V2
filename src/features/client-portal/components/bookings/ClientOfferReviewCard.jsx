@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import {
-  AlertTriangle,
+  ArrowUpRight,
   CalendarClock,
   CheckCircle2,
   Clock3,
   FileText,
+  Receipt,
   XCircle,
 } from 'lucide-react';
+import { Link } from 'react-router';
 
 import { getBookingRequestRepositoryAdapter } from '@/features/admin/booking-requests/repositories/booking-request-repository';
 import {
-  DEPOSIT_HOLD_OFFER_BLOCK_ERROR_CODE,
   isOfferExpiredByTime,
   OFFER_MODES,
   OFFER_STATUS_META,
@@ -26,13 +27,15 @@ import {
   formatIndonesianTimestamp,
 } from '@/features/admin/calendar/utils/calendar-date';
 import { formatClientRupiah } from '@/features/client-portal/billing/utils/client-billing-utils';
+import { CLIENT_PORTAL_ROUTES } from '@/features/client-portal/config/client-portal-config';
 import { AdminStatusBadge } from '@/features/admin/design-system';
 import { useAuth } from '@/features/auth/AuthContext';
 
 export function ClientOfferReviewCard({ request, now = undefined }) {
   const { user } = useAuth();
   const clientUid = String(user?.uid || request?.clientUid || '').trim();
-  const requestId = String(request?.id || '').trim();
+  const requestId = String(request?.sourceRequestId || request?.id || '').trim();
+  const requestVersion = request?.requestVersion ?? request?.version;
 
   const [offersState, setOffersState] = useState({
     requestId: '',
@@ -84,15 +87,18 @@ export function ClientOfferReviewCard({ request, now = undefined }) {
     tone: 'neutral',
   };
   const isExpiredTime = activeOffer ? isOfferExpiredByTime(activeOffer, now || new Date()) : false;
-  const isActionableQuote = Boolean(
+  const offerMode = activeOffer?.offerMode || fallbackSummary?.mode || OFFER_MODES.QUOTE_ONLY;
+  const isDepositHoldOffer = offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER;
+  const provisionalBookingId =
+    activeOffer?.provisionalBookingId || fallbackSummary?.provisionalBookingId || null;
+  const holdDeadline = activeOffer?.holdDeadline || fallbackSummary?.holdExpiresAt || null;
+  const isActionableOffer = Boolean(
     activeOffer &&
-      activeOffer.offerMode === OFFER_MODES.QUOTE_ONLY &&
+      [OFFER_MODES.QUOTE_ONLY, OFFER_MODES.DEPOSIT_HOLD_OFFER].includes(activeOffer.offerMode) &&
       activeOffer.status === OFFER_STATUSES.SENT &&
       !activeOffer.supersededByOfferId &&
       !isExpiredTime,
   );
-  const isBlockedHoldOfferMode =
-    (activeOffer?.offerMode || fallbackSummary?.mode) === OFFER_MODES.DEPOSIT_HOLD_OFFER;
 
   const schedule = activeOffer?.scheduleSnapshot || null;
   const service = activeOffer?.serviceSnapshot || null;
@@ -112,16 +118,12 @@ export function ClientOfferReviewCard({ request, now = undefined }) {
         requestId,
         offerId: activeOffer.id,
         expectedOfferVersion: activeOffer.version,
-        expectedRequestVersion: request?.version,
+        expectedRequestVersion: requestVersion,
         clientUid,
         now: now || new Date(),
       });
     } catch (err) {
-      setActionError(
-        err?.code === DEPOSIT_HOLD_OFFER_BLOCK_ERROR_CODE
-          ? 'This deposit-hold offer mode is pending studio Owner confirmation. Please contact the studio team.'
-          : err?.message || 'Unable to accept this offer right now.',
-      );
+      setActionError(err?.message || 'Unable to accept this offer right now.');
     } finally {
       setSubmittingAction('');
     }
@@ -136,7 +138,7 @@ export function ClientOfferReviewCard({ request, now = undefined }) {
         requestId,
         offerId: activeOffer.id,
         expectedOfferVersion: activeOffer.version,
-        expectedRequestVersion: request?.version,
+        expectedRequestVersion: requestVersion,
         clientUid,
         responseReason: rejectReason,
         now: now || new Date(),
@@ -164,7 +166,9 @@ export function ClientOfferReviewCard({ request, now = undefined }) {
             {isExpiredTime && displayStatus === OFFER_STATUSES.SENT ? 'Expired' : statusMeta.label}
           </AdminStatusBadge>
           <AdminStatusBadge tone="ivory" size="sm">
-            Quote Proposal (Slot Not Locked Yet)
+            {isDepositHoldOffer
+              ? 'Deposit Hold Offer (Provisional Slot Held)'
+              : 'Quote Proposal (Slot Not Locked Yet)'}
           </AdminStatusBadge>
         </div>
 
@@ -197,11 +201,19 @@ export function ClientOfferReviewCard({ request, now = undefined }) {
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#46433D]">
         <span>
-          Minimum Deposit Needed After Confirmation:{' '}
+          {isDepositHoldOffer
+            ? 'Minimum Deposit Required:'
+            : 'Minimum Deposit Needed After Confirmation:'}{' '}
           <strong className="font-mono text-[#151515]">
             {minDeposit > 0 ? formatClientRupiah(minDeposit) : 'No Deposit Required'}
           </strong>
         </span>
+        {holdDeadline ? (
+          <span>
+            Hold expires at:{' '}
+            <strong>{formatIndonesianTimestamp(holdDeadline)}</strong>
+          </span>
+        ) : null}
         {activeOffer?.offerExpiresAt || fallbackSummary?.offerExpiresAt ? (
           <span>
             Offer valid until:{' '}
@@ -220,12 +232,27 @@ export function ClientOfferReviewCard({ request, now = undefined }) {
         </p>
       ) : null}
 
-      {isBlockedHoldOfferMode ? (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-900">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <span>
-            This offer awaits studio Owner confirmation on payment invoice timing before it can be accepted online.
+      {isDepositHoldOffer &&
+      provisionalBookingId &&
+      [OFFER_STATUSES.SENT, OFFER_STATUSES.ACCEPTED].includes(displayStatus) ? (
+        <div
+          data-testid={`client-deposit-hold-invoice-notice-${requestId}`}
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50/90 px-2.5 py-2 text-[11px] text-amber-950"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Receipt className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              Your room slot is provisionally held and unpaid invoice{' '}
+              <code className="font-mono font-bold">inv_{provisionalBookingId}</code> is ready.
+            </span>
           </span>
+          <Link
+            to={`${CLIENT_PORTAL_ROUTES.INVOICES}?invoiceId=${encodeURIComponent(`inv_${provisionalBookingId}`)}`}
+            className="inline-flex items-center gap-1 font-semibold text-[#151515] underline decoration-[#151515]/30 hover:text-[#0F6246]"
+          >
+            <span>Upload Deposit Proof</span>
+            <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+          </Link>
         </div>
       ) : null}
 
@@ -238,14 +265,18 @@ export function ClientOfferReviewCard({ request, now = undefined }) {
       {displayStatus === OFFER_STATUSES.ACCEPTED ? (
         <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0F6246]">
           <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Offer accepted. Studio team will lock the room schedule and send your invoice shortly.</span>
+          <span>
+            {isDepositHoldOffer
+              ? 'Offer accepted. Please submit your deposit payment proof in My Invoices before the hold deadline to confirm your booking.'
+              : 'Offer accepted. Studio team will lock the room schedule and send your invoice shortly.'}
+          </span>
         </p>
       ) : isExpiredTime && displayStatus === OFFER_STATUSES.SENT ? (
         <p className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#B92B0C]">
           <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
           <span>This offer validity window has passed. Contact our team for an updated revision.</span>
         </p>
-      ) : isActionableQuote ? (
+      ) : isActionableOffer ? (
         <div className="space-y-2 pt-1">
           <div className="flex flex-wrap gap-2">
             <button

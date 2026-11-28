@@ -230,9 +230,11 @@ export function ClientBookingCard({
         </div>
       ) : null}
 
-      {/* Commercial Quote Offer Review Card (Client Portal requests with Offers) */}
-      {!record.clientReservation &&
-      (record.activeOfferId || record.activeOfferSummary || record.status === 'offer_sent') ? (
+      {/* Commercial Offer Review Card (Quote Only OR Option A Provisional Deposit Hold Offer) */}
+      {(record.activeOfferId || record.activeOfferSummary || record.status === 'offer_sent') &&
+      (!record.clientReservation ||
+        (record.clientReservation.reservationStatus === 'deposit_hold' &&
+          record.status !== 'confirmed')) ? (
         <ClientOfferReviewCard request={record} now={now} />
       ) : null}
 

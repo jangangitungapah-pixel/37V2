@@ -1,5 +1,6 @@
 /**
- * Offer Revisions Domain Service (Phase 2 — Quote Revisions, Client Accept/Reject, Staff Withdraw/Expire)
+ * Offer Revisions Domain Service (Phase 2 — Quote Revisions, Deposit Hold Offers (Option A),
+ * Client Accept/Reject, Staff Withdraw/Expire)
  * for 37 Music Studio (`publicBookingRequests/{requestId}/offers/{offerId}`).
  *
  * Strictly enforces:
@@ -7,12 +8,20 @@
  * - Monotonic revisionNumber (`OFF-01`, `OFF-02`, ...) & deterministic Offer/Activity IDs
  * - Atomic revision superseding (`OD-13`: sending v2 marks prior `sent` Offer as `superseded`)
  * - Immutable accepted Offer & policy snapshots (`AD-02`, `AD-06`)
- * - Owner-pending ADR guard on `deposit_hold_offer` invoice timing (`deposit_hold_offer` is blocked
- *   until Owner resolves Choice A vs Choice B; `quote_only` works end to end without Client writes to
- *   `bookings`, `bookingSlots`, `invoices`, or `clientReservations`).
+ * - Owner ADR Option A for `deposit_hold_offer`: Staff atomically issues an unpaid provisional
+ *   `deposit_hold` booking + slots + `inv_{provisionalBookingId}` at Offer send time, while Client
+ *   acceptance/rejection touches ONLY `offers`, `publicBookingRequests`, and `activities`.
  */
 
 import { getStudioRoomById } from '@/features/admin/calendar/config/calendar-config';
+import {
+  generateOperationId,
+  getBookingRepositoryAdapter,
+} from '@/features/admin/calendar/repositories/calendar-booking-repository';
+import {
+  closeOrSupersedeOfferWithProvisionalHold,
+  createBooking,
+} from '@/features/admin/calendar/services/calendar-booking-service';
 import { calculateBookingPricingSnapshot } from '@/features/admin/calendar/utils/booking-pricing';
 import { validateBookingWindow } from '@/features/admin/calendar/utils/booking-time';
 import {
@@ -236,6 +245,8 @@ export async function createAndSendOffer({
   requestId,
   offerId = generateOfferId(),
   activityId = generateActivityId('act'),
+  provisionalBookingId = '',
+  bookingEventId = '',
   previousOfferId = '',
   expectedRequestVersion = null,
   expectedPreviousOfferVersion = null,
@@ -243,16 +254,20 @@ export async function createAndSendOffer({
   scheduleInput = {},
   serviceInput = {},
   pricingSettings = DEFAULT_PRICING_SETTINGS,
-  bookingPolicies = DEFAULT_BOOKING_POLICIES,
+  bookingPolicies = null,
   customDepositPolicy = null,
   manualCustomerPrice = 0,
   offerValidHours = 24,
   offerExpiresAt = null,
+  holdOverrideHours = null,
+  holdOverrideExpiresAt = null,
+  holdOverrideReason = '',
   staffNoteToClient = '',
   actorUid,
   actorName = '',
   now = new Date(),
   adapter = getBookingRequestRepositoryAdapter(),
+  bookingAdapter = getBookingRepositoryAdapter(),
 }) {
   const cleanActorUid = assertOfferStaffActor(actorUid);
   const cleanRequestId = String(requestId || '').trim();
@@ -263,14 +278,20 @@ export async function createAndSendOffer({
     throw createBookingRequestRepositoryError('booking-request/not-found', 'ID request tidak valid.');
   }
 
-  // Enforces Section 3 ADR: blocks `deposit_hold_offer` pending Owner timing choice (A vs B).
   const validatedMode = assertOfferModeAuthorized(offerMode);
+
+  const effectivePolicies =
+    bookingPolicies ||
+    (typeof bookingAdapter?.getBookingPolicies === 'function'
+      ? await bookingAdapter.getBookingPolicies()
+      : null) ||
+    DEFAULT_BOOKING_POLICIES;
 
   const built = buildOfferSnapshotsAndValidation({
     scheduleInput,
     serviceInput,
     pricingSettings,
-    bookingPolicies,
+    bookingPolicies: effectivePolicies,
     customDepositPolicy,
     manualCustomerPrice,
     offerValidHours,
@@ -279,12 +300,168 @@ export async function createAndSendOffer({
     now,
   });
 
+  if (
+    validatedMode === OFFER_MODES.DEPOSIT_HOLD_OFFER &&
+    (built.depositPolicySnapshot.type === 'none' ||
+      built.depositPolicySnapshot.minimumDepositAmount <= 0)
+  ) {
+    throw createBookingRequestRepositoryError(
+      'offer/deposit-not-required',
+      'Kebijakan layanan ini tidak mewajibkan Deposit (DP), sehingga tidak dapat menggunakan Deposit Hold Offer. Gunakan mode Quote Only agar permintaan langsung dikonfirmasi tanpa Deposit Hold.',
+    );
+  }
+
   // Pre-transaction read of existing offers if caller did not pass previousOfferId cleanly,
   // allowing deterministic revision numbers even after withdrawals/rejections.
-  const preExistingOffers =
+  const [preExistingOffers, preRequest, preExplicitPrevOffer] = await Promise.all([
     typeof adapter.listOffersByRequestId === 'function'
-      ? await adapter.listOffersByRequestId(cleanRequestId, { maxLimit: 50 })
-      : [];
+      ? adapter.listOffersByRequestId(cleanRequestId, { maxLimit: 50 })
+      : Promise.resolve([]),
+    typeof adapter.getBookingRequestById === 'function'
+      ? adapter.getBookingRequestById(cleanRequestId)
+      : Promise.resolve(null),
+    previousOfferId && typeof adapter.getOfferById === 'function'
+      ? adapter.getOfferById(cleanRequestId, previousOfferId)
+      : Promise.resolve(null),
+  ]);
+
+  const otherSentIds = Array.from(
+    new Set(
+      preExistingOffers
+        .filter(
+          (o) =>
+            o &&
+            o.id !== cleanOfferId &&
+            o.id !== String(previousOfferId || '').trim() &&
+            (o.status === OFFER_STATUSES.SENT ||
+              (o.status === OFFER_STATUSES.REJECTED &&
+                o.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER &&
+                o.provisionalBookingId)),
+        )
+        .map((o) => o.id),
+    ),
+  );
+
+  const priorHoldBookingIds = Array.from(
+    new Set(
+      [preExplicitPrevOffer, ...preExistingOffers]
+        .filter(
+          (o) =>
+            o &&
+            o.id !== cleanOfferId &&
+            (o.status === OFFER_STATUSES.SENT || o.status === OFFER_STATUSES.REJECTED) &&
+            o.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER &&
+            o.provisionalBookingId,
+        )
+        .map((o) => o.provisionalBookingId),
+    ),
+  );
+
+  const maxPreRevision = Math.max(
+    0,
+    ...preExistingOffers.map((o) => Number(o?.revisionNumber) || 0),
+    Number(preExplicitPrevOffer?.revisionNumber) || 0,
+  );
+
+  if (validatedMode === OFFER_MODES.DEPOSIT_HOLD_OFFER) {
+    if (!preRequest) {
+      throw createBookingRequestRepositoryError(
+        'booking-request/not-found',
+        'Booking request tidak ditemukan.',
+      );
+    }
+    if (preRequest.requestType !== BOOKING_REQUEST_TYPES.STUDIO_BOOKING) {
+      throw createBookingRequestRepositoryError(
+        'offer/not-studio-request',
+        'Offer jadwal studio hanya berlaku untuk permintaan studio_booking.',
+      );
+    }
+
+    const cleanProvisionalBookingId =
+      String(provisionalBookingId || '').trim() || `bkg_offer_${cleanOfferId.slice(4)}`;
+    const cleanBookingEventId =
+      String(bookingEventId || '').trim() || generateOperationId('evt');
+
+    return createBooking({
+      bookingId: cleanProvisionalBookingId,
+      eventId: cleanBookingEventId,
+      actorUid: cleanActorUid,
+      formValues: {
+        customerName: preRequest.customerName || '',
+        phone: preRequest.contactPhone || '',
+        bandName: preRequest.bandName || '',
+        studioId: built.scheduleSnapshot.studioId,
+        date: built.scheduleSnapshot.date,
+        startMinute: built.scheduleSnapshot.startMinute,
+        durationPreset: 'custom',
+        customDurationMinutes: built.scheduleSnapshot.durationMinutes,
+        serviceTypeId: built.serviceSnapshot.serviceTypeId,
+        serviceOptionId: built.serviceSnapshot.serviceOptionId,
+        manualCustomerPrice: Number(manualCustomerPrice) || built.financialSnapshot.totalAmount,
+        initialPaymentStatus: 'unpaid',
+        dpAmount: 0,
+        paymentMethod: 'cash',
+        notes: preRequest.notes || '',
+      },
+      pricingSettings,
+      bookingPolicies: effectivePolicies,
+      holdMode: 'deposit_hold',
+      holdOverrideHours,
+      holdOverrideExpiresAt,
+      holdOverrideReason,
+      now,
+      bookingRequestId: cleanRequestId,
+      requestActivityEventId: cleanActivityId,
+      adapter: bookingAdapter,
+      provisionalOfferConfig: {
+        offerId: cleanOfferId,
+        offerExpiresAtDate: built.offerExpiresAtDate,
+        hasExplicitOfferExpiresAt: Boolean(offerExpiresAt),
+        customDepositPolicy,
+        depositPolicySnapshot: built.depositPolicySnapshot,
+        balanceDuePolicy: built.balanceDuePolicy,
+        staffNoteToClient: built.staffNoteToClient,
+        previousOfferId,
+        expectedRequestVersion,
+        expectedPreviousOfferVersion,
+        otherSentOfferIds: otherSentIds,
+        priorHoldBookingIds,
+        minNextRevisionHint: maxPreRevision,
+        actorName,
+      },
+    });
+  }
+
+  if (priorHoldBookingIds.length > 0) {
+    return closeOrSupersedeOfferWithProvisionalHold({
+      mode: 'supersede_with_quote',
+      requestId: cleanRequestId,
+      offerId: cleanOfferId,
+      expectedOfferVersion: expectedPreviousOfferVersion,
+      expectedRequestVersion,
+      newQuoteOfferConfig: {
+        offerId: cleanOfferId,
+        previousOfferId,
+        expectedRequestVersion,
+        expectedPreviousOfferVersion,
+        otherSentOfferIds: otherSentIds,
+        priorHoldBookingIds,
+        minNextRevisionHint: maxPreRevision,
+        scheduleSnapshot: built.scheduleSnapshot,
+        serviceSnapshot: built.serviceSnapshot,
+        financialSnapshot: built.financialSnapshot,
+        depositPolicySnapshot: built.depositPolicySnapshot,
+        balanceDuePolicy: built.balanceDuePolicy,
+        offerExpiresAtDate: built.offerExpiresAtDate,
+        staffNoteToClient: built.staffNoteToClient,
+      },
+      actorUid: cleanActorUid,
+      actorName,
+      activityId: cleanActivityId,
+      now,
+      adapter: bookingAdapter,
+    });
+  }
 
   return adapter.runOfferTransaction({
     requestId: cleanRequestId,
@@ -664,7 +841,11 @@ export async function acceptClientOffer({
           fromStatus: currentReq.status,
           toStatus: BOOKING_REQUEST_STATUS.ACCEPTED,
           linkedBookingId: null,
-          note: `${currentOffer.offerNumber} disetujui Client via Client Portal (menunggu konversi jadwal oleh Staff).`,
+          note:
+            currentOffer.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER &&
+            currentOffer.provisionalBookingId
+              ? `${currentOffer.offerNumber} disetujui Client via Client Portal (Deposit Hold ${currentOffer.provisionalBookingId} siap menerima pembayaran DP).`
+              : `${currentOffer.offerNumber} disetujui Client via Client Portal (menunggu konversi jadwal oleh Staff).`,
           actorUid: cleanClientUid,
           actorName: currentReq.customerName || 'Client',
           createdAt: nowVal,
@@ -820,9 +1001,15 @@ export async function rejectClientOffer({
           fromStatus: currentReq.status,
           toStatus: BOOKING_REQUEST_STATUS.IN_REVIEW,
           linkedBookingId: null,
-          note: cleanReason
-            ? `${currentOffer.offerNumber} ditolak Client: ${cleanReason}`
-            : `${currentOffer.offerNumber} ditolak Client (dapat dibuatkan revisi baru oleh Staff).`,
+          note:
+            currentOffer.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER &&
+            currentOffer.provisionalBookingId
+              ? cleanReason
+                ? `${currentOffer.offerNumber} ditolak Client (${cleanReason}) — hold ${currentOffer.provisionalBookingId} menunggu pelepasan/revisi Staff.`
+                : `${currentOffer.offerNumber} ditolak Client — hold ${currentOffer.provisionalBookingId} menunggu pelepasan atau revisi Staff.`
+              : cleanReason
+                ? `${currentOffer.offerNumber} ditolak Client: ${cleanReason}`
+                : `${currentOffer.offerNumber} ditolak Client (dapat dibuatkan revisi baru oleh Staff).`,
           actorUid: cleanClientUid,
           actorName: currentReq.customerName || 'Client',
           createdAt: nowVal,
@@ -858,6 +1045,7 @@ async function staffCloseSentOffer({
   actorName = '',
   activityId = generateActivityId('act'),
   adapter = getBookingRequestRepositoryAdapter(),
+  bookingAdapter = getBookingRepositoryAdapter(),
 }) {
   const cleanActorUid = assertOfferStaffActor(actorUid);
   const cleanRequestId = String(requestId || '').trim();
@@ -870,6 +1058,28 @@ async function staffCloseSentOffer({
       'offer/reason-required',
       'Alasan penarikan atau kedaluwarsa penawaran wajib diisi 3–300 karakter.',
     );
+  }
+
+  const preOffer =
+    typeof adapter.getOfferById === 'function'
+      ? await adapter.getOfferById(cleanRequestId, cleanOfferId)
+      : null;
+
+  if (preOffer?.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER && preOffer?.provisionalBookingId) {
+    return closeOrSupersedeOfferWithProvisionalHold({
+      mode: 'close',
+      requestId: cleanRequestId,
+      offerId: cleanOfferId,
+      targetOfferStatus,
+      closeRequest,
+      expectedOfferVersion,
+      expectedRequestVersion,
+      reason: cleanReason,
+      actorUid: cleanActorUid,
+      actorName,
+      activityId: cleanActivityId,
+      adapter: bookingAdapter,
+    });
   }
 
   return adapter.runOfferTransaction({
@@ -1004,6 +1214,7 @@ export async function staffRecordOfferResponse({
   activityId = generateActivityId('act'),
   now = new Date(),
   adapter = getBookingRequestRepositoryAdapter(),
+  bookingAdapter = getBookingRepositoryAdapter(),
 }) {
   const cleanActorUid = assertOfferStaffActor(actorUid);
   const cleanRequestId = String(requestId || '').trim();
@@ -1015,6 +1226,29 @@ export async function staffRecordOfferResponse({
       'offer/invalid-decision',
       'Keputusan Offer oleh Staff harus accepted atau rejected.',
     );
+  }
+
+  if (decision === OFFER_STATUSES.REJECTED) {
+    const preOffer =
+      typeof adapter.getOfferById === 'function'
+        ? await adapter.getOfferById(cleanRequestId, cleanOfferId)
+        : null;
+    if (preOffer?.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER && preOffer?.provisionalBookingId) {
+      return closeOrSupersedeOfferWithProvisionalHold({
+        mode: 'staff_reject',
+        requestId: cleanRequestId,
+        offerId: cleanOfferId,
+        targetOfferStatus: OFFER_STATUSES.REJECTED,
+        expectedOfferVersion,
+        expectedRequestVersion,
+        reason: String(reason || '').trim() || 'Ditolak Client via koordinasi WhatsApp/Admin',
+        actorUid: cleanActorUid,
+        actorName,
+        activityId: cleanActivityId,
+        now,
+        adapter: bookingAdapter,
+      });
+    }
   }
 
   return adapter.runOfferTransaction({

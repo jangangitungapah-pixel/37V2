@@ -7,6 +7,10 @@ import {
   normalizePaymentTransactionRecord,
 } from '@/features/admin/payment/schemas/payment-schema';
 
+import {
+  normalizeActivityEvent,
+  normalizeBookingRequestRecord,
+} from '@/features/admin/booking-requests/utils/booking-request-normalize';
 import { normalizeOfferRecord } from '@/features/admin/booking-requests/schemas/offer-schema';
 import {
   BOOKING_POLICIES_COLLECTION,
@@ -351,22 +355,6 @@ export function createFirestoreBookingRepositoryAdapter() {
             const snap = await tx.get(ref);
             return snap.exists() ? normalizePaymentTransactionRecord(snap.id, snap.data()) : null;
           },
-          async getBookingRequest(requestId) {
-            const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS, requestId);
-            const snap = await tx.get(ref);
-            return snap.exists() ? { id: snap.id, ...snap.data(), _raw: snap.data() } : null;
-          },
-          async getBookingRequestOffer(requestId, offerId) {
-            const ref = doc(
-              db,
-              FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
-              requestId,
-              FIRESTORE_COLLECTIONS.BOOKING_REQUEST_OFFERS,
-              offerId,
-            );
-            const snap = await tx.get(ref);
-            return snap.exists() ? normalizeOfferRecord(snap.id, snap.data()) : null;
-          },
           async getPaymentEvidenceLock(invoiceId) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE_LOCKS, invoiceId);
             const snap = await tx.get(ref);
@@ -391,6 +379,7 @@ export function createFirestoreBookingRepositoryAdapter() {
             const snap = await tx.get(ref);
             return snap.exists() ? normalizeBookingPolicies(snap.data()) : null;
           },
+          ...buildFirestoreBookingRequestTxHelpers({ tx, db, doc }),
           setBooking(bookingId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKINGS, bookingId);
             tx.set(ref, data);
@@ -450,40 +439,6 @@ export function createFirestoreBookingRepositoryAdapter() {
           deletePublicAvailability(bookingId) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_AVAILABILITY, bookingId);
             tx.delete(ref);
-          },
-          updateBookingRequest(requestId, data) {
-            const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS, requestId);
-            tx.update(ref, data);
-          },
-          setBookingRequestActivity(requestId, eventId, data) {
-            const ref = doc(
-              db,
-              FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
-              requestId,
-              FIRESTORE_COLLECTIONS.BOOKING_REQUEST_ACTIVITIES,
-              eventId,
-            );
-            tx.set(ref, data);
-          },
-          setBookingRequestOffer(requestId, offerId, data) {
-            const ref = doc(
-              db,
-              FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
-              requestId,
-              FIRESTORE_COLLECTIONS.BOOKING_REQUEST_OFFERS,
-              offerId,
-            );
-            tx.set(ref, data);
-          },
-          updateBookingRequestOffer(requestId, offerId, data) {
-            const ref = doc(
-              db,
-              FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
-              requestId,
-              FIRESTORE_COLLECTIONS.BOOKING_REQUEST_OFFERS,
-              offerId,
-            );
-            tx.update(ref, data);
           },
           setPaymentEvidenceLock(invoiceId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE_LOCKS, invoiceId);
@@ -806,6 +761,171 @@ export function createFirestoreBookingRepositoryAdapter() {
         isCancelled = true;
         unsubscribe?.();
       };
+    },
+  };
+}
+
+/**
+ * Builds Firestore transaction-scoped Booking Request / Offer / Activity helpers
+ * shared across Calendar, Payment, and Payment Evidence repositories.
+ */
+export function buildFirestoreBookingRequestTxHelpers({ tx, db, doc }) {
+  return {
+    async getBookingRequest(requestId) {
+      if (!requestId) return null;
+      const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS, requestId);
+      const snap = await tx.get(ref);
+      return snap.exists() ? { id: snap.id, ...snap.data(), _raw: snap.data() } : null;
+    },
+    async getBookingRequestOffer(requestId, offerId) {
+      if (!requestId || !offerId) return null;
+      const ref = doc(
+        db,
+        FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
+        requestId,
+        FIRESTORE_COLLECTIONS.BOOKING_REQUEST_OFFERS,
+        offerId,
+      );
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return null;
+      return { ...normalizeOfferRecord(snap.id, snap.data()), _raw: snap.data() };
+    },
+    updateBookingRequest(requestId, data) {
+      const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS, requestId);
+      tx.update(ref, data);
+    },
+    setBookingRequestActivity(requestId, eventId, data) {
+      const ref = doc(
+        db,
+        FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
+        requestId,
+        FIRESTORE_COLLECTIONS.BOOKING_REQUEST_ACTIVITIES,
+        eventId,
+      );
+      tx.set(ref, data);
+    },
+    setBookingRequestOffer(requestId, offerId, data) {
+      const ref = doc(
+        db,
+        FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
+        requestId,
+        FIRESTORE_COLLECTIONS.BOOKING_REQUEST_OFFERS,
+        offerId,
+      );
+      tx.set(ref, data);
+    },
+    updateBookingRequestOffer(requestId, offerId, data) {
+      const ref = doc(
+        db,
+        FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
+        requestId,
+        FIRESTORE_COLLECTIONS.BOOKING_REQUEST_OFFERS,
+        offerId,
+      );
+      tx.update(ref, data);
+    },
+  };
+}
+
+/**
+ * Stages in-memory Booking Request, Offer, and Activity maps for shared cross-repository
+ * atomic transactions (used by Calendar, Payment, and Payment Evidence in-memory adapters).
+ */
+export function createInMemoryBookingRequestStage({ sharedStore, checkCanRead, markWrite }) {
+  const bookingRequests = sharedStore?.bookingRequests || new Map();
+  const bookingRequestActivities = sharedStore?.bookingRequestActivities || new Map();
+  const bookingRequestOffers = sharedStore?.bookingRequestOffers || new Map();
+
+  const stagedBookingRequests = new Map(bookingRequests);
+  const stagedBookingRequestActivities = new Map(bookingRequestActivities);
+  const stagedBookingRequestOffers = new Map(bookingRequestOffers);
+  const touchedRequestIds = new Set();
+  const touchedOfferRequestIds = new Set();
+
+  return {
+    helpers: {
+      async getBookingRequest(id) {
+        checkCanRead?.();
+        const item = stagedBookingRequests.get(id);
+        return item ? normalizeBookingRequestRecord(id, item) : null;
+      },
+      async getBookingRequestOffer(requestId, offerId) {
+        checkCanRead?.();
+        const item = stagedBookingRequestOffers.get(String(offerId || '').trim());
+        if (!item || item.requestId !== requestId) return null;
+        return { ...item };
+      },
+      updateBookingRequest(id, data) {
+        markWrite?.();
+        touchedRequestIds.add(id);
+        const prev = stagedBookingRequests.get(id) || {};
+        const nowIso = new Date().toISOString();
+        stagedBookingRequests.set(
+          id,
+          normalizeBookingRequestRecord(id, {
+            ...prev,
+            ...data,
+            confirmedAt: data.confirmedAt ? nowIso : prev.confirmedAt,
+            updatedAt: nowIso,
+          }),
+        );
+      },
+      setBookingRequestActivity(requestId, eventId, data) {
+        markWrite?.();
+        touchedRequestIds.add(requestId);
+        const nowIso = new Date().toISOString();
+        stagedBookingRequestActivities.set(eventId, {
+          requestId,
+          ...normalizeActivityEvent(eventId, { ...data, createdAt: nowIso }),
+        });
+      },
+      setBookingRequestOffer(requestId, offerId, data) {
+        markWrite?.();
+        touchedRequestIds.add(requestId);
+        touchedOfferRequestIds.add(requestId);
+        const nowIso = new Date().toISOString();
+        stagedBookingRequestOffers.set(
+          offerId,
+          normalizeOfferRecord(offerId, {
+            ...data,
+            requestId,
+            createdAt: data.createdAt?.seconds ? data.createdAt : nowIso,
+            updatedAt: nowIso,
+          }),
+        );
+      },
+      updateBookingRequestOffer(requestId, offerId, data) {
+        markWrite?.();
+        touchedRequestIds.add(requestId);
+        touchedOfferRequestIds.add(requestId);
+        const prev = stagedBookingRequestOffers.get(offerId) || {};
+        const nowIso = new Date().toISOString();
+        stagedBookingRequestOffers.set(
+          offerId,
+          normalizeOfferRecord(offerId, {
+            ...prev,
+            ...data,
+            requestId,
+            respondedAt: data.respondedAt ? nowIso : prev.respondedAt,
+            updatedAt: nowIso,
+          }),
+        );
+      },
+    },
+    commitAndNotify() {
+      bookingRequests.clear();
+      for (const [k, v] of stagedBookingRequests) bookingRequests.set(k, v);
+      bookingRequestActivities.clear();
+      for (const [k, v] of stagedBookingRequestActivities) bookingRequestActivities.set(k, v);
+      bookingRequestOffers.clear();
+      for (const [k, v] of stagedBookingRequestOffers) bookingRequestOffers.set(k, v);
+
+      for (const reqId of touchedRequestIds) {
+        sharedStore?.notifyBookingRequests?.(reqId);
+      }
+      for (const reqId of touchedOfferRequestIds) {
+        sharedStore?.notifyBookingOffers?.(reqId);
+      }
     },
   };
 }

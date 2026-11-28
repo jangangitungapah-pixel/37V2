@@ -36,6 +36,7 @@ import {
 } from '@/features/admin/payment/utils/invoice-number';
 import {
   PAYMENT_SOURCE,
+  INVOICE_STATUS,
   SUPPORTED_PAYMENT_METHODS,
   TRANSACTION_TYPE,
   computeStoredPaymentStatus,
@@ -52,7 +53,11 @@ import {
 import { generatePaymentEvidenceId } from '@/features/payment-evidence/utils/payment-evidence-utils';
 import {
   assertOfferModeAuthorized,
+  buildActiveOfferSummary,
+  formatOfferNumber,
   normalizeOfferRecord,
+  OFFER_MODES,
+  OFFER_SCHEMA_VERSION,
   OFFER_STATUSES,
 } from '@/features/admin/booking-requests/schemas/offer-schema';
 import {
@@ -138,7 +143,7 @@ export function buildClientReservationProjection(booking, invoice = null, timest
     studioId,
     studioName: String(
       booking.studioName ||
-        (studioId === 'room-b' ? 'Room B — Control + Booth' : 'Room A — Live Room'),
+      (studioId === 'room-b' ? 'Room B — Control + Booth' : 'Room A — Live Room'),
     ),
     serviceTypeName: String(booking.serviceTypeName || booking.serviceTypeId || booking.serviceLabel || ''),
     serviceOptionName: String(booking.serviceOptionName || booking.packageLabel || ''),
@@ -173,9 +178,9 @@ export function buildClientReservationProjection(booking, invoice = null, timest
       invoice?.paymentStatus ||
       computeStoredPaymentStatus(
         invoice?.effectiveTotalAmount ??
-          invoice?.financialSnapshot?.totalAmount ??
-          invoice?.totalAmount ??
-          booking.totalAmount,
+        invoice?.financialSnapshot?.totalAmount ??
+        invoice?.totalAmount ??
+        booking.totalAmount,
         invoice?.amountPaid ?? booking.initialPaidAmount,
       ),
     ),
@@ -266,6 +271,283 @@ function assertAuthenticatedStaffActor(actorUid) {
   return cleanUid;
 }
 
+export function finalizeBookingRequestInTx(
+  tx,
+  {
+    existingBookingRequest,
+    existingOffer = null,
+    bookingId,
+    bookingDoc,
+    acceptedOfferId = '',
+    timestamp,
+    actorUid,
+    actorName = '',
+    activityEventId = generateOperationId('reqact'),
+    activityNote = '',
+  },
+) {
+  if (!existingBookingRequest || typeof tx.updateBookingRequest !== 'function') {
+    return false;
+  }
+
+  if (
+    existingBookingRequest.linkedBookingId ||
+    [
+      BOOKING_REQUEST_STATUS.CONFIRMED,
+      BOOKING_REQUEST_STATUS.DECLINED,
+      BOOKING_REQUEST_STATUS.CLOSED,
+    ].includes(existingBookingRequest.status)
+  ) {
+    return false;
+  }
+
+  const confirmedBookingSnapshot = {
+    bookingId,
+    bookingReference: bookingId.slice(0, 14).toUpperCase(),
+    studioId: bookingDoc.studioId,
+    studioName:
+      bookingDoc.studioId === 'room-b' ? 'Room B — Control + Booth' : 'Room A — Live Room',
+    serviceTypeName: bookingDoc.serviceTypeName,
+    serviceOptionName: bookingDoc.serviceOptionName || bookingDoc.serviceTypeName,
+    date: bookingDoc.date,
+    startMinute: bookingDoc.startMinute,
+    endMinute: bookingDoc.endMinute,
+    durationMinutes: bookingDoc.durationMinutes,
+  };
+
+  const effectiveAcceptedOfferId = String(
+    acceptedOfferId ||
+      existingBookingRequest.acceptedOfferId ||
+      existingOffer?.offerId ||
+      existingOffer?.id ||
+      '',
+  ).trim();
+
+  let updatedOfferSummary = null;
+  if (
+    existingOffer &&
+    existingOffer.status === OFFER_STATUSES.SENT &&
+    existingOffer.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER
+  ) {
+    const rawOffer = existingOffer._raw || existingOffer;
+    if (typeof tx.updateBookingRequestOffer === 'function') {
+      const nextOfferDoc = {
+        ...rawOffer,
+        status: OFFER_STATUSES.ACCEPTED,
+        respondedAt: timestamp,
+        respondedByUid: actorUid,
+        responseReason: String(existingOffer.responseReason || '').trim(),
+        updatedAt: timestamp,
+        updatedByUid: actorUid,
+        version: (Number(existingOffer.version) || 1) + 1,
+      };
+      delete nextOfferDoc.id;
+      delete nextOfferDoc._raw;
+      tx.updateBookingRequestOffer(existingBookingRequest.id, existingOffer.id, nextOfferDoc);
+    }
+    const baseSummary = buildActiveOfferSummary({
+      ...existingOffer,
+      status: OFFER_STATUSES.ACCEPTED,
+    });
+    if (baseSummary) {
+      updatedOfferSummary = {
+        ...baseSummary,
+        holdExpiresAt: rawOffer.holdDeadline ?? existingOffer.holdDeadline ?? null,
+        offerExpiresAt: rawOffer.offerExpiresAt ?? existingOffer.offerExpiresAt ?? null,
+      };
+    }
+  }
+
+  tx.updateBookingRequest(existingBookingRequest.id, {
+    status: BOOKING_REQUEST_STATUS.CONFIRMED,
+    linkedBookingId: bookingId,
+    confirmedBookingSnapshot,
+    acceptedOfferId: effectiveAcceptedOfferId,
+    ...(updatedOfferSummary ? { activeOfferSummary: updatedOfferSummary } : {}),
+    convertedAt: existingBookingRequest.convertedAt || timestamp,
+    convertedByUid: existingBookingRequest.convertedByUid || actorUid,
+    confirmedAt: timestamp,
+    confirmedByUid: actorUid,
+    assignedStaffUid: existingBookingRequest.assignedStaffUid || actorUid,
+    updatedAt: timestamp,
+    updatedByUid: actorUid,
+    version: (Number(existingBookingRequest.version) || 1) + 1,
+  });
+
+  if (typeof tx.setBookingRequestActivity === 'function') {
+    const reservationStatus = normalizeBookingReservationStatus(bookingDoc);
+    tx.setBookingRequestActivity(existingBookingRequest.id, activityEventId, {
+      eventType: BOOKING_REQUEST_ACTIVITY_TYPES.BOOKING_CONFIRMED,
+      fromStatus: existingBookingRequest.status,
+      toStatus: BOOKING_REQUEST_STATUS.CONFIRMED,
+      linkedBookingId: bookingId,
+      note:
+        activityNote ||
+        (reservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD
+          ? `Dikonversi menjadi Deposit Hold ${confirmedBookingSnapshot.bookingReference} (${bookingDoc.date} ${formatMinuteRange(bookingDoc.startMinute, bookingDoc.endMinute)})`
+          : `Dikonfirmasi ke booking ${confirmedBookingSnapshot.bookingReference} (${bookingDoc.date} ${formatMinuteRange(bookingDoc.startMinute, bookingDoc.endMinute)})`),
+      actorUid,
+      actorName: String(actorName || '').trim(),
+      createdAt: timestamp,
+    });
+  }
+
+  return true;
+}
+
+/**
+ * Shared atomic hold expiry writes reused by `expireReservationHold` and Option A Offer release.
+ */
+export function executeExpireHoldWritesInTx(
+  tx,
+  {
+    bookingId,
+    existingBooking,
+    existingInvoice = null,
+    existingRefundCase = null,
+    ownedSlots = [],
+    slotLocks = [],
+    preTransactions = [],
+    skippedSlotIds = null,
+    reason,
+    actorUid,
+    timestamp,
+    eventId = generateOperationId('evt'),
+    refundId = '',
+    note = '',
+  },
+) {
+  const deterministicInvoiceId = `inv_${bookingId}`;
+  const deterministicRefundId = String(refundId || '').trim() || `ref_${bookingId}_expired`;
+
+  ownedSlots.forEach((slot, idx) => {
+    if (skippedSlotIds && skippedSlotIds.has(slot.id)) {
+      return;
+    }
+    const lock = slotLocks[idx];
+    if (lock && lock.bookingId === bookingId) {
+      tx.deleteSlot(slot.id);
+    }
+  });
+  tx.deletePublicAvailability?.(bookingId);
+
+  const nextVersion = (Number(existingBooking.version) || 1) + 1;
+  const expirePatch = {
+    reservationStatus: RESERVATION_STATUS.EXPIRED,
+    sessionStatus: BOOKING_SESSION_STATUS.CANCELLED,
+    expiredAt: timestamp,
+    expiredByUid: actorUid,
+    expiryReason: reason,
+    cancelledAt: timestamp,
+    cancelledByUid: actorUid,
+    cancellationType: CANCELLATION_TYPES.HOLD_EXPIRED,
+    cancellationReason: reason,
+    updatedAt: timestamp,
+    updatedByUid: actorUid,
+    version: nextVersion,
+  };
+
+  const nextBookingState = { ...existingBooking, ...expirePatch };
+  delete nextBookingState.id;
+
+  tx.updateBooking(bookingId, expirePatch);
+
+  let updatedInvoiceForProjection = existingInvoice;
+  if (existingInvoice && existingInvoice.invoiceStatus === INVOICE_STATUS.ISSUED) {
+    if (existingInvoice.amountPaid === 0 && typeof tx.updateInvoice === 'function') {
+      const invVoidDoc = {
+        ...existingInvoice,
+        invoiceStatus: INVOICE_STATUS.VOID,
+        voidReason: `Hold expired: ${reason}`.slice(0, 300),
+        updatedAt: timestamp,
+        updatedByUid: actorUid,
+        version: (Number(existingInvoice.version) || 1) + 1,
+      };
+      delete invVoidDoc.id;
+      tx.updateInvoice(deterministicInvoiceId, invVoidDoc);
+      updatedInvoiceForProjection = normalizeInvoiceRecord(deterministicInvoiceId, invVoidDoc);
+    } else if (
+      existingInvoice.amountPaid > 0 &&
+      !existingRefundCase &&
+      typeof tx.setRefundCase === 'function'
+    ) {
+      const reversedIds = new Set(
+        preTransactions
+          .filter((t) => t.transactionType === 'reversal' && t.reversalOfTransactionId)
+          .map((t) => t.reversalOfTransactionId),
+      );
+      const sourceTxIds = preTransactions
+        .filter((t) => t.transactionType === 'payment' && !reversedIds.has(t.id))
+        .slice(0, 20)
+        .map((t) => t.id);
+
+      tx.setRefundCase(deterministicRefundId, {
+        schemaVersion: 1,
+        refundId: deterministicRefundId,
+        targetType: 'booking',
+        bookingId,
+        projectId: null,
+        invoiceId: deterministicInvoiceId,
+        customerId: String(existingInvoice.customerId || existingBooking.customerId || ''),
+        clientUid: String(existingInvoice.clientUid || existingBooking.clientUid || ''),
+        triggerCategory: 'hold_expired_partial_paid',
+        sourcePaymentTransactionIds: sourceTxIds,
+        maxRefundableAmount: existingInvoice.amountPaid,
+        requestedAmount: existingInvoice.amountPaid,
+        approvedAmount: null,
+        forfeitedAmount: null,
+        resolutionMethod: null,
+        status: 'under_review',
+        requestReason: `Deposit hold kedaluwarsa dengan dana terbayar: ${reason}`.slice(0, 400),
+        decisionReason: '',
+        creditRemainingAmount: 0,
+        settlementInfo: null,
+        reviewedByUid: '',
+        reviewedAt: null,
+        createdAt: timestamp,
+        createdByUid: actorUid,
+        updatedAt: timestamp,
+        updatedByUid: actorUid,
+        version: 1,
+      });
+    }
+  }
+
+  const projection = buildClientReservationProjection(
+    { ...nextBookingState, id: bookingId },
+    updatedInvoiceForProjection,
+    timestamp,
+  );
+  if (projection) {
+    tx.setClientReservation?.(bookingId, projection);
+  }
+
+  tx.setEvent(eventId, {
+    bookingId,
+    eventType: BOOKING_EVENT_TYPES.HOLD_EXPIRED,
+    actorUid,
+    createdAt: timestamp,
+    previousValue: {
+      reservationStatus: existingBooking.reservationStatus,
+      sessionStatus: existingBooking.sessionStatus,
+      holdExpiresAt: existingBooking.holdExpiresAt ?? null,
+    },
+    newValue: {
+      reservationStatus: RESERVATION_STATUS.EXPIRED,
+      sessionStatus: BOOKING_SESSION_STATUS.CANCELLED,
+      invoiceAction:
+        existingInvoice?.amountPaid === 0
+          ? 'invoice_voided'
+          : existingInvoice?.amountPaid > 0
+            ? 'refund_case_opened'
+            : 'none',
+    },
+    note: note || `Hold diakhiri secara manual: ${reason}`,
+  });
+
+  return normalizeBookingRecord(bookingId, nextBookingState);
+}
+
 /**
  * Creates a new booking atomically using a Firestore transaction:
  * 1. Validates input & operating hours
@@ -293,6 +575,7 @@ export async function createBooking({
   optionalInitialPaymentEvidence = null,
   initialEvidenceId = '',
   expectedCloudName = '',
+  provisionalOfferConfig = null,
   adapter = getBookingRepositoryAdapter(),
 }) {
   const cleanActorUid = assertAuthenticatedStaffActor(actorUid);
@@ -302,6 +585,8 @@ export async function createBooking({
   const cleanAcceptedOfferId = String(acceptedOfferId || '').trim();
   const cleanRequestActivityEventId =
     String(requestActivityEventId || '').trim() || generateOperationId('reqact');
+  const isOfferIssueMode = Boolean(provisionalOfferConfig && cleanBookingRequestId);
+  const cleanOfferTargetId = String(provisionalOfferConfig?.offerId || '').trim();
 
   const validation = validateBookingFormPayload(formValues, [], '', pricingSettings);
   if (!validation.isValid) {
@@ -369,6 +654,28 @@ export async function createBooking({
     ? String(initialEvidenceId || '').trim() || generatePaymentEvidenceId('ev_init')
     : '';
 
+  if (
+    isOfferIssueMode &&
+    Array.isArray(provisionalOfferConfig?.priorHoldBookingIds) &&
+    provisionalOfferConfig.priorHoldBookingIds.length > 0 &&
+    typeof adapter.listPendingPaymentEvidenceForInvoice === 'function'
+  ) {
+    const pendingLists = await Promise.all(
+      provisionalOfferConfig.priorHoldBookingIds.map((priorId) =>
+        adapter.listPendingPaymentEvidenceForInvoice(`inv_${priorId}`),
+      ),
+    );
+    const totalPending = pendingLists.reduce((acc, list) => acc + (list?.length || 0), 0);
+    if (totalPending > 0) {
+      throw createBookingServiceError(
+        'hold/pending-evidence-exists',
+        'Offer sebelumnya masih memiliki bukti pembayaran DP berstatus "pending_review". Verifikasi atau tolak bukti pembayaran terlebih dahulu sebelum merevisi Offer.',
+      );
+    }
+  }
+
+  const requiredSlotIdSet = new Set(requiredSlots.map((slot) => slot.id));
+
   return adapter.runAtomicTransaction(async (tx) => {
     // 1. ALL READS FIRST (Booking, Event, PhoneIndex, Invoice, Initial Payment, Request, Offer, Policies, and Slots)
     const [
@@ -379,6 +686,7 @@ export async function createBooking({
       existingInitialPayment,
       existingBookingRequest,
       explicitAcceptedOffer,
+      existingTargetOffer,
       remoteBookingPolicies,
       ...slotSnapshots
     ] = await Promise.all([
@@ -391,9 +699,14 @@ export async function createBooking({
         ? tx.getBookingRequest(cleanBookingRequestId)
         : Promise.resolve(null),
       cleanBookingRequestId &&
-      cleanAcceptedOfferId &&
-      typeof tx.getBookingRequestOffer === 'function'
+        cleanAcceptedOfferId &&
+        typeof tx.getBookingRequestOffer === 'function'
         ? tx.getBookingRequestOffer(cleanBookingRequestId, cleanAcceptedOfferId)
+        : Promise.resolve(null),
+      isOfferIssueMode &&
+      cleanOfferTargetId &&
+      typeof tx.getBookingRequestOffer === 'function'
+        ? tx.getBookingRequestOffer(cleanBookingRequestId, cleanOfferTargetId)
         : Promise.resolve(null),
       !bookingPolicies && typeof tx.getBookingPolicies === 'function'
         ? tx.getBookingPolicies()
@@ -404,17 +717,103 @@ export async function createBooking({
     const fallbackActiveOffer =
       cleanBookingRequestId &&
       !cleanAcceptedOfferId &&
+      !isOfferIssueMode &&
       existingBookingRequest?.activeOfferId &&
       typeof tx.getBookingRequestOffer === 'function'
         ? await tx.getBookingRequestOffer(
-            cleanBookingRequestId,
-            existingBookingRequest.activeOfferId,
-          )
+          cleanBookingRequestId,
+          existingBookingRequest.activeOfferId,
+        )
         : null;
 
-    // Idempotent retry: if this exact bookingId + eventId was already committed, return it
-    // without touching customer bookingCount, aliases, phone index, invoice, initial payment, or request twice
-    if (existingBooking && existingEvent) {
+    const priorOfferIdsToInspect = isOfferIssueMode
+      ? Array.from(
+          new Set(
+            [
+              provisionalOfferConfig.previousOfferId,
+              existingBookingRequest?.activeOfferId,
+              ...(provisionalOfferConfig.otherSentOfferIds || []),
+            ]
+              .map((id) => String(id || '').trim())
+              .filter((id) => id && id !== cleanOfferTargetId),
+          ),
+        )
+      : [];
+
+    const priorLoadedOffers =
+      priorOfferIdsToInspect.length > 0 && typeof tx.getBookingRequestOffer === 'function'
+        ? (
+            await Promise.all(
+              priorOfferIdsToInspect.map((id) =>
+                tx.getBookingRequestOffer(cleanBookingRequestId, id),
+              ),
+            )
+          ).filter(Boolean)
+        : [];
+
+    const priorSentOffers = priorLoadedOffers.filter(
+      (item) => item && item.status === OFFER_STATUSES.SENT,
+    );
+    const priorSentWithHold = priorLoadedOffers.filter(
+      (item) =>
+        item &&
+        (item.status === OFFER_STATUSES.SENT || item.status === OFFER_STATUSES.REJECTED) &&
+        item.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER &&
+        item.provisionalBookingId,
+    );
+
+    const priorHoldStates = await Promise.all(
+      priorSentWithHold.map(async (sentOffer) => {
+        const priorProvId = String(sentOffer.provisionalBookingId || '').trim();
+        const priorInvId = `inv_${priorProvId}`;
+        const [priorBooking, priorInvoice, priorLock] = await Promise.all([
+          tx.getBooking(priorProvId),
+          typeof tx.getInvoice === 'function' ? tx.getInvoice(priorInvId) : Promise.resolve(null),
+          typeof tx.getPaymentEvidenceLock === 'function'
+            ? tx.getPaymentEvidenceLock(priorInvId)
+            : Promise.resolve(null),
+        ]);
+        const priorOwnedSlots = priorBooking
+          ? buildBookingSlotRecords({
+              bookingId: priorProvId,
+              date: priorBooking.date,
+              studioId: priorBooking.studioId,
+              startMinute: priorBooking.startMinute,
+              durationMinutes: priorBooking.durationMinutes,
+            })
+          : [];
+        const priorSlotLocks =
+          priorOwnedSlots.length > 0
+            ? await Promise.all(priorOwnedSlots.map((s) => tx.getSlot(s.id)))
+            : [];
+        return {
+          offer: sentOffer,
+          priorProvId,
+          priorBooking,
+          priorInvoice,
+          priorLock,
+          priorOwnedSlots,
+          priorSlotLocks,
+        };
+      }),
+    );
+
+    // Idempotent retry: if this exact Offer / Booking + Event already committed, return safely
+    if (isOfferIssueMode && existingTargetOffer) {
+      if (existingTargetOffer.createdByUid === cleanActorUid) {
+        return {
+          offer: normalizeOfferRecord(cleanOfferTargetId, existingTargetOffer),
+          booking: existingBooking || null,
+          invoice: existingInvoice || null,
+          request: existingBookingRequest,
+          supersededCount: 0,
+          idempotentReplay: true,
+        };
+      }
+      throw createBookingServiceError('offer/duplicate-id', 'ID Offer sudah digunakan oleh operasi lain.');
+    }
+
+    if (!isOfferIssueMode && existingBooking && existingEvent) {
       return existingBooking;
     }
 
@@ -458,11 +857,80 @@ export async function createBooking({
       }
     }
 
-    const resolvedOffer =
-      explicitAcceptedOffer ||
-      (fallbackActiveOffer?.status === OFFER_STATUSES.ACCEPTED ? fallbackActiveOffer : null);
+    const priorActiveOffer = isOfferIssueMode
+      ? priorLoadedOffers.find(
+          (o) =>
+            o &&
+            o.id ===
+              (String(provisionalOfferConfig.previousOfferId || '').trim() ||
+                String(existingBookingRequest?.activeOfferId || '').trim()),
+        ) || null
+      : null;
 
-    if (cleanAcceptedOfferId) {
+    if (isOfferIssueMode) {
+      if (
+        provisionalOfferConfig.expectedRequestVersion !== null &&
+        provisionalOfferConfig.expectedRequestVersion !== undefined &&
+        provisionalOfferConfig.expectedRequestVersion !== '' &&
+        Number.isInteger(Number(provisionalOfferConfig.expectedRequestVersion)) &&
+        existingBookingRequest.version !== Number(provisionalOfferConfig.expectedRequestVersion)
+      ) {
+        throw createBookingServiceError(
+          'offer/stale-request',
+          `Request baru saja berubah (v${existingBookingRequest.version}). Muat ulang detail sebelum mengirim Offer.`,
+        );
+      }
+      if (priorActiveOffer && priorActiveOffer.status === OFFER_STATUSES.ACCEPTED) {
+        throw createBookingServiceError(
+          'offer/already-accepted',
+          'Offer sebelumnya sudah disetujui Client dan bersifat immutable. Perubahan pasca-persetujuan tidak melalui revisi Offer.',
+        );
+      }
+      if (
+        priorActiveOffer &&
+        provisionalOfferConfig.expectedPreviousOfferVersion !== null &&
+        provisionalOfferConfig.expectedPreviousOfferVersion !== undefined &&
+        provisionalOfferConfig.expectedPreviousOfferVersion !== '' &&
+        Number.isInteger(Number(provisionalOfferConfig.expectedPreviousOfferVersion)) &&
+        priorActiveOffer.version !== Number(provisionalOfferConfig.expectedPreviousOfferVersion)
+      ) {
+        throw createBookingServiceError(
+          'offer/stale-offer',
+          'Status Offer sebelumnya telah berubah di sesi lain (kemungkinan baru saja direspons Client). Muat ulang sebelum merevisi.',
+        );
+      }
+
+      for (const holdState of priorHoldStates) {
+        const { priorBooking, priorInvoice, priorLock } = holdState;
+        const lockCount = Number(priorLock?.pendingCount) || 0;
+        const lockIds = priorLock?.pendingEvidenceIds || priorLock?.pendingIds || [];
+        if (lockCount > 0 || lockIds.length > 0) {
+          throw createBookingServiceError(
+            'hold/pending-evidence-exists',
+            'Offer sebelumnya masih memiliki bukti pembayaran DP yang menunggu verifikasi. Verifikasi atau tolak bukti sebelum merevisi Offer.',
+          );
+        }
+        if (priorInvoice && priorInvoice.amountPaid > 0) {
+          throw createBookingServiceError(
+            'offer/provisional-hold-has-payment',
+            'Offer sebelumnya memiliki Deposit Hold dengan pembayaran DP tercatat. Kelola penyelesaian atau refund hold dari Admin Calendar sebelum membuat penawaran baru.',
+          );
+        }
+        if (priorBooking && priorBooking.reservationStatus === RESERVATION_STATUS.CONFIRMED) {
+          throw createBookingServiceError(
+            'hold/already-confirmed',
+            'Deposit Hold provisional dari Offer sebelumnya sudah terkonfirmasi.',
+          );
+        }
+      }
+    }
+
+    const resolvedOffer = isOfferIssueMode
+      ? null
+      : explicitAcceptedOffer ||
+        (fallbackActiveOffer?.status === OFFER_STATUSES.ACCEPTED ? fallbackActiveOffer : null);
+
+    if (!isOfferIssueMode && cleanAcceptedOfferId) {
       if (!explicitAcceptedOffer) {
         throw createBookingServiceError(
           'offer/not-found',
@@ -476,7 +944,7 @@ export async function createBooking({
           `Offer berstatus "${explicitAcceptedOffer.status}" dan belum disetujui Client untuk dikonversi menjadi reservasi.`,
         );
       }
-    } else if (fallbackActiveOffer && fallbackActiveOffer.status === OFFER_STATUSES.SENT) {
+    } else if (!isOfferIssueMode && fallbackActiveOffer && fallbackActiveOffer.status === OFFER_STATUSES.SENT) {
       throw createBookingServiceError(
         'offer/pending-client-response',
         'Request masih memiliki penawaran aktif yang menunggu respons Client. Catat respons Client atau tarik penawaran sebelum membuat reservasi.',
@@ -485,6 +953,15 @@ export async function createBooking({
 
     if (resolvedOffer) {
       assertOfferModeAuthorized(resolvedOffer.offerMode);
+      if (
+        resolvedOffer.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER &&
+        resolvedOffer.provisionalBookingId
+      ) {
+        throw createBookingServiceError(
+          'offer/provisional-booking-exists',
+          `Offer Deposit Hold ini sudah memiliki booking provisional aktif (${resolvedOffer.provisionalBookingId}). Kelola konfirmasi atau perpanjangan langsung melalui Deposit Hold di Calendar.`,
+        );
+      }
       const sched = resolvedOffer.scheduleSnapshot || {};
       const svc = resolvedOffer.serviceSnapshot || {};
       const fin = resolvedOffer.financialSnapshot || {};
@@ -533,12 +1010,12 @@ export async function createBooking({
     const candidateCustomerIds = isClientPortalOrigin
       ? []
       : Array.from(
-          new Set([
-            ...(existingPhoneIndex?.activeCustomerIds || []),
-            ...(existingPhoneIndex?.historicalCustomerIds || []),
-            ...(customerResolution?.customerId ? [customerResolution.customerId] : []),
-          ]),
-        );
+        new Set([
+          ...(existingPhoneIndex?.activeCustomerIds || []),
+          ...(existingPhoneIndex?.historicalCustomerIds || []),
+          ...(customerResolution?.customerId ? [customerResolution.customerId] : []),
+        ]),
+      );
     const loadedCandidates =
       candidateCustomerIds.length > 0
         ? await Promise.all(candidateCustomerIds.map((id) => tx.getCustomer(id)))
@@ -547,12 +1024,22 @@ export async function createBooking({
       loadedCandidates.filter(Boolean).map((profile) => [profile.id, profile]),
     );
 
+    const supersededPriorBookingIds = new Set(
+      priorHoldStates
+        .filter((h) => h.priorBooking?.reservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD)
+        .map((h) => h.priorProvId),
+    );
+
     // Check slot locks BEFORE customer resolution errors so slot conflicts always rollback cleanly
     for (let i = 0; i < requiredSlots.length; i++) {
       const targetSlot = requiredSlots[i];
       const existingSlotLock = slotSnapshots[i];
 
-      if (existingSlotLock && existingSlotLock.bookingId !== cleanBookingId) {
+      if (
+        existingSlotLock &&
+        existingSlotLock.bookingId !== cleanBookingId &&
+        !supersededPriorBookingIds.has(existingSlotLock.bookingId)
+      ) {
         const slotEnd = targetSlot.slotStartMinute + 30;
         throw createBookingServiceError(
           'booking/slot-conflict',
@@ -666,32 +1153,34 @@ export async function createBooking({
     );
     const depositPolicySnapshot = resolvedOffer?.depositPolicySnapshot
       ? {
-          ...resolvedOffer.depositPolicySnapshot,
-        }
+        ...resolvedOffer.depositPolicySnapshot,
+      }
       : buildDepositPolicySnapshot({
           policies: effectivePolicies,
           serviceTypeId: payload.serviceTypeId,
           serviceOptionId: payload.serviceOptionId,
+          customDepositPolicy: provisionalOfferConfig?.customDepositPolicy || null,
           totalAmount: payload.totalAmount,
           subtotal: payload.subtotal,
         });
     const balanceDuePolicy = resolvedOffer?.balanceDuePolicy
       ? {
-          ...resolvedOffer.balanceDuePolicy,
-        }
+        ...resolvedOffer.balanceDuePolicy,
+      }
       : resolveBalanceDuePolicySnapshot({
-          policies: effectivePolicies,
-          serviceTypeId: payload.serviceTypeId,
-          serviceOptionId: payload.serviceOptionId,
-          bookingDate: payload.date,
-          startMinute: payload.startMinute,
-        });
+        policies: effectivePolicies,
+        serviceTypeId: payload.serviceTypeId,
+        serviceOptionId: payload.serviceOptionId,
+        bookingDate: payload.date,
+        startMinute: payload.startMinute,
+      });
 
     const minimumDepositAmount = Math.max(
       0,
       Math.round(Number(depositPolicySnapshot?.minimumDepositAmount) || 0),
     );
-    const verifiedInitialPaid = isClientPortalOrigin ? 0 : initialPaidInt;
+    const verifiedInitialPaid =
+      isClientPortalOrigin || isOfferIssueMode ? 0 : initialPaidInt;
     const depositStatus = computeDepositStatus({
       depositType: depositPolicySnapshot.type,
       minimumDepositAmount,
@@ -700,8 +1189,17 @@ export async function createBooking({
     const isNoDepositPolicy =
       depositPolicySnapshot.type === 'none' || minimumDepositAmount <= 0;
     const isDepositMetAtCreation = !isNoDepositPolicy && verifiedInitialPaid >= minimumDepositAmount;
-    const cleanHoldMode = String(holdMode || '').trim();
+    const cleanHoldMode = isOfferIssueMode
+      ? RESERVATION_STATUS.DEPOSIT_HOLD
+      : String(holdMode || '').trim();
     const cleanHoldOverrideReason = String(holdOverrideReason || '').trim();
+
+    if (isOfferIssueMode && isNoDepositPolicy) {
+      throw createBookingServiceError(
+        'offer/deposit-not-required',
+        'Kebijakan layanan ini tidak mewajibkan Deposit (DP), sehingga tidak dapat menggunakan Deposit Hold Offer. Gunakan mode Quote Only agar permintaan langsung dikonfirmasi tanpa Deposit Hold.',
+      );
+    }
 
     if (cleanHoldMode === RESERVATION_STATUS.DEPOSIT_HOLD && isNoDepositPolicy) {
       throw createBookingServiceError(
@@ -762,10 +1260,10 @@ export async function createBooking({
       const nextAliases =
         effectiveMode === CUSTOMER_RESOLUTION_MODE.MERGE_INTO_EXISTING
           ? appendUniqueNameAlias(
-              targetExistingProfile.displayName,
-              targetExistingProfile.nameAliases,
-              payload.customerName,
-            )
+            targetExistingProfile.displayName,
+            targetExistingProfile.nameAliases,
+            payload.customerName,
+          )
           : targetExistingProfile.nameAliases;
 
       const firstDate =
@@ -801,9 +1299,9 @@ export async function createBooking({
         version: (Number(targetExistingProfile.version) || 1) + 1,
         ...(targetExistingProfile.emailNormalized
           ? {
-              email: targetExistingProfile.email || targetExistingProfile.emailNormalized,
-              emailNormalized: targetExistingProfile.emailNormalized,
-            }
+            email: targetExistingProfile.email || targetExistingProfile.emailNormalized,
+            emailNormalized: targetExistingProfile.emailNormalized,
+          }
           : {}),
       });
 
@@ -860,6 +1358,7 @@ export async function createBooking({
     }
 
     const acceptedOfferIdValue =
+      cleanOfferTargetId ||
       resolvedOffer?.offerId ||
       cleanAcceptedOfferId ||
       String(existingBookingRequest?.acceptedOfferId || '');
@@ -1081,59 +1580,635 @@ export async function createBooking({
       }
     }
 
-    // 4. Atomic Public Booking Request Confirmation (only after all slot locks, booking & invoice writes succeed)
-    if (
-      cleanBookingRequestId &&
-      existingBookingRequest &&
-      typeof tx.updateBookingRequest === 'function'
-    ) {
-      const confirmedBookingSnapshot = {
-        bookingId: cleanBookingId,
-        bookingReference: cleanBookingId.slice(0, 14).toUpperCase(),
-        studioId: bookingDoc.studioId,
-        studioName:
-          bookingDoc.studioId === 'room-b' ? 'Room B — Control + Booth' : 'Room A — Live Room',
-        serviceTypeName: bookingDoc.serviceTypeName,
-        serviceOptionName: bookingDoc.serviceOptionName || bookingDoc.serviceTypeName,
-        date: bookingDoc.date,
-        startMinute: bookingDoc.startMinute,
-        endMinute: bookingDoc.endMinute,
-        durationMinutes: bookingDoc.durationMinutes,
+    // 4. Atomic Offer + Provisional Hold OR Booking Request Confirmation (all writes after reads)
+    if (isOfferIssueMode && existingBookingRequest) {
+      const maxExistingRevision = Math.max(
+        0,
+        Number(provisionalOfferConfig.minNextRevisionHint) || 0,
+        Number(existingBookingRequest.activeOfferSummary?.revisionNumber) || 0,
+        ...priorLoadedOffers.map((o) => Number(o?.revisionNumber) || 0),
+      );
+      const nextRevision = maxExistingRevision + 1;
+      const offerNumber = formatOfferNumber(nextRevision);
+
+      const rawBaseNow = now instanceof Date ? now : new Date(now);
+      const rawExpDate =
+        provisionalOfferConfig.offerExpiresAtDate instanceof Date
+          ? provisionalOfferConfig.offerExpiresAtDate
+          : new Date(provisionalOfferConfig.offerExpiresAtDate);
+      const effectiveOfferExpMs =
+        !provisionalOfferConfig.hasExplicitOfferExpiresAt && resolvedHoldDeadline?.holdExpiresAtDate
+          ? Math.min(rawExpDate.getTime(), resolvedHoldDeadline.holdExpiresAtDate.getTime())
+          : rawExpDate.getTime();
+      const effectiveOfferExpDate = new Date(
+        Math.max(rawBaseNow.getTime() + 60_000, effectiveOfferExpMs),
+      );
+      const offerExpiresAtTs =
+        typeof tx.timestampFromDate === 'function'
+          ? tx.timestampFromDate(effectiveOfferExpDate)
+          : effectiveOfferExpDate;
+
+      const releasedPriorIds = new Set();
+      for (const priorHold of priorHoldStates) {
+        if (
+          priorHold.priorBooking &&
+          priorHold.priorBooking.reservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD &&
+          !releasedPriorIds.has(priorHold.priorProvId)
+        ) {
+          releasedPriorIds.add(priorHold.priorProvId);
+          executeExpireHoldWritesInTx(tx, {
+            bookingId: priorHold.priorProvId,
+            existingBooking: priorHold.priorBooking,
+            existingInvoice: priorHold.priorInvoice,
+            ownedSlots: priorHold.priorOwnedSlots,
+            slotLocks: priorHold.priorSlotLocks,
+            skippedSlotIds: requiredSlotIdSet,
+            reason: `Digantikan revisi ${offerNumber}`.slice(0, 300),
+            actorUid: cleanActorUid,
+            timestamp,
+            eventId: `evt_sup_${priorHold.priorProvId}`,
+            note: `Provisional hold ${priorHold.offer.offerNumber} dilepas karena digantikan ${offerNumber}.`,
+          });
+        }
+      }
+
+      for (const priorSent of priorSentOffers) {
+        const oldRaw = priorSent._raw || priorSent;
+        const supersededDoc = {
+          ...oldRaw,
+          status: OFFER_STATUSES.SUPERSEDED,
+          supersededByOfferId: cleanOfferTargetId,
+          withdrawalOrExpiryReason: `Digantikan oleh revisi ${offerNumber}`,
+          updatedAt: timestamp,
+          updatedByUid: cleanActorUid,
+          version: (Number(priorSent.version) || 1) + 1,
+        };
+        delete supersededDoc.id;
+        delete supersededDoc._raw;
+        tx.updateBookingRequestOffer?.(cleanBookingRequestId, priorSent.id, supersededDoc);
+      }
+
+      const offerDoc = {
+        schemaVersion: OFFER_SCHEMA_VERSION,
+        offerId: cleanOfferTargetId,
+        offerNumber,
+        revisionNumber: nextRevision,
+        requestId: cleanBookingRequestId,
+        clientUid: isClientPortalOrigin ? requestedClientUid : '',
+        customerId: resolvedCustomerId,
+        offerMode: OFFER_MODES.DEPOSIT_HOLD_OFFER,
+        provisionalBookingId: cleanBookingId,
+        scheduleSnapshot: {
+          studioId: bookingDoc.studioId,
+          studioName:
+            bookingDoc.studioId === 'room-b' ? 'Room B — Control + Booth' : 'Room A — Live Room',
+          date: bookingDoc.date,
+          startMinute: bookingDoc.startMinute,
+          endMinute: bookingDoc.endMinute,
+          durationMinutes: bookingDoc.durationMinutes,
+          timeZone: STUDIO_TIME_ZONE,
+        },
+        serviceSnapshot: {
+          serviceTypeId: bookingDoc.serviceTypeId,
+          serviceTypeName: bookingDoc.serviceTypeName,
+          serviceOptionId: bookingDoc.serviceOptionId,
+          serviceOptionName: bookingDoc.serviceOptionName,
+          pricingMode: bookingDoc.pricingMode,
+          pricingSettingsVersion: bookingDoc.pricingSettingsVersion,
+        },
+        financialSnapshot: {
+          unitRate: bookingDoc.unitRate,
+          subtotal: bookingDoc.subtotal,
+          discountAmount: bookingDoc.discountAmount,
+          automaticDiscount: bookingDoc.automaticDiscount ?? null,
+          totalAmount: bookingDoc.totalAmount,
+        },
+        depositPolicySnapshot,
+        holdDeadline: holdExpiresAtVal,
+        balanceDuePolicy,
+        offerExpiresAt: offerExpiresAtTs,
+        staffNoteToClient: String(provisionalOfferConfig.staffNoteToClient || '').trim().slice(0, 500),
+        status: OFFER_STATUSES.SENT,
+        supersededByOfferId: null,
+        respondedAt: null,
+        respondedByUid: '',
+        responseReason: '',
+        withdrawalOrExpiryReason: '',
+        createdAt: timestamp,
+        createdByUid: cleanActorUid,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: 1,
       };
 
-      tx.updateBookingRequest(cleanBookingRequestId, {
-        status: BOOKING_REQUEST_STATUS.CONFIRMED,
-        linkedBookingId: cleanBookingId,
-        confirmedBookingSnapshot,
-        acceptedOfferId: acceptedOfferIdValue,
-        convertedAt: timestamp,
-        convertedByUid: cleanActorUid,
-        confirmedAt: timestamp,
-        confirmedByUid: cleanActorUid,
+      tx.setBookingRequestOffer?.(cleanBookingRequestId, cleanOfferTargetId, offerDoc);
+
+      const summary = buildActiveOfferSummary({
+        ...offerDoc,
+        holdDeadline: resolvedHoldDeadline?.holdExpiresAtIso || null,
+        offerExpiresAt: effectiveOfferExpDate.toISOString(),
+      });
+
+      tx.updateBookingRequest?.(cleanBookingRequestId, {
+        status: BOOKING_REQUEST_STATUS.OFFER_SENT,
+        activeOfferId: cleanOfferTargetId,
+        activeOfferSummary: {
+          ...summary,
+          holdExpiresAt: holdExpiresAtVal,
+          offerExpiresAt: offerExpiresAtTs,
+        },
         assignedStaffUid: existingBookingRequest.assignedStaffUid || cleanActorUid,
+        assignedStaffName:
+          existingBookingRequest.assignedStaffName || String(provisionalOfferConfig.actorName || ''),
         updatedAt: timestamp,
         updatedByUid: cleanActorUid,
         version: (Number(existingBookingRequest.version) || 1) + 1,
       });
 
-      if (typeof tx.setBookingRequestActivity === 'function') {
-        tx.setBookingRequestActivity(cleanBookingRequestId, cleanRequestActivityEventId, {
-          eventType: BOOKING_REQUEST_ACTIVITY_TYPES.BOOKING_CONFIRMED,
-          fromStatus: existingBookingRequest.status,
-          toStatus: BOOKING_REQUEST_STATUS.CONFIRMED,
-          linkedBookingId: cleanBookingId,
-          note:
-            reservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD
-              ? `Dikonversi menjadi Deposit Hold ${confirmedBookingSnapshot.bookingReference} (${bookingDoc.date} ${formatMinuteRange(bookingDoc.startMinute, bookingDoc.endMinute)})`
-              : `Dikonfirmasi ke booking ${confirmedBookingSnapshot.bookingReference} (${bookingDoc.date} ${formatMinuteRange(bookingDoc.startMinute, bookingDoc.endMinute)})`,
-          actorUid: cleanActorUid,
-          actorName: '',
-          createdAt: timestamp,
-        });
-      }
+      const isRevision = priorSentOffers.length > 0 || nextRevision > 1;
+      tx.setBookingRequestActivity?.(cleanBookingRequestId, cleanRequestActivityEventId, {
+        eventType: isRevision
+          ? BOOKING_REQUEST_ACTIVITY_TYPES.OFFER_REVISED
+          : BOOKING_REQUEST_ACTIVITY_TYPES.OFFER_SENT,
+        fromStatus: existingBookingRequest.status,
+        toStatus: BOOKING_REQUEST_STATUS.OFFER_SENT,
+        linkedBookingId: null,
+        note: isRevision
+          ? `${offerNumber} (deposit_hold_offer · ${cleanBookingId}) dikirim menggantikan revisi sebelumnya.`
+          : `${offerNumber} (deposit_hold_offer · ${cleanBookingId}) dikirim dengan Deposit Hold & Invoice belum lunas.`,
+        actorUid: cleanActorUid,
+        actorName: String(provisionalOfferConfig.actorName || '').trim(),
+        createdAt: timestamp,
+      });
+
+      return {
+        offer: normalizeOfferRecord(cleanOfferTargetId, {
+          ...offerDoc,
+          holdDeadline: resolvedHoldDeadline?.holdExpiresAtIso || null,
+          offerExpiresAt: effectiveOfferExpDate.toISOString(),
+          createdAt: rawBaseNow.toISOString(),
+          updatedAt: rawBaseNow.toISOString(),
+        }),
+        booking: normalizeBookingRecord(cleanBookingId, bookingDoc),
+        invoice: normalizeInvoiceRecord(invoiceId, canonicalInvoiceDoc),
+        supersededCount: priorSentOffers.length,
+        idempotentReplay: false,
+      };
+    }
+
+    if (
+      cleanBookingRequestId &&
+      existingBookingRequest &&
+      typeof tx.updateBookingRequest === 'function'
+    ) {
+      finalizeBookingRequestInTx(tx, {
+        existingBookingRequest,
+        existingOffer: resolvedOffer,
+        bookingId: cleanBookingId,
+        bookingDoc,
+        acceptedOfferId: acceptedOfferIdValue,
+        timestamp,
+        actorUid: cleanActorUid,
+        activityEventId: cleanRequestActivityEventId,
+      });
     }
 
     return normalizeBookingRecord(cleanBookingId, bookingDoc);
+  });
+}
+
+/**
+ * Releases any unpaid, unlocked provisional `deposit_hold` booking linked to a `deposit_hold_offer`
+ * when withdrawing, expiring, staff-rejecting, or superseding it with a `quote_only` Offer revision.
+ */
+export async function closeOrSupersedeOfferWithProvisionalHold({
+  mode = 'close', // 'close' | 'staff_reject' | 'supersede_with_quote'
+  requestId,
+  offerId,
+  targetOfferStatus = OFFER_STATUSES.WITHDRAWN,
+  closeRequest = false,
+  expectedOfferVersion = null,
+  expectedRequestVersion = null,
+  reason = '',
+  newQuoteOfferConfig = null,
+  actorUid,
+  actorName = '',
+  activityId = generateOperationId('reqact'),
+  now = new Date(),
+  adapter = getBookingRepositoryAdapter(),
+}) {
+  const cleanActorUid = assertAuthenticatedStaffActor(actorUid);
+  const cleanRequestId = String(requestId || '').trim();
+  const cleanOfferId = String(offerId || '').trim();
+  const cleanReason = String(reason || '').trim();
+  const cleanActivityId = String(activityId || '').trim() || generateOperationId('reqact');
+
+  const candidateHoldCheckIds = Array.from(
+    new Set(newQuoteOfferConfig?.priorHoldBookingIds || []),
+  ).filter(Boolean);
+
+  if (
+    candidateHoldCheckIds.length > 0 &&
+    typeof adapter.listPendingPaymentEvidenceForInvoice === 'function'
+  ) {
+    const pendingLists = await Promise.all(
+      candidateHoldCheckIds.map((bId) => adapter.listPendingPaymentEvidenceForInvoice(`inv_${bId}`)),
+    );
+    if (pendingLists.some((l) => (l?.length || 0) > 0)) {
+      throw createBookingServiceError(
+        'hold/pending-evidence-exists',
+        'Terdapat bukti pembayaran berstatus "pending_review" yang belum ditinjau pada Hold ini.',
+      );
+    }
+  }
+
+  return adapter.runAtomicTransaction(async (tx) => {
+    const currentReq = await tx.getBookingRequest?.(cleanRequestId);
+    const targetOffer =
+      mode === 'supersede_with_quote' && newQuoteOfferConfig?.offerId
+        ? await tx.getBookingRequestOffer?.(cleanRequestId, newQuoteOfferConfig.offerId)
+        : await tx.getBookingRequestOffer?.(cleanRequestId, cleanOfferId);
+
+    if (mode === 'supersede_with_quote') {
+      if (targetOffer) {
+        if (targetOffer.createdByUid === cleanActorUid) {
+          return {
+            offer: normalizeOfferRecord(newQuoteOfferConfig.offerId, targetOffer),
+            request: currentReq,
+            supersededCount: 0,
+            idempotentReplay: true,
+          };
+        }
+        throw createBookingServiceError('offer/duplicate-id', 'ID Offer sudah digunakan oleh operasi lain.');
+      }
+      if (!currentReq) {
+        throw createBookingServiceError('booking-request/not-found', 'Booking request tidak ditemukan.');
+      }
+
+      const candidatePriorIds = Array.from(
+        new Set(
+          [
+            newQuoteOfferConfig.previousOfferId,
+            currentReq.activeOfferId,
+            ...(newQuoteOfferConfig.otherSentOfferIds || []),
+          ]
+            .map((id) => String(id || '').trim())
+            .filter((id) => id && id !== newQuoteOfferConfig.offerId),
+        ),
+      );
+      const priorOffers = (
+        await Promise.all(
+          candidatePriorIds.map((id) => tx.getBookingRequestOffer?.(cleanRequestId, id)),
+        )
+      ).filter(Boolean);
+
+      const priorActive = priorOffers.find(
+        (o) =>
+          o.id ===
+          (String(newQuoteOfferConfig.previousOfferId || '').trim() ||
+            String(currentReq.activeOfferId || '').trim()),
+      );
+      if (
+        newQuoteOfferConfig.expectedRequestVersion !== null &&
+        newQuoteOfferConfig.expectedRequestVersion !== undefined &&
+        newQuoteOfferConfig.expectedRequestVersion !== '' &&
+        currentReq.version !== Number(newQuoteOfferConfig.expectedRequestVersion)
+      ) {
+        throw createBookingServiceError(
+          'offer/stale-request',
+          `Request baru saja berubah (v${currentReq.version}). Muat ulang detail sebelum mengirim Offer.`,
+        );
+      }
+      if (priorActive?.status === OFFER_STATUSES.ACCEPTED) {
+        throw createBookingServiceError(
+          'offer/already-accepted',
+          'Offer sebelumnya sudah disetujui Client dan bersifat immutable.',
+        );
+      }
+      if (
+        priorActive &&
+        newQuoteOfferConfig.expectedPreviousOfferVersion !== null &&
+        newQuoteOfferConfig.expectedPreviousOfferVersion !== undefined &&
+        newQuoteOfferConfig.expectedPreviousOfferVersion !== '' &&
+        priorActive.version !== Number(newQuoteOfferConfig.expectedPreviousOfferVersion)
+      ) {
+        throw createBookingServiceError(
+          'offer/stale-offer',
+          'Status Offer sebelumnya telah berubah. Muat ulang sebelum merevisi.',
+        );
+      }
+
+      const sentOffers = priorOffers.filter((o) => o.status === OFFER_STATUSES.SENT);
+      const holdEntries = await Promise.all(
+        priorOffers
+          .filter(
+            (o) =>
+              (o.status === OFFER_STATUSES.SENT || o.status === OFFER_STATUSES.REJECTED) &&
+              o.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER &&
+              o.provisionalBookingId,
+          )
+          .map(async (sentOffer) => {
+            const bId = String(sentOffer.provisionalBookingId || '').trim();
+            const invId = `inv_${bId}`;
+            const [booking, invoice, lock] = await Promise.all([
+              tx.getBooking(bId),
+              tx.getInvoice?.(invId),
+              tx.getPaymentEvidenceLock?.(invId),
+            ]);
+            const ownedSlots = booking
+              ? buildBookingSlotRecords({
+                  bookingId: bId,
+                  date: booking.date,
+                  studioId: booking.studioId,
+                  startMinute: booking.startMinute,
+                  durationMinutes: booking.durationMinutes,
+                })
+              : [];
+            const slotLocks =
+              ownedSlots.length > 0 ? await Promise.all(ownedSlots.map((s) => tx.getSlot(s.id))) : [];
+            return { offer: sentOffer, bId, booking, invoice, lock, ownedSlots, slotLocks };
+          }),
+      );
+
+      for (const h of holdEntries) {
+        const lockCount = Number(h.lock?.pendingCount) || 0;
+        const lockIds = h.lock?.pendingEvidenceIds || h.lock?.pendingIds || [];
+        if (lockCount > 0 || lockIds.length > 0) {
+          throw createBookingServiceError(
+            'hold/pending-evidence-exists',
+            'Offer sebelumnya memiliki bukti pembayaran DP pending_review. Verifikasi atau tolak bukti sebelum merevisi Offer.',
+          );
+        }
+        if (h.invoice && h.invoice.amountPaid > 0) {
+          throw createBookingServiceError(
+            'offer/provisional-hold-has-payment',
+            'Offer sebelumnya memiliki Deposit Hold dengan pembayaran DP tercatat.',
+          );
+        }
+      }
+
+      const timestamp = tx.nowValue();
+      const maxRev = Math.max(
+        0,
+        Number(newQuoteOfferConfig.minNextRevisionHint) || 0,
+        Number(currentReq.activeOfferSummary?.revisionNumber) || 0,
+        ...priorOffers.map((o) => Number(o?.revisionNumber) || 0),
+      );
+      const nextRevision = maxRev + 1;
+      const offerNumber = formatOfferNumber(nextRevision);
+
+      const releasedQuotePriorIds = new Set();
+      for (const h of holdEntries) {
+        if (
+          h.booking &&
+          h.booking.reservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD &&
+          !releasedQuotePriorIds.has(h.bId)
+        ) {
+          releasedQuotePriorIds.add(h.bId);
+          executeExpireHoldWritesInTx(tx, {
+            bookingId: h.bId,
+            existingBooking: h.booking,
+            existingInvoice: h.invoice,
+            ownedSlots: h.ownedSlots,
+            slotLocks: h.slotLocks,
+            reason: `Digantikan revisi ${offerNumber}`.slice(0, 300),
+            actorUid: cleanActorUid,
+            timestamp,
+            eventId: `evt_sup_${h.bId}`,
+          });
+        }
+      }
+
+      for (const sentOffer of sentOffers) {
+        const oldRaw = sentOffer._raw || sentOffer;
+        const supDoc = {
+          ...oldRaw,
+          status: OFFER_STATUSES.SUPERSEDED,
+          supersededByOfferId: newQuoteOfferConfig.offerId,
+          withdrawalOrExpiryReason: `Digantikan oleh revisi ${offerNumber}`,
+          updatedAt: timestamp,
+          updatedByUid: cleanActorUid,
+          version: (Number(sentOffer.version) || 1) + 1,
+        };
+        delete supDoc.id;
+        delete supDoc._raw;
+        tx.updateBookingRequestOffer?.(cleanRequestId, sentOffer.id, supDoc);
+      }
+
+      const offerExpDate = newQuoteOfferConfig.offerExpiresAtDate;
+      const offerExpiresAtTs =
+        typeof tx.timestampFromDate === 'function' ? tx.timestampFromDate(offerExpDate) : offerExpDate;
+      const quoteOfferDoc = {
+        schemaVersion: OFFER_SCHEMA_VERSION,
+        offerId: newQuoteOfferConfig.offerId,
+        offerNumber,
+        revisionNumber: nextRevision,
+        requestId: cleanRequestId,
+        clientUid: String(currentReq.clientUid || '').trim(),
+        customerId: String(currentReq.customerId || '').trim(),
+        offerMode: OFFER_MODES.QUOTE_ONLY,
+        provisionalBookingId: null,
+        scheduleSnapshot: newQuoteOfferConfig.scheduleSnapshot,
+        serviceSnapshot: newQuoteOfferConfig.serviceSnapshot,
+        financialSnapshot: newQuoteOfferConfig.financialSnapshot,
+        depositPolicySnapshot: newQuoteOfferConfig.depositPolicySnapshot,
+        holdDeadline: null,
+        balanceDuePolicy: newQuoteOfferConfig.balanceDuePolicy,
+        offerExpiresAt: offerExpiresAtTs,
+        staffNoteToClient: newQuoteOfferConfig.staffNoteToClient,
+        status: OFFER_STATUSES.SENT,
+        supersededByOfferId: null,
+        respondedAt: null,
+        respondedByUid: '',
+        responseReason: '',
+        withdrawalOrExpiryReason: '',
+        createdAt: timestamp,
+        createdByUid: cleanActorUid,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: 1,
+      };
+      tx.setBookingRequestOffer?.(cleanRequestId, newQuoteOfferConfig.offerId, quoteOfferDoc);
+
+      const summary = buildActiveOfferSummary({
+        ...quoteOfferDoc,
+        offerExpiresAt: offerExpDate.toISOString(),
+      });
+      tx.updateBookingRequest?.(cleanRequestId, {
+        status: BOOKING_REQUEST_STATUS.OFFER_SENT,
+        activeOfferId: newQuoteOfferConfig.offerId,
+        activeOfferSummary: { ...summary, offerExpiresAt: offerExpiresAtTs },
+        assignedStaffUid: currentReq.assignedStaffUid || cleanActorUid,
+        assignedStaffName: currentReq.assignedStaffName || actorName || '',
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: (Number(currentReq.version) || 1) + 1,
+      });
+
+      tx.setBookingRequestActivity?.(cleanRequestId, cleanActivityId, {
+        eventType: BOOKING_REQUEST_ACTIVITY_TYPES.OFFER_REVISED,
+        fromStatus: currentReq.status,
+        toStatus: BOOKING_REQUEST_STATUS.OFFER_SENT,
+        linkedBookingId: null,
+        note: `${offerNumber} (quote_only) dikirim menggantikan revisi Deposit Hold sebelumnya.`,
+        actorUid: cleanActorUid,
+        actorName: String(actorName || '').trim(),
+        createdAt: timestamp,
+      });
+
+      return {
+        offer: normalizeOfferRecord(newQuoteOfferConfig.offerId, {
+          ...quoteOfferDoc,
+          offerExpiresAt: offerExpDate.toISOString(),
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+        }),
+        supersededCount: sentOffers.length,
+        idempotentReplay: false,
+      };
+    }
+
+    // Close (withdraw / expire) or staff_reject of an active `sent` `deposit_hold_offer`
+    if (!currentReq || !targetOffer) {
+      throw createBookingServiceError('offer/not-found', 'Offer tidak ditemukan.');
+    }
+    if (targetOffer.status === targetOfferStatus && targetOffer.respondedByUid === cleanActorUid) {
+      return { offer: targetOffer, idempotentReplay: true };
+    }
+    if (targetOffer.status !== OFFER_STATUSES.SENT) {
+      throw createBookingServiceError(
+        'offer/not-actionable',
+        `Offer berstatus "${targetOffer.status}" tidak dapat diubah ke "${targetOfferStatus}".`,
+      );
+    }
+    if (
+      (expectedOfferVersion !== null &&
+        expectedOfferVersion !== undefined &&
+        expectedOfferVersion !== '' &&
+        targetOffer.version !== Number(expectedOfferVersion)) ||
+      (expectedRequestVersion !== null &&
+        expectedRequestVersion !== undefined &&
+        expectedRequestVersion !== '' &&
+        currentReq.version !== Number(expectedRequestVersion))
+    ) {
+      throw createBookingServiceError(
+        'offer/stale-offer',
+        'Data Offer atau Request telah berubah. Muat ulang sebelum melanjutkan.',
+      );
+    }
+
+    const provBookingId = String(targetOffer.provisionalBookingId || '').trim();
+    const provInvId = provBookingId ? `inv_${provBookingId}` : '';
+    const [provBooking, provInvoice, provLock] = provBookingId
+      ? await Promise.all([
+          tx.getBooking(provBookingId),
+          tx.getInvoice?.(provInvId),
+          tx.getPaymentEvidenceLock?.(provInvId),
+        ])
+      : [null, null, null];
+    const ownedSlots = provBooking
+      ? buildBookingSlotRecords({
+          bookingId: provBookingId,
+          date: provBooking.date,
+          studioId: provBooking.studioId,
+          startMinute: provBooking.startMinute,
+          durationMinutes: provBooking.durationMinutes,
+        })
+      : [];
+    const slotLocks =
+      ownedSlots.length > 0 ? await Promise.all(ownedSlots.map((s) => tx.getSlot(s.id))) : [];
+
+    const lockCount = Number(provLock?.pendingCount) || 0;
+    const lockIds = provLock?.pendingEvidenceIds || provLock?.pendingIds || [];
+    if (lockCount > 0 || lockIds.length > 0) {
+      throw createBookingServiceError(
+        'hold/pending-evidence-exists',
+        'Deposit Hold pada Offer ini memiliki bukti pembayaran pending_review. Tinjau bukti tersebut terlebih dahulu.',
+      );
+    }
+    if (provInvoice && provInvoice.amountPaid > 0) {
+      throw createBookingServiceError(
+        'offer/provisional-hold-has-payment',
+        'Deposit Hold pada Offer ini sudah menerima pembayaran DP. Kelola pengakhiran & refund melalui Calendar Hold Ledger.',
+      );
+    }
+
+    const timestamp = tx.nowValue();
+    if (provBooking && provBooking.reservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD) {
+      executeExpireHoldWritesInTx(tx, {
+        bookingId: provBookingId,
+        existingBooking: provBooking,
+        existingInvoice: provInvoice,
+        ownedSlots,
+        slotLocks,
+        reason: (cleanReason || `Offer ${targetOffer.offerNumber} ${targetOfferStatus}`).slice(0, 300),
+        actorUid: cleanActorUid,
+        timestamp,
+        eventId: `evt_rel_${provBookingId}`,
+      });
+    }
+
+    const rawOffer = targetOffer._raw || targetOffer;
+    const isReject = mode === 'staff_reject' || targetOfferStatus === OFFER_STATUSES.REJECTED;
+    const updatedOfferDoc = {
+      ...rawOffer,
+      status: targetOfferStatus,
+      respondedAt: timestamp,
+      respondedByUid: cleanActorUid,
+      ...(isReject
+        ? { responseReason: cleanReason.slice(0, 300) }
+        : { withdrawalOrExpiryReason: cleanReason }),
+      updatedAt: timestamp,
+      updatedByUid: cleanActorUid,
+      version: (Number(targetOffer.version) || 1) + 1,
+    };
+    delete updatedOfferDoc.id;
+    delete updatedOfferDoc._raw;
+    tx.updateBookingRequestOffer?.(cleanRequestId, cleanOfferId, updatedOfferDoc);
+
+    const nextReqStatus = closeRequest
+      ? BOOKING_REQUEST_STATUS.CLOSED
+      : BOOKING_REQUEST_STATUS.IN_REVIEW;
+    const baseSummary = buildActiveOfferSummary({
+      ...targetOffer,
+      status: targetOfferStatus,
+    });
+    tx.updateBookingRequest?.(cleanRequestId, {
+      status: nextReqStatus,
+      ...(closeRequest ? { statusReason: cleanReason } : {}),
+      activeOfferSummary: {
+        ...baseSummary,
+        holdExpiresAt: rawOffer.holdDeadline ?? targetOffer.holdDeadline ?? null,
+        offerExpiresAt: rawOffer.offerExpiresAt ?? targetOffer.offerExpiresAt ?? null,
+      },
+      updatedAt: timestamp,
+      updatedByUid: cleanActorUid,
+      version: (Number(currentReq.version) || 1) + 1,
+    });
+
+    const activityType = isReject
+      ? BOOKING_REQUEST_ACTIVITY_TYPES.OFFER_REJECTED
+      : targetOfferStatus === OFFER_STATUSES.EXPIRED
+        ? BOOKING_REQUEST_ACTIVITY_TYPES.OFFER_EXPIRED
+        : BOOKING_REQUEST_ACTIVITY_TYPES.OFFER_WITHDRAWN;
+
+    tx.setBookingRequestActivity?.(cleanRequestId, cleanActivityId, {
+      eventType: activityType,
+      fromStatus: currentReq.status,
+      toStatus: nextReqStatus,
+      linkedBookingId: null,
+      note: provBooking
+        ? `${targetOffer.offerNumber} ditandai ${targetOfferStatus} & Deposit Hold ${provBookingId} dilepaskan: ${cleanReason}`.slice(0, 500)
+        : `${targetOffer.offerNumber} ditandai ${targetOfferStatus}: ${cleanReason}`.slice(0, 500),
+      actorUid: cleanActorUid,
+      actorName: String(actorName || '').trim(),
+      createdAt: timestamp,
+    });
+
+    return {
+      offer: normalizeOfferRecord(cleanOfferId, updatedOfferDoc),
+      idempotentReplay: false,
+    };
   });
 }
 
@@ -1377,24 +2452,24 @@ export async function updateOrRescheduleBooking({
     // unless service/subcategory/duration changed and user explicitly confirmed applying current pricing.
     const preservedV2ServiceFields = shouldApplyNewSnapshot
       ? {
-          serviceTypeId: payload.serviceTypeId,
-          serviceTypeName: payload.serviceTypeName,
-          serviceOptionId: payload.serviceOptionId,
-          serviceOptionName: payload.serviceOptionName,
-          deliveryMode: payload.deliveryMode,
-          pricingMode: payload.pricingMode,
-          pricingSettingsVersion: payload.pricingSettingsVersion,
-        }
+        serviceTypeId: payload.serviceTypeId,
+        serviceTypeName: payload.serviceTypeName,
+        serviceOptionId: payload.serviceOptionId,
+        serviceOptionName: payload.serviceOptionName,
+        deliveryMode: payload.deliveryMode,
+        pricingMode: payload.pricingMode,
+        pricingSettingsVersion: payload.pricingSettingsVersion,
+      }
       : existingBooking.serviceTypeId
         ? {
-            serviceTypeId: existingBooking.serviceTypeId,
-            serviceTypeName: existingBooking.serviceTypeName,
-            serviceOptionId: existingBooking.serviceOptionId,
-            serviceOptionName: existingBooking.serviceOptionName,
-            deliveryMode: existingBooking.deliveryMode,
-            pricingMode: existingBooking.pricingMode,
-            pricingSettingsVersion: existingBooking.pricingSettingsVersion,
-          }
+          serviceTypeId: existingBooking.serviceTypeId,
+          serviceTypeName: existingBooking.serviceTypeName,
+          serviceOptionId: existingBooking.serviceOptionId,
+          serviceOptionName: existingBooking.serviceOptionName,
+          deliveryMode: existingBooking.deliveryMode,
+          pricingMode: existingBooking.pricingMode,
+          pricingSettingsVersion: existingBooking.pricingSettingsVersion,
+        }
         : {};
 
     const preservedCustomerLinkFields = {};
@@ -2327,7 +3402,7 @@ export function createInMemoryBookingRepositoryAdapter(
 
   function enqueueTransaction(work) {
     const runNext = transactionQueue.then(work);
-    transactionQueue = runNext.catch(() => {});
+    transactionQueue = runNext.catch(() => { });
     return runNext;
   }
 
@@ -2855,7 +3930,7 @@ export function createInMemoryBookingRepositoryAdapter(
       const cleanCustomerId = String(customerId || '').trim();
       if (!cleanClientUid && !cleanCustomerId) {
         queueMicrotask(() => onError?.(new Error('Missing Client identity for reservation subscription.')));
-        return () => {};
+        return () => { };
       }
 
       const sub = {
@@ -2888,7 +3963,7 @@ export function createInMemoryBookingRepositoryAdapter(
     subscribeBookingEvents({ bookingId, onData }) {
       if (!bookingId) {
         onData?.([]);
-        return () => {};
+        return () => { };
       }
       if (!eventSubscribers.has(bookingId)) {
         eventSubscribers.set(bookingId, new Set());

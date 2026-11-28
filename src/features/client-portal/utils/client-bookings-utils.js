@@ -393,20 +393,44 @@ export function mergeClientBookingRecords({
   const projectedRecords = reservationRecords.map((reservation) => {
     const bookingId = String(reservation.bookingId || reservation.id || '').trim();
     const sourceRequestId = String(reservation.sourceRequestId || '').trim();
-    const linkedRequest =
+    const candidateRequest =
       (sourceRequestId ? requestsById.get(sourceRequestId) : null) ||
       requestsByBookingId.get(bookingId) ||
       null;
 
+    const reservationResStatus = String(reservation.reservationStatus || 'confirmed');
+    const isSupersededOrInactiveForRequest =
+      candidateRequest &&
+      candidateRequest.status !== BOOKING_REQUEST_STATUS.CONFIRMED &&
+      (candidateRequest.activeOfferSummary?.provisionalBookingId
+        ? candidateRequest.activeOfferSummary.provisionalBookingId !== bookingId
+        : ['expired', 'cancelled'].includes(reservationResStatus));
+
+    const linkedRequest =
+      candidateRequest &&
+      !isSupersededOrInactiveForRequest &&
+      (!candidateRequest.linkedBookingId || candidateRequest.linkedBookingId === bookingId)
+        ? candidateRequest
+        : null;
+
     if (linkedRequest?.id) consumedRequestIds.add(linkedRequest.id);
+
+    const effectiveStatus =
+      linkedRequest &&
+      linkedRequest.status !== BOOKING_REQUEST_STATUS.CONFIRMED &&
+      reservationResStatus === 'deposit_hold'
+        ? linkedRequest.status
+        : BOOKING_REQUEST_STATUS.CONFIRMED;
 
     return {
       ...(linkedRequest || {}),
       id: bookingId,
       source: 'client_reservation',
+      sourceRequestId: linkedRequest?.id || sourceRequestId || '',
+      requestVersion: linkedRequest?.version ?? null,
       requestReference: String(linkedRequest?.requestReference || '').trim(),
       requestType: BOOKING_REQUEST_TYPES.STUDIO_BOOKING,
-      status: BOOKING_REQUEST_STATUS.CONFIRMED,
+      status: effectiveStatus,
       serviceLabelSnapshot: String(
         reservation.serviceTypeName || linkedRequest?.serviceLabelSnapshot || '',
       ).trim(),
@@ -414,9 +438,11 @@ export function mergeClientBookingRecords({
         reservation.serviceOptionName || linkedRequest?.serviceOptionName || '',
       ).trim(),
       createdAt: reservation.createdAt || linkedRequest?.createdAt || null,
-      confirmedAt: linkedRequest?.confirmedAt || reservation.createdAt || null,
+      confirmedAt:
+        linkedRequest?.confirmedAt ||
+        (reservationResStatus === 'confirmed' ? reservation.createdAt || null : null),
       updatedAt: reservation.updatedAt || linkedRequest?.updatedAt || reservation.createdAt || null,
-      linkedBookingId: bookingId,
+      linkedBookingId: linkedRequest?.linkedBookingId || (reservationResStatus === 'confirmed' ? bookingId : null),
       confirmedBookingSnapshot: {
         bookingId,
         bookingReference: String(reservation.bookingReference || '').trim(),

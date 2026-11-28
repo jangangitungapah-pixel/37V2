@@ -21,6 +21,7 @@ import {
   RESERVATION_STATUS,
 } from '@/features/admin/calendar/config/calendar-config';
 import { generateOperationId } from '@/features/admin/calendar/repositories/calendar-booking-repository';
+import { finalizeBookingRequestInTx } from '@/features/admin/calendar/services/calendar-booking-service';
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
 import { normalizeBookingReservationStatus } from '@/features/admin/calendar/utils/booking-time';
 import {
@@ -139,6 +140,8 @@ export function applyValidatedPaymentInTransaction(
     existingTransaction = null,
     existingClientReservation = null,
     existingBooking = null,
+    existingBookingRequest = null,
+    existingOffer = null,
     expectedVersion,
     amount,
     paymentMethod = 'cash',
@@ -406,6 +409,19 @@ export function applyValidatedPaymentInTransaction(
       clientReservationPatch.sessionStatus = BOOKING_SESSION_STATUS.UPCOMING;
       clientReservationPatch.holdExpiresAt = null;
       clientReservationPatch.version = nextBookingVersion;
+      if (existingBookingRequest) {
+        finalizeBookingRequestInTx(tx, {
+          existingBookingRequest,
+          existingOffer,
+          bookingId: existingBooking.id,
+          bookingDoc: nextBookingForProjection,
+          acceptedOfferId: existingBooking.acceptedOfferId || '',
+          timestamp: effectiveNow,
+          actorUid: cleanActorUid,
+          activityEventId: `reqact_dp_${cleanTxId}`,
+          activityNote: `DP terverifikasi (${formatRupiah(nextTotals.amountPaid)}) mengonfirmasi reservasi secara otomatis.`,
+        });
+      }
     } else if (
       nextDepositStatus &&
       (existingBooking.depositPolicySnapshot != null || existingBooking.depositStatus != null) &&
@@ -512,6 +528,16 @@ export async function recordInvoicePayment({
         ? tx.getBooking(existingInvoice.bookingId)
         : Promise.resolve(null),
     ]);
+    const [existingBookingRequest, existingOffer] = await Promise.all([
+      existingBooking?.sourceRequestId && typeof tx.getBookingRequest === 'function'
+        ? tx.getBookingRequest(existingBooking.sourceRequestId)
+        : Promise.resolve(null),
+      existingBooking?.sourceRequestId &&
+      existingBooking?.acceptedOfferId &&
+      typeof tx.getBookingRequestOffer === 'function'
+        ? tx.getBookingRequestOffer(existingBooking.sourceRequestId, existingBooking.acceptedOfferId)
+        : Promise.resolve(null),
+    ]);
 
     const applied = applyValidatedPaymentInTransaction(tx, {
       transactionId: cleanTxId,
@@ -519,6 +545,8 @@ export async function recordInvoicePayment({
       existingTransaction,
       existingClientReservation,
       existingBooking,
+      existingBookingRequest,
+      existingOffer,
       expectedVersion,
       amount: validation.data.amount,
       paymentMethod: validation.data.paymentMethod,

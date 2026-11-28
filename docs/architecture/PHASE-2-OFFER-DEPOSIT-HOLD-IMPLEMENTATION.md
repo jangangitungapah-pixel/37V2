@@ -4,21 +4,29 @@
 **Repository:** `https://github.com/jangangitungapah-pixel/37V2`  
 **Branch:** `feature/phase-2-offer-revisions-deposit-hold-engine`  
 **Base Accepted Phase 1 Commit:** `2762923ea6de93345058b97012951555f1a354f2`  
+**Owner ADR Resolution (`2026-11-28`, `"saya pilih opsi A"`):** **Choice A Selected** — `offerMode = 'deposit_hold_offer'` is active end-to-end.  
 **Target Environment Mode:** Local development, automated tests, and documentation only (no Firebase production deployment or backfill performed)  
-**Overall Gate Status (Dependent Path ADR):** `quote_only` Offers, Policy Runtime Engine, Deposit Hold Lifecycle (`create`, `extend`, `manual expiry`, `confirm`, `restore`, `OD-09` pending-evidence shield, `refundCases` handoff), and Firestore Rules/Indexes are implemented and locally verified. The `deposit_hold_offer` mode remains **explicitly BLOCKED** behind `offer/deposit-hold-timing-unresolved` pending an Owner Architecture Decision Record (ADR Choice A vs Choice B).
+**Overall Gate Status:** Both `quote_only` and `deposit_hold_offer` (Option A) Offer workflows, Policy Runtime Engine, Deposit Hold Lifecycle (`create`, `extend`, `manual expiry`, `confirm`, `restore`, `OD-09` pending-evidence shield, `refundCases` handoff), Client Portal Option A Offer + Deposit Hold flow, and Firestore Rules/Indexes are implemented and verified locally (`verify:phase1` and `verify:phase2`).
 
 ---
 
-## 1. Explicit ADR Blocking Boundary (`deposit_hold_offer`)
+## 1. Resolved Owner ADR Architecture (`deposit_hold_offer` — Choice A)
 
-Until the Owner resolves the Spark security-boundary timing question for provisional holds issued *within* an Offer:
+Per Owner decision on `2026-11-28` (`"saya pilih opsi A"`), the Spark security-boundary flow for `offerMode = 'deposit_hold_offer'` uses **Option A**:
 
-- **Choice A:** Staff creates an unpaid provisional `deposit_hold` booking + issued invoice atomically at Offer send time (so Client Portal payment evidence attaches to an existing Staff-created invoice before Offer acceptance).
-- **Choice B:** Client accepts the `deposit_hold_offer` first, and a separate Staff conversion action issues the `deposit_hold` booking + invoice afterward.
-
-**Implemented Fail-Closed Guard:**
-- `src/features/admin/booking-requests/schemas/offer-schema.js` defines `OFFER_MODES.QUOTE_ONLY` (`'quote_only'`), `OFFER_MODES.DEPOSIT_HOLD_OFFER` (`'deposit_hold_offer'`), `DEPOSIT_HOLD_OFFER_BLOCK_ERROR_CODE = 'offer/deposit-hold-timing-unresolved'`, and `assertOfferModeAuthorized(offerMode)`.
-- `offer-service.js` and `firestore.rules` (`isValidOfferCreate`, `isValidOfferStaffUpdate`, `isValidOfferClientRespondUpdate`) restrict active offers strictly to `offerMode == 'quote_only'` and `provisionalBookingId == null` until the Owner resolves Choice A vs Choice B.
+- **At Offer Send Time (Staff Authority):** When Staff sends or revises an Offer with `offerMode = 'deposit_hold_offer'`, Staff atomically creates:
+  1. Provisional `bookings/{provisionalBookingId}` (`reservationStatus = 'deposit_hold'`, `sessionStatus = 'pending_confirmation'`, `holdExpiresAt = holdDeadline`, `sourceRequestId`, `acceptedOfferId`)
+  2. All 30-minute `bookingSlots/{date__studioId__slotStartMinute}` locks + `publicAvailability/{provisionalBookingId}`
+  3. Issued unpaid `invoices/inv_{provisionalBookingId}` (`clientPaymentEvidenceRequired: Boolean(clientUid)`)
+  4. Customer-safe `clientReservations/{provisionalBookingId}` projection + `bookingEvents`
+  5. `publicBookingRequests/{requestId}/offers/{offerId}` (`status = 'sent'`, `provisionalBookingId`, `holdDeadline`) + parent `publicBookingRequests/{requestId}` (`status = 'offer_sent'`, `activeOfferSummary` with `provisionalBookingId` & `holdExpiresAt`) + `activities`
+- **No-Deposit Guard:** Because a provisional `deposit_hold` has no meaning when minimum DP is `Rp 0`, `createAndSendOffer` fails closed with `offer/deposit-not-required` when `depositPolicySnapshot.type === 'none' || minimumDepositAmount <= 0` (directing Staff to use `quote_only`).
+- **Client Action Boundary Preserved:** `acceptClientOffer` and `rejectClientOffer` still mutate **ONLY** `offers/{offerId}`, `publicBookingRequests/{requestId}`, and `activities/{actId}` (Clients never write `bookings`, `bookingSlots`, `publicAvailability`, or `invoices`), while Clients can immediately upload DP payment evidence against `inv_{provisionalBookingId}`.
+- **Revision, Withdraw, Manual Expiry & DP Confirmation Sync:**
+  - Superseding, withdrawing, expiring, or Staff-rejecting an active/rejected `deposit_hold_offer` atomically checks `OD-09` (`paymentEvidenceLocks` / zero `pending_review` evidence) and zero verified payments (`amountPaid === 0`, otherwise failing closed with `offer/provisional-hold-has-payment` so Hold Ledger / `refundCases` handles refunds), then releases all unneeded 30-minute slots, voids `inv_{provisionalBookingId}`, expires the provisional booking, and updates `clientReservations`.
+  - Double-booking prevention: `createReservationFromOffer` / `createBooking` rejects creating a second booking from a `deposit_hold_offer` that already owns an active `provisionalBookingId` (`offer/provisional-booking-exists`).
+  - Automatic Request Confirmation Sync: `verifyClientPaymentEvidence`, `recordInvoicePayment`, and `confirmReservation` call shared `finalizeBookingRequestInTx` so once a provisional hold confirms (`deposit_verified` or authorized override), the parent `publicBookingRequests/{requestId}` atomically advances to `confirmed` with `linkedBookingId` and `confirmedBookingSnapshot`.
+- **Fail-Closed Rules & Validation:** Unrecognized `offerMode` values remain rejected (`offer/invalid-mode`), and Firestore Rules (`isValidOfferCreate`, `isValidOfferStaffUpdate`, `isValidOfferClientRespondUpdate`, `isValidBookingRequestOfferUpdateByStaff`, `isValidBookingRequestClientOfferResponseUpdate`) enforce atomic coupling between `deposit_hold_offer` and its backing `bookings/{provisionalBookingId}` + `invoices/inv_{provisionalBookingId}`.
 
 ---
 
@@ -47,19 +55,19 @@ Subcollection: `publicBookingRequests/{requestId}/offers/{offerId}` (`BOOKING_RE
 - **Terminal Set (`OFFER_TERMINAL_STATUSES`):** all statuses except `sent`.
 - **Parent Summary & Client Projection:** `buildActiveOfferSummary(offer)` maintains summary fields on `publicBookingRequests/{requestId}` (`activeOfferId`, `activeOfferSummary`, `activeOfferStatus`, etc.), while `projectClientOfferRecord(offer)` sanitizes internal fields before client rendering.
 
-### Transactional Workflows (`offer-service.js`)
+### Transactional Workflows (`offer-service.js` + `calendar-booking-service.js`)
 - `createAndSendOffer` / `reviseOffer`:
-  - Rejects `deposit_hold_offer` with `offer/deposit-hold-timing-unresolved`.
-  - Reads request, pricing/policy snapshots, and prior active `sent` Offer before writing (`TX` read-before-write).
-  - Enforces **OD-13** monotonic revision supersession (`superseded` + `supersededByOfferId` on prior `sent` revision when Staff issues a revision), increments `revisionNumber` (`OFF-01`, `OFF-02`, `OFF-03`, ...), appends request activity timeline entries, and updates request summary atomically.
+  - Supports both `quote_only` and Option A `deposit_hold_offer` (while enforcing `offer/deposit-not-required` when DP is `none` / `<= 0` and `offer/invalid-mode` on unknown modes).
+  - Reads request, pricing/policy snapshots, and prior active/rejected Offer hold state before writing (`TX` read-before-write).
+  - Enforces **OD-13** monotonic revision supersession (`superseded` + `supersededByOfferId` on prior `sent` revision when Staff issues a revision), atomically releasing any unpaid/unlocked provisional holds (preserving slot continuity when revising across overlapping slots), increments `revisionNumber` (`OFF-01`, `OFF-02`, `OFF-03`, ...), appends request activity timeline entries, and updates request summary atomically.
 - `acceptClientOffer` / `rejectClientOffer`:
-  - Verifies active Client ownership (`client_portal` request match) and checks offer deadline (`isOfferExpiredByTime` / Firestore Rules `request.time <= prevData.offerExpiresAt`).
-  - Stale or superseded offer IDs fail deterministically without overwriting newer revisions.
+  - Verifies active Client ownership (`client_portal` request match) and checks offer deadline (`isOfferExpiredByTime` / Firestore Rules `request.time <= prevData.offerExpiresAt`) for both `quote_only` and `deposit_hold_offer`.
+  - Touches only `offers`, `publicBookingRequests`, and `activities`; stale or superseded offer IDs fail deterministically.
 - `withdrawOffer` / `expireOffer` / `staffRecordOfferResponse`:
-  - Staff/Owner workflows for withdrawing an active Offer, manually marking a sent Offer expired (`AD-05` — zero scheduled cron jobs), or recording offline client acceptance/rejection on non-Client-Portal requests (matching `isValidOfferStaffUpdate` rules).
+  - Staff/Owner workflows for withdrawing an active Offer, manually marking a sent Offer expired (`AD-05` — zero scheduled cron jobs), or recording offline client responses on non-Client-Portal requests, atomically releasing any unpaid/unlocked `deposit_hold_offer` provisional booking (`OD-09` enforced).
 - **UI Components:**
-  - Admin: `OfferComposerCard.jsx`, `OfferRevisionHistoryList.jsx`, integrated into `BookingRequestDetailDrawer.jsx` & `BookingRequestActivityTimeline.jsx`.
-  - Client Portal: `ClientOfferReviewCard.jsx` inside `ClientBookingsPage.jsx` / `ClientBookingCard.jsx`.
+  - Admin: `OfferComposerCard.jsx` (supports Option A mode toggle, live DP & WIB hold deadline preview, rejected hold release), `OfferRevisionHistoryList.jsx`, integrated into `BookingRequestDetailDrawer.jsx` (surfaces active Option A Hold Calendar link instead of duplicate booking conversion) & `BookingRequestActivityTimeline.jsx`.
+  - Client Portal: `ClientOfferReviewCard.jsx` inside `ClientBookingsPage.jsx` / `ClientBookingCard.jsx` (`client-bookings-utils.js` preserves active request/offer metadata onto Option A `deposit_hold` cards and directs Clients to `/portal/invoices` for DP upload).
 
 ---
 
@@ -113,9 +121,9 @@ Subcollection: `publicBookingRequests/{requestId}/offers/{offerId}` (`BOOKING_RE
 ## 6. Firestore Security Rules Optimization & Indexes
 
 ### Security Rules Architecture & CEL Expression-Budget Optimization (`firestore.rules`)
-- Current rules source size: **`230,887` bytes** (below Firebase's 256 KiB source limit).
+- Current rules source size: **`233,477` bytes** (below Firebase's 256 KiB source limit).
 - Enforces:
-  - Offer subcollection rules (`isValidOfferCreate`, `isValidOfferStaffUpdate`, `isValidOfferClientRespondUpdate`) hard-blocking `offerMode != 'quote_only'` and enforcing `request.time <= prevData.offerExpiresAt` on client acceptance.
+  - Offer subcollection rules (`isValidOfferCreate`, `isValidOfferStaffUpdate`, `isValidOfferClientRespondUpdate`, plus Option A helpers `isValidDepositHoldOfferProvisionalLink`, `isValidDepositHoldOfferReleaseAfter`, `isValidDepositHoldOfferConfirmAcceptAfter`) enforcing `quote_only` (`provisionalBookingId == null`), Option A `deposit_hold_offer` atomic backing by a `deposit_hold` booking + `inv_{provisionalBookingId}`, atomic provisional hold expiry on Offer supersede/withdraw/expire, and `request.time <= prevData.offerExpiresAt` on client acceptance.
   - Consolidated single `allow update:` rules on `/bookings/{bookingId}` and `/invoices/{invoiceId}` to avoid multi-rule redundant re-evaluation of `isActiveStaff()`, `!isFactoryResetLocked()`, `isValidInvoiceBase(...)`, and `reqData.diff(resData).affectedKeys()`.
   - Direct O(1) pre-checks before `.diff()` calls (`isBookingLifecycleEligibleBeforeDiff`, `isBookingHoldImmutableFieldsUnchanged`, direct `isInvoiceImmutableFieldsUnchanged` equality checks) and staff/lock short-circuit ordering on `bookingSlots` and `publicAvailability` deletes, keeping worst-case multi-document commits (e.g., 13h = 26-slot `deposit_hold` create, manual expiry + invoice void + 26-slot release, and `OD-10` restore) safely under Firestore's 1,000-expression evaluation cap while retaining all legacy Phase 0/1 Vitest contract signatures (`isValidBookingUpdateKeys`, `isBookingLifecycleOnlyUpdate`, `isLegacyBookingCustomerLinkUpdate`, `isBookingAutomaticDiscountMathMatched`, `isValidInvoiceVoidUpdate`).
   - `refundCases/{refundId}` rules allowing Staff/Owner creation on expired bookings with positive `maxRefundableAmount`, Client read scoped to `clientUid == request.auth.uid`, and immutable updates (`allow update: if false`).
@@ -130,4 +138,4 @@ Subcollection: `publicBookingRequests/{requestId}/offers/{offerId}` (`BOOKING_RE
 ## 7. Firebase Spark Boundary & Out-of-Scope Confirmation
 
 - **Spark-Only Compliance:** Zero Cloud Functions, zero Firebase Storage, zero Blaze/Cloud Billing APIs, and zero background schedulers/cron jobs were added. Hold expiration and offer expiration evaluation are explicit Staff/Owner manual actions + read-time deadline checks + Security Rules `request.time` enforcement.
-- **Explicit Out of Scope:** Production Firebase deployment (`firestore.rules`, `firestore.indexes.json`, Hosting), production `clientReservations` backfill, branch merge/PR/push to `main`, activation of `deposit_hold_offer`, and Phase 3–5 features (`bookingChangeRequests`, `adjustments`, `projects`).
+- **Explicit Out of Scope:** Production Firebase deployment (`firestore.rules`, `firestore.indexes.json`, Hosting), production `clientReservations` backfill, branch merge/PR/push to `main`, and Phase 3–5 features (`bookingChangeRequests`, `adjustments`, `projects`).

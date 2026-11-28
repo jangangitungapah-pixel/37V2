@@ -3989,7 +3989,7 @@ service cloud.firestore {
             nextData.status == 'offer_sent'
             && prevData.status in ['new', 'in_review', 'awaiting_customer', 'offer_sent', 'accepted']
             && offerAfter.data.status == 'sent'
-            && offerAfter.data.offerMode == 'quote_only'
+            && offerAfter.data.offerMode in ['quote_only', 'deposit_hold_offer']
           )
           || (
             prevData.status == 'offer_sent'
@@ -4080,7 +4080,7 @@ service cloud.firestore {
         && nextData.version == prevData.version + 1
         && offerBefore != null
         && offerBefore.data.status == 'sent'
-        && offerBefore.data.offerMode == 'quote_only'
+        && offerBefore.data.offerMode in ['quote_only', 'deposit_hold_offer']
         && offerBefore.data.supersededByOfferId == null
         && offerAfter != null
         && offerAfter.data.version == offerBefore.data.version + 1
@@ -4153,6 +4153,37 @@ service cloud.firestore {
         && data.createdAt is timestamp;
     }
 
+    function isValidDepositHoldOfferProvisionalLink(data, offerId, requestId) {
+      let provId = data.provisionalBookingId;
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(provId));
+      return provId is string
+        && provId.size() > 0
+        && data.holdDeadline is timestamp
+        && data.depositPolicySnapshot.get('minimumDepositAmount', 0) > 0
+        && existsAfter(/databases/$(database)/documents/bookings/$(provId))
+        && bookingAfter != null
+        && bookingAfter.data.get('reservationStatus', '') == 'deposit_hold'
+        && bookingAfter.data.get('sourceRequestId', '') == requestId
+        && bookingAfter.data.get('acceptedOfferId', '') == offerId
+        && existsAfter(/databases/$(database)/documents/invoices/$('inv_' + provId));
+    }
+
+    function isValidDepositHoldOfferReleaseAfter(prevData) {
+      let provId = prevData.get('provisionalBookingId', null);
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(provId));
+      return !(provId is string && provId.size() > 0)
+        || (bookingAfter != null && bookingAfter.data.get('reservationStatus', '') == 'expired');
+    }
+
+    function isValidDepositHoldOfferConfirmAcceptAfter(prevData) {
+      let provId = prevData.get('provisionalBookingId', null);
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(provId));
+      return provId is string
+        && provId.size() > 0
+        && bookingAfter != null
+        && bookingAfter.data.get('reservationStatus', '') == 'confirmed';
+    }
+
     function isValidOfferCreate(data, offerId, requestId) {
       return data.keys().hasOnly([
           'schemaVersion', 'offerId', 'offerNumber', 'revisionNumber', 'requestId',
@@ -4170,9 +4201,8 @@ service cloud.firestore {
         && data.offerNumber.matches('^OFF-\\d{2,}$')
         && data.revisionNumber is int && data.revisionNumber >= 1
         && data.requestId == requestId
-        // Enforces Section 3 ADR boundary: deposit_hold_offer blocked pending Owner timing choice
-        && data.offerMode == 'quote_only'
-        && data.provisionalBookingId == null
+        // Enforces Owner ADR Option A: quote_only has null hold link; deposit_hold_offer binds atomically to a deposit_hold booking + unpaid invoice
+        && data.offerMode in ['quote_only', 'deposit_hold_offer']
         && data.status == 'sent'
         && data.supersededByOfferId == null
         && data.respondedAt == null
@@ -4184,6 +4214,13 @@ service cloud.firestore {
         && data.financialSnapshot.totalAmount is int && data.financialSnapshot.totalAmount >= 0
         && data.depositPolicySnapshot is map
         && data.balanceDuePolicy is map
+        && (
+          (data.offerMode == 'quote_only'
+            && data.provisionalBookingId == null
+            && data.holdDeadline == null)
+          || (data.offerMode == 'deposit_hold_offer'
+            && isValidDepositHoldOfferProvisionalLink(data, offerId, requestId))
+        )
         && data.createdByUid == request.auth.uid
         && data.updatedByUid == request.auth.uid
         && data.version == 1;
@@ -4195,19 +4232,28 @@ service cloud.firestore {
         && nextData.offerId == prevData.offerId
         && nextData.requestId == prevData.requestId
         && nextData.revisionNumber == prevData.revisionNumber
-        && nextData.offerMode == 'quote_only'
+        && nextData.offerMode in ['quote_only', 'deposit_hold_offer']
+        && nextData.offerMode == prevData.offerMode
+        && nextData.get('provisionalBookingId', null) == prevData.get('provisionalBookingId', null)
         && nextData.updatedByUid == request.auth.uid
         && nextData.updatedAt is timestamp
         && nextData.version == prevData.version + 1
         && (
           (nextData.status == 'superseded'
             && nextData.supersededByOfferId is string
-            && nextData.supersededByOfferId.size() > 0)
+            && nextData.supersededByOfferId.size() > 0
+            && (prevData.offerMode == 'quote_only' || isValidDepositHoldOfferReleaseAfter(prevData)))
           || (nextData.status in ['withdrawn', 'expired']
             && nextData.withdrawalOrExpiryReason is string
-            && nextData.withdrawalOrExpiryReason.size() >= 3)
+            && nextData.withdrawalOrExpiryReason.size() >= 3
+            && (prevData.offerMode == 'quote_only' || isValidDepositHoldOfferReleaseAfter(prevData)))
           || (nextData.status in ['accepted', 'rejected']
-            && (reqDoc == null || reqDoc.data.source != 'client_portal'))
+            && (
+              (reqDoc == null || reqDoc.data.source != 'client_portal')
+              || (nextData.status == 'accepted'
+                && prevData.offerMode == 'deposit_hold_offer'
+                && isValidDepositHoldOfferConfirmAcceptAfter(prevData))
+            ))
         );
     }
 
@@ -4215,7 +4261,7 @@ service cloud.firestore {
       let reqDoc = get(/databases/$(database)/documents/publicBookingRequests/$(requestId));
       let affected = nextData.diff(prevData).affectedKeys();
       return prevData.status == 'sent'
-        && prevData.offerMode == 'quote_only'
+        && prevData.offerMode in ['quote_only', 'deposit_hold_offer']
         && prevData.supersededByOfferId == null
         && reqDoc != null
         && reqDoc.data.source == 'client_portal'

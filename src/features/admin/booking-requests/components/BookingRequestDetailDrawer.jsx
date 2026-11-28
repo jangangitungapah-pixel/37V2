@@ -43,6 +43,7 @@ import {
 } from './BookingRequestStatusBadge';
 import { OfferComposerCard } from './OfferComposerCard';
 import { OfferRevisionHistoryList } from './OfferRevisionHistoryList';
+import { OFFER_MODES } from '../schemas/offer-schema';
 import { WhatsAppMessageComposer } from './WhatsAppMessageComposer';
 
 const TRANSITION_BUTTON_META = {
@@ -104,12 +105,19 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
   const hasPendingSentOffer = Boolean(
     request?.status === BOOKING_REQUEST_STATUS.OFFER_SENT && activeOffer?.status === 'sent',
   );
+  const provisionalOfferHoldId =
+    activeOffer?.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER &&
+    activeOffer?.provisionalBookingId &&
+    ['sent', 'accepted'].includes(activeOffer?.status)
+      ? activeOffer.provisionalBookingId
+      : '';
 
   const canConvertToCalendarBooking = Boolean(
     request &&
     request.requestType === BOOKING_REQUEST_TYPES.STUDIO_BOOKING &&
     !request.linkedBookingId &&
     !hasPendingSentOffer &&
+    !provisionalOfferHoldId &&
     [
       BOOKING_REQUEST_STATUS.NEW,
       BOOKING_REQUEST_STATUS.IN_REVIEW,
@@ -566,13 +574,64 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
                         <div className="flex items-start gap-2 rounded-xl border border-[#8BAD12]/40 bg-[#EDF8C2]/70 p-3 text-[11px] leading-relaxed text-[#243300]">
                           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                           <span>
-                            <strong>Accepted belum Confirmed.</strong> Studio siap memproses request, tetapi
-                            slot belum dikunci sampai booking berhasil dibuat di Calendar.
+                            {provisionalOfferHoldId ? (
+                              <>
+                                <strong>Offer Disetujui · Slot Sudah Di-Hold (Opsi A).</strong> Slot
+                                dikunci sementara oleh Deposit Hold{' '}
+                                <code className="font-mono font-bold">{provisionalOfferHoldId}</code>{' '}
+                                sambil menunggu verifikasi DP atau konfirmasi hold oleh Staff.
+                              </>
+                            ) : (
+                              <>
+                                <strong>Accepted belum Confirmed.</strong> Studio siap memproses
+                                request, tetapi slot belum dikunci sampai booking berhasil dibuat di
+                                Calendar.
+                              </>
+                            )}
                           </span>
                         </div>
                       ) : null}
 
-                      {hasPendingSentOffer ? (
+                      {provisionalOfferHoldId ? (
+                        <div
+                          data-testid="provisional-offer-hold-card"
+                          className="space-y-2 rounded-xl border border-amber-400/40 bg-[#FEF4DD]/70 p-3 text-[11px] leading-relaxed text-[#6A3B00]"
+                        >
+                          <p>
+                            {hasPendingSentOffer ? (
+                              <>
+                                <strong>{activeOffer?.offerNumber}</strong> memakai{' '}
+                                <strong>Deposit Hold Offer (Opsi A)</strong>. Hold provisional{' '}
+                                <code className="font-mono font-bold">{provisionalOfferHoldId}</code>{' '}
+                                dan invoice DP sudah dibuat di Calendar.
+                              </>
+                            ) : (
+                              <>
+                                Hold provisional{' '}
+                                <code className="font-mono font-bold">{provisionalOfferHoldId}</code>{' '}
+                                sudah aktif menunggu verifikasi pembayaran DP atau konfirmasi manual
+                                di Calendar.
+                              </>
+                            )}
+                          </p>
+                          <Link
+                            to={
+                              '/admin/calendar?date=' +
+                              encodeURIComponent(
+                                activeOffer?.scheduleSnapshot?.date || request.preferredDate || '',
+                              ) +
+                              '&bookingId=' +
+                              encodeURIComponent(provisionalOfferHoldId)
+                            }
+                            data-testid="open-provisional-hold-calendar-link"
+                            className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-[#151515] px-3 py-2 text-xs font-semibold text-white hover:bg-[#2B2A27]"
+                          >
+                            <CalendarCheck className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
+                            <span>Buka Hold &amp; Invoice di Calendar</span>
+                            <ArrowUpRight className="h-3.5 w-3.5 text-[#C8F13A]" aria-hidden="true" />
+                          </Link>
+                        </div>
+                      ) : hasPendingSentOffer ? (
                         <div
                           data-testid="pending-offer-conversion-notice"
                           className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900"

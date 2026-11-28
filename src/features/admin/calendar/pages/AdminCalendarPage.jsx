@@ -181,6 +181,15 @@ export function AdminCalendarPage() {
           );
           return;
         }
+        if (
+          loadedOffer?.offerMode === 'deposit_hold_offer' &&
+          loadedOffer?.provisionalBookingId
+        ) {
+          setRequestLoadError(
+            `Offer ${loadedOffer.offerNumber} menggunakan mode Deposit Hold Offer (Opsi A) dan sudah memiliki Hold provisional (${loadedOffer.provisionalBookingId}). Buka Hold tersebut langsung di Calendar untuk konfirmasi atau verifikasi DP.`,
+          );
+          return;
+        }
 
         const acceptedOffer = loadedOffer?.status === 'accepted' ? loadedOffer : null;
         const serviceMapping = mapPublicServiceToInternalPricing(

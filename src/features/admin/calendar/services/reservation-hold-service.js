@@ -13,6 +13,15 @@
  * - AD-05: Manual expiry only (zero Cloud Functions / cron / automatic expiry)
  */
 
+import {
+  BOOKING_REQUEST_ACTIVITY_TYPES,
+  BOOKING_REQUEST_STATUS,
+} from '@/features/admin/booking-requests/config/booking-request-config';
+import {
+  buildActiveOfferSummary,
+  OFFER_MODES,
+  OFFER_STATUSES,
+} from '@/features/admin/booking-requests/schemas/offer-schema';
 import { computeInvoicePaymentTotals } from '@/features/admin/payment/utils/payment-calculation';
 import { INVOICE_STATUS } from '@/features/admin/payment/utils/invoice-status';
 import { normalizeInvoiceRecord } from '@/features/admin/payment/schemas/payment-schema';
@@ -27,7 +36,6 @@ import { buildPublicAvailabilityProjectionFromBooking } from '@/features/public-
 import {
   BOOKING_EVENT_TYPES,
   BOOKING_SESSION_STATUS,
-  CANCELLATION_TYPES,
   CONFIRMATION_SOURCES,
   RESERVATION_STATUS,
 } from '../config/calendar-config';
@@ -40,6 +48,8 @@ import { buildBookingSlotRecords } from '../utils/booking-time';
 import {
   buildClientReservationProjection,
   createBookingServiceError,
+  executeExpireHoldWritesInTx,
+  finalizeBookingRequestInTx,
 } from './calendar-booking-service';
 
 function hasExplicitVersion(value) {
@@ -73,8 +83,8 @@ function resolveBookingDepositMinimum(booking, invoice) {
 function resolveBookingDepositType(booking, invoice) {
   return String(
     booking?.depositPolicySnapshot?.type ||
-      invoice?.depositPolicySnapshot?.type ||
-      (resolveBookingDepositMinimum(booking, invoice) > 0 ? 'fixed' : 'none'),
+    invoice?.depositPolicySnapshot?.type ||
+    (resolveBookingDepositMinimum(booking, invoice) > 0 ? 'fixed' : 'none'),
   );
 }
 
@@ -122,7 +132,17 @@ export async function confirmReservation({
       startMinute: existingBooking.startMinute,
       durationMinutes: existingBooking.durationMinutes,
     });
-    const slotLocks = await Promise.all(requiredSlots.map((slot) => tx.getSlot(slot.id)));
+    const [existingBookingRequest, existingOffer, ...slotLocks] = await Promise.all([
+      existingBooking.sourceRequestId && typeof tx.getBookingRequest === 'function'
+        ? tx.getBookingRequest(existingBooking.sourceRequestId)
+        : Promise.resolve(null),
+      existingBooking.sourceRequestId &&
+        existingBooking.acceptedOfferId &&
+        typeof tx.getBookingRequestOffer === 'function'
+        ? tx.getBookingRequestOffer(existingBooking.sourceRequestId, existingBooking.acceptedOfferId)
+        : Promise.resolve(null),
+      ...requiredSlots.map((slot) => tx.getSlot(slot.id)),
+    ]);
 
     if (existingBooking.reservationStatus === RESERVATION_STATUS.CONFIRMED) {
       return existingBooking;
@@ -177,10 +197,10 @@ export async function confirmReservation({
       depositType === 'none'
         ? DEPOSIT_STATUS.NOT_REQUIRED
         : computeDepositStatus({
-            depositType,
-            minimumDepositAmount: minDeposit,
-            amountPaid: netPaid,
-          });
+          depositType,
+          minimumDepositAmount: minDeposit,
+          amountPaid: netPaid,
+        });
 
     const timestamp = tx.nowValue();
     const nextVersion = (Number(existingBooking.version) || 1) + 1;
@@ -255,6 +275,19 @@ export async function confirmReservation({
             ? 'Reservasi dikonfirmasi langsung (kebijakan Tanpa DP).'
             : 'Reservasi terkonfirmasi otomatis setelah minimum DP terpenuhi.',
     });
+
+    if (existingBookingRequest) {
+      finalizeBookingRequestInTx(tx, {
+        existingBookingRequest,
+        existingOffer,
+        bookingId: cleanBookingId,
+        bookingDoc: nextBookingState,
+        acceptedOfferId: existingBooking.acceptedOfferId || '',
+        timestamp,
+        actorUid: cleanActorUid,
+        activityEventId: `reqact_conf_${cleanEventId}`,
+      });
+    }
 
     return normalizeBookingRecord(cleanBookingId, nextBookingState);
   });
@@ -538,126 +571,88 @@ export async function expireReservationHold({
       startMinute: existingBooking.startMinute,
       durationMinutes: existingBooking.durationMinutes,
     });
-    const slotLocks = await Promise.all(ownedSlots.map((s) => tx.getSlot(s.id)));
+    const [existingBookingRequest, existingOffer, ...slotLocks] = await Promise.all([
+      existingBooking.sourceRequestId && typeof tx.getBookingRequest === 'function'
+        ? tx.getBookingRequest(existingBooking.sourceRequestId)
+        : Promise.resolve(null),
+      existingBooking.sourceRequestId &&
+        existingBooking.acceptedOfferId &&
+        typeof tx.getBookingRequestOffer === 'function'
+        ? tx.getBookingRequestOffer(existingBooking.sourceRequestId, existingBooking.acceptedOfferId)
+        : Promise.resolve(null),
+      ...ownedSlots.map((s) => tx.getSlot(s.id)),
+    ]);
 
     // 2. ALL WRITES AFTER READS
     const timestamp = tx.nowValue();
-    ownedSlots.forEach((slot, idx) => {
-      const lock = slotLocks[idx];
-      if (lock && lock.bookingId === cleanBookingId) {
-        tx.deleteSlot(slot.id);
-      }
+    const expiredRecord = executeExpireHoldWritesInTx(tx, {
+      bookingId: cleanBookingId,
+      existingBooking,
+      existingInvoice,
+      existingRefundCase,
+      ownedSlots,
+      slotLocks,
+      preTransactions,
+      reason: cleanReason,
+      actorUid: cleanActorUid,
+      timestamp,
+      eventId: cleanEventId,
+      refundId: deterministicRefundId,
     });
-    tx.deletePublicAvailability?.(cleanBookingId);
 
-    const nextVersion = (Number(existingBooking.version) || 1) + 1;
-    const expirePatch = {
-      reservationStatus: RESERVATION_STATUS.EXPIRED,
-      sessionStatus: BOOKING_SESSION_STATUS.CANCELLED,
-      expiredAt: timestamp,
-      expiredByUid: cleanActorUid,
-      expiryReason: cleanReason,
-      cancelledAt: timestamp,
-      cancelledByUid: cleanActorUid,
-      cancellationType: CANCELLATION_TYPES.HOLD_EXPIRED,
-      cancellationReason: cleanReason,
-      updatedAt: timestamp,
-      updatedByUid: cleanActorUid,
-      version: nextVersion,
-    };
+    if (
+      existingBookingRequest &&
+      !existingBookingRequest.linkedBookingId &&
+      existingOffer &&
+      existingOffer.status === OFFER_STATUSES.SENT &&
+      existingOffer.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER
+    ) {
+      const rawOffer = existingOffer._raw || existingOffer;
+      const updatedOfferDoc = {
+        ...rawOffer,
+        status: OFFER_STATUSES.EXPIRED,
+        respondedAt: timestamp,
+        respondedByUid: cleanActorUid,
+        withdrawalOrExpiryReason: cleanReason,
+        updatedAt: timestamp,
+        updatedByUid: cleanActorUid,
+        version: (Number(existingOffer.version) || 1) + 1,
+      };
+      delete updatedOfferDoc.id;
+      delete updatedOfferDoc._raw;
+      tx.updateBookingRequestOffer?.(existingBookingRequest.id, existingOffer.id, updatedOfferDoc);
 
-    const nextBookingState = { ...existingBooking, ...expirePatch };
-    delete nextBookingState.id;
-
-    tx.updateBooking(cleanBookingId, expirePatch);
-
-    let updatedInvoiceForProjection = existingInvoice;
-    if (existingInvoice && existingInvoice.invoiceStatus === INVOICE_STATUS.ISSUED) {
-      if (existingInvoice.amountPaid === 0 && typeof tx.updateInvoice === 'function') {
-        const invVoidDoc = {
-          ...existingInvoice,
-          invoiceStatus: INVOICE_STATUS.VOID,
-          voidReason: `Hold expired: ${cleanReason}`.slice(0, 300),
+      const baseSummary = buildActiveOfferSummary({
+        ...existingOffer,
+        status: OFFER_STATUSES.EXPIRED,
+      });
+      if (existingBookingRequest.status === BOOKING_REQUEST_STATUS.OFFER_SENT) {
+        tx.updateBookingRequest?.(existingBookingRequest.id, {
+          status: BOOKING_REQUEST_STATUS.IN_REVIEW,
+          activeOfferSummary: {
+            ...baseSummary,
+            holdExpiresAt: rawOffer.holdDeadline ?? existingOffer.holdDeadline ?? null,
+            offerExpiresAt: rawOffer.offerExpiresAt ?? existingOffer.offerExpiresAt ?? null,
+          },
           updatedAt: timestamp,
           updatedByUid: cleanActorUid,
-          version: (Number(existingInvoice.version) || 1) + 1,
-        };
-        delete invVoidDoc.id;
-        tx.updateInvoice(deterministicInvoiceId, invVoidDoc);
-        updatedInvoiceForProjection = normalizeInvoiceRecord(deterministicInvoiceId, invVoidDoc);
-      } else if (existingInvoice.amountPaid > 0 && !existingRefundCase && typeof tx.setRefundCase === 'function') {
-        // Paid/partially paid hold: preserve payments & invoice intact; open minimal Refund/Credit review handoff
-        const reversedIds = new Set(
-          preTransactions
-            .filter((t) => t.transactionType === 'reversal' && t.reversalOfTransactionId)
-            .map((t) => t.reversalOfTransactionId),
-        );
-        const sourceTxIds = preTransactions
-          .filter((t) => t.transactionType === 'payment' && !reversedIds.has(t.id))
-          .slice(0, 20)
-          .map((t) => t.id);
-
-        tx.setRefundCase(deterministicRefundId, {
-          schemaVersion: 1,
-          refundId: deterministicRefundId,
-          targetType: 'booking',
-          bookingId: cleanBookingId,
-          projectId: null,
-          invoiceId: deterministicInvoiceId,
-          customerId: String(existingInvoice.customerId || existingBooking.customerId || ''),
-          clientUid: String(existingInvoice.clientUid || existingBooking.clientUid || ''),
-          triggerCategory: 'hold_expired_partial_paid',
-          sourcePaymentTransactionIds: sourceTxIds,
-          maxRefundableAmount: existingInvoice.amountPaid,
-          requestedAmount: existingInvoice.amountPaid,
-          approvedAmount: null,
-          forfeitedAmount: null,
-          resolutionMethod: null,
-          status: 'under_review',
-          requestReason: `Deposit hold kedaluwarsa dengan dana terbayar: ${cleanReason}`.slice(0, 400),
-          decisionReason: '',
-          creditRemainingAmount: 0,
-          settlementInfo: null,
-          reviewedByUid: '',
-          reviewedAt: null,
-          createdAt: timestamp,
-          createdByUid: cleanActorUid,
-          updatedAt: timestamp,
-          updatedByUid: cleanActorUid,
-          version: 1,
+          version: (Number(existingBookingRequest.version) || 1) + 1,
         });
       }
+
+      tx.setBookingRequestActivity?.(existingBookingRequest.id, `reqact_exp_${cleanEventId}`, {
+        eventType: BOOKING_REQUEST_ACTIVITY_TYPES.OFFER_EXPIRED,
+        fromStatus: existingBookingRequest.status,
+        toStatus: BOOKING_REQUEST_STATUS.IN_REVIEW,
+        linkedBookingId: null,
+        note: `${existingOffer.offerNumber} & Deposit Hold berakhir: ${cleanReason}`.slice(0, 500),
+        actorUid: cleanActorUid,
+        actorName: '',
+        createdAt: timestamp,
+      });
     }
 
-    const projection = buildClientReservationProjection(
-      { ...nextBookingState, id: cleanBookingId },
-      updatedInvoiceForProjection,
-      timestamp,
-    );
-    if (projection) {
-      tx.setClientReservation?.(cleanBookingId, projection);
-    }
-
-    tx.setEvent(cleanEventId, {
-      bookingId: cleanBookingId,
-      eventType: BOOKING_EVENT_TYPES.HOLD_EXPIRED,
-      actorUid: cleanActorUid,
-      createdAt: timestamp,
-      previousValue: {
-        reservationStatus: existingBooking.reservationStatus,
-        sessionStatus: existingBooking.sessionStatus,
-        holdExpiresAt: existingBooking.holdExpiresAt ?? null,
-      },
-      newValue: {
-        reservationStatus: RESERVATION_STATUS.EXPIRED,
-        sessionStatus: BOOKING_SESSION_STATUS.CANCELLED,
-        invoiceAction:
-          existingInvoice?.amountPaid === 0 ? 'invoice_voided' : existingInvoice?.amountPaid > 0 ? 'refund_case_opened' : 'none',
-      },
-      note: `Hold diakhiri secara manual: ${cleanReason}`,
-    });
-
-    return normalizeBookingRecord(cleanBookingId, nextBookingState);
+    return expiredRecord;
   });
 }
 
@@ -814,10 +809,10 @@ export async function restoreExpiredReservation({
       depositType === 'none'
         ? DEPOSIT_STATUS.NOT_REQUIRED
         : computeDepositStatus({
-            depositType,
-            minimumDepositAmount: minDeposit,
-            amountPaid: netPaid,
-          });
+          depositType,
+          minimumDepositAmount: minDeposit,
+          amountPaid: netPaid,
+        });
 
     const restorePatch = {
       reservationStatus: nextReservationStatus,
@@ -829,13 +824,13 @@ export async function restoreExpiredReservation({
       restorationReason: cleanReason,
       ...(isDepositSatisfied
         ? {
-            confirmedAt: timestamp,
-            confirmedByUid: cleanActorUid,
-            confirmationSource:
-              depositType === 'none'
-                ? CONFIRMATION_SOURCES.NO_DEPOSIT_POLICY
-                : CONFIRMATION_SOURCES.DEPOSIT_VERIFIED,
-          }
+          confirmedAt: timestamp,
+          confirmedByUid: cleanActorUid,
+          confirmationSource:
+            depositType === 'none'
+              ? CONFIRMATION_SOURCES.NO_DEPOSIT_POLICY
+              : CONFIRMATION_SOURCES.DEPOSIT_VERIFIED,
+        }
         : {}),
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,

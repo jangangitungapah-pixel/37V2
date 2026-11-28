@@ -7856,15 +7856,32 @@ async function runTests() {
     version: 1,
   });
 
-  // 2A. deposit_hold_offer MUST fail closed under Section 3 ADR in Firestore Rules
-  const blockedOfferCreate = await userRequest(
+  // 2A. Unrecognized offerMode and unbacked deposit_hold_offer MUST fail closed under Option A rules
+  const invalidOfferModeRes = await userRequest(
     'PATCH',
-    '/publicBookingRequests/req_p2_offer/offers/off_p2_blocked',
+    '/publicBookingRequests/req_p2_offer/offers/off_p2_invalid_mode',
     TOKEN_STAFF,
     {
       fields: toFsFields(
         buildOfferFields({
-          offerId: 'off_p2_blocked',
+          offerId: 'off_p2_invalid_mode',
+          offerNumber: 'OFF-01',
+          revisionNumber: 1,
+          offerMode: 'invalid_mode',
+        }),
+      ),
+    },
+  );
+  assert.equal(invalidOfferModeRes.status, 403, 'unrecognized offerMode fails closed in firestore.rules');
+
+  const unbackedHoldOfferCreate = await userRequest(
+    'PATCH',
+    '/publicBookingRequests/req_p2_offer/offers/off_p2_unbacked_hold',
+    TOKEN_STAFF,
+    {
+      fields: toFsFields(
+        buildOfferFields({
+          offerId: 'off_p2_unbacked_hold',
           offerNumber: 'OFF-01',
           revisionNumber: 1,
           offerMode: 'deposit_hold_offer',
@@ -7872,7 +7889,11 @@ async function runTests() {
       ),
     },
   );
-  assert.equal(blockedOfferCreate.status, 403, 'deposit_hold_offer creation is fail-closed in firestore.rules');
+  assert.equal(
+    unbackedHoldOfferCreate.status,
+    403,
+    'deposit_hold_offer without atomic provisional deposit_hold booking + invoice MUST fail closed in firestore.rules',
+  );
 
   // 2B. Staff sends quote_only OFF-01 atomically + updates parent request to offer_sent
   const sendOff1Res = await userRequest('POST', ':commit', TOKEN_STAFF, {
@@ -9101,7 +9122,408 @@ async function runTests() {
     403,
     'Refund settlement updates stay locked until Phase 4',
   );
-  console.log('✓ Phase 2 Offer Revisions (quote_only/OD-13/ADR), 13h=26-slot Deposit Hold, OD-09 Shield, OD-10 Restore & refundCases RBAC passed');
+  console.log('✓ Phase 2 Offer Revisions (quote_only/OD-13/Option A rules), 13h=26-slot Deposit Hold, OD-09 Shield, OD-10 Restore & refundCases RBAC passed');
+
+  // 2K. Owner ADR Option A: atomic Staff deposit_hold_offer + provisional booking + unpaid invoice + Client accept + withdraw release invariant
+  const optAReqFields = {
+    ...basePortalRequestFields,
+    requestReference: 'REQ-P2OPTA01',
+    preferredDate: '2026-12-29',
+    preferredStartMinute: 720,
+    preferredDurationMinutes: 120,
+  };
+  await adminSetDoc('publicBookingRequests/req_p2_opt_a', optAReqFields);
+
+  const optASchedule = {
+    studioId: 'room-a',
+    studioName: 'Room A — Live Room',
+    date: '2026-12-29',
+    startMinute: 720,
+    endMinute: 840,
+    durationMinutes: 120,
+    timeZone: 'Asia/Jakarta',
+  };
+  const optABookingFields = {
+    ...base13hBooking,
+    sourceRequestId: 'req_p2_opt_a',
+    acceptedOfferId: 'off_p2_opt_a_1',
+    invoiceId: 'inv_bkg_p2_opt_a',
+    date: '2026-12-29',
+    startMinute: 720,
+    durationMinutes: 120,
+    endMinute: 840,
+    subtotal: 200000,
+    totalAmount: 200000,
+    balanceDuePolicy: { trigger: 'before_session', offsetHoursBeforeStart: 2, dueDate: '2026-12-29' },
+  };
+  const optAInvoiceFields = {
+    ...base13hInvoice,
+    invoiceNumber: '37MS-20261229-P2OPTAPROV01',
+    bookingId: 'bkg_p2_opt_a',
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      studioId: 'room-a',
+      bookingDate: '2026-12-29',
+      startMinute: 720,
+      endMinute: 840,
+      durationMinutes: 120,
+    },
+    financialSnapshot: { subtotal: 200000, discountAmount: 0, totalAmount: 200000 },
+    balanceDue: 200000,
+    balanceDuePolicy: optABookingFields.balanceDuePolicy,
+    dueDate: '2026-12-29',
+  };
+  const optAClientResFields = {
+    ...base13hClientReservation,
+    bookingId: 'bkg_p2_opt_a',
+    bookingReference: 'BKG-P2-OPTA',
+    sourceRequestId: 'req_p2_opt_a',
+    acceptedOfferId: 'off_p2_opt_a_1',
+    invoiceId: 'inv_bkg_p2_opt_a',
+    date: '2026-12-29',
+    startMinute: 720,
+    endMinute: 840,
+    durationMinutes: 120,
+    effectiveTotalAmount: 200000,
+  };
+  const optAOfferFields = {
+    ...buildOfferFields({
+      offerId: 'off_p2_opt_a_1',
+      offerNumber: 'OFF-01',
+      revisionNumber: 1,
+      offerMode: 'deposit_hold_offer',
+    }),
+    requestId: 'req_p2_opt_a',
+    provisionalBookingId: 'bkg_p2_opt_a',
+    scheduleSnapshot: optASchedule,
+    financialSnapshot: { unitRate: 100000, subtotal: 200000, discountAmount: 0, automaticDiscount: null, totalAmount: 200000 },
+    holdDeadline: { _ts: holdExpIso },
+    balanceDuePolicy: optABookingFields.balanceDuePolicy,
+  };
+  const optASlotWrites = [720, 750, 780, 810].map((slotMin) => ({
+    update: {
+      name: `${DB_ROOT}/bookingSlots/2026-12-29__room-a__${slotMin}`,
+      fields: toFsFields({
+        bookingId: 'bkg_p2_opt_a',
+        date: '2026-12-29',
+        studioId: 'room-a',
+        slotStartMinute: slotMin,
+        createdAt: SERVER_TS,
+      }),
+    },
+    currentDocument: { exists: false },
+  }));
+
+  const optASendRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: { name: `${DB_ROOT}/bookings/bkg_p2_opt_a`, fields: toFsFields(optABookingFields) },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicAvailability/bkg_p2_opt_a`,
+          fields: toFsFields({ schemaVersion: 1, date: '2026-12-29', studioId: 'room-a', startMinute: 720, endMinute: 840, updatedAt: SERVER_TS }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      ...optASlotWrites,
+      {
+        update: {
+          name: `${DB_ROOT}/bookingEvents/evt_p2_opt_a`,
+          fields: toFsFields({ bookingId: 'bkg_p2_opt_a', eventType: 'hold_created', actorUid: 'staff-1', createdAt: SERVER_TS, previousValue: null, newValue: { reservationStatus: 'deposit_hold' }, note: 'Option A hold' }),
+        },
+        currentDocument: { exists: false },
+      },
+      {
+        update: { name: `${DB_ROOT}/invoices/inv_bkg_p2_opt_a`, fields: toFsFields(optAInvoiceFields) },
+        updateTransforms: [
+          { fieldPath: 'invoiceDate', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: { name: `${DB_ROOT}/clientReservations/bkg_p2_opt_a`, fields: toFsFields(optAClientResFields) },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: { name: `${DB_ROOT}/publicBookingRequests/req_p2_opt_a/offers/off_p2_opt_a_1`, fields: toFsFields(optAOfferFields) },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_opt_a`,
+          fields: toFsFields({
+            ...optAReqFields,
+            status: 'offer_sent',
+            activeOfferId: 'off_p2_opt_a_1',
+            activeOfferSummary: {
+              offerId: 'off_p2_opt_a_1',
+              offerNumber: 'OFF-01',
+              revisionNumber: 1,
+              mode: 'deposit_hold_offer',
+              provisionalBookingId: 'bkg_p2_opt_a',
+              totalAmount: 200000,
+              minimumDepositAmount: 100000,
+              holdExpiresAt: { _ts: holdExpIso },
+              offerExpiresAt: { _ts: futureOfferExp },
+              status: 'sent',
+            },
+            version: 2,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(optASendRes.status, 200, `Option A atomic Staff deposit_hold_offer send failed: ${JSON.stringify(optASendRes.body)}`);
+
+  // Client cannot create deposit_hold_offer directly, and CAN accept active Option A Offer without touching bookings/invoices
+  const clientCreateHoldOfferDenied = await userRequest(
+    'PATCH',
+    '/publicBookingRequests/req_p2_opt_a/offers/off_p2_client_forged',
+    TOKEN_CLIENT_MATCHED,
+    { fields: toFsFields({ ...optAOfferFields, offerId: 'off_p2_client_forged', createdByUid: 'client-matched-1', updatedByUid: 'client-matched-1' }) },
+  );
+  assert.equal(clientCreateHoldOfferDenied.status, 403, 'Client cannot create deposit_hold_offer');
+
+  const reqOptAAfterSend = {
+    ...optAReqFields,
+    status: 'offer_sent',
+    activeOfferId: 'off_p2_opt_a_1',
+    activeOfferSummary: {
+      offerId: 'off_p2_opt_a_1',
+      offerNumber: 'OFF-01',
+      revisionNumber: 1,
+      mode: 'deposit_hold_offer',
+      provisionalBookingId: 'bkg_p2_opt_a',
+      totalAmount: 200000,
+      minimumDepositAmount: 100000,
+      holdExpiresAt: { _ts: holdExpIso },
+      offerExpiresAt: { _ts: futureOfferExp },
+      status: 'sent',
+    },
+    version: 2,
+  };
+  const clientAcceptOptARes = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_opt_a/offers/off_p2_opt_a_1`,
+          fields: toFsFields({
+            ...optAOfferFields,
+            status: 'accepted',
+            respondedByUid: 'client-matched-1',
+            responseReason: 'Ambil slot hold ini',
+            updatedByUid: 'client-matched-1',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'respondedAt', 'respondedByUid', 'responseReason', 'updatedAt', 'updatedByUid', 'version'] },
+        updateTransforms: [
+          { fieldPath: 'respondedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_opt_a`,
+          fields: toFsFields({
+            ...reqOptAAfterSend,
+            status: 'accepted',
+            activeOfferSummary: { ...reqOptAAfterSend.activeOfferSummary, status: 'accepted' },
+            updatedByUid: 'client-matched-1',
+            version: 3,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'activeOfferSummary', 'updatedAt', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_opt_a/activities/act_p2_opt_a_acc`,
+          fields: toFsFields({
+            eventType: 'offer_accepted',
+            fromStatus: 'offer_sent',
+            toStatus: 'accepted',
+            linkedBookingId: null,
+            note: 'Client menyetujui Deposit Hold Offer OFF-01',
+            actorUid: 'client-matched-1',
+            actorName: 'Raka Matched',
+            createdAt: SERVER_TS,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(clientAcceptOptARes.status, 200, `Client accept Option A Offer failed: ${JSON.stringify(clientAcceptOptARes.body)}`);
+
+  // Staff cannot withdraw a deposit_hold_offer while leaving its provisional deposit_hold booking un-expired (must release atomically!)
+  await adminSetDoc('publicBookingRequests/req_p2_opt_a_w', {
+    ...reqOptAAfterSend,
+    requestReference: 'REQ-P2OPTA02',
+    activeOfferId: 'off_p2_opt_a_w',
+    activeOfferSummary: { ...reqOptAAfterSend.activeOfferSummary, offerId: 'off_p2_opt_a_w', provisionalBookingId: 'bkg_p2_opt_a_w' },
+  });
+  await adminSetDoc('bookings/bkg_p2_opt_a_w', {
+    ...optABookingFields,
+    sourceRequestId: 'req_p2_opt_a_w',
+    acceptedOfferId: 'off_p2_opt_a_w',
+    invoiceId: 'inv_bkg_p2_opt_a_w',
+  });
+  await adminSetDoc('invoices/inv_bkg_p2_opt_a_w', {
+    ...optAInvoiceFields,
+    bookingId: 'bkg_p2_opt_a_w',
+    invoiceNumber: '37MS-20261229-P2OPTAPROV02',
+  });
+  await adminSetDoc('clientReservations/bkg_p2_opt_a_w', {
+    ...optAClientResFields,
+    bookingId: 'bkg_p2_opt_a_w',
+    sourceRequestId: 'req_p2_opt_a_w',
+    acceptedOfferId: 'off_p2_opt_a_w',
+    invoiceId: 'inv_bkg_p2_opt_a_w',
+  });
+  await adminSetDoc('publicBookingRequests/req_p2_opt_a_w/offers/off_p2_opt_a_w', {
+    ...optAOfferFields,
+    offerId: 'off_p2_opt_a_w',
+    requestId: 'req_p2_opt_a_w',
+    provisionalBookingId: 'bkg_p2_opt_a_w',
+  });
+
+  const orphanWithdrawDenied = await userRequest(
+    'PATCH',
+    '/publicBookingRequests/req_p2_opt_a_w/offers/off_p2_opt_a_w',
+    TOKEN_STAFF,
+    {
+      fields: toFsFields({
+        ...optAOfferFields,
+        offerId: 'off_p2_opt_a_w',
+        requestId: 'req_p2_opt_a_w',
+        provisionalBookingId: 'bkg_p2_opt_a_w',
+        status: 'withdrawn',
+        withdrawalOrExpiryReason: 'Tarik tanpa melepas hold',
+        version: 2,
+      }),
+    },
+  );
+  assert.equal(orphanWithdrawDenied.status, 403, 'Staff cannot withdraw deposit_hold_offer without atomically expiring its provisional hold');
+
+  const atomicWithdrawWithHoldRelease = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_p2_opt_a_w`,
+          fields: toFsFields({
+            ...optABookingFields,
+            sourceRequestId: 'req_p2_opt_a_w',
+            acceptedOfferId: 'off_p2_opt_a_w',
+            invoiceId: 'inv_bkg_p2_opt_a_w',
+            reservationStatus: 'expired',
+            sessionStatus: 'cancelled',
+            expiredByUid: 'staff-1',
+            expiryReason: 'Offer ditarik kembali',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['reservationStatus', 'sessionStatus', 'expiredAt', 'expiredByUid', 'expiryReason', 'updatedAt', 'updatedByUid', 'version'] },
+        updateTransforms: [
+          { fieldPath: 'expiredAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p2_opt_a_w`,
+          fields: toFsFields({
+            ...optAInvoiceFields,
+            bookingId: 'bkg_p2_opt_a_w',
+            invoiceNumber: '37MS-20261229-P2OPTAPROV02',
+            invoiceStatus: 'void',
+            voidReason: 'Hold expired: Offer ditarik kembali',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['invoiceStatus', 'voidReason', 'updatedAt', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/bkg_p2_opt_a_w`,
+          fields: toFsFields({
+            ...optAClientResFields,
+            bookingId: 'bkg_p2_opt_a_w',
+            sourceRequestId: 'req_p2_opt_a_w',
+            acceptedOfferId: 'off_p2_opt_a_w',
+            invoiceId: 'inv_bkg_p2_opt_a_w',
+            reservationStatus: 'expired',
+            sessionStatus: 'cancelled',
+            version: 2,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_opt_a_w/offers/off_p2_opt_a_w`,
+          fields: toFsFields({
+            ...optAOfferFields,
+            offerId: 'off_p2_opt_a_w',
+            requestId: 'req_p2_opt_a_w',
+            provisionalBookingId: 'bkg_p2_opt_a_w',
+            status: 'withdrawn',
+            withdrawalOrExpiryReason: 'Offer ditarik & hold dilepas',
+            version: 2,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_opt_a_w`,
+          fields: toFsFields({
+            ...reqOptAAfterSend,
+            requestReference: 'REQ-P2OPTA02',
+            status: 'in_review',
+            activeOfferId: 'off_p2_opt_a_w',
+            activeOfferSummary: { ...reqOptAAfterSend.activeOfferSummary, offerId: 'off_p2_opt_a_w', provisionalBookingId: 'bkg_p2_opt_a_w', status: 'withdrawn' },
+            version: 3,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(atomicWithdrawWithHoldRelease.status, 200, `Atomic Option A withdraw + hold release failed: ${JSON.stringify(atomicWithdrawWithHoldRelease.body)}`);
+  console.log('✓ Phase 2 Option A deposit_hold_offer real Emulator security & atomicity suite passed');
 
   if (aggregateAssertionMode && assertionFailures.length > 0) {
     printAggregateAssertionSummary();

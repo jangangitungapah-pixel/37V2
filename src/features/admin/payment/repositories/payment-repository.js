@@ -7,6 +7,8 @@
  */
 
 import {
+  buildFirestoreBookingRequestTxHelpers,
+  createInMemoryBookingRequestStage,
   FIRESTORE_COLLECTIONS,
   normalizeBookingEventRecord,
   normalizeBookingRecord,
@@ -128,6 +130,7 @@ export function createFirestorePaymentRepositoryAdapter() {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
             tx.update(ref, data);
           },
+          ...buildFirestoreBookingRequestTxHelpers({ tx, db, doc }),
         };
 
         return transactionWork(txContext);
@@ -637,6 +640,17 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
         const stagedClientReservations = new Map(clientReservations);
         const touchedBookingIds = new Set();
         let writeStarted = false;
+        const requestStage = createInMemoryBookingRequestStage({
+          sharedStore,
+          checkCanRead: () => {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+          },
+          markWrite: () => {
+            writeStarted = true;
+          },
+        });
 
         const txContext = {
           nowValue: () => ({ seconds: Math.floor(Date.now() / 1000) }),
@@ -727,6 +741,7 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
             const prev = stagedEvidence.get(id) || {};
             stagedEvidence.set(id, normalizePaymentEvidenceRecord(id, { ...prev, ...data }));
           },
+          ...requestStage.helpers,
         };
 
         const result = await transactionWork(txContext);
@@ -745,6 +760,7 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
         for (const [k, v] of stagedEvidenceLocks) paymentEvidenceLocks.set(k, v);
         clientReservations.clear();
         for (const [k, v] of stagedClientReservations) clientReservations.set(k, v);
+        requestStage.commitAndNotify();
 
         notifyInvoices();
         sharedStore?.notifyClientReservations?.();

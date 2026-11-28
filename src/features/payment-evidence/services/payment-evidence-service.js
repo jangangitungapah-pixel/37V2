@@ -340,6 +340,16 @@ export async function verifyClientPaymentEvidence({
         ? tx.getBooking(existingInvoice.bookingId)
         : Promise.resolve(null),
     ]);
+    const [existingBookingRequest, existingOffer] = await Promise.all([
+      existingBooking?.sourceRequestId && typeof tx.getBookingRequest === 'function'
+        ? tx.getBookingRequest(existingBooking.sourceRequestId)
+        : Promise.resolve(null),
+      existingBooking?.sourceRequestId &&
+      existingBooking?.acceptedOfferId &&
+      typeof tx.getBookingRequestOffer === 'function'
+        ? tx.getBookingRequestOffer(existingBooking.sourceRequestId, existingBooking.acceptedOfferId)
+        : Promise.resolve(null),
+    ]);
 
     // Strict Idempotency: repeated verification of already-verified evidence NEVER double-counts
     if (
@@ -416,6 +426,8 @@ export async function verifyClientPaymentEvidence({
       existingTransaction,
       existingClientReservation,
       existingBooking,
+      existingBookingRequest,
+      existingOffer,
       expectedVersion: expectedInvoiceVersion,
       amount: amountValidation.data.verifiedAmount,
       paymentMethod: existingEvidence.paymentMethod,

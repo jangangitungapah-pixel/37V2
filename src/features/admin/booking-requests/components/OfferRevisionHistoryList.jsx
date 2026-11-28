@@ -1,4 +1,5 @@
-import { CalendarClock, FileText, GitCommitHorizontal } from 'lucide-react';
+import { CalendarClock, ExternalLink, FileText, GitCommitHorizontal } from 'lucide-react';
+import { Link } from 'react-router';
 
 import { AdminStatusBadge } from '@/features/admin/design-system';
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
@@ -94,8 +95,25 @@ export function OfferRevisionHistoryList({ offers = [], activeOfferId = '' }) {
                   {minDp > 0 ? formatRupiah(minDp) : 'Tanpa DP'}
                 </strong>
               </span>
+              {offer.holdDeadline ? (
+                <span>Batas Hold: {formatIndonesianTimestamp(offer.holdDeadline)}</span>
+              ) : null}
               {offer.offerExpiresAt ? (
                 <span>Berlaku s/d {formatIndonesianTimestamp(offer.offerExpiresAt)}</span>
+              ) : null}
+              {offer.provisionalBookingId ? (
+                <Link
+                  to={
+                    '/admin/calendar?date=' +
+                    encodeURIComponent(schedule.date || '') +
+                    '&bookingId=' +
+                    encodeURIComponent(offer.provisionalBookingId)
+                  }
+                  className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold text-[#0F6246] underline decoration-[#0F6246]/40 hover:text-[#151515]"
+                >
+                  <span>Hold: {offer.provisionalBookingId}</span>
+                  <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                </Link>
               ) : null}
               {offer.supersededByOfferId ? (
                 <span className="text-[#8B857B]">Digantikan oleh revisi baru</span>

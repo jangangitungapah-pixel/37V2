@@ -7,7 +7,6 @@ import {
   Clock3,
   FilePlus2,
   Send,
-  ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -15,13 +14,16 @@ import {
   getStudioRoomById,
   TIMELINE_HOURLY_SLOTS,
 } from '@/features/admin/calendar/config/calendar-config';
+import { expireReservationHold } from '@/features/admin/calendar/services/reservation-hold-service';
 import { calculateBookingPricingSnapshot, formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
 import { formatMinuteOfDay, formatMinuteRange } from '@/features/admin/calendar/utils/booking-time';
+import { formatIndonesianTimestamp } from '@/features/admin/calendar/utils/calendar-date';
 import { AdminButton, AdminStatusBadge } from '@/features/admin/design-system';
 import { useBookingPolicies } from '@/features/admin/settings/booking-policies/hooks/useBookingPolicies';
 import {
   buildDepositPolicySnapshot,
   resolveBalanceDuePolicySnapshot,
+  resolveEffectiveHoldDeadline,
 } from '@/features/admin/settings/booking-policies/utils/booking-policy-engine';
 import { usePricingSettings } from '@/features/admin/settings/hooks/usePricingSettings';
 import { DELIVERY_MODES, PRICING_MODES } from '@/features/admin/settings/pricing/config/default-pricing-settings';
@@ -32,7 +34,6 @@ import {
   BOOKING_REQUEST_TYPES,
 } from '../config/booking-request-config';
 import {
-  DEPOSIT_HOLD_OFFER_BLOCK_ERROR_CODE,
   OFFER_MODES,
   OFFER_STATUSES,
 } from '../schemas/offer-schema';
@@ -44,9 +45,6 @@ import {
 } from '../services/offer-service';
 
 function mapOfferErrorToMessage(error) {
-  if (error?.code === DEPOSIT_HOLD_OFFER_BLOCK_ERROR_CODE) {
-    return error.message;
-  }
   return error?.message || 'Gagal memproses Offer penawaran.';
 }
 
@@ -175,6 +173,31 @@ export function OfferComposerCard({ request, offers = [], actorUid = '', actorNa
     [policies, effectiveServiceTypeId, effectiveServiceOptionId, formState.date, formState.startMinute],
   );
 
+  const liveHoldPreview = useMemo(() => {
+    if (formState.offerMode !== OFFER_MODES.DEPOSIT_HOLD_OFFER || !formState.date) {
+      return { deadline: null, error: '' };
+    }
+    try {
+      const deadline = resolveEffectiveHoldDeadline({
+        policies,
+        serviceTypeId: effectiveServiceTypeId,
+        serviceOptionId: effectiveServiceOptionId,
+        bookingDate: formState.date,
+        startMinute: Number(formState.startMinute) || 600,
+      });
+      return { deadline, error: '' };
+    } catch (err) {
+      return { deadline: null, error: err?.message || 'Hold TTL belum dikonfigurasi.' };
+    }
+  }, [
+    formState.offerMode,
+    formState.date,
+    formState.startMinute,
+    policies,
+    effectiveServiceTypeId,
+    effectiveServiceOptionId,
+  ]);
+
   if (!request || request.requestType !== BOOKING_REQUEST_TYPES.STUDIO_BOOKING) {
     return null;
   }
@@ -235,12 +258,36 @@ export function OfferComposerCard({ request, offers = [], actorUid = '', actorNa
         actorName,
       });
       toast.success(
-        `${result.offer.offerNumber} berhasil dikirim${
-          result.supersededCount > 0 ? ' (menggantikan revisi sebelumnya)' : ''
-        }.`,
+        result.booking?.id
+          ? `${result.offer.offerNumber} & Deposit Hold (${result.booking.id}) berhasil dikirim${
+              result.supersededCount > 0 ? ' (menggantikan revisi sebelumnya)' : ''
+            }.`
+          : `${result.offer.offerNumber} berhasil dikirim${
+              result.supersededCount > 0 ? ' (menggantikan revisi sebelumnya)' : ''
+            }.`,
       );
       setCloseMode('');
       setCloseReason('');
+    } catch (err) {
+      const msg = mapOfferErrorToMessage(err);
+      setActionError(msg);
+      toast.error(msg);
+    } finally {
+      setSubmittingAction('');
+    }
+  };
+
+  const handleReleaseRejectedHold = async () => {
+    if (!activeOffer?.provisionalBookingId || submittingAction) return;
+    setSubmittingAction('release-rejected-hold');
+    setActionError('');
+    try {
+      await expireReservationHold({
+        bookingId: activeOffer.provisionalBookingId,
+        reason: `Hold dilepas setelah ${activeOffer.offerNumber} ditolak Client.`,
+        actorUid,
+      });
+      toast.success(`Hold provisional ${activeOffer.provisionalBookingId} berhasil dilepaskan.`);
     } catch (err) {
       const msg = mapOfferErrorToMessage(err);
       setActionError(msg);
@@ -461,6 +508,29 @@ export function OfferComposerCard({ request, offers = [], actorUid = '', actorNa
         </div>
       ) : null}
 
+      {activeOffer?.status === OFFER_STATUSES.REJECTED &&
+      activeOffer?.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER &&
+      activeOffer?.provisionalBookingId ? (
+        <div
+          data-testid="rejected-hold-offer-notice"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-red-200 bg-red-50/75 p-3 text-xs text-red-900"
+        >
+          <span>
+            {activeOffer.offerNumber} ditolak Client. Mengirim revisi baru akan melepas Hold{' '}
+            <code className="font-mono font-bold">{activeOffer.provisionalBookingId}</code> secara
+            otomatis, atau lepas sekarang jika tidak melanjutkan.
+          </span>
+          <AdminButton
+            variant="danger"
+            size="sm"
+            disabled={Boolean(submittingAction)}
+            onClick={handleReleaseRejectedHold}
+          >
+            Lepas Hold
+          </AdminButton>
+        </div>
+      ) : null}
+
       {isActiveAccepted && activeOffer ? (
         <div
           data-testid="accepted-offer-lock-banner"
@@ -480,7 +550,7 @@ export function OfferComposerCard({ request, offers = [], actorUid = '', actorNa
 
       {canComposeOffer ? (
         <form onSubmit={handleSendOffer} className="space-y-3">
-          {/* Offer Mode Selector + Owner ADR Notice */}
+          {/* Offer Mode Selector (Quote Only vs Option A Deposit Hold Offer) */}
           <div className="space-y-2">
             <span className="block text-[11px] font-semibold text-[#151515]">Mode Penawaran</span>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -494,7 +564,7 @@ export function OfferComposerCard({ request, offers = [], actorUid = '', actorNa
                     : 'border-[#151515]/10 bg-[#FAF8F1] text-[#46433D]'
                 }`}
               >
-                <span className="block text-xs font-bold">Quote Only (Aktif)</span>
+                <span className="block text-xs font-bold">Quote Only</span>
                 <span className="mt-0.5 block text-[10.5px] opacity-80">
                   Client menyetujui penawaran dulu; slot &amp; invoice dibuat Staff saat konversi.
                 </span>
@@ -506,30 +576,56 @@ export function OfferComposerCard({ request, offers = [], actorUid = '', actorNa
                 aria-pressed={formState.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER}
                 className={`cursor-pointer rounded-xl border p-2.5 text-left transition-colors ${
                   formState.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER
-                    ? 'border-amber-500/60 bg-amber-50 text-amber-950'
-                    : 'border-dashed border-[#151515]/15 bg-[#FAF8F1]/60 text-[#666159]'
+                    ? 'border-[#8BAD12]/60 bg-[#EDF8C2] text-[#243300]'
+                    : 'border-[#151515]/10 bg-[#FAF8F1] text-[#46433D]'
                 }`}
               >
                 <span className="flex items-center gap-1.5 text-xs font-bold">
                   Deposit Hold Offer
-                  <AdminStatusBadge tone="danger" size="sm">
-                    ADR Blocked
+                  <AdminStatusBadge tone="lime" size="sm">
+                    Aktif · Opsi A
                   </AdminStatusBadge>
                 </span>
                 <span className="mt-0.5 block text-[10.5px] opacity-85">
-                  Menunggu keputusan Owner: Opsi A (invoice dibuat saat offer) vs Opsi B (setelah Client accept).
+                  Staff kunci slot Deposit Hold provisional &amp; terbitkan Invoice DP belum lunas
+                  saat mengirim Offer.
                 </span>
               </button>
             </div>
 
             {formState.offerMode === OFFER_MODES.DEPOSIT_HOLD_OFFER ? (
               <div
-                data-testid="deposit-hold-offer-adr-notice"
-                className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900"
+                data-testid="deposit-hold-offer-preview-notice"
+                className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${
+                  liveDepositSnapshot.type === 'none' ||
+                  liveDepositSnapshot.minimumDepositAmount <= 0 ||
+                  liveHoldPreview.error
+                    ? 'border-amber-300 bg-amber-50 text-amber-900'
+                    : 'border-[#8BAD12]/40 bg-[#EDF8C2]/65 text-[#243300]'
+                }`}
               >
-                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>
-                  Jalur <strong>deposit_hold_offer</strong> ditahan sementara sesuai ADR Fase 2 karena Client Firestore tidak menulis koleksi <code>invoices</code>. Gunakan <strong>Quote Only</strong> untuk alur komersial end-to-end.
+                  {liveDepositSnapshot.type === 'none' ||
+                  liveDepositSnapshot.minimumDepositAmount <= 0 ? (
+                    <>
+                      Kebijakan layanan ini berstatus <strong>Tanpa DP</strong>. Deposit Hold Offer
+                      membutuhkan kewajiban DP (&gt; Rp 0) — gunakan <strong>Quote Only</strong>.
+                    </>
+                  ) : liveHoldPreview.error ? (
+                    <>{liveHoldPreview.error}</>
+                  ) : (
+                    <>
+                      Mengirim Offer ini akan langsung membuat{' '}
+                      <strong>Deposit Hold provisional</strong> dan{' '}
+                      <strong>Invoice belum lunas</strong> (DP min.{' '}
+                      <strong>{formatRupiah(liveDepositSnapshot.minimumDepositAmount)}</strong>
+                      {liveHoldPreview.deadline
+                        ? `, batas hold s/d ${formatIndonesianTimestamp(liveHoldPreview.deadline.holdExpiresAtIso)}`
+                        : ''}
+                      ).
+                    </>
+                  )}
                 </span>
               </div>
             ) : null}

@@ -14,6 +14,8 @@
  */
 
 import {
+  buildFirestoreBookingRequestTxHelpers,
+  createInMemoryBookingRequestStage,
   FIRESTORE_COLLECTIONS,
   normalizeBookingEventRecord,
   normalizeBookingRecord,
@@ -123,6 +125,7 @@ export function createFirestorePaymentEvidenceRepositoryAdapter() {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
             tx.update(ref, data);
           },
+          ...buildFirestoreBookingRequestTxHelpers({ tx, db, doc }),
         };
 
         return transactionWork(txContext);
@@ -580,6 +583,17 @@ export function createInMemoryPaymentEvidenceRepositoryAdapter({
         const stagedClientReservations = new Map(clientReservations);
         const touchedBookingIds = new Set();
         let writeStarted = false;
+        const requestStage = createInMemoryBookingRequestStage({
+          sharedStore,
+          checkCanRead: () => {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+          },
+          markWrite: () => {
+            writeStarted = true;
+          },
+        });
 
         const txContext = {
           nowValue: () => ({ seconds: Math.floor(Date.now() / 1000) }),
@@ -672,6 +686,7 @@ export function createInMemoryPaymentEvidenceRepositoryAdapter({
             const prev = stagedEvidence.get(id) || {};
             stagedEvidence.set(id, normalizePaymentEvidenceRecord(id, { ...prev, ...data }));
           },
+          ...requestStage.helpers,
         };
 
         const result = await transactionWork(txContext);
@@ -690,6 +705,7 @@ export function createInMemoryPaymentEvidenceRepositoryAdapter({
         for (const [k, v] of stagedEvidenceLocks) paymentEvidenceLocks.set(k, v);
         clientReservations.clear();
         for (const [k, v] of stagedClientReservations) clientReservations.set(k, v);
+        requestStage.commitAndNotify();
 
         sharedStore?.notifyInvoices?.();
         sharedStore?.notifyClientReservations?.();
