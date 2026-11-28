@@ -3,10 +3,12 @@ import { AlertTriangle, CheckCircle2, Clock3, FileCheck2, RefreshCw } from 'luci
 import { AdminStatusBadge } from '@/features/admin/design-system';
 import { INVOICE_STATUS } from '@/features/admin/payment/utils/invoice-status';
 import {
+  PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE,
   PAYMENT_EVIDENCE_SOURCES,
   PAYMENT_EVIDENCE_STATUSES,
 } from '@/features/payment-evidence/config/payment-evidence-config';
 import { useClientPaymentEvidence } from '@/features/payment-evidence/hooks/useClientPaymentEvidence';
+import { summarizePendingEvidence } from '@/features/payment-evidence/utils/payment-evidence-utils';
 
 import { formatClientRupiah } from '../utils/client-billing-utils';
 import { ClientPaymentEvidenceForm } from './ClientPaymentEvidenceForm';
@@ -15,12 +17,13 @@ import { ClientPaymentEvidenceTimeline } from './ClientPaymentEvidenceTimeline';
 /**
  * Payment Evidence & Verification panel embedded inside `ClientInvoiceDetailDrawer`.
  *
- * Visibility contract (Section 8A):
- * - Shows upload form ONLY when:
+ * Visibility contract (Phase 3 / OD-05 Multi-Pending):
+ * - Shows upload form when:
  *   `invoice.invoiceStatus === 'issued' && invoice.clientPaymentEvidenceRequired === true && invoice.balanceDue > 0`
- * - Hides upload form while a `pending_review` submission is active (prevents accidental duplicates).
+ *   AND `pendingCount < PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE` (50).
+ * - Allows multiple concurrent `pending_review` receipts (installments / split transfers)
+ *   while clearly summarizing pending claimed totals and enforcing the hard lock cap of 50.
  * - Preserves evidence timeline for verified/rejected/fully-paid invoices.
- * - Does not display mandatory form for draft, void, paid, or non-Client-Portal invoices.
  */
 export function ClientPaymentEvidencePanel({
   invoice,
@@ -43,9 +46,10 @@ export function ClientPaymentEvidencePanel({
   const clientSubmissions = items.filter(
     (ev) => ev.evidenceSource === PAYMENT_EVIDENCE_SOURCES.CLIENT_PORTAL,
   );
-  const hasPendingSubmission = clientSubmissions.some(
-    (ev) => ev.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
-  );
+  const pendingSummary = summarizePendingEvidence(clientSubmissions, invoice.balanceDue);
+  const pendingCount = pendingSummary.pendingCount;
+  const hasPendingSubmission = pendingCount > 0;
+  const isPendingLimitReached = pendingCount >= PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE;
   const latestSubmission = clientSubmissions[0] || null;
   const isLatestRejected = latestSubmission?.status === PAYMENT_EVIDENCE_STATUSES.REJECTED;
 
@@ -55,7 +59,7 @@ export function ClientPaymentEvidencePanel({
     return null;
   }
 
-  const shouldRenderForm = isEligibleForUpload && !hasPendingSubmission;
+  const shouldRenderForm = isEligibleForUpload && !isPendingLimitReached;
 
   const handleFocusResubmitForm = () => {
     const amountField = document.getElementById('client-evidence-amount');
@@ -81,7 +85,7 @@ export function ClientPaymentEvidencePanel({
             <p className="mt-0.5 text-[11px] text-[#666159]">
               {isEligibleForUpload
                 ? hasPendingSubmission
-                  ? 'Your latest payment proof is currently being reviewed by the studio team.'
+                  ? `${pendingCount} payment ${pendingCount === 1 ? 'proof is' : 'proofs are'} awaiting studio review. You can upload additional receipts if paying in installments.`
                   : `Upload your payment receipt (${formatClientRupiah(invoice.balanceDue)} remaining) so our team can verify and record your payment.`
                 : !hasOutstandingBalance && isIssued
                   ? 'Invoice settled in full. Your verified payment proof history is preserved below.'
@@ -92,7 +96,7 @@ export function ClientPaymentEvidencePanel({
 
         {hasPendingSubmission ? (
           <AdminStatusBadge tone="amber" size="sm" dot>
-            Under Review
+            {pendingCount > 1 ? `Under Review (${pendingCount})` : 'Under Review'}
           </AdminStatusBadge>
         ) : !hasOutstandingBalance && isIssued ? (
           <AdminStatusBadge tone="emerald" size="sm" dot>
@@ -131,20 +135,49 @@ export function ClientPaymentEvidencePanel({
         </div>
       ) : null}
 
-      {/* Pending Review Callout (blocks duplicate submission while awaiting review) */}
+      {/* Pending Review Summary Banner (multi-pending allowed up to 50) */}
       {isEligibleForUpload && hasPendingSubmission ? (
         <div
           data-testid="client-evidence-pending-banner"
           className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-[#FEF4DD]/65 p-3 text-xs text-[#8A4B08]"
         >
           <Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <div>
-            <p className="font-semibold text-[#151515]">Waiting for Studio Verification</p>
-            <p className="mt-0.5 leading-relaxed text-[#46433D]">
-              We received your payment proof. Your invoice balance will update automatically once
-              verified by our studio desk.
+          <div className="space-y-1">
+            <p className="font-semibold text-[#151515]">
+              {pendingCount} Pending Verification{pendingCount > 1 ? 's' : ''} (Total Claimed:{' '}
+              <span className="font-mono">
+                {formatClientRupiah(pendingSummary.totalPendingClaimed)}
+              </span>
+              )
             </p>
+            <p className="leading-relaxed text-[#46433D]">
+              Your invoice balance updates only after studio staff verifies each receipt. If you
+              paid in multiple transfers, you may upload another proof below (maximum{' '}
+              {PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE} pending receipts per invoice).
+            </p>
+            {pendingSummary.exceedsBalance ? (
+              <p className="font-medium text-[#B92B0C]">
+                Note: Combined pending claimed amounts exceed your remaining balance (
+                {formatClientRupiah(invoice.balanceDue)}). Only verified amounts up to the remaining
+                balance will apply.
+              </p>
+            ) : null}
           </div>
+        </div>
+      ) : null}
+
+      {isEligibleForUpload && isPendingLimitReached ? (
+        <div
+          role="alert"
+          data-testid="client-evidence-pending-limit-banner"
+          className="flex items-start gap-2.5 rounded-xl border border-[#FF4B22]/25 bg-[#FFEDE8] p-3 text-xs text-[#B92B0C]"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            Maximum of {PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE} pending payment proofs reached for
+            this invoice. Please wait for the studio team to review an existing submission before
+            uploading another proof.
+          </span>
         </div>
       ) : null}
 
@@ -160,7 +193,7 @@ export function ClientPaymentEvidencePanel({
       {items.length > 0 ? (
         <ClientPaymentEvidenceTimeline
           items={items}
-          canResubmit={isEligibleForUpload && !hasPendingSubmission}
+          canResubmit={shouldRenderForm}
           onStartResubmit={handleFocusResubmitForm}
         />
       ) : null}
@@ -172,10 +205,15 @@ export function ClientPaymentEvidencePanel({
             <p className="mb-2.5 text-xs font-semibold text-[#151515]">
               Submit Corrected Payment Proof
             </p>
+          ) : hasPendingSubmission ? (
+            <p className="mb-2.5 text-xs font-semibold text-[#151515]">
+              Upload Additional Payment Proof
+            </p>
           ) : null}
           <ClientPaymentEvidenceForm
             key={`${invoice.id}:${invoice.balanceDue}:${clientSubmissions.length}`}
             invoice={invoice}
+            existingEvidence={clientSubmissions}
             customEvidenceAdapter={customEvidenceAdapter}
             cloudinaryConfig={cloudinaryConfig}
           />

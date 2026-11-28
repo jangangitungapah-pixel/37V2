@@ -45,6 +45,12 @@ export function useClientInvoiceDetail({
     error: '',
   });
 
+  const [adjState, setAdjState] = useState({
+    resolvedAdapter: null,
+    resolvedKey: '',
+    adjustments: [],
+  });
+
   useEffect(() => {
     if (!isClientReady) {
       return undefined;
@@ -77,9 +83,34 @@ export function useClientInvoiceDetail({
       },
     });
 
+    const unsubAdj =
+      typeof resolvedAdapter.subscribeClientInvoiceAdjustments === 'function'
+        ? resolvedAdapter.subscribeClientInvoiceAdjustments({
+            invoiceId: cleanInvoiceId,
+            maxLimit: 100,
+            onData: (adjustments) => {
+              if (isCancelled) return;
+              setAdjState({
+                resolvedAdapter,
+                resolvedKey: currentKey,
+                adjustments: Array.isArray(adjustments) ? adjustments : [],
+              });
+            },
+            onError: () => {
+              if (isCancelled) return;
+              setAdjState({
+                resolvedAdapter,
+                resolvedKey: currentKey,
+                adjustments: [],
+              });
+            },
+          })
+        : () => {};
+
     return () => {
       isCancelled = true;
       unsubscribe?.();
+      unsubAdj?.();
     };
   }, [cleanCustomerId, cleanInvoiceId, cleanUid, isClientReady, resolvedAdapter, subscriptionKey]);
 
@@ -99,6 +130,11 @@ export function useClientInvoiceDetail({
     invoiceState.resolvedAdapter === resolvedAdapter &&
     invoiceState.resolvedKey === subscriptionKey;
 
+  const isAdjCurrent =
+    isClientReady &&
+    adjState.resolvedAdapter === resolvedAdapter &&
+    adjState.resolvedKey === subscriptionKey;
+
   const liveInvoice = isInvoiceCurrent
     ? invoiceState.invoice
     : isClientReady && fallbackInvoice?.id === cleanInvoiceId
@@ -108,6 +144,7 @@ export function useClientInvoiceDetail({
   return {
     invoice: liveInvoice,
     transactions: txResult.transactions,
+    adjustments: isAdjCurrent ? adjState.adjustments : [],
     reversedTransactionIds: txResult.reversedTransactionIds,
     isLoading: isClientReady ? !isInvoiceCurrent || txResult.isLoading : false,
     isTransactionsLoading: txResult.isLoading,

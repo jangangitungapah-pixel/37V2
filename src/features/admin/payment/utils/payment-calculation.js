@@ -22,21 +22,53 @@ export function toNonNegativeRupiahInt(value) {
 }
 
 /**
- * Computes updated invoice payment aggregates after applying a positive payment
- * or compensating reversal in integer Rupiah.
+ * Computes updated invoice payment & adjustment aggregates after applying a positive payment,
+ * compensating reversal, or price adjustment delta in integer Rupiah.
  */
-export function computeInvoicePaymentTotals({ totalAmount, currentAmountPaid, deltaAmount }) {
-  const safeTotal = toNonNegativeRupiahInt(totalAmount);
+export function computeInvoicePaymentTotals({
+  totalAmount,
+  adjustmentTotal = 0,
+  effectiveTotalAmount = undefined,
+  refundedTotal = 0,
+  creditConvertedTotal = 0,
+  currentAmountPaid = 0,
+  deltaAmount = 0,
+}) {
+  const safeBaseTotal = toNonNegativeRupiahInt(totalAmount);
+  const rawAdjustmentTotal = Number.isFinite(Number(adjustmentTotal))
+    ? Math.round(Number(adjustmentTotal))
+    : 0;
+  const resolvedEffectiveTotal =
+    effectiveTotalAmount !== undefined &&
+    effectiveTotalAmount !== null &&
+    Number.isFinite(Number(effectiveTotalAmount))
+      ? toNonNegativeRupiahInt(effectiveTotalAmount)
+      : Math.max(0, safeBaseTotal + rawAdjustmentTotal);
+  const normalizedAdjustmentTotal = resolvedEffectiveTotal - safeBaseTotal;
   const safeCurrentPaid = toNonNegativeRupiahInt(currentAmountPaid);
   const safeDelta = Math.round(Number(deltaAmount) || 0);
   const nextAmountPaid = Math.max(0, safeCurrentPaid + safeDelta);
-  const nextBalanceDue = Math.max(0, safeTotal - nextAmountPaid);
-  const nextPaymentStatus = computeStoredPaymentStatus(safeTotal, nextAmountPaid);
+  const safeRefunded = toNonNegativeRupiahInt(refundedTotal);
+  const safeCreditConverted = toNonNegativeRupiahInt(creditConvertedTotal);
+  const nextBalanceDue = Math.max(0, resolvedEffectiveTotal - nextAmountPaid);
+  const nextOverpaidCreditBalance = Math.max(
+    0,
+    nextAmountPaid - resolvedEffectiveTotal - safeRefunded - safeCreditConverted,
+  );
+  const nextPaymentStatus = computeStoredPaymentStatus(resolvedEffectiveTotal, nextAmountPaid, {
+    refundedTotal: safeRefunded,
+    creditConvertedTotal: safeCreditConverted,
+  });
 
   return {
-    totalAmount: safeTotal,
+    totalAmount: safeBaseTotal,
+    adjustmentTotal: normalizedAdjustmentTotal,
+    effectiveTotalAmount: resolvedEffectiveTotal,
     amountPaid: nextAmountPaid,
     balanceDue: nextBalanceDue,
+    refundedTotal: safeRefunded,
+    creditConvertedTotal: safeCreditConverted,
+    overpaidCreditBalance: nextOverpaidCreditBalance,
     paymentStatus: nextPaymentStatus,
   };
 }
@@ -278,9 +310,17 @@ export function filterTransactions({
 export function resolveBookingLatestPaymentView(booking, invoice = null) {
   if (invoice && invoice.id) {
     const effectiveStatus = getEffectivePaymentStatus(invoice);
-    const totalAmount = toNonNegativeRupiahInt(invoice.financialSnapshot?.totalAmount);
+    const baseTotalAmount = toNonNegativeRupiahInt(invoice.financialSnapshot?.totalAmount);
+    const adjustmentTotal = Number.isFinite(Number(invoice.adjustmentTotal))
+      ? Math.round(Number(invoice.adjustmentTotal))
+      : 0;
+    const totalAmount = toNonNegativeRupiahInt(
+      invoice.effectiveTotalAmount ?? Math.max(0, baseTotalAmount + adjustmentTotal),
+    );
     const amountPaid = toNonNegativeRupiahInt(invoice.amountPaid);
     const balanceDue = toNonNegativeRupiahInt(invoice.balanceDue);
+    const overpaidCreditBalance = toNonNegativeRupiahInt(invoice.overpaidCreditBalance);
+    const bookingTotal = booking ? toNonNegativeRupiahInt(booking.totalAmount) : baseTotalAmount;
 
     return {
       source: 'invoice',
@@ -290,10 +330,15 @@ export function resolveBookingLatestPaymentView(booking, invoice = null) {
       invoiceStatus: invoice.invoiceStatus,
       paymentStatus: effectiveStatus,
       storedPaymentStatus: invoice.paymentStatus,
+      baseTotalAmount,
+      adjustmentTotal,
       totalAmount,
+      effectiveTotalAmount: totalAmount,
       amountPaid,
       balanceDue,
-      isSnapshotMismatch: booking && toNonNegativeRupiahInt(booking.totalAmount) !== totalAmount,
+      overpaidCreditBalance,
+      isSnapshotMismatch:
+        Boolean(booking) && bookingTotal !== baseTotalAmount && bookingTotal !== totalAmount,
     };
   }
 
@@ -314,9 +359,13 @@ export function resolveBookingLatestPaymentView(booking, invoice = null) {
     invoiceStatus: '',
     paymentStatus: storedPaymentStatus,
     storedPaymentStatus,
+    baseTotalAmount: totalAmount,
+    adjustmentTotal: 0,
     totalAmount,
+    effectiveTotalAmount: totalAmount,
     amountPaid: initialPaidAmount,
     balanceDue,
+    overpaidCreditBalance: 0,
     isSnapshotMismatch: false,
   };
 }

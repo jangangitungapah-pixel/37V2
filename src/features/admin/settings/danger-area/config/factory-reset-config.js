@@ -43,9 +43,9 @@ export const FACTORY_RESET_PREVIEW_GROUPS = Object.freeze([
 ]);
 
 /**
- * Authoritative dependency-aware ordered deletion manifest (28 explicit targets).
- * Subcollections (`communications`, `activities`, `offers`) are always deleted and verified empty
- * before deleting parent `publicBookingRequests` documents, and dependents are deleted
+ * Authoritative dependency-aware ordered deletion manifest (29 explicit targets).
+ * Subcollections (`communications`, `activities`, `offers`, and `invoices/{invoiceId}/adjustments`)
+ * are always deleted and verified empty before deleting parent documents, and dependents are deleted
  * before canonical `bookings` and `customers`.
  */
 export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
@@ -153,6 +153,17 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     kind: 'collection',
     group: 'financial',
     order: 9,
+  },
+  {
+    key: 'invoices_adjustments',
+    label: 'Invoice Price Adjustments (Subcollection)',
+    collection: 'adjustments',
+    parentCollection: 'invoices',
+    subcollection: 'adjustments',
+    pathPattern: 'invoices/{invoiceId}/adjustments',
+    kind: 'subcollection',
+    group: 'financial',
+    order: 9.5,
   },
   {
     key: 'invoices',

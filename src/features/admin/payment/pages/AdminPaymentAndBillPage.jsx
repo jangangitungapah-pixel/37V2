@@ -9,6 +9,7 @@ import { AdminEmptyState, AdminStatusBadge, AdminSurface } from '@/features/admi
 import { useAuth } from '@/features/auth/AuthContext';
 import { useAdminPaymentEvidence } from '@/features/payment-evidence/hooks/useAdminPaymentEvidence';
 
+import { InvoiceAdjustmentDialog } from '../components/InvoiceAdjustmentDialog';
 import { InvoiceDetailDrawer } from '../components/InvoiceDetailDrawer';
 import { InvoiceDirectoryTable } from '../components/InvoiceDirectoryTable';
 import { InvoiceDirectoryToolbar } from '../components/InvoiceDirectoryToolbar';
@@ -25,12 +26,18 @@ import { RecordPaymentDialog } from '../components/RecordPaymentDialog';
 import { VoidInvoiceDialog } from '../components/VoidInvoiceDialog';
 import { useInvoices } from '../hooks/useInvoices';
 import { usePaymentTransactions } from '../hooks/usePaymentTransactions';
+import { createInvoiceAdjustment } from '../services/adjustment-service';
 import {
   mapPaymentErrorToMessage,
   updateInvoiceDueDate,
   voidInvoice,
 } from '../services/invoice-service';
-import { recordInvoicePayment, reversePaymentTransaction } from '../services/payment-service';
+import {
+  recordInvoicePayment,
+  recordStaffCashPayment,
+  reversePaymentTransaction,
+} from '../services/payment-service';
+import { PAYMENT_SOURCE } from '../utils/invoice-status';
 import {
   computeOverviewMetrics,
   filterInvoices,
@@ -85,6 +92,12 @@ export function AdminPaymentAndBillPage() {
     open: false,
     invoice: null,
     transactions: [],
+    adjustments: [],
+  });
+  const [adjustmentDialogState, setAdjustmentDialogState] = useState({
+    sessionKey: 0,
+    open: false,
+    invoice: null,
   });
   const [receiptState, setReceiptState] = useState({
     open: false,
@@ -272,12 +285,33 @@ export function AdminPaymentAndBillPage() {
   };
 
   const handleRecordPayment = async (payload) => {
-    const result = await recordInvoicePayment({
+    const result =
+      payload.source === PAYMENT_SOURCE.STAFF_CASH_DESK
+        ? await recordStaffCashPayment({
+            ...payload,
+            actorUid,
+          })
+        : await recordInvoicePayment({
+            ...payload,
+            actorUid,
+          });
+    toast.success(
+      `Pembayaran ${formatRupiah(result.transaction.amount)} berhasil dicatat pada ${result.invoice.invoiceNumber}.`,
+    );
+    return result;
+  };
+
+  const handleCreateInvoiceAdjustment = async (payload) => {
+    const result = await createInvoiceAdjustment({
       ...payload,
       actorUid,
     });
+    const signedLabel =
+      result.adjustment.deltaAmount >= 0
+        ? `+${formatRupiah(result.adjustment.deltaAmount)}`
+        : `-${formatRupiah(Math.abs(result.adjustment.deltaAmount))}`;
     toast.success(
-      `Pembayaran ${formatRupiah(result.transaction.amount)} berhasil dicatat pada ${result.invoice.invoiceNumber}.`,
+      `Penyesuaian harga ${signedLabel} berhasil diterapkan pada ${result.invoice.invoiceNumber}.`,
     );
     return result;
   };
@@ -607,15 +641,23 @@ export function AdminPaymentAndBillPage() {
             invoice: inv,
           }))
         }
+        onOpenAdjustment={(inv) =>
+          setAdjustmentDialogState((prev) => ({
+            sessionKey: prev.sessionKey + 1,
+            open: true,
+            invoice: inv,
+          }))
+        }
         onOpenEvidenceReview={(ev, inv) => {
           handleCloseInvoiceDrawer();
           handleOpenEvidenceReview(ev, inv);
         }}
-        onOpenPrintPreview={(inv, txs) =>
+        onOpenPrintPreview={(inv, txs, adjs) =>
           setPrintPreviewState({
             open: true,
             invoice: inv,
             transactions: txs || [],
+            adjustments: adjs || [],
           })
         }
         onOpenReceipt={(tx, inv) =>
@@ -676,11 +718,23 @@ export function AdminPaymentAndBillPage() {
         onSubmitPayment={handleRecordPayment}
       />
 
+      {/* Append-Only Price Adjustment Modal */}
+      <InvoiceAdjustmentDialog
+        key={`adjust-inv-${adjustmentDialogState.sessionKey}`}
+        open={adjustmentDialogState.open}
+        invoice={adjustmentDialogState.invoice}
+        onOpenChange={(nextOpen) =>
+          setAdjustmentDialogState((prev) => ({ ...prev, open: nextOpen }))
+        }
+        onSubmitAdjustment={handleCreateInvoiceAdjustment}
+      />
+
       {/* Printable A4 Invoice Preview & Print Portal */}
       <InvoicePrintable
         open={printPreviewState.open}
         invoice={printPreviewState.invoice}
         transactions={printPreviewState.transactions}
+        adjustments={printPreviewState.adjustments}
         onOpenChange={(nextOpen) => setPrintPreviewState((prev) => ({ ...prev, open: nextOpen }))}
       />
 

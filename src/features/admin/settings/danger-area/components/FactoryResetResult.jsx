@@ -10,6 +10,8 @@ export function FactoryResetResult({ operation, onDoneResetView }) {
   const nestedKeys = new Set([
     'publicBookingRequests_communications',
     'publicBookingRequests_activities',
+    'publicBookingRequests_offers',
+    'invoices_adjustments',
   ]);
   const counts = operation?.deletedDocumentCounts || {};
   const nestedDeletedTotal = Object.entries(counts).reduce(

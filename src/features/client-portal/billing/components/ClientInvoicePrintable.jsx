@@ -46,10 +46,16 @@ function getOrCreateStudioPrintPortal() {
 export function ClientInvoiceDocumentSheet({
   invoice,
   transactions = [],
+  adjustments = [],
   studioName = '37 Music Studio',
   referenceDateIso,
 }) {
   if (!invoice) return null;
+
+  const baseTotalAmount = invoice.financialSnapshot?.totalAmount || 0;
+  const adjustmentTotal = Number(invoice.adjustmentTotal) || 0;
+  const effectiveTotalAmount = invoice.effectiveTotalAmount ?? baseTotalAmount;
+  const overpaidCreditBalance = Number(invoice.overpaidCreditBalance) || 0;
 
   const statusDisplay = getClientInvoiceStatusDisplay(invoice, referenceDateIso);
   const cleanStudioName = String(studioName || '37 Music Studio').trim() || '37 Music Studio';
@@ -196,10 +202,31 @@ export function ClientInvoiceDocumentSheet({
             </dd>
           </div>
 
+          {adjustmentTotal !== 0 ? (
+            <>
+              <div className="flex items-center justify-between gap-4 border-t border-[#151515]/10 pt-2">
+                <dt className="text-[#46433D]">Original Total</dt>
+                <dd className="font-mono font-semibold text-[#151515] tabular-nums">
+                  {formatClientRupiah(baseTotalAmount)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-[#46433D]">Price Adjustments</dt>
+                <dd className="font-mono font-semibold text-[#151515] tabular-nums">
+                  {adjustmentTotal > 0
+                    ? `+ ${formatClientRupiah(adjustmentTotal)}`
+                    : `- ${formatClientRupiah(Math.abs(adjustmentTotal))}`}
+                </dd>
+              </div>
+            </>
+          ) : null}
+
           <div className="flex items-center justify-between gap-4 border-t border-[#151515]/15 pt-2 text-sm font-bold">
-            <dt className="text-[#151515]">Total Invoice</dt>
+            <dt className="text-[#151515]">
+              {adjustmentTotal !== 0 ? 'Effective Total Invoice' : 'Total Invoice'}
+            </dt>
             <dd className="font-mono text-[#151515] tabular-nums">
-              {formatClientRupiah(invoice.financialSnapshot?.totalAmount)}
+              {formatClientRupiah(effectiveTotalAmount)}
             </dd>
           </div>
 
@@ -218,8 +245,37 @@ export function ClientInvoiceDocumentSheet({
                 : formatClientRupiah(invoice.balanceDue)}
             </dd>
           </div>
+
+          {overpaidCreditBalance > 0 ? (
+            <div className="flex items-center justify-between gap-4 border-t border-amber-500/30 pt-2 text-xs font-bold text-[#6A3B00]">
+              <dt>Overpaid Credit Balance</dt>
+              <dd className="font-mono tabular-nums">
+                {formatClientRupiah(overpaidCreditBalance)}
+              </dd>
+            </div>
+          ) : null}
         </dl>
       </section>
+
+      {Array.isArray(adjustments) && adjustments.length > 0 ? (
+        <section className="print-avoid-break mt-5">
+          <h2 className="font-mono text-[10.5px] font-semibold tracking-wider text-[#666159] uppercase">
+            Price Adjustments ({adjustments.length})
+          </h2>
+          <div className="mt-2 space-y-1.5 rounded-xl border border-[#151515]/15 p-3 text-xs">
+            {adjustments.map((adj) => (
+              <div key={adj.id} className="flex items-center justify-between gap-3">
+                <span className="text-[#151515]">{adj.reason}</span>
+                <span className="font-mono font-semibold text-[#151515] tabular-nums">
+                  {adj.deltaAmount >= 0
+                    ? `+ ${formatClientRupiah(adj.deltaAmount)}`
+                    : `- ${formatClientRupiah(Math.abs(adj.deltaAmount))}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* Customer-Safe Payment Summary */}
       <section className="print-avoid-break mt-5">

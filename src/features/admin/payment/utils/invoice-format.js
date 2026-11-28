@@ -99,12 +99,38 @@ export function buildWhatsAppInvoiceSummary(invoice) {
     lines.push(`Diskon      : -${formatRupiah(invoice.financialSnapshot.discountAmount)}`);
   }
 
+  const baseTotal = Math.max(0, Math.round(Number(invoice.financialSnapshot?.totalAmount) || 0));
+  const adjustmentTotal = Math.round(Number(invoice.adjustmentTotal) || 0);
+  const effectiveTotal = Math.max(
+    0,
+    Math.round(Number(invoice.effectiveTotalAmount ?? baseTotal) || 0),
+  );
+  const overpaidCreditBalance = Math.max(0, Math.round(Number(invoice.overpaidCreditBalance) || 0));
+
+  if (adjustmentTotal !== 0) {
+    lines.push(
+      `Total Awal  : ${formatRupiah(baseTotal)}`,
+      `Penyesuaian : ${
+        adjustmentTotal > 0
+          ? `+${formatRupiah(adjustmentTotal)}`
+          : `-${formatRupiah(Math.abs(adjustmentTotal))}`
+      }`,
+      `Total Akhir : ${formatRupiah(effectiveTotal)}`,
+    );
+  } else {
+    lines.push(`Total       : ${formatRupiah(effectiveTotal)}`);
+  }
+
   lines.push(
-    `Total       : ${formatRupiah(invoice.financialSnapshot?.totalAmount || 0)}`,
     `Terbayar    : ${formatRupiah(invoice.amountPaid || 0)}`,
     `Sisa Tagihan: ${formatRupiah(invoice.balanceDue || 0)}`,
-    `Status      : ${statusLine}`,
   );
+
+  if (overpaidCreditBalance > 0) {
+    lines.push(`Lebih Bayar : ${formatRupiah(overpaidCreditBalance)} (Menunggu Refund/Kredit)`);
+  }
+
+  lines.push(`Status      : ${statusLine}`);
 
   if (invoice.dueDate) {
     lines.push(`Jatuh Tempo : ${formatIndonesianDateMedium(invoice.dueDate)}`);

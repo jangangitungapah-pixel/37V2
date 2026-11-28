@@ -9525,6 +9525,769 @@ async function runTests() {
   assert.equal(atomicWithdrawWithHoldRelease.status, 200, `Atomic Option A withdraw + hold release failed: ${JSON.stringify(atomicWithdrawWithHoldRelease.body)}`);
   console.log('✓ Phase 2 Option A deposit_hold_offer real Emulator security & atomicity suite passed');
 
+  // 2L. PHASE 3 — STAFF CASH DESK, MULTI-PENDING & CLIENT CASH BLOCK, URL 500 CAP, /ADJUSTMENTS SUBCOLLECTION, DRAFT->ISSUED & LOGGED-IN CLIENT REVIEW SUBMIT
+  const p3BookingFields = {
+    ...base13hBooking,
+    sourceRequestId: '',
+    acceptedOfferId: '',
+    invoiceId: 'inv_bkg_p3_rule',
+    date: '2026-12-30',
+    startMinute: 600,
+    durationMinutes: 240,
+    endMinute: 840,
+    subtotal: 400000,
+    totalAmount: 400000,
+    reservationStatus: 'confirmed',
+    sessionStatus: 'upcoming',
+    holdExpiresAt: null,
+    depositStatus: 'met',
+    version: 1,
+  };
+  const p3InvoiceBase = {
+    ...base13hInvoice,
+    invoiceNumber: '37MS-20261230-P3RULESUITE1',
+    bookingId: 'bkg_p3_rule',
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      studioId: 'room-a',
+      bookingDate: '2026-12-30',
+      startMinute: 600,
+      endMinute: 840,
+      durationMinutes: 240,
+    },
+    financialSnapshot: { subtotal: 400000, discountAmount: 0, totalAmount: 400000 },
+    amountPaid: 0,
+    balanceDue: 400000,
+    paymentStatus: 'unpaid',
+    dueDate: '2026-12-30',
+    version: 1,
+  };
+  const p3ClientResBase = {
+    ...base13hClientReservation,
+    bookingId: 'bkg_p3_rule',
+    bookingReference: 'BKG-P3-RULE-1',
+    sourceRequestId: '',
+    acceptedOfferId: '',
+    invoiceId: 'inv_bkg_p3_rule',
+    date: '2026-12-30',
+    startMinute: 600,
+    endMinute: 840,
+    durationMinutes: 240,
+    reservationStatus: 'confirmed',
+    sessionStatus: 'upcoming',
+    holdExpiresAt: null,
+    effectiveTotalAmount: 400000,
+    depositStatus: 'met',
+    paymentStatus: 'unpaid',
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    version: 1,
+  };
+  await adminSetDoc('bookings/bkg_p3_rule', p3BookingFields);
+  await adminSetDoc('invoices/inv_bkg_p3_rule', p3InvoiceBase);
+  await adminSetDoc('clientReservations/bkg_p3_rule', p3ClientResBase);
+
+  // Staff CANNOT record generic manual non-cash on Portal invoice
+  const manualBypassDenied = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_p3_manual_bypass`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_p3_rule',
+            invoiceNumber: p3InvoiceBase.invoiceNumber,
+            bookingId: 'bkg_p3_rule',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            transactionType: 'payment',
+            amount: 100000,
+            currency: 'IDR',
+            paymentMethod: 'transfer',
+            referenceNumber: '',
+            notes: 'Bypass manual transfer',
+            source: 'manual',
+            reversalOfTransactionId: null,
+            recordedByUid: 'staff-1',
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'receivedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p3_rule`,
+          fields: toFsFields({
+            amountPaid: 100000,
+            balanceDue: 300000,
+            paymentStatus: 'partial',
+            lastPaymentTransactionId: 'pay_p3_manual_bypass',
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['amountPaid', 'balanceDue', 'paymentStatus', 'lastPaymentTransactionId', 'updatedAt', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(manualBypassDenied.status, 403, 'Manual transfer on Client Portal invoice must remain denied');
+
+  // Staff CANNOT use staff_cash_desk with non-cash paymentMethod
+  const cashDeskNonCashDenied = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_p3_bad_method`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_p3_rule',
+            invoiceNumber: p3InvoiceBase.invoiceNumber,
+            bookingId: 'bkg_p3_rule',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            transactionType: 'payment',
+            amount: 100000,
+            currency: 'IDR',
+            paymentMethod: 'qris',
+            referenceNumber: '',
+            notes: 'QRIS disguised as cash desk',
+            source: 'staff_cash_desk',
+            reversalOfTransactionId: null,
+            recordedByUid: 'staff-1',
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'receivedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p3_rule`,
+          fields: toFsFields({
+            amountPaid: 100000,
+            balanceDue: 300000,
+            paymentStatus: 'partial',
+            lastPaymentTransactionId: 'pay_p3_bad_method',
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['amountPaid', 'balanceDue', 'paymentStatus', 'lastPaymentTransactionId', 'updatedAt', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(cashDeskNonCashDenied.status, 403, 'staff_cash_desk with qris/transfer must be denied');
+
+  // Staff CAN record staff_cash_desk + cash on Client Portal invoice atomically!
+  const validStaffCashRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentTransactions/pay_p3_cash_1`,
+          fields: toFsFields({
+            invoiceId: 'inv_bkg_p3_rule',
+            invoiceNumber: p3InvoiceBase.invoiceNumber,
+            bookingId: 'bkg_p3_rule',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            transactionType: 'payment',
+            amount: 400000,
+            currency: 'IDR',
+            paymentMethod: 'cash',
+            referenceNumber: '',
+            notes: 'Pelunasan tunai di kasir studio',
+            source: 'staff_cash_desk',
+            reversalOfTransactionId: null,
+            recordedByUid: 'staff-1',
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'receivedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p3_rule`,
+          fields: toFsFields({
+            amountPaid: 400000,
+            balanceDue: 0,
+            paymentStatus: 'paid',
+            lastPaymentTransactionId: 'pay_p3_cash_1',
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['amountPaid', 'balanceDue', 'paymentStatus', 'lastPaymentTransactionId', 'updatedAt', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/bkg_p3_rule`,
+          fields: toFsFields({
+            paymentStatus: 'paid',
+          }),
+        },
+        updateMask: { fieldPaths: ['paymentStatus', 'updatedAt'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(validStaffCashRes.status, 200, `Staff Cash Desk on Portal invoice failed: ${JSON.stringify(validStaffCashRes.body)}`);
+
+  // Staff adjusts Portal invoice downward (-150,000 -> effectiveTotalAmount 250,000 < amountPaid 400,000 => overpaid_credit_pending!)
+  const p3AdjId = 'adj_000000000000000000000901';
+  const validAdjustmentRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p3_rule/adjustments/${p3AdjId}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            adjustmentId: p3AdjId,
+            invoiceId: 'inv_bkg_p3_rule',
+            targetType: 'booking',
+            targetId: 'bkg_p3_rule',
+            category: 'discount_credit',
+            deltaAmount: -150000,
+            reason: 'Diskon kompensasi pengurangan 1 jam sesi studio',
+            linkedChangeRequestId: null,
+            approvedByUid: 'staff-1',
+            clientApprovedAt: null,
+            createdByUid: 'staff-1',
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p3_rule`,
+          fields: toFsFields({
+            adjustmentTotal: -150000,
+            effectiveTotalAmount: 250000,
+            refundedTotal: 0,
+            creditConvertedTotal: 0,
+            overpaidCreditBalance: 150000,
+            balanceDue: 0,
+            paymentStatus: 'overpaid_credit_pending',
+            lastAdjustmentId: p3AdjId,
+            adjustmentCount: 1,
+            updatedByUid: 'staff-1',
+            version: 3,
+          }),
+        },
+        updateMask: {
+          fieldPaths: [
+            'adjustmentTotal', 'effectiveTotalAmount', 'refundedTotal', 'creditConvertedTotal',
+            'overpaidCreditBalance', 'balanceDue', 'paymentStatus', 'lastAdjustmentId',
+            'adjustmentCount', 'updatedAt', 'updatedByUid', 'version',
+          ],
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/bkg_p3_rule`,
+          fields: toFsFields({
+            effectiveTotalAmount: 250000,
+            paymentStatus: 'overpaid_credit_pending',
+          }),
+        },
+        updateMask: { fieldPaths: ['effectiveTotalAmount', 'paymentStatus', 'updatedAt'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(validAdjustmentRes.status, 200, `Atomic adjustment + overpaid_credit_pending failed: ${JSON.stringify(validAdjustmentRes.body)}`);
+
+  // Negative rules on /adjustments: Staff cannot mutate/delete adjustments, negative effective total denied, attacker denied, owner reads OK
+  assert.equal(
+    (await userRequest('PATCH', `/invoices/inv_bkg_p3_rule/adjustments/${p3AdjId}`, TOKEN_STAFF, {
+      fields: toFsFields({ reason: 'Tampered reason' }),
+    })).status,
+    403,
+    'Adjustments subcollection is strictly append-only (update denied)',
+  );
+  assert.equal(
+    (await userRequest('DELETE', `/invoices/inv_bkg_p3_rule/adjustments/${p3AdjId}`, TOKEN_STAFF)).status,
+    403,
+    'Adjustments subcollection delete denied outside Factory Reset',
+  );
+  assert.equal(
+    (await userRequest('GET', `/invoices/inv_bkg_p3_rule/adjustments/${p3AdjId}`, TOKEN_CLIENT_MATCHED)).status,
+    200,
+    'Owning Client can read own invoice adjustment',
+  );
+  assert.equal(
+    (await userRequest('GET', `/invoices/inv_bkg_p3_rule/adjustments/${p3AdjId}`, TOKEN_CLIENT_ATTACKER)).status,
+    403,
+    'Attacker Client denied GET on another client invoice adjustment',
+  );
+
+  // Negative effectiveTotalAmount attempt (-300,000 when effectiveTotal is 250,000) denied
+  const p3BadAdjId = 'adj_000000000000000000000902';
+  const negativeEffTotalDenied = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p3_rule/adjustments/${p3BadAdjId}`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            adjustmentId: p3BadAdjId,
+            invoiceId: 'inv_bkg_p3_rule',
+            targetType: 'booking',
+            targetId: 'bkg_p3_rule',
+            category: 'discount_credit',
+            deltaAmount: -300000,
+            reason: 'Diskon melebihi total efektif',
+            linkedChangeRequestId: null,
+            approvedByUid: 'staff-1',
+            clientApprovedAt: null,
+            createdByUid: 'staff-1',
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p3_rule`,
+          fields: toFsFields({
+            adjustmentTotal: -450000,
+            effectiveTotalAmount: -50000,
+            overpaidCreditBalance: 450000,
+            balanceDue: 0,
+            paymentStatus: 'overpaid_credit_pending',
+            lastAdjustmentId: p3BadAdjId,
+            adjustmentCount: 2,
+            updatedByUid: 'staff-1',
+            version: 4,
+          }),
+        },
+        updateMask: {
+          fieldPaths: [
+            'adjustmentTotal', 'effectiveTotalAmount', 'overpaidCreditBalance',
+            'balanceDue', 'paymentStatus', 'lastAdjustmentId', 'adjustmentCount',
+            'updatedAt', 'updatedByUid', 'version',
+          ],
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(negativeEffTotalDenied.status, 403, 'Negative effectiveTotalAmount adjustment must be denied');
+
+  // Client Evidence Phase 3 rules: separate unpaid Portal invoice tests cash block, 500 vs 501 URL cap, and multi-pending lock increment
+  await adminSetDoc('invoices/inv_bkg_p3_ev', {
+    ...p3InvoiceBase,
+    invoiceNumber: '37MS-20261230-P3EVIDENCE01',
+    bookingId: 'bkg_p3_ev',
+  });
+  const evUrl500Prefix = 'https://res.cloudinary.com/studio37/image/upload/';
+  const evUrl500 = `${evUrl500Prefix}${'x'.repeat(496 - evUrl500Prefix.length)}.jpg`;
+  const evUrl501 = `${evUrl500Prefix}${'y'.repeat(497 - evUrl500Prefix.length)}.jpg`;
+
+  const clientCashProofDenied = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_p3_cash_denied`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_p3_ev',
+            invoiceNumber: '37MS-20261230-P3EVIDENCE01',
+            bookingId: 'bkg_p3_ev',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            evidenceSource: 'client_portal',
+            status: 'pending_review',
+            claimedAmount: 100000,
+            paymentMethod: 'cash',
+            claimedPaidAt: '2026-12-30',
+            referenceNumber: '',
+            evidence: {
+              provider: 'cloudinary',
+              cloudName: 'studio37',
+              cloudinaryPublicId: 'pe/p3_cash',
+              cloudinaryAssetId: 'asset_p3_cash',
+              secureUrl: evUrl500,
+              resourceType: 'image',
+              format: 'jpg',
+              width: 800,
+              height: 1200,
+              bytes: 120000,
+            },
+            submittedByUid: 'client-matched-1',
+            reviewedAt: null,
+            reviewedByUid: '',
+            rejectionReason: '',
+            verifiedAmount: null,
+            linkedTransactionId: null,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidenceLocks/inv_bkg_p3_ev`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_p3_ev',
+            bookingId: 'bkg_p3_ev',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            pendingEvidenceIds: ['ev_p3_cash_denied'],
+            pendingCount: 1,
+            updatedByUid: 'client-matched-1',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(clientCashProofDenied.status, 403, 'Client Portal paymentEvidence with paymentMethod=cash must be 403');
+
+  const clientUrl501Denied = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_p3_501_denied`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_p3_ev',
+            invoiceNumber: '37MS-20261230-P3EVIDENCE01',
+            bookingId: 'bkg_p3_ev',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            evidenceSource: 'client_portal',
+            status: 'pending_review',
+            claimedAmount: 100000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-12-30',
+            referenceNumber: 'TRF-501',
+            evidence: {
+              provider: 'cloudinary',
+              cloudName: 'studio37',
+              cloudinaryPublicId: 'pe/p3_501',
+              cloudinaryAssetId: 'asset_p3_501',
+              secureUrl: evUrl501,
+              resourceType: 'image',
+              format: 'jpg',
+              width: 800,
+              height: 1200,
+              bytes: 120000,
+            },
+            submittedByUid: 'client-matched-1',
+            reviewedAt: null,
+            reviewedByUid: '',
+            rejectionReason: '',
+            verifiedAmount: null,
+            linkedTransactionId: null,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(clientUrl501Denied.status, 403, 'Client paymentEvidence with 501-char secureUrl must be 403');
+
+  // Valid 500-char URL multi-pending #1 + #2 (transfer then qris)
+  const submitP3Proof1 = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_p3_ok_1`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_p3_ev',
+            invoiceNumber: '37MS-20261230-P3EVIDENCE01',
+            bookingId: 'bkg_p3_ev',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            evidenceSource: 'client_portal',
+            status: 'pending_review',
+            claimedAmount: 150000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-12-30',
+            referenceNumber: 'TRF-P3-1',
+            evidence: {
+              provider: 'cloudinary',
+              cloudName: 'studio37',
+              cloudinaryPublicId: 'pe/p3_ok_1',
+              cloudinaryAssetId: 'asset_p3_ok_1',
+              secureUrl: evUrl500,
+              resourceType: 'image',
+              format: 'jpg',
+              width: 800,
+              height: 1200,
+              bytes: 120000,
+            },
+            submittedByUid: 'client-matched-1',
+            reviewedAt: null,
+            reviewedByUid: '',
+            rejectionReason: '',
+            verifiedAmount: null,
+            linkedTransactionId: null,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidenceLocks/inv_bkg_p3_ev`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_p3_ev',
+            bookingId: 'bkg_p3_ev',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            pendingEvidenceIds: ['ev_p3_ok_1'],
+            pendingCount: 1,
+            updatedByUid: 'client-matched-1',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(submitP3Proof1.status, 200, `500-char Client evidence #1 failed: ${JSON.stringify(submitP3Proof1.body)}`);
+
+  const submitP3Proof2 = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_p3_ok_2`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_p3_ev',
+            invoiceNumber: '37MS-20261230-P3EVIDENCE01',
+            bookingId: 'bkg_p3_ev',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            evidenceSource: 'client_portal',
+            status: 'pending_review',
+            claimedAmount: 150000,
+            paymentMethod: 'qris',
+            claimedPaidAt: '2026-12-30',
+            referenceNumber: 'QRIS-P3-2',
+            evidence: {
+              provider: 'cloudinary',
+              cloudName: 'studio37',
+              cloudinaryPublicId: 'pe/p3_ok_2',
+              cloudinaryAssetId: 'asset_p3_ok_2',
+              secureUrl: evUrl500,
+              resourceType: 'image',
+              format: 'jpg',
+              width: 800,
+              height: 1200,
+              bytes: 120000,
+            },
+            submittedByUid: 'client-matched-1',
+            reviewedAt: null,
+            reviewedByUid: '',
+            rejectionReason: '',
+            verifiedAmount: null,
+            linkedTransactionId: null,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidenceLocks/inv_bkg_p3_ev`,
+          fields: toFsFields({
+            pendingEvidenceIds: ['ev_p3_ok_1', 'ev_p3_ok_2'],
+            pendingCount: 2,
+            updatedByUid: 'client-matched-1',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['pendingEvidenceIds', 'pendingCount', 'updatedAt', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(submitP3Proof2.status, 200, `Multi-pending Client evidence #2 failed: ${JSON.stringify(submitP3Proof2.body)}`);
+
+  // Pending cap (> 50) rejected in paymentEvidenceLocks
+  const over50LockDenied = await userRequest('PATCH', '/paymentEvidenceLocks/inv_bkg_p3_ev', TOKEN_CLIENT_MATCHED, {
+    fields: toFsFields({
+      schemaVersion: 1,
+      invoiceId: 'inv_bkg_p3_ev',
+      bookingId: 'bkg_p3_ev',
+      customerId: 'cust_p2_matched',
+      clientUid: 'client-matched-1',
+      pendingEvidenceIds: Array.from({ length: 51 }, (_, idx) => `ev_cap_${idx + 1}`),
+      pendingCount: 51,
+      updatedByUid: 'client-matched-1',
+      version: 3,
+    }),
+  });
+  assert.equal(over50LockDenied.status, 403, 'paymentEvidenceLocks pendingCount > 50 must be denied');
+
+  // Invoice draft -> issued transition succeeds cleanly
+  await adminSetDoc('invoices/inv_bkg_p3_draft', {
+    ...p3InvoiceBase,
+    invoiceNumber: '37MS-20261230-P3DRAFT0001',
+    bookingId: 'bkg_p3_draft',
+    invoiceStatus: 'draft',
+  });
+  const issueDraftRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p3_draft`,
+          fields: toFsFields({
+            invoiceStatus: 'issued',
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['invoiceStatus', 'updatedAt', 'updatedByUid', 'version'] },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(issueDraftRes.status, 200, `draft -> issued transition failed: ${JSON.stringify(issueDraftRes.body)}`);
+
+  // Logged-in active Client (isActiveClient()) can atomically submit reviewInvitation + customerReview
+  const tokenP3RevRaw = 'p3-client-auth-review-token-999';
+  const hashP3Rev = createHash('sha256').update(tokenP3RevRaw).digest('hex');
+  await adminSetDoc(`reviewInvitations/${hashP3Rev}`, {
+    schemaVersion: 1,
+    bookingId: 'bkg_p3_rev',
+    serviceLabelSnapshot: 'Rehearsal',
+    sessionDate: '2026-12-30',
+    studioId: 'room-a',
+    status: 'active',
+    issuedByUid: 'staff-1',
+    issuedAt: SERVER_TS,
+    expiresAt: { _ts: new Date(Date.now() + 7 * 86_400_000).toISOString() },
+    submittedAt: null,
+    revokedAt: null,
+    revokedByUid: '',
+    version: 1,
+  });
+  const clientAuthReviewSubmit = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/customerReviews/bkg_p3_rev`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            bookingId: 'bkg_p3_rev',
+            invitationId: hashP3Rev,
+            displayName: 'Raka Matched',
+            rating: 5,
+            reviewText: 'Sesi sangat nyaman meski sudah login ke Client Portal!',
+            serviceLabelSnapshot: 'Rehearsal',
+            sessionDate: '2026-12-30',
+            consentToPublish: true,
+            consentVersion: 'customer-review-publication-v1',
+            status: 'pending',
+            publishedAt: null,
+            version: 1,
+          }),
+        },
+        currentDocument: { exists: false },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/reviewInvitations/${hashP3Rev}`,
+          fields: toFsFields({
+            status: 'submitted',
+            version: 2,
+          }),
+        },
+        updateMask: { fieldPaths: ['status', 'submittedAt', 'version'] },
+        currentDocument: { exists: true },
+        updateTransforms: [{ fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' }],
+      },
+    ],
+  });
+  assert.equal(clientAuthReviewSubmit.status, 200, `Authenticated active Client review submit failed: ${JSON.stringify(clientAuthReviewSubmit.body)}`);
+
+  // Factory Reset active running lock allows Owner to delete invoices/{id}/adjustments/{adjId} (before parent invoice)
+  await adminSetDoc('systemOperations/factoryReset', {
+    schemaVersion: 1,
+    operationId: 'reset_p3_rules_test',
+    status: 'running',
+    initiatedByUid: 'owner-1',
+    initiatedAt: SERVER_TS,
+    currentCollection: 'invoices_adjustments',
+    lastProcessedDocumentId: '',
+    completedCollections: [],
+    deletedDocumentCounts: {},
+    totalDeletedCount: 0,
+    startedAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    completedAt: null,
+    lastErrorCode: '',
+    lastErrorMessage: '',
+    verificationSummary: null,
+  });
+  const ownerFactoryResetAdjDelete = await userRequest(
+    'DELETE',
+    `/invoices/inv_bkg_p3_rule/adjustments/${p3AdjId}`,
+    TOKEN_OWNER,
+  );
+  assert.equal(
+    ownerFactoryResetAdjDelete.status,
+    200,
+    `Owner delete of /adjustments during running Factory Reset failed: ${JSON.stringify(ownerFactoryResetAdjDelete.body)}`,
+  );
+
+  console.log('✓ Phase 3 Rules (Staff Cash Desk, Client Cash Block, URL 500 Cap, Multi-Pending & 50 Cap, /adjustments, Factory Reset Delete, draft->issued & Active Client Review) passed');
+
   if (aggregateAssertionMode && assertionFailures.length > 0) {
     printAggregateAssertionSummary();
     process.exitCode = 1;

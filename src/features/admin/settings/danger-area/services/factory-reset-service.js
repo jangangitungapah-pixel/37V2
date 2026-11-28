@@ -285,11 +285,11 @@ async function processTopLevelCollectionStep({
         break;
       }
 
-      // Enforce child-subcollection emptiness right before deleting parent publicBookingRequests
+      // Enforce child-subcollection emptiness right before deleting parent documents
       if (step.collection === 'publicBookingRequests') {
         const subChecks = await Promise.all(
           docIds.map(async (parentId) => {
-            const [commCount, actCount] = await Promise.all([
+            const [commCount, actCount, offerCount] = await Promise.all([
               adapter.countSubcollectionForParent({
                 parentCollection: 'publicBookingRequests',
                 parentId,
@@ -300,8 +300,13 @@ async function processTopLevelCollectionStep({
                 parentId,
                 subcollectionName: 'activities',
               }),
+              adapter.countSubcollectionForParent({
+                parentCollection: 'publicBookingRequests',
+                parentId,
+                subcollectionName: 'offers',
+              }),
             ]);
-            return { parentId, total: commCount + actCount };
+            return { parentId, total: commCount + actCount + offerCount };
           }),
         );
         const nonEmptyParent = subChecks.find((c) => c.total > 0);
@@ -309,6 +314,26 @@ async function processTopLevelCollectionStep({
           throw createFactoryResetError(
             'factory-reset/subcollection-not-empty',
             `Dokumen induk publicBookingRequests/${nonEmptyParent.parentId} masih memiliki ${nonEmptyParent.total} subkoleksi aktif dan tidak boleh dihapus lebih dulu.`,
+          );
+        }
+      }
+
+      if (step.collection === 'invoices') {
+        const adjChecks = await Promise.all(
+          docIds.map(async (invoiceId) => {
+            const adjCount = await adapter.countSubcollectionForParent({
+              parentCollection: 'invoices',
+              parentId: invoiceId,
+              subcollectionName: 'adjustments',
+            });
+            return { invoiceId, adjCount };
+          }),
+        );
+        const nonEmptyInvoice = adjChecks.find((c) => c.adjCount > 0);
+        if (nonEmptyInvoice) {
+          throw createFactoryResetError(
+            'factory-reset/subcollection-not-empty',
+            `Dokumen induk invoices/${nonEmptyInvoice.invoiceId} masih memiliki ${nonEmptyInvoice.adjCount} penyesuaian harga aktif dan tidak boleh dihapus lebih dulu.`,
           );
         }
       }

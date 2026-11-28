@@ -88,9 +88,17 @@ export function projectClientInvoiceRecord(idOrRecord, maybeRawData = undefined)
       discountAmount: toNonNegativeRupiahInt(normalized.financialSnapshot.discountAmount),
       totalAmount: toNonNegativeRupiahInt(normalized.financialSnapshot.totalAmount),
     },
+    adjustmentTotal: Number.isFinite(Number(normalized.adjustmentTotal))
+      ? Math.round(Number(normalized.adjustmentTotal))
+      : 0,
+    effectiveTotalAmount: toNonNegativeRupiahInt(
+      normalized.effectiveTotalAmount ?? normalized.financialSnapshot.totalAmount,
+    ),
     amountPaid: toNonNegativeRupiahInt(normalized.amountPaid),
+    overpaidCreditBalance: toNonNegativeRupiahInt(normalized.overpaidCreditBalance),
     balanceDue: toNonNegativeRupiahInt(normalized.balanceDue),
     paymentStatus: normalized.paymentStatus,
+    adjustmentCount: Math.max(0, Math.round(Number(normalized.adjustmentCount) || 0)),
     ...(Number.isInteger(normalized.minimumDepositAmount)
       ? { minimumDepositAmount: normalized.minimumDepositAmount }
       : {}),
@@ -233,6 +241,19 @@ export function getClientInvoiceStatusDisplay(invoice, referenceDateIso = getJak
       tone: 'amber',
       isOverdue: false,
       isSettled: false,
+      isCancelled: false,
+    };
+  }
+
+  if (effective === PAYMENT_STATUS.OVERPAID_CREDIT_PENDING) {
+    return {
+      filterKey: 'paid',
+      label: 'Credit Pending',
+      invoiceStatusLabel: 'Issued',
+      tone: 'amber',
+      isOverdue: false,
+      isOverpaid: true,
+      isSettled: true,
       isCancelled: false,
     };
   }

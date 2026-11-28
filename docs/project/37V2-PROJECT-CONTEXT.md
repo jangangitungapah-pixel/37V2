@@ -2,8 +2,8 @@
 
 **Application:** 37 Music Studio  
 **Repository:** https://github.com/jangangitungapah-pixel/37V2  
-**Current working branch:** `feature/phase-2-offer-revisions-deposit-hold-engine` (branched from accepted Phase 1 tip `2762923ea6de93345058b97012951555f1a354f2`)  
-**Current project phase:** Booking Lifecycle — Phase 1 Owner-Accepted (Not Deployed); Phase 2 Full Deliverables Including Owner ADR Option A (`deposit_hold_offer`) Implemented Locally Pending Final Owner Review (Local Dev Only)
+**Current working branch:** `feature/phase-3-multi-method-payments-staff-cash-adjustments` (branched from accepted Phase 2 tip `d9125b9446b53871f062f2f0d5b37ab6db73b1b3`)
+**Current project phase:** Booking Lifecycle — Phase 1 & Phase 2 Owner-Accepted (Not Deployed); Phase 3 Multi-Method Payment, Staff Cash & Price Adjustments Implementation Under Local Verification (Local Dev Only)
 
 This document gives a new engineering session enough product and repository context to make correct decisions instead of treating the latest test failures as an isolated task.
 
@@ -154,8 +154,9 @@ Phase 0 audited this existing baseline and froze the cross-domain architecture. 
 As of the current branch (`feature/phase-2-offer-revisions-deposit-hold-engine`):
 - Phase 0 — Business Logic Discovery & Architecture Freeze: completed as documentation.
 - Phase 1 — Core Domain, Identity & Policy Foundation: **Owner-accepted on `2026-11-28`** at `2762923ea6de93345058b97012951555f1a354f2` (`docs/handoffs/PHASE-1-OWNER-ACCEPTANCE-RECORD.md`, `verify:phase1` `4/4` PASS). **Production Firebase deployment and production `clientReservations` backfill have NOT been performed** and remain separate rollout preconditions.
-- Phase 2 — Offer Revisions & Deposit Hold Engine: **Owner ADR Option A (`"saya pilih opsi A"`, `2026-11-28`) authorized & implemented end-to-end (`quote_only` + `deposit_hold_offer`, Deposit Hold lifecycle, Admin/Client Portal Option A UI, Firestore Security Rules & Emulator tests)** (`docs/handoffs/HANDOFF-PHASE-2-OFFER-REVISIONS-DEPOSIT-HOLD-ENGINE.md`). Local only; awaiting final Owner acceptance; not deployed.
-- Phases 3–5: remain **blocked** until Phase 2 Owner acceptance and required deployment preconditions.
+- Phase 2 — Offer Revisions & Deposit Hold Engine: **Owner-accepted on `2026-11-28`** at `d9125b9446b53871f062f2f0d5b37ab6db73b1b3` (`docs/handoffs/PHASE-2-OWNER-ACCEPTANCE-RECORD.md`, `verify:phase1` & `verify:phase2` `4/4` PASS). **Production Firebase deployment and live backfill remain NOT PERFORMED.**
+- Phase 3 — Multi-Method Payment, Staff Cash & Price Adjustments: **implemented locally on `feature/phase-3-multi-method-payments-staff-cash-adjustments`** (`docs/handoffs/HANDOFF-PHASE-3-MULTI-METHOD-PAYMENT-ADJUSTMENTS.md`), pending Owner review. Local only; not deployed.
+- Phases 4–5: remain **blocked** until Phase 3 Owner acceptance and required deployment preconditions.
 
 ## 10. Engineering workflow and safety rules
 

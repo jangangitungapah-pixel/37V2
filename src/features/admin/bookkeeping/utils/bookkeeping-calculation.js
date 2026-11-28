@@ -98,7 +98,9 @@ export function calculateBookkeepingMetrics({
     // Period Billed Revenue
     const invDate = inv.invoiceDate ?? inv.createdAt;
     if (!periodBounds || isTimestampInPeriod(invDate, periodBounds)) {
-      totalBilled += toNonNegativeRupiahInt(inv.financialSnapshot?.totalAmount);
+      totalBilled += toNonNegativeRupiahInt(
+        inv.effectiveTotalAmount ?? inv.financialSnapshot?.totalAmount,
+      );
       issuedInvoicesCountInPeriod += 1;
     }
   }

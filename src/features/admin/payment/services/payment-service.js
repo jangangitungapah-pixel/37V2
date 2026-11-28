@@ -46,6 +46,7 @@ import { generatePaymentEvidenceId } from '@/features/payment-evidence/utils/pay
 
 import { getPaymentRepositoryAdapter } from '../repositories/payment-repository';
 import {
+  buildOptionalInvoiceAdjustmentFields,
   normalizeInvoiceRecord,
   normalizePaymentTransactionRecord,
   validatePaymentReversalInput,
@@ -208,10 +209,22 @@ export function applyValidatedPaymentInTransaction(
     );
   }
 
-  if (existingInvoice.clientPaymentEvidenceRequired && !allowClientEvidenceInvoice) {
+  const isStaffCashDesk = source === PAYMENT_SOURCE.STAFF_CASH_DESK;
+  if (isStaffCashDesk && paymentMethod !== 'cash') {
+    throw createPaymentServiceError(
+      'payment/invalid-cash-source',
+      'Sumber Kasir Tunai Studio (staff_cash_desk) hanya valid untuk metode pembayaran Cash.',
+    );
+  }
+
+  if (
+    existingInvoice.clientPaymentEvidenceRequired &&
+    !allowClientEvidenceInvoice &&
+    !isStaffCashDesk
+  ) {
     throw createPaymentServiceError(
       'payment/client-evidence-required',
-      'Invoice ini berasal dari Client Portal dan wajib melalui unggah serta verifikasi bukti pembayaran pada tab Payment Evidence.',
+      'Invoice ini berasal dari Client Portal: pembayaran Transfer / QRIS / Lainnya wajib melalui verifikasi bukti pada tab Payment Evidence, atau gunakan Kasir Tunai Studio (Cash) jika dibayar tunai di studio.',
     );
   }
 
@@ -264,6 +277,9 @@ export function applyValidatedPaymentInTransaction(
 
   const nextTotals = computeInvoicePaymentTotals({
     totalAmount: existingInvoice.financialSnapshot.totalAmount,
+    adjustmentTotal: existingInvoice.adjustmentTotal || 0,
+    refundedTotal: existingInvoice.refundedTotal || 0,
+    creditConvertedTotal: existingInvoice.creditConvertedTotal || 0,
     currentAmountPaid: existingInvoice.amountPaid,
     deltaAmount: amountInt,
   });
@@ -311,6 +327,7 @@ export function applyValidatedPaymentInTransaction(
     customerSnapshot: existingInvoice.customerSnapshot,
     bookingSnapshot: existingInvoice.bookingSnapshot,
     financialSnapshot: existingInvoice.financialSnapshot,
+    ...buildOptionalInvoiceAdjustmentFields(existingInvoice, nextTotals),
     amountPaid: nextTotals.amountPaid,
     balanceDue: nextTotals.balanceDue,
     paymentStatus: nextTotals.paymentStatus,
@@ -349,6 +366,7 @@ export function applyValidatedPaymentInTransaction(
       nextDepositStatus === DEPOSIT_STATUS.MET);
 
   const clientReservationPatch = {
+    effectiveTotalAmount: nextTotals.effectiveTotalAmount,
     paymentStatus: nextTotals.paymentStatus,
     updatedAt: effectiveNow,
   };
@@ -465,6 +483,7 @@ export async function recordInvoicePayment({
   receivedDate = '',
   referenceNumber = '',
   notes = '',
+  source = PAYMENT_SOURCE.MANUAL,
   optionalEvidence = null,
   evidenceId = '',
   expectedCloudName = '',
@@ -474,9 +493,20 @@ export async function recordInvoicePayment({
   const cleanActorUid = assertAuthenticatedPaymentActor(actorUid);
   const cleanInvoiceId = String(invoiceId || '').trim();
   const cleanTxId = String(transactionId || '').trim() || generateOperationId('pay');
+  const resolvedSource =
+    source === PAYMENT_SOURCE.STAFF_CASH_DESK
+      ? PAYMENT_SOURCE.STAFF_CASH_DESK
+      : PAYMENT_SOURCE.MANUAL;
 
   if (!cleanInvoiceId) {
     throw createPaymentServiceError('invoice/not-found', 'ID invoice tidak valid.');
+  }
+
+  if (resolvedSource === PAYMENT_SOURCE.STAFF_CASH_DESK && paymentMethod !== 'cash') {
+    throw createPaymentServiceError(
+      'payment/invalid-cash-source',
+      'Pembayaran Kasir Tunai Studio (staff_cash_desk) harus menggunakan metode Cash.',
+    );
   }
 
   const validation = validateRecordPaymentInput({
@@ -553,7 +583,7 @@ export async function recordInvoicePayment({
       receivedDate: validation.data.receivedDate,
       referenceNumber: validation.data.referenceNumber,
       notes: validation.data.notes,
-      source: PAYMENT_SOURCE.MANUAL,
+      source: resolvedSource,
       actorUid: cleanActorUid,
       allowClientEvidenceInvoice: false,
     });
@@ -608,6 +638,49 @@ export async function recordInvoicePayment({
       evidence: attachedEvidence,
       idempotentReplay: false,
     };
+  });
+}
+
+/**
+ * Records a Staff/Owner desk cash payment (`source: 'staff_cash_desk'`, `paymentMethod: 'cash'`)
+ * allowed on ANY issued invoice including Client Portal invoices (`OD-06`, `AD-03`).
+ */
+export async function recordStaffCashPayment({
+  transactionId = generateOperationId('pay'),
+  invoiceId,
+  expectedVersion,
+  amount,
+  paymentMethod = 'cash',
+  receivedDate = '',
+  referenceNumber = '',
+  notes = '',
+  optionalEvidence = null,
+  evidenceId = '',
+  expectedCloudName = '',
+  actorUid,
+  adapter = getPaymentRepositoryAdapter(),
+}) {
+  if (paymentMethod !== 'cash') {
+    throw createPaymentServiceError(
+      'payment/invalid-cash-source',
+      'Pembayaran Kasir Tunai Studio hanya menerima metode Cash.',
+    );
+  }
+  return recordInvoicePayment({
+    transactionId,
+    invoiceId,
+    expectedVersion,
+    amount,
+    paymentMethod: 'cash',
+    receivedDate,
+    referenceNumber,
+    notes: String(notes || '').trim() || 'Pembayaran tunai diterima langsung di Studio Desk',
+    source: PAYMENT_SOURCE.STAFF_CASH_DESK,
+    optionalEvidence,
+    evidenceId,
+    expectedCloudName,
+    actorUid,
+    adapter,
   });
 }
 
@@ -720,6 +793,9 @@ export async function reversePaymentTransaction({
     const now = tx.nowValue();
     const nextTotals = computeInvoicePaymentTotals({
       totalAmount: existingInvoice.financialSnapshot.totalAmount,
+      adjustmentTotal: existingInvoice.adjustmentTotal || 0,
+      refundedTotal: existingInvoice.refundedTotal || 0,
+      creditConvertedTotal: existingInvoice.creditConvertedTotal || 0,
       currentAmountPaid: existingInvoice.amountPaid,
       deltaAmount: -originalTx.amount,
     });
@@ -767,6 +843,7 @@ export async function reversePaymentTransaction({
       customerSnapshot: existingInvoice.customerSnapshot,
       bookingSnapshot: existingInvoice.bookingSnapshot,
       financialSnapshot: existingInvoice.financialSnapshot,
+      ...buildOptionalInvoiceAdjustmentFields(existingInvoice, nextTotals),
       amountPaid: nextTotals.amountPaid,
       balanceDue: nextTotals.balanceDue,
       paymentStatus: nextTotals.paymentStatus,
@@ -796,6 +873,7 @@ export async function reversePaymentTransaction({
     tx.updateInvoice(cleanInvoiceId, updatedInvoiceDoc);
 
     const reservationReversalPatch = {
+      effectiveTotalAmount: nextTotals.effectiveTotalAmount,
       paymentStatus: nextTotals.paymentStatus,
       updatedAt: now,
     };

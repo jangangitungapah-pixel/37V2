@@ -22,14 +22,17 @@ import {
 import { AdminStatusBadge, AdminSurface } from '@/features/admin/design-system';
 import { PaymentEvidencePreview } from '@/features/payment-evidence/components/PaymentEvidencePreview';
 import { PAYMENT_EVIDENCE_STATUSES } from '@/features/payment-evidence/config/payment-evidence-config';
+import { useAdminPaymentEvidence } from '@/features/payment-evidence/hooks/useAdminPaymentEvidence';
 import {
   mapPaymentEvidenceErrorToMessage,
   rejectClientPaymentEvidence,
   verifyClientPaymentEvidence,
 } from '@/features/payment-evidence/services/payment-evidence-service';
 import {
+  detectDuplicateEvidenceSignals,
   getPaymentEvidenceSourceLabel,
   getPaymentEvidenceStatusMeta,
+  summarizePendingEvidence,
 } from '@/features/payment-evidence/utils/payment-evidence-utils';
 
 import { useInvoiceDetail } from '../hooks/useInvoiceDetail';
@@ -63,6 +66,11 @@ export function PaymentEvidenceReviewDrawer({
   const { invoice: liveInvoice, isLoading: isInvoiceLoading } = useInvoiceDetail(
     open && evidence?.invoiceId ? evidence.invoiceId : '',
   );
+  const { items: invoiceEvidenceItems } = useAdminPaymentEvidence({
+    invoiceId: open && evidence?.invoiceId ? evidence.invoiceId : '',
+    enabled: open && Boolean(evidence?.invoiceId),
+    customAdapter: customEvidenceAdapter,
+  });
   const invoice = liveInvoice || fallbackInvoice;
 
   const [verifiedAmountInput, setVerifiedAmountInput] = useState(() =>
@@ -82,7 +90,29 @@ export function PaymentEvidenceReviewDrawer({
   const invoiceMeta = getInvoiceStatusMeta(invoice?.invoiceStatus);
   const isPending = evidence?.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW;
   const isVoidInvoice = invoice?.invoiceStatus === INVOICE_STATUS.VOID;
+  const effectiveInvoiceTotal = Math.max(
+    0,
+    Math.round(
+      Number(invoice?.effectiveTotalAmount ?? invoice?.financialSnapshot?.totalAmount) || 0,
+    ),
+  );
   const liveBalanceDue = Math.max(0, Math.round(Number(invoice?.balanceDue) || 0));
+  const pendingSummary = summarizePendingEvidence(invoiceEvidenceItems, liveBalanceDue);
+  const duplicateSignals = evidence
+    ? detectDuplicateEvidenceSignals(
+        {
+          referenceNumber: evidence.referenceNumber,
+          cloudinaryPublicId: evidence.evidence?.cloudinaryPublicId,
+          claimedAmount: evidence.claimedAmount,
+        },
+        invoiceEvidenceItems.filter((item) => item.id !== evidence.id),
+      )
+    : null;
+  const hasMultiPendingOrDuplicateAlert = Boolean(
+    pendingSummary.pendingCount > 1 ||
+      duplicateSignals?.hasDuplicatePublicId ||
+      duplicateSignals?.hasDuplicateReference,
+  );
   const parsedVerifiedAmount = parseIntegerInput(verifiedAmountInput);
   const resultingBalance = Math.max(0, liveBalanceDue - parsedVerifiedAmount);
   const isReversedLinkedTx = Boolean(
@@ -347,7 +377,7 @@ export function PaymentEvidenceReviewDrawer({
                       <div>
                         <dt className="font-sans text-[11px] text-[#666159]">Total Invoice</dt>
                         <dd className="mt-0.5 font-semibold text-[#151515] tabular-nums">
-                          {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)}
+                          {formatRupiah(effectiveInvoiceTotal)}
                         </dd>
                       </div>
                       <div>
@@ -389,6 +419,41 @@ export function PaymentEvidenceReviewDrawer({
                         Keputusan Verifikasi
                       </h3>
                     </div>
+
+                    {hasMultiPendingOrDuplicateAlert ? (
+                      <div
+                        data-testid="admin-evidence-multi-pending-warning"
+                        className="rounded-xl border border-amber-500/35 bg-[#FEF4DD] p-3 text-xs leading-relaxed text-[#8A4B08]"
+                      >
+                        <p className="font-semibold text-[#151515]">
+                          Perhatian Verifikasi Multi-Bukti / Duplikat
+                        </p>
+                        {pendingSummary.pendingCount > 1 ? (
+                          <p className="mt-1">
+                            Terdapat{' '}
+                            <strong className="font-mono">{pendingSummary.pendingCount}</strong>{' '}
+                            bukti berstatus <em>Menunggu Review</em> pada invoice ini (total klaim{' '}
+                            <strong className="font-mono">
+                              {formatRupiah(pendingSummary.totalPendingClaimed)}
+                            </strong>
+                            ). Pastikan tidak memverifikasi transfer yang sama dua kali.
+                          </p>
+                        ) : null}
+                        {duplicateSignals?.hasDuplicatePublicId ||
+                        duplicateSignals?.hasDuplicateReference ? (
+                          <p className="mt-1 font-medium text-[#B92B0C]">
+                            Terdeteksi kecocokan{' '}
+                            {[
+                              duplicateSignals.hasDuplicateReference ? 'nomor referensi' : '',
+                              duplicateSignals.hasDuplicatePublicId ? 'file lampiran gambar' : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' & ')}{' '}
+                            dengan pengajuan bukti lain pada invoice ini.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
 
                     {actionError ? (
                       <div

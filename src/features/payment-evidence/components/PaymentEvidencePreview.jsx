@@ -1,5 +1,6 @@
 import { ExternalLink, Image as ImageIcon, ShieldAlert } from 'lucide-react';
 
+import { PAYMENT_EVIDENCE_LEGACY_SECURE_URL_MAX } from '../config/payment-evidence-config';
 import {
   buildPaymentEvidencePreviewUrl,
   formatEvidenceFileSize,
@@ -19,7 +20,9 @@ export function PaymentEvidencePreview({
 }) {
   const isId = locale === 'id';
   const secureUrl = typeof evidence?.secureUrl === 'string' ? evidence.secureUrl.trim() : '';
-  const isSafeUrl = isValidPaymentEvidenceDeliveryUrl(secureUrl);
+  const isSafeUrl = isValidPaymentEvidenceDeliveryUrl(secureUrl, '', {
+    maxLength: PAYMENT_EVIDENCE_LEGACY_SECURE_URL_MAX,
+  });
 
   if (!isSafeUrl) {
     return (
@@ -38,7 +41,11 @@ export function PaymentEvidencePreview({
   }
 
   const targetWidth = size === 'lg' ? 1200 : size === 'sm' ? 320 : 640;
-  const previewSrc = buildPaymentEvidencePreviewUrl(secureUrl, { width: targetWidth }) || secureUrl;
+  const previewSrc =
+    buildPaymentEvidencePreviewUrl(secureUrl, {
+      width: targetWidth,
+      maxLength: PAYMENT_EVIDENCE_LEGACY_SECURE_URL_MAX,
+    }) || secureUrl;
 
   if (size === 'sm') {
     return (

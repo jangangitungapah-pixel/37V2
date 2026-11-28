@@ -240,7 +240,9 @@ export function ClientInvoiceList({
                       </td>
 
                       <td className="px-3.5 py-3.5 text-right align-middle font-mono font-semibold whitespace-nowrap text-[#151515] tabular-nums">
-                        {formatClientRupiah(invoice.financialSnapshot?.totalAmount)}
+                        {formatClientRupiah(
+                          invoice.effectiveTotalAmount ?? invoice.financialSnapshot?.totalAmount,
+                        )}
                       </td>
 
                       <td className="px-3.5 py-3.5 text-right align-middle font-mono whitespace-nowrap text-[#0F6246] tabular-nums">

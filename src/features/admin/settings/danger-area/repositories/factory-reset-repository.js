@@ -316,6 +316,8 @@ export function createFirestoreFactoryResetRepositoryAdapter() {
 export function createInMemoryFactoryResetRepositoryAdapter({
   initialCollections = {},
   initialRequestSubcollections = {},
+  initialInvoiceSubcollections = {},
+  initialSubcollections = {},
   initialPreserved = {},
   initialOperation = null,
   initialPublicAvailabilityMetadata = { isReady: true, backfilledFromDate: '2026-11-22' },
@@ -339,10 +341,21 @@ export function createInMemoryFactoryResetRepositoryAdapter({
 
   // Map<parentRequestId, { communications: Map<id, doc>, activities: Map<id, doc>, offers: Map<id, doc> }>
   const requestSubcollectionsMap = new Map();
+  // Generalized Map<`${parentCollection}/${parentId}/${subcollectionName}`, Map<id, doc>>
+  const subcollectionsByPathMap = new Map();
+
+  function getOrCreateSubcollectionMap(parentCollection, parentId, subcollectionName) {
+    const pathKey = `${parentCollection}/${parentId}/${subcollectionName}`;
+    if (!subcollectionsByPathMap.has(pathKey)) {
+      subcollectionsByPathMap.set(pathKey, new Map());
+    }
+    return subcollectionsByPathMap.get(pathKey);
+  }
+
   for (const [parentId, subs] of Object.entries(initialRequestSubcollections || {})) {
-    const commMap = new Map();
-    const actMap = new Map();
-    const offerMap = new Map();
+    const commMap = getOrCreateSubcollectionMap('publicBookingRequests', parentId, 'communications');
+    const actMap = getOrCreateSubcollectionMap('publicBookingRequests', parentId, 'activities');
+    const offerMap = getOrCreateSubcollectionMap('publicBookingRequests', parentId, 'offers');
     for (const c of subs?.communications || []) {
       const cid = c?.id || `comm_${commMap.size + 1}`;
       commMap.set(cid, { id: cid, ...c });
@@ -360,6 +373,26 @@ export function createInMemoryFactoryResetRepositoryAdapter({
       activities: actMap,
       offers: offerMap,
     });
+  }
+
+  for (const [invoiceId, subs] of Object.entries(initialInvoiceSubcollections || {})) {
+    const adjMap = getOrCreateSubcollectionMap('invoices', invoiceId, 'adjustments');
+    for (const adj of subs?.adjustments || []) {
+      const adjId = adj?.id || adj?.adjustmentId || `adj_${adjMap.size + 1}`;
+      adjMap.set(adjId, { id: adjId, ...adj });
+    }
+  }
+
+  for (const [parentCollection, parentsObj] of Object.entries(initialSubcollections || {})) {
+    for (const [parentId, subsObj] of Object.entries(parentsObj || {})) {
+      for (const [subName, docs] of Object.entries(subsObj || {})) {
+        const subMap = getOrCreateSubcollectionMap(parentCollection, parentId, subName);
+        for (const docItem of docs || []) {
+          const docId = docItem?.id || `doc_${subMap.size + 1}`;
+          subMap.set(docId, { id: docId, ...docItem });
+        }
+      }
+    }
   }
 
   const preservedCollectionsMap = new Map([
@@ -413,10 +446,16 @@ export function createInMemoryFactoryResetRepositoryAdapter({
       let communicationsCount = 0;
       let activitiesCount = 0;
       let offersCount = 0;
+      let adjustmentsCount = 0;
       for (const subs of requestSubcollectionsMap.values()) {
         communicationsCount += subs.communications.size;
         activitiesCount += subs.activities.size;
         offersCount += subs.offers?.size || 0;
+      }
+      for (const [pathKey, docsMap] of subcollectionsByPathMap.entries()) {
+        if (pathKey.startsWith('invoices/') && pathKey.endsWith('/adjustments')) {
+          adjustmentsCount += docsMap.size;
+        }
       }
       const preservedCounts = {};
       for (const [colName, docsMap] of preservedCollectionsMap.entries()) {
@@ -425,11 +464,13 @@ export function createInMemoryFactoryResetRepositoryAdapter({
       return {
         collectionsMap,
         requestSubcollectionsMap,
+        subcollectionsByPathMap,
         preservedCollectionsMap,
         operationalCounts,
         communicationsCount,
         activitiesCount,
         offersCount,
+        adjustmentsCount,
         preservedCounts,
         publicAvailabilityMetadataState,
         operation: storedOperation ? { ...storedOperation } : null,
@@ -520,14 +561,13 @@ export function createInMemoryFactoryResetRepositoryAdapter({
     },
 
     async countSubcollectionForParent({ parentCollection, parentId, subcollectionName }) {
-      if (parentCollection !== 'publicBookingRequests') return 0;
       const key = `${parentCollection}_${subcollectionName}`;
       if (failCountTargetKey === key) {
         const err = new Error(`Simulated subcollection count failure for ${key}.`);
         err.code = 'permission-denied';
         throw err;
       }
-      return requestSubcollectionsMap.get(parentId)?.[subcollectionName]?.size || 0;
+      return subcollectionsByPathMap.get(`${parentCollection}/${parentId}/${subcollectionName}`)?.size || 0;
     },
 
     async listDocumentIdsPage({ collectionName, pageSize, afterId = '' }) {
@@ -549,10 +589,9 @@ export function createInMemoryFactoryResetRepositoryAdapter({
       pageSize,
       afterId = '',
     }) {
-      if (parentCollection !== 'publicBookingRequests') {
-        return { ids: [], hasMore: false };
-      }
-      const subMap = requestSubcollectionsMap.get(parentId)?.[subcollectionName] || new Map();
+      const subMap =
+        subcollectionsByPathMap.get(`${parentCollection}/${parentId}/${subcollectionName}`) ||
+        new Map();
       const sortedIds = Array.from(subMap.keys()).sort((a, b) => a.localeCompare(b));
       const filtered = afterId ? sortedIds.filter((id) => id > afterId) : sortedIds;
       const slice = filtered.slice(0, pageSize + 1);
@@ -588,8 +627,8 @@ export function createInMemoryFactoryResetRepositoryAdapter({
           const [colName, docId] = segments;
           collectionsMap.get(colName)?.delete(docId);
         } else if (segments.length === 4) {
-          const [, parentId, subName, docId] = segments;
-          requestSubcollectionsMap.get(parentId)?.[subName]?.delete(docId);
+          const [parentCol, parentId, subName, docId] = segments;
+          subcollectionsByPathMap.get(`${parentCol}/${parentId}/${subName}`)?.delete(docId);
         }
       }
 

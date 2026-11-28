@@ -64,12 +64,19 @@ import { ClientInvoicesPage } from '@/features/client-portal/pages/ClientInvoice
 
 import {
   getPaymentEvidenceCloudinaryConfig,
+  PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE,
   PAYMENT_EVIDENCE_SOURCES,
   PAYMENT_EVIDENCE_STATUSES,
   PAYMENT_EVIDENCE_UPLOAD_LIMITS,
   resetPaymentEvidenceCloudinaryConfigOverride,
   setPaymentEvidenceCloudinaryConfigOverride,
 } from './config/payment-evidence-config';
+import { PaymentEvidencePreview } from './components/PaymentEvidencePreview';
+import {
+  normalizePaymentEvidenceAsset,
+  validateClientEvidenceSubmissionInput,
+  validatePaymentEvidenceAsset,
+} from './schemas/payment-evidence-schema';
 import {
   createInMemoryPaymentEvidenceRepositoryAdapter,
   resetPaymentEvidenceRepositoryAdapter,
@@ -554,10 +561,24 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
       // Retry submit -> MUST NOT re-upload image to Cloudinary (still called 1 time total!)
       await user.click(within(form).getByTestId('client-evidence-submit-btn'));
 
+      // Form remains available on Client Portal while pending_review (OD-05 multi-pending up to 50)
       await screen.findByTestId('client-evidence-pending-banner');
       expect(uploadTransportSpy).toHaveBeenCalledTimes(1);
-      // Form hidden while pending_review to prevent accidental duplicate submission
-      expect(screen.queryByTestId('client-payment-evidence-form')).toBeNull();
+      const multiForm = await screen.findByTestId('client-payment-evidence-form');
+      expect(within(multiForm).queryByRole('button', { name: /^cash$/i })).toBeNull();
+      expect(screen.getByTestId('client-portal-cash-notice')).toBeTruthy();
+
+      // Client can upload a 2nd concurrent pending proof (installment) while 1st is awaiting review
+      const secondAmountInput = within(multiForm).getByLabelText(/payment amount/i);
+      await user.clear(secondAmountInput);
+      await user.type(secondAmountInput, '90000');
+      await user.type(within(multiForm).getByLabelText(/transaction reference/i), 'TRF-INSTALL-2');
+      fireEvent.change(within(multiForm).getByTestId('client-payment-evidence-file-input'), {
+        target: { files: [makeImageFile({ name: 'proof-2.jpg' })] },
+      });
+      await user.click(within(multiForm).getByTestId('client-evidence-submit-btn'));
+      expect(await screen.findByText(/2 pending verifications/i)).toBeTruthy();
+      expect(bookingAdapter._sharedStore.paymentEvidenceLocks.get(eligibleInv.id).pendingCount).toBe(2);
 
       // Invoice totals MUST remain untouched after Client submission
       const invAfterSubmit = bookingAdapter._sharedStore.invoices.get(eligibleInv.id);
@@ -565,8 +586,11 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
       expect(invAfterSubmit.balanceDue).toBe(360000);
       expect(bookingAdapter._sharedStore.paymentTransactions.size).toBe(0);
 
-      // Staff rejects submission -> Client sees rejection reason & form reappears for resubmission!
-      const [submittedEv] = Array.from(bookingAdapter._sharedStore.paymentEvidence.values());
+      // Staff rejects first submission -> Client sees rejection reason & still can resubmit
+      const submittedList = Array.from(bookingAdapter._sharedStore.paymentEvidence.values()).sort(
+        (a, b) => Number(a.claimedAmount) - Number(b.claimedAmount),
+      );
+      const submittedEv = submittedList[1];
       await act(async () => {
         await rejectClientPaymentEvidence({
           evidenceId: submittedEv.id,
@@ -1221,6 +1245,163 @@ describe('Payment Evidence & Verification v1 — Full Suite (Sections 14A, 14B, 
         status: PAYMENT_EVIDENCE_STATUSES.VERIFIED,
         linkedTransactionId: firstVerify.transaction.id,
       });
+    });
+  });
+
+  describe('14E. Phase 3 — Cash Exclusion, SecureUrl 500/600 Cap & 50-Pending Guard', () => {
+    it('hard-blocks cash method on Client Portal submissions across Zod, service, and UI while supporting Staff Cash Desk offline', async () => {
+      const schemaRes = validateClientEvidenceSubmissionInput(
+        {
+          claimedAmount: 100000,
+          paymentMethod: 'cash',
+          claimedPaidAt: '2026-11-28',
+        },
+        300000,
+      );
+      expect(schemaRes.isValid).toBe(false);
+      expect(schemaRes.errors.paymentMethod).toMatch(/transfer|qris|other/i);
+
+      const inv = seedRawInvoice(bookingAdapter, {
+        bookingId: 'bkg_p3_cash_block',
+        customerId: 'cust_client_a',
+        totalAmount: 300000,
+        clientPaymentEvidenceRequired: true,
+      });
+
+      await expect(
+        submitClientPaymentEvidence({
+          evidenceId: 'ev_cash_client_attempt',
+          invoiceId: inv.id,
+          claimedAmount: 100000,
+          paymentMethod: 'cash',
+          claimedPaidAt: '2026-11-28',
+          evidenceAsset: makeValidCloudinaryAsset(),
+          actorUid: 'client-uid-a',
+          customerId: 'cust_client_a',
+          expectedCloudName: TEST_CLOUDINARY_CONFIG.cloudName,
+          adapter: evidenceAdapter,
+        }),
+      ).rejects.toMatchObject({ code: 'payment-evidence/cash-not-allowed' });
+    });
+
+    it('harmonizes new secureUrl limit to <= 500 chars while preserving read/preview compatibility for legacy 501..600 records', () => {
+      const prefix = `https://res.cloudinary.com/${TEST_CLOUDINARY_CONFIG.cloudName}/image/upload/`;
+      const ok500 = `${prefix}${'a'.repeat(500 - prefix.length)}`;
+      const bad501 = `${prefix}${'a'.repeat(501 - prefix.length)}`;
+
+      expect(ok500).toHaveLength(500);
+      expect(bad501).toHaveLength(501);
+
+      expect(
+        validatePaymentEvidenceAsset(
+          makeValidCloudinaryAsset({ secureUrl: ok500 }),
+          TEST_CLOUDINARY_CONFIG.cloudName,
+        ).isValid,
+      ).toBe(true);
+      expect(
+        validatePaymentEvidenceAsset(
+          makeValidCloudinaryAsset({ secureUrl: bad501 }),
+          TEST_CLOUDINARY_CONFIG.cloudName,
+        ).isValid,
+      ).toBe(false);
+
+      // Historical 550-char URL record remains readable & previewable
+      const legacyUrl = `${prefix}${'b'.repeat(550 - prefix.length)}`;
+      const normalized = normalizePaymentEvidenceAsset(
+        makeValidCloudinaryAsset({ secureUrl: legacyUrl }),
+      );
+      expect(normalized.secureUrl).toBe(legacyUrl);
+
+      render(<PaymentEvidencePreview evidence={normalized} size="sm" locale="en" />);
+      const img = screen.getByRole('img');
+      expect(img.getAttribute('src')).toContain('w_320');
+    });
+
+    it('enforces max 50 pending evidence lock cleanly in service and hides Client upload form at 50 pending', async () => {
+      const inv = seedRawInvoice(bookingAdapter, {
+        bookingId: 'bkg_p3_limit50',
+        customerId: 'cust_client_a',
+        totalAmount: 1000000,
+        clientPaymentEvidenceRequired: true,
+      });
+
+      const pendingIds = [];
+      for (let i = 1; i <= PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE; i += 1) {
+        const id = `ev_limit_${i}`;
+        pendingIds.push(id);
+        bookingAdapter._sharedStore.paymentEvidence.set(id, {
+          id,
+          schemaVersion: 1,
+          invoiceId: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          bookingId: inv.bookingId,
+          customerId: 'cust_client_a',
+          clientUid: 'client-uid-a',
+          evidenceSource: PAYMENT_EVIDENCE_SOURCES.CLIENT_PORTAL,
+          status: PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
+          claimedAmount: 10000,
+          paymentMethod: 'transfer',
+          claimedPaidAt: '2026-11-28',
+          referenceNumber: `REF-${i}`,
+          evidence: makeValidCloudinaryAsset(),
+          submittedByUid: 'client-uid-a',
+          submittedAt: '2026-11-28T10:00:00.000Z',
+          reviewedAt: null,
+          reviewedByUid: '',
+          rejectionReason: '',
+          verifiedAmount: null,
+          linkedTransactionId: null,
+          createdAt: '2026-11-28T10:00:00.000Z',
+          updatedAt: '2026-11-28T10:00:00.000Z',
+          version: 1,
+        });
+      }
+      bookingAdapter._sharedStore.paymentEvidenceLocks.set(inv.id, {
+        schemaVersion: 1,
+        invoiceId: inv.id,
+        bookingId: inv.bookingId,
+        customerId: 'cust_client_a',
+        clientUid: 'client-uid-a',
+        pendingEvidenceIds: pendingIds,
+        pendingCount: PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE,
+        updatedAt: '2026-11-28T10:00:00.000Z',
+        updatedByUid: 'client-uid-a',
+        version: PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE,
+      });
+
+      await expect(
+        submitClientPaymentEvidence({
+          evidenceId: 'ev_limit_51',
+          invoiceId: inv.id,
+          claimedAmount: 10000,
+          paymentMethod: 'qris',
+          claimedPaidAt: '2026-11-28',
+          evidenceAsset: makeValidCloudinaryAsset(),
+          actorUid: 'client-uid-a',
+          customerId: 'cust_client_a',
+          expectedCloudName: TEST_CLOUDINARY_CONFIG.cloudName,
+          adapter: evidenceAdapter,
+        }),
+      ).rejects.toMatchObject({ code: 'payment-evidence/pending-limit-reached' });
+
+      // Client UI shows 50-pending limit banner & disables additional form upload
+      const user = userEvent.setup();
+      render(
+        <AuthContext.Provider value={makeClientAuthValue()}>
+          <MemoryRouter initialEntries={['/portal/invoices']}>
+            <ClientInvoicesPage
+              now={new Date('2026-11-28T10:00:00+07:00')}
+              customAdapter={clientBillingAdapter}
+              customEvidenceAdapter={evidenceAdapter}
+              cloudinaryConfig={TEST_CLOUDINARY_CONFIG}
+            />
+          </MemoryRouter>
+        </AuthContext.Provider>,
+      );
+
+      await user.click(await screen.findByTestId(`client-invoice-row-${inv.id}`));
+      expect(await screen.findByTestId('client-evidence-pending-limit-banner')).toBeTruthy();
+      expect(screen.queryByTestId('client-payment-evidence-form')).toBeNull();
     });
   });
 });

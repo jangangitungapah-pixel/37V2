@@ -22,6 +22,7 @@ import { INVOICE_STATUS, PAYMENT_SOURCE } from '@/features/admin/payment/utils/i
 
 import {
   getPaymentEvidenceCloudinaryConfig,
+  PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE,
   PAYMENT_EVIDENCE_SCHEMA_VERSION,
   PAYMENT_EVIDENCE_SOURCES,
   PAYMENT_EVIDENCE_STATUSES,
@@ -102,6 +103,17 @@ export async function submitClientPaymentEvidence({
 
   if (!cleanInvoiceId) {
     throw createPaymentServiceError('payment-evidence/invalid-invoice', 'Invoice reference is missing.');
+  }
+
+  if (String(paymentMethod || '').trim().toLowerCase() === 'cash') {
+    throw createPaymentServiceError(
+      'payment-evidence/cash-not-allowed',
+      'Cash payments cannot be uploaded through Client Portal. Please pay Cash directly at the Studio Desk.',
+      {
+        paymentMethod:
+          'Cash payments cannot be uploaded here. Pay Cash directly at Studio Desk.',
+      },
+    );
   }
 
   const resolvedExpectedCloud =
@@ -222,6 +234,15 @@ export async function submitClientPaymentEvidence({
         const prevIds = Array.isArray(existingLock?.pendingEvidenceIds)
           ? existingLock.pendingEvidenceIds.map((v) => String(v || '').trim()).filter(Boolean)
           : [];
+        if (
+          !prevIds.includes(cleanEvidenceId) &&
+          prevIds.length >= PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE
+        ) {
+          throw createPaymentServiceError(
+            'payment-evidence/pending-limit-reached',
+            `Maximum ${PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE} pending payment proofs reached for this invoice. Please wait for studio verification before uploading another.`,
+          );
+        }
         const nextIds = Array.from(new Set([...prevIds, cleanEvidenceId]));
         tx.setPaymentEvidenceLock(cleanInvoiceId, {
           schemaVersion: 1,

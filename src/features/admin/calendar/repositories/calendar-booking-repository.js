@@ -3,6 +3,7 @@ import {
   normalizePhoneIndexRecord,
 } from '@/features/admin/customer/schemas/customer-schema';
 import {
+  normalizeInvoiceAdjustmentRecord,
   normalizeInvoiceRecord,
   normalizePaymentTransactionRecord,
 } from '@/features/admin/payment/schemas/payment-schema';
@@ -41,6 +42,7 @@ export const FIRESTORE_COLLECTIONS = {
   CLIENT_CUSTOMER_LINKS: 'clientCustomerLinks',
   CLIENT_PROFILES: 'clientProfiles',
   INVOICES: 'invoices',
+  INVOICE_ADJUSTMENTS: 'adjustments',
   PAYMENT_TRANSACTIONS: 'paymentTransactions',
   PAYMENT_EVIDENCE: 'paymentEvidence',
   PAYMENT_EVIDENCE_LOCKS: 'paymentEvidenceLocks',
@@ -350,10 +352,28 @@ export function createFirestoreBookingRepositoryAdapter() {
             const snap = await tx.get(ref);
             return snap.exists() ? normalizeInvoiceRecord(snap.id, snap.data()) : null;
           },
+          async getClientReservation(bookingId) {
+            if (!bookingId) return null;
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CLIENT_RESERVATIONS, bookingId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+          },
           async getPaymentTransaction(transactionId) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS, transactionId);
             const snap = await tx.get(ref);
             return snap.exists() ? normalizePaymentTransactionRecord(snap.id, snap.data()) : null;
+          },
+          async getInvoiceAdjustment(invoiceId, adjustmentId) {
+            if (!invoiceId || !adjustmentId) return null;
+            const ref = doc(
+              db,
+              FIRESTORE_COLLECTIONS.INVOICES,
+              invoiceId,
+              FIRESTORE_COLLECTIONS.INVOICE_ADJUSTMENTS,
+              adjustmentId,
+            );
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizeInvoiceAdjustmentRecord(snap.id, snap.data()) : null;
           },
           async getPaymentEvidenceLock(invoiceId) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE_LOCKS, invoiceId);
@@ -420,6 +440,16 @@ export function createFirestoreBookingRepositoryAdapter() {
             const ref = doc(db, FIRESTORE_COLLECTIONS.INVOICES, invoiceId);
             tx.update(ref, data);
           },
+          setInvoiceAdjustment(invoiceId, adjustmentId, data) {
+            const ref = doc(
+              db,
+              FIRESTORE_COLLECTIONS.INVOICES,
+              invoiceId,
+              FIRESTORE_COLLECTIONS.INVOICE_ADJUSTMENTS,
+              adjustmentId,
+            );
+            tx.set(ref, data);
+          },
           setPaymentTransaction(transactionId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS, transactionId);
             tx.set(ref, data);
@@ -431,6 +461,10 @@ export function createFirestoreBookingRepositoryAdapter() {
           setClientReservation(bookingId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.CLIENT_RESERVATIONS, bookingId);
             tx.set(ref, data);
+          },
+          updateClientReservation(bookingId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.CLIENT_RESERVATIONS, bookingId);
+            tx.update(ref, data);
           },
           setPublicAvailability(bookingId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_AVAILABILITY, bookingId);

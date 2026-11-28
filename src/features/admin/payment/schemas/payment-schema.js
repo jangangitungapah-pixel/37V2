@@ -13,6 +13,7 @@ import {
   computeStoredPaymentStatus,
   INVOICE_STATUS,
   PAYMENT_SOURCE,
+  SUPPORTED_ADJUSTMENT_CATEGORIES,
   SUPPORTED_PAYMENT_METHODS,
   TRANSACTION_TYPE,
 } from '../utils/invoice-status';
@@ -59,6 +60,67 @@ const voidInvoiceSchema = z.object({
     .min(3, 'Alasan pembatalan (void) invoice minimal 3 karakter.')
     .max(300, 'Alasan void maksimal 300 karakter.'),
 });
+
+const createInvoiceAdjustmentSchema = z.object({
+  category: z.enum(SUPPORTED_ADJUSTMENT_CATEGORIES, {
+    errorMap: () => ({
+      message: 'Pilih kategori penyesuaian tagihan yang valid.',
+    }),
+  }),
+  deltaAmount: z.coerce
+    .number({ invalid_type_error: 'Nominal penyesuaian harus berupa angka Rupiah yang valid.' })
+    .int('Nominal penyesuaian harus berupa bilangan bulat Rupiah.')
+    .refine((val) => val !== 0, 'Nominal penyesuaian tidak boleh Rp 0.'),
+  reason: z
+    .string()
+    .trim()
+    .min(3, 'Alasan penyesuaian tagihan minimal 3 karakter.')
+    .max(300, 'Alasan penyesuaian tagihan maksimal 300 karakter.'),
+});
+
+export function generateAdjustmentId() {
+  const hex =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().replace(/-/g, '')
+      : `${Date.now().toString(16)}${Math.random().toString(16).slice(2, 14)}${Math.random().toString(16).slice(2, 14)}`;
+  return `adj_${hex.slice(0, 24)}`;
+}
+
+export function validateCreateInvoiceAdjustmentInput(input, { currentEffectiveTotal = null } = {}) {
+  const parsed = createInvoiceAdjustmentSchema.safeParse({
+    category: input?.category,
+    deltaAmount: input?.deltaAmount,
+    reason: input?.reason || '',
+  });
+
+  if (!parsed.success) {
+    const errors = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0] || 'form';
+      if (!errors[key]) errors[key] = issue.message;
+    }
+    return { isValid: false, errors, data: null };
+  }
+
+  if (
+    currentEffectiveTotal !== null &&
+    currentEffectiveTotal !== undefined &&
+    Number.isFinite(Number(currentEffectiveTotal))
+  ) {
+    const safeCurrentTotal = Math.max(0, Math.round(Number(currentEffectiveTotal)));
+    if (safeCurrentTotal + parsed.data.deltaAmount < 0) {
+      return {
+        isValid: false,
+        errors: {
+          deltaAmount: `Pengurangan maksimal ${safeCurrentTotal.toLocaleString('id-ID')} agar total tagihan efektif tidak kurang dari Rp 0.`,
+        },
+        data: null,
+      };
+    }
+  }
+
+  return { isValid: true, errors: {}, data: parsed.data };
+}
 
 export function validateRecordPaymentInput(input, maxAllowedBalanceDue = null) {
   const parsed = recordPaymentSchema.safeParse({
@@ -141,8 +203,19 @@ export function normalizeInvoiceRecord(id, data = {}) {
   const totalAmount = toNonNegativeRupiahInt(
     data.financialSnapshot?.totalAmount ?? Math.max(0, subtotal - discountAmount),
   );
-  const amountPaid = Math.min(totalAmount, toNonNegativeRupiahInt(data.amountPaid));
-  const balanceDue = Math.max(0, totalAmount - amountPaid);
+  const rawAdjustmentTotal = Number.isFinite(Number(data.adjustmentTotal))
+    ? Math.round(Number(data.adjustmentTotal))
+    : 0;
+  const adjustmentTotal = Math.max(-totalAmount, rawAdjustmentTotal);
+  const effectiveTotalAmount = Math.max(0, totalAmount + adjustmentTotal);
+  const amountPaid = toNonNegativeRupiahInt(data.amountPaid);
+  const refundedTotal = toNonNegativeRupiahInt(data.refundedTotal);
+  const creditConvertedTotal = toNonNegativeRupiahInt(data.creditConvertedTotal);
+  const overpaidCreditBalance = Math.max(
+    0,
+    amountPaid - effectiveTotalAmount - refundedTotal - creditConvertedTotal,
+  );
+  const balanceDue = Math.max(0, effectiveTotalAmount - amountPaid);
 
   const validInvoiceStatuses = Object.values(INVOICE_STATUS);
   const invoiceStatus = validInvoiceStatuses.includes(data.invoiceStatus)
@@ -185,9 +258,17 @@ export function normalizeInvoiceRecord(id, data = {}) {
       discountAmount,
       totalAmount,
     },
+    adjustmentTotal,
+    effectiveTotalAmount,
     amountPaid,
+    refundedTotal,
+    creditConvertedTotal,
+    overpaidCreditBalance,
     balanceDue,
-    paymentStatus: computeStoredPaymentStatus(totalAmount, amountPaid),
+    paymentStatus: computeStoredPaymentStatus(effectiveTotalAmount, amountPaid, {
+      refundedTotal,
+      creditConvertedTotal,
+    }),
     targetType: String(data.targetType || 'booking').trim(),
     depositPolicySnapshot: data.depositPolicySnapshot ?? null,
     minimumDepositAmount:
@@ -207,6 +288,8 @@ export function normalizeInvoiceRecord(id, data = {}) {
     lastPaymentTransactionId: data.lastPaymentTransactionId
       ? String(data.lastPaymentTransactionId).trim()
       : null,
+    lastAdjustmentId: data.lastAdjustmentId ? String(data.lastAdjustmentId).trim() : null,
+    adjustmentCount: Math.max(0, Math.round(Number(data.adjustmentCount) || 0)),
     voidReason: String(data.voidReason || '').trim(),
     createdAt: data.createdAt ?? null,
     createdByUid: String(data.createdByUid || '').trim(),
@@ -255,6 +338,112 @@ export function normalizePaymentTransactionRecord(id, data = {}) {
       : null,
     recordedByUid: String(data.recordedByUid || '').trim(),
     createdAt: data.createdAt ?? null,
+  };
+}
+
+/**
+ * Preserves Phase 3 additive adjustment/overpayment aggregates when any non-default
+ * adjustment state exists on an invoice, while keeping untouched legacy invoices unchanged.
+ */
+export function buildOptionalInvoiceAdjustmentFields(existingInvoice = {}, nextTotals = null) {
+  const adjustmentTotal =
+    nextTotals?.adjustmentTotal ??
+    (Number.isFinite(Number(existingInvoice.adjustmentTotal))
+      ? Math.round(Number(existingInvoice.adjustmentTotal))
+      : 0);
+  const baseTotal = Number(existingInvoice.financialSnapshot?.totalAmount) || 0;
+  const effectiveTotalAmount =
+    nextTotals?.effectiveTotalAmount ?? Math.max(0, baseTotal + adjustmentTotal);
+  const refundedTotal = nextTotals?.refundedTotal ?? toNonNegativeRupiahInt(existingInvoice.refundedTotal);
+  const creditConvertedTotal =
+    nextTotals?.creditConvertedTotal ?? toNonNegativeRupiahInt(existingInvoice.creditConvertedTotal);
+  const amountPaid =
+    nextTotals?.amountPaid ?? toNonNegativeRupiahInt(existingInvoice.amountPaid);
+  const overpaidCreditBalance =
+    nextTotals?.overpaidCreditBalance ??
+    Math.max(0, amountPaid - effectiveTotalAmount - refundedTotal - creditConvertedTotal);
+  const lastAdjustmentId = existingInvoice.lastAdjustmentId
+    ? String(existingInvoice.lastAdjustmentId).trim()
+    : null;
+  const adjustmentCount = Math.max(0, Math.round(Number(existingInvoice.adjustmentCount) || 0));
+
+  const hasAdjustmentState =
+    adjustmentTotal !== 0 ||
+    effectiveTotalAmount !== baseTotal ||
+    refundedTotal > 0 ||
+    creditConvertedTotal > 0 ||
+    overpaidCreditBalance > 0 ||
+    Boolean(lastAdjustmentId) ||
+    adjustmentCount > 0;
+
+  if (!hasAdjustmentState) {
+    return {};
+  }
+
+  return {
+    adjustmentTotal,
+    effectiveTotalAmount,
+    refundedTotal,
+    creditConvertedTotal,
+    overpaidCreditBalance,
+    lastAdjustmentId,
+    adjustmentCount,
+  };
+}
+
+/**
+ * Normalizes an append-only `invoices/{invoiceId}/adjustments/{adjustmentId}` document (13 canonical keys).
+ */
+export function normalizeInvoiceAdjustmentRecord(id, data = {}) {
+  const cleanId = String(id || data.adjustmentId || data.id || '').trim();
+  const category = SUPPORTED_ADJUSTMENT_CATEGORIES.includes(data.category)
+    ? data.category
+    : 'manual_correction';
+
+  return {
+    id: cleanId,
+    schemaVersion: Number(data.schemaVersion) || 1,
+    adjustmentId: String(data.adjustmentId || cleanId).trim(),
+    invoiceId: String(data.invoiceId || '').trim(),
+    targetType: data.targetType === 'project' ? 'project' : 'booking',
+    targetId: String(data.targetId || '').trim(),
+    category,
+    deltaAmount: Number.isFinite(Number(data.deltaAmount)) ? Math.round(Number(data.deltaAmount)) : 0,
+    reason: String(data.reason || '').trim(),
+    linkedChangeRequestId: data.linkedChangeRequestId
+      ? String(data.linkedChangeRequestId).trim()
+      : null,
+    approvedByUid: String(data.approvedByUid || '').trim(),
+    clientApprovedAt: data.clientApprovedAt ?? null,
+    createdAt: data.createdAt ?? null,
+    createdByUid: String(data.createdByUid || '').trim(),
+  };
+}
+
+/**
+ * Customer-safe allow-list projection for invoice price adjustments inside Client Portal.
+ * Strips internal Staff/Owner UIDs (`approvedByUid`, `createdByUid`).
+ */
+export function projectClientInvoiceAdjustmentRecord(idOrRecord, maybeRawData = undefined) {
+  const normalized =
+    maybeRawData !== undefined
+      ? normalizeInvoiceAdjustmentRecord(idOrRecord, maybeRawData)
+      : idOrRecord && typeof idOrRecord === 'object'
+        ? normalizeInvoiceAdjustmentRecord(idOrRecord.id || idOrRecord.adjustmentId, idOrRecord)
+        : null;
+
+  if (!normalized || !normalized.id) return null;
+
+  return {
+    id: normalized.id,
+    adjustmentId: normalized.adjustmentId,
+    invoiceId: normalized.invoiceId,
+    category: normalized.category,
+    deltaAmount: normalized.deltaAmount,
+    reason: normalized.reason,
+    linkedChangeRequestId: normalized.linkedChangeRequestId,
+    clientApprovedAt: normalized.clientApprovedAt,
+    createdAt: normalized.createdAt,
   };
 }
 

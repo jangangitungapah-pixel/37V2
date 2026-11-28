@@ -69,7 +69,7 @@ export function ClientInvoiceCard({ invoice, referenceDateIso, evidenceItems = [
         <div>
           <dt className="text-[10.5px] font-medium text-[#666159]">Total</dt>
           <dd className="mt-0.5 font-mono text-xs font-semibold text-[#151515] tabular-nums sm:text-[13px]">
-            {formatClientRupiah(invoice.financialSnapshot?.totalAmount)}
+            {formatClientRupiah(invoice.effectiveTotalAmount ?? invoice.financialSnapshot?.totalAmount)}
           </dd>
         </div>
 

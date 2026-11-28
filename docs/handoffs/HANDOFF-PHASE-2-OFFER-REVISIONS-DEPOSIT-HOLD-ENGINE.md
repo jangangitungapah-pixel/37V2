@@ -5,7 +5,7 @@
 **Branch:** `feature/phase-2-offer-revisions-deposit-hold-engine`  
 **Base Accepted Phase 1 Commit:** `2762923ea6de93345058b97012951555f1a354f2`  
 **Owner ADR Resolution (`2026-11-28`, `"saya pilih opsi A"`):** **Option A Authorized & Implemented**  
-**Phase Status:** **OPTION A IMPLEMENTATION COMPLETE (`quote_only` + `deposit_hold_offer` END-TO-END, `verify:phase1` & `verify:phase2` RUN ON LOCAL BASELINE) — LOCAL DEVELOPMENT ONLY (NOT DEPLOYED)**  
+**Phase Status:** **OWNER-ACCEPTED ON `2026-11-28` (`d9125b9446b53871f062f2f0d5b37ab6db73b1b3`) — PHASE 3 AUTHORIZED LOCALLY (`feature/phase-3-multi-method-payments-staff-cash-adjustments`) — PRODUCTION DEPLOY & BACKFILL NOT PERFORMED** (see `docs/handoffs/PHASE-2-OWNER-ACCEPTANCE-RECORD.md`)
 **Companion Architecture Doc:** `docs/architecture/PHASE-2-OFFER-DEPOSIT-HOLD-IMPLEMENTATION.md`  
 **Date:** `2026-11-28` (`Asia/Jakarta`)
 
@@ -68,10 +68,10 @@ The repository contains no `.prettierrc` config and `.editorconfig` specifies `e
 
 ---
 
-## 4. Next Steps for Owner Review & Phase 3 Entry Criteria
+## 4. Owner Acceptance & Phase 3 Transition Record
 
-1. **Owner Final Acceptance of Phase 2 (including Option A `deposit_hold_offer`):** Review the complete Offer Revisions (`quote_only` + Option A `deposit_hold_offer` + `OD-13`) and Deposit Hold Lifecycle (`OD-01..OD-10`) implementation and gate logs locally.
-2. **Production Deployment Preconditions (Still Not Executed):**
+1. **Owner Acceptance of Phase 2 (`d9125b9446b53871f062f2f0d5b37ab6db73b1b3`):** On `2026-11-28`, the Owner explicitly accepted Phase 2 (`"phase 2 selesai bro, lanjut phase 3"`, recorded in `docs/handoffs/PHASE-2-OWNER-ACCEPTANCE-RECORD.md`) and authorized local Phase 3 development on `feature/phase-3-multi-method-payments-staff-cash-adjustments`.
+2. **Production Deployment Preconditions (Remain Not Executed):**
    - Neither Phase 1 nor Phase 2 rules/indexes/code have been deployed to live Firebase.
-   - Live `clientReservations` backfill from Phase 1 has not been run.
-   - Do **not** merge to `main`, run `firebase deploy`, or begin Phases 3–5 until Owner acceptance and required deployment preconditions are completed.
+   - Live `clientReservations` backfill from Phase 1/2 has not been run.
+   - Do **not** merge to `main` or run `firebase deploy` without explicit Owner deployment authorization.

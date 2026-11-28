@@ -12,6 +12,9 @@ export const PAYMENT_EVIDENCE_SCHEMA_VERSION = 1;
 export const PAYMENT_EVIDENCE_CLIENT_INVOICE_LIMIT = 50;
 export const PAYMENT_EVIDENCE_CLIENT_CUSTOMER_LIMIT = 150;
 export const PAYMENT_EVIDENCE_ADMIN_QUEUE_LIMIT = 150;
+export const PAYMENT_EVIDENCE_MAX_PENDING_PER_INVOICE = 50;
+
+export const CLIENT_PORTAL_PAYMENT_METHODS = Object.freeze(['transfer', 'qris', 'other']);
 
 export const PAYMENT_EVIDENCE_SOURCES = Object.freeze({
   CLIENT_PORTAL: 'client_portal',
@@ -75,13 +78,15 @@ export const PAYMENT_EVIDENCE_UPLOAD_LIMITS = Object.freeze({
   ]),
 });
 
+export const PAYMENT_EVIDENCE_LEGACY_SECURE_URL_MAX = 600;
+
 export const PAYMENT_EVIDENCE_FIELD_LIMITS = Object.freeze({
   referenceMax: 120,
   rejectionReasonMin: 3,
   rejectionReasonMax: 300,
   publicIdMax: 240,
   assetIdMax: 120,
-  secureUrlMax: 600,
+  secureUrlMax: 500,
   cloudNameMax: 120,
 });
 

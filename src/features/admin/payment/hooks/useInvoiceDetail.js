@@ -23,6 +23,12 @@ export function useInvoiceDetail(invoiceId) {
     error: null,
   });
 
+  const [adjState, setAdjState] = useState({
+    loadedId: '',
+    adjustments: [],
+    error: null,
+  });
+
   useEffect(() => {
     if (!cleanInvoiceId) return undefined;
 
@@ -64,9 +70,32 @@ export function useInvoiceDetail(invoiceId) {
       },
     });
 
+    const unsubAdj =
+      typeof adapter.subscribeInvoiceAdjustments === 'function'
+        ? adapter.subscribeInvoiceAdjustments({
+            invoiceId: cleanInvoiceId,
+            maxLimit: 100,
+            onData: (adjustments) => {
+              setAdjState({
+                loadedId: cleanInvoiceId,
+                adjustments,
+                error: null,
+              });
+            },
+            onError: (err) => {
+              setAdjState({
+                loadedId: cleanInvoiceId,
+                adjustments: [],
+                error: mapPaymentErrorToMessage(err),
+              });
+            },
+          })
+        : () => {};
+
     return () => {
       unsubInv?.();
       unsubTx?.();
+      unsubAdj?.();
     };
   }, [cleanInvoiceId]);
 
@@ -74,6 +103,11 @@ export function useInvoiceDetail(invoiceId) {
     if (!cleanInvoiceId || txState.loadedId !== cleanInvoiceId) return [];
     return txState.transactions;
   }, [cleanInvoiceId, txState.loadedId, txState.transactions]);
+
+  const activeAdjustments = useMemo(() => {
+    if (!cleanInvoiceId || adjState.loadedId !== cleanInvoiceId) return [];
+    return adjState.adjustments;
+  }, [adjState.adjustments, adjState.loadedId, cleanInvoiceId]);
 
   const reversedTransactionIds = useMemo(() => {
     const ids = new Set();
@@ -89,6 +123,7 @@ export function useInvoiceDetail(invoiceId) {
     return {
       invoice: null,
       transactions: [],
+      adjustments: [],
       reversedTransactionIds,
       isLoading: false,
       error: null,
@@ -98,10 +133,12 @@ export function useInvoiceDetail(invoiceId) {
   return {
     invoice: invoiceState.loadedId === cleanInvoiceId ? invoiceState.invoice : null,
     transactions: activeTransactions,
+    adjustments: activeAdjustments,
     reversedTransactionIds,
     isLoading: invoiceState.loadedId !== cleanInvoiceId || txState.loadedId !== cleanInvoiceId,
     error:
       (invoiceState.loadedId === cleanInvoiceId ? invoiceState.error : null) ||
-      (txState.loadedId === cleanInvoiceId ? txState.error : null),
+      (txState.loadedId === cleanInvoiceId ? txState.error : null) ||
+      (adjState.loadedId === cleanInvoiceId ? adjState.error : null),
   };
 }

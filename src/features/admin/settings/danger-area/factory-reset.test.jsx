@@ -95,7 +95,7 @@ function buildAuthContextValue({
   };
 }
 
-function createFullOperationalSeed({ bookingsCount = 14 } = {}) {
+function createFullOperationalSeed({ bookingsCount = 14, withInvoiceAdjustment = true } = {}) {
   const bookings = Array.from({ length: bookingsCount }, (_, idx) => ({
     id: `bkg_${String(idx + 1).padStart(3, '0')}`,
     customerName: `Band ${idx + 1}`,
@@ -142,6 +142,13 @@ function createFullOperationalSeed({ bookingsCount = 14 } = {}) {
         offers: [],
       },
     },
+    initialInvoiceSubcollections: withInvoiceAdjustment
+      ? {
+          inv_001: {
+            adjustments: [{ id: 'adj_000000000000000000000001' }],
+          },
+        }
+      : {},
     initialPreserved: {
       staffProfiles: [
         { id: 'owner-1', role: 'owner', active: true },
@@ -175,7 +182,7 @@ afterEach(() => {
 });
 
 describe('Danger Area & Operational Factory Reset Engine', () => {
-  it('1. Dry Run Preview accurately counts all 28 operational targets without mutating anything and blocks incomplete preflight', async () => {
+  it('1. Dry Run Preview accurately counts all 29 operational targets without mutating anything and blocks incomplete preflight', async () => {
     const adapter = createInMemoryFactoryResetRepositoryAdapter(
       createFullOperationalSeed({ bookingsCount: 14 }),
     );
@@ -183,15 +190,16 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
 
     const preflight = await previewFactoryReset({ actor: owner, adapter });
     expect(preflight.isComplete).toBe(true);
-    expect(preflight.items).toHaveLength(28);
+    expect(preflight.items).toHaveLength(29);
     expect(preflight.topLevelDocumentCount).toBe(34);
-    expect(preflight.subcollectionDocumentCount).toBe(7);
-    expect(preflight.totalDeleteOperations).toBe(41);
+    expect(preflight.subcollectionDocumentCount).toBe(8);
+    expect(preflight.totalDeleteOperations).toBe(42);
 
     const byKey = Object.fromEntries(preflight.items.map((item) => [item.key, item.count]));
     expect(byKey.publicBookingRequests_communications).toBe(3);
     expect(byKey.publicBookingRequests_activities).toBe(3);
     expect(byKey.publicBookingRequests_offers).toBe(1);
+    expect(byKey.invoices_adjustments).toBe(1);
     expect(byKey.paymentEvidenceLocks).toBe(1);
     expect(byKey.refundCases).toBe(1);
     expect(byKey.publicBookingRequests).toBe(2);
@@ -381,10 +389,10 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     });
 
     expect(result.status).toBe(FACTORY_RESET_STATUS.COMPLETED);
-    expect(result.totalDeletedCount).toBe(52);
+    expect(result.totalDeletedCount).toBe(53);
     expect(result.verificationSummary).toEqual({
       allZero: true,
-      checkedCollectionsCount: 28,
+      checkedCollectionsCount: 29,
       remainingTotal: 0,
     });
 
@@ -396,18 +404,23 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     expect(state.communicationsCount).toBe(0);
     expect(state.activitiesCount).toBe(0);
     expect(state.offersCount).toBe(0);
+    expect(state.adjustmentsCount).toBe(0);
 
-    // Subcollections must complete before parent publicBookingRequests
+    // Subcollections must complete before parent requests and parent invoices
     const commIdx = result.completedCollections.indexOf('publicBookingRequests_communications');
     const actIdx = result.completedCollections.indexOf('publicBookingRequests_activities');
     const offerIdx = result.completedCollections.indexOf('publicBookingRequests_offers');
     const parentIdx = result.completedCollections.indexOf('publicBookingRequests');
+    const adjIdx = result.completedCollections.indexOf('invoices_adjustments');
+    const invIdx = result.completedCollections.indexOf('invoices');
     expect(commIdx).toBeGreaterThanOrEqual(0);
     expect(actIdx).toBeGreaterThanOrEqual(0);
     expect(offerIdx).toBeGreaterThanOrEqual(0);
     expect(parentIdx).toBeGreaterThan(commIdx);
     expect(parentIdx).toBeGreaterThan(actIdx);
     expect(parentIdx).toBeGreaterThan(offerIdx);
+    expect(adjIdx).toBeGreaterThanOrEqual(0);
+    expect(invIdx).toBeGreaterThan(adjIdx);
 
     // Preserved collections untouched (including Customer Reviews & Public Review Stats)
     expect(state.preservedCounts).toEqual({
@@ -434,8 +447,8 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     const adapter = createInMemoryFactoryResetRepositoryAdapter(
       createFullOperationalSeed({ bookingsCount: 15 }),
     );
-    // Batches 0..22 clean up earlier collections, batch 23 deletes bkg_001..bkg_010; fail on batch 24
-    adapter._setFailDeleteAtBatch(24);
+    // Batches 0..23 clean up earlier collections & subcollections, batch 24 deletes bkg_001..bkg_010; fail on batch 25
+    adapter._setFailDeleteAtBatch(25);
 
     const owner = buildActor({ role: 'owner' });
     const preflight = await previewFactoryReset({ actor: owner, adapter });
@@ -730,5 +743,36 @@ describe('Danger Area UI & Routes (/admin/settings/danger-area)', () => {
     expect(state.operationalCounts.reviewInvitationIndexes).toBe(0);
     expect(state.preservedCounts.customerReviews).toBe(1);
     expect(state.preservedCounts.publicReviewStats).toBe(1);
+  });
+
+  it('8. Blocks parent invoice deletion if invoices/{invoiceId}/adjustments still has remaining documents', async () => {
+    const seed = createFullOperationalSeed({ bookingsCount: 1 });
+    const adapter = createInMemoryFactoryResetRepositoryAdapter(seed);
+    const owner = buildActor({ role: 'owner' });
+
+    const preflight = await previewFactoryReset({ actor: owner, adapter });
+    const fixedNow = new Date('2026-11-22T05:00:00.000Z');
+    // Pre-mark invoices_adjustments completed while adj_000000000000000000000001 still exists
+    await adapter.startOrReplaceResetOperation({
+      schemaVersion: 1,
+      operationId: 'reset_guard_adj',
+      status: FACTORY_RESET_STATUS.FAILED,
+      initiatedByUid: owner.uid,
+      currentCollection: 'invoices',
+      lastProcessedDocumentId: '',
+      completedCollections: ['invoices_adjustments'],
+      deletedDocumentCounts: { invoices_adjustments: 0 },
+      totalDeletedCount: 0,
+    });
+    expect(preflight.isComplete).toBe(true);
+
+    await expect(
+      resumeFactoryReset({
+        actor: owner,
+        reauthenticatedAt: fixedNow.getTime(),
+        adapter,
+        now: fixedNow,
+      }),
+    ).rejects.toMatchObject({ code: 'factory-reset/subcollection-not-empty' });
   });
 });

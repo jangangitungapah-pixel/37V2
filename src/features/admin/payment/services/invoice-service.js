@@ -6,7 +6,11 @@
 import { isValidIsoDateString } from '@/features/admin/calendar/utils/calendar-date';
 
 import { getPaymentRepositoryAdapter } from '../repositories/payment-repository';
-import { normalizeInvoiceRecord, validateVoidInvoiceInput } from '../schemas/payment-schema';
+import {
+  buildOptionalInvoiceAdjustmentFields,
+  normalizeInvoiceRecord,
+  validateVoidInvoiceInput,
+} from '../schemas/payment-schema';
 import { INVOICE_STATUS } from '../utils/invoice-status';
 
 export function createPaymentServiceError(code, message, details = null) {
@@ -30,7 +34,9 @@ export function mapPaymentErrorToMessage(error) {
   }
 
   if (
-    (code.startsWith('payment/') || code.startsWith('invoice/')) &&
+    (code.startsWith('payment/') ||
+      code.startsWith('invoice/') ||
+      code.startsWith('adjustment/')) &&
     typeof error?.message === 'string' &&
     error.message.trim().length > 0
   ) {
@@ -133,6 +139,7 @@ export async function voidInvoice({
       customerSnapshot: existing.customerSnapshot,
       bookingSnapshot: existing.bookingSnapshot,
       financialSnapshot: existing.financialSnapshot,
+      ...buildOptionalInvoiceAdjustmentFields(existing),
       amountPaid: 0,
       balanceDue: existing.balanceDue,
       paymentStatus: existing.paymentStatus,
@@ -216,6 +223,7 @@ export async function updateInvoiceDueDate({
       customerSnapshot: existing.customerSnapshot,
       bookingSnapshot: existing.bookingSnapshot,
       financialSnapshot: existing.financialSnapshot,
+      ...buildOptionalInvoiceAdjustmentFields(existing),
       amountPaid: existing.amountPaid,
       balanceDue: existing.balanceDue,
       paymentStatus: existing.paymentStatus,
@@ -232,6 +240,87 @@ export async function updateInvoiceDueDate({
       dueDate: cleanDueDate,
       lastPaymentTransactionId: existing.lastPaymentTransactionId,
       voidReason: existing.voidReason,
+      createdAt: existing.createdAt,
+      createdByUid: existing.createdByUid,
+      updatedAt: now,
+      updatedByUid: cleanActorUid,
+      version: existing.version + 1,
+    };
+
+    tx.updateInvoice(cleanInvoiceId, updatedDoc);
+    return normalizeInvoiceRecord(cleanInvoiceId, updatedDoc);
+  });
+}
+
+/**
+ * Transitions a `draft` invoice atomically to `issued` (resolving orphaned draft rule gap).
+ */
+export async function issueDraftInvoice({
+  invoiceId,
+  expectedVersion,
+  actorUid,
+  adapter = getPaymentRepositoryAdapter(),
+}) {
+  const cleanActorUid = assertAuthenticatedPaymentActor(actorUid);
+  const cleanInvoiceId = String(invoiceId || '').trim();
+  if (!cleanInvoiceId) {
+    throw createPaymentServiceError('invoice/not-found', 'ID invoice tidak valid.');
+  }
+
+  return adapter.runAtomicTransaction(async (tx) => {
+    const existing = await tx.getInvoice(cleanInvoiceId);
+    if (!existing) {
+      throw createPaymentServiceError('invoice/not-found', 'Dokumen invoice tidak ditemukan.');
+    }
+
+    if (existing.invoiceStatus === INVOICE_STATUS.ISSUED) {
+      return existing;
+    }
+
+    if (existing.invoiceStatus !== INVOICE_STATUS.DRAFT) {
+      throw createPaymentServiceError(
+        'invoice/invalid-status',
+        'Hanya invoice berstatus Draft yang dapat diterbitkan menjadi Issued.',
+      );
+    }
+
+    if (Number.isInteger(Number(expectedVersion)) && existing.version !== Number(expectedVersion)) {
+      throw createPaymentServiceError(
+        'invoice/stale-update',
+        'Invoice telah diperbarui di sesi lain. Muat ulang detail invoice lalu coba kembali.',
+      );
+    }
+
+    const now = tx.nowValue();
+    const existingClientUid = String(existing.clientUid || '').trim();
+    const updatedDoc = {
+      invoiceNumber: existing.invoiceNumber,
+      bookingId: existing.bookingId,
+      customerId: existing.customerId,
+      ...(existingClientUid ? { clientUid: existingClientUid } : {}),
+      invoiceStatus: INVOICE_STATUS.ISSUED,
+      currency: existing.currency,
+      clientPaymentEvidenceRequired: Boolean(existing.clientPaymentEvidenceRequired),
+      customerSnapshot: existing.customerSnapshot,
+      bookingSnapshot: existing.bookingSnapshot,
+      financialSnapshot: existing.financialSnapshot,
+      ...buildOptionalInvoiceAdjustmentFields(existing),
+      amountPaid: existing.amountPaid,
+      balanceDue: existing.balanceDue,
+      paymentStatus: existing.paymentStatus,
+      ...(existing.targetType ? { targetType: existing.targetType } : {}),
+      ...(existing.depositPolicySnapshot
+        ? { depositPolicySnapshot: existing.depositPolicySnapshot }
+        : {}),
+      ...(Number.isInteger(existing.minimumDepositAmount)
+        ? { minimumDepositAmount: existing.minimumDepositAmount }
+        : {}),
+      ...(existing.depositStatus ? { depositStatus: existing.depositStatus } : {}),
+      ...(existing.balanceDuePolicy ? { balanceDuePolicy: existing.balanceDuePolicy } : {}),
+      invoiceDate: existing.invoiceDate,
+      dueDate: existing.dueDate,
+      lastPaymentTransactionId: existing.lastPaymentTransactionId,
+      voidReason: '',
       createdAt: existing.createdAt,
       createdByUid: existing.createdByUid,
       updatedAt: now,

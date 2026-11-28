@@ -4,16 +4,19 @@ import { toast } from 'sonner';
 
 import { parseMoneyInput } from '@/features/admin/calendar/utils/booking-pricing';
 import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
-import { SUPPORTED_PAYMENT_METHODS } from '@/features/admin/payment/utils/invoice-status';
 import { useAuth } from '@/features/auth/AuthContext';
 import { PaymentEvidenceUploadField } from '@/features/payment-evidence/components/PaymentEvidenceUploadField';
+import { CLIENT_PORTAL_PAYMENT_METHODS } from '@/features/payment-evidence/config/payment-evidence-config';
 import { usePaymentEvidenceUpload } from '@/features/payment-evidence/hooks/usePaymentEvidenceUpload';
 import { validateClientEvidenceSubmissionInput } from '@/features/payment-evidence/schemas/payment-evidence-schema';
 import {
   mapPaymentEvidenceErrorToMessage,
   submitClientPaymentEvidence,
 } from '@/features/payment-evidence/services/payment-evidence-service';
-import { generatePaymentEvidenceId } from '@/features/payment-evidence/utils/payment-evidence-utils';
+import {
+  detectDuplicateEvidenceSignals,
+  generatePaymentEvidenceId,
+} from '@/features/payment-evidence/utils/payment-evidence-utils';
 
 import {
   formatClientRupiah,
@@ -28,6 +31,7 @@ import {
  */
 export function ClientPaymentEvidenceForm({
   invoice,
+  existingEvidence = [],
   customEvidenceAdapter = null,
   cloudinaryConfig = null,
   onSubmitted,
@@ -53,6 +57,17 @@ export function ClientPaymentEvidenceForm({
   const currentBalance = Number(invoice.balanceDue) || 0;
   const parsedAmount = parseMoneyInput(amountInput);
   const exceedsBalance = parsedAmount > currentBalance;
+  const duplicateSignals = detectDuplicateEvidenceSignals(
+    {
+      referenceNumber,
+      cloudinaryPublicId: upload.uploadedAsset?.cloudinaryPublicId || '',
+      claimedAmount: parsedAmount,
+    },
+    existingEvidence,
+  );
+  const showDuplicateWarning = Boolean(
+    duplicateSignals.hasDuplicateReference || duplicateSignals.hasDuplicatePublicId,
+  );
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -196,9 +211,9 @@ export function ClientPaymentEvidenceForm({
         <div
           role="group"
           aria-label="Select payment method"
-          className="mt-1.5 grid grid-cols-2 gap-1.5 sm:grid-cols-4"
+          className="mt-1.5 grid grid-cols-3 gap-1.5"
         >
-          {SUPPORTED_PAYMENT_METHODS.map((method) => {
+          {CLIENT_PORTAL_PAYMENT_METHODS.map((method) => {
             const active = paymentMethod === method;
             return (
               <button
@@ -218,6 +233,13 @@ export function ClientPaymentEvidenceForm({
             );
           })}
         </div>
+        <p
+          data-testid="client-portal-cash-notice"
+          className="mt-1.5 text-[11px] text-[#666159]"
+        >
+          Paying cash at the studio desk? Studio staff record desk cash directly — only Bank
+          Transfer, QRIS, or Other online methods use payment proof uploads.
+        </p>
         {fieldErrors.paymentMethod ? (
           <p role="alert" className="mt-1 text-xs font-medium text-[#B92B0C]">
             {fieldErrors.paymentMethod}
@@ -291,6 +313,27 @@ export function ClientPaymentEvidenceForm({
         <p role="alert" className="text-xs font-medium text-[#B92B0C]">
           {fieldErrors.evidence}
         </p>
+      ) : null}
+
+      {showDuplicateWarning ? (
+        <div
+          role="status"
+          data-testid="client-evidence-duplicate-warning"
+          className="flex items-start gap-2 rounded-xl border border-amber-500/35 bg-[#FEF4DD]/80 p-3 text-xs text-[#8A4B08]"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>
+            This{' '}
+            {[
+              duplicateSignals.hasDuplicateReference ? 'transaction reference' : '',
+              duplicateSignals.hasDuplicatePublicId ? 'uploaded receipt image' : '',
+            ]
+              .filter(Boolean)
+              .join(' and ')}{' '}
+            matches an earlier submission on this invoice. Submit only if this is a distinct payment
+            to be reviewed separately.
+          </span>
+        </div>
       ) : null}
 
       <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">

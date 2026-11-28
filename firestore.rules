@@ -1097,21 +1097,36 @@ service cloud.firestore {
     }
 
     function isValidInvoicePaymentMath(data) {
+      let effTotal = data.get('effectiveTotalAmount', data.financialSnapshot.totalAmount);
+      let overpaidBal = data.get('overpaidCreditBalance', 0);
+      let netPaid = data.amountPaid - data.get('refundedTotal', 0) - data.get('creditConvertedTotal', 0);
       return data.amountPaid is int
         && data.amountPaid >= 0
-        && data.amountPaid <= data.financialSnapshot.totalAmount
+        && data.get('adjustmentTotal', 0) is int
+        && effTotal is int
+        && effTotal >= 0
+        && effTotal == data.financialSnapshot.totalAmount + data.get('adjustmentTotal', 0)
+        && data.get('refundedTotal', 0) is int
+        && data.get('refundedTotal', 0) >= 0
+        && data.get('creditConvertedTotal', 0) is int
+        && data.get('creditConvertedTotal', 0) >= 0
+        && overpaidBal is int
+        && overpaidBal >= 0
         && data.balanceDue is int
-        && data.balanceDue == data.financialSnapshot.totalAmount - data.amountPaid
+        && data.balanceDue >= 0
+        && netPaid >= 0
+        && data.balanceDue - overpaidBal == effTotal - netPaid
+        && (data.balanceDue == 0 || overpaidBal == 0)
         && data.paymentStatus == (
-          data.balanceDue == 0
-            ? 'paid'
-            : (data.amountPaid > 0 ? 'partial' : 'unpaid')
+          overpaidBal > 0
+            ? 'overpaid_credit_pending'
+            : (data.balanceDue == 0 ? 'paid' : (data.amountPaid > 0 ? 'partial' : 'unpaid'))
         );
     }
 
     function isValidInvoiceBase(data, invoiceId) {
       return data.size() >= 20
-        && data.size() <= 27
+        && data.size() <= 34
         && !data.keys().hasAny(['reservationStatus', 'sessionStatus', 'commissionSnapshot'])
         && data.get('clientPaymentEvidenceRequired', false) is bool
         && data.get('clientUid', '') is string
@@ -1120,6 +1135,13 @@ service cloud.firestore {
         && (data.get('minimumDepositAmount', 0) is int && data.get('minimumDepositAmount', 0) >= 0)
         && data.get('depositStatus', 'not_required') in ['not_required', 'awaiting_deposit', 'partial_below_minimum', 'met']
         && (data.get('balanceDuePolicy', null) == null || data.balanceDuePolicy is map)
+        && data.get('adjustmentCount', 0) is int
+        && data.get('adjustmentCount', 0) >= 0
+        && (
+          data.get('adjustmentCount', 0) == 0
+            ? data.get('lastAdjustmentId', null) == null
+            : (data.get('lastAdjustmentId', null) is string && data.lastAdjustmentId.matches('^adj_[a-f0-9]{24}$'))
+        )
         && data.invoiceNumber is string
         && data.invoiceNumber.matches('^37MS-\\d{8}-[A-Z0-9]{12}$')
         && data.bookingId is string
@@ -1143,6 +1165,30 @@ service cloud.firestore {
         && data.updatedByUid == request.auth.uid
         && data.version is int
         && data.version >= 1;
+    }
+
+    function isValidInvoiceMutableUpdateBase(data) {
+      return data.size() >= 20
+        && data.size() <= 34
+        && !data.keys().hasAny(['reservationStatus', 'sessionStatus', 'commissionSnapshot'])
+        && data.get('depositStatus', 'not_required') in ['not_required', 'awaiting_deposit', 'partial_below_minimum', 'met']
+        && data.get('adjustmentCount', 0) is int
+        && data.get('adjustmentCount', 0) >= 0
+        && (
+          data.get('adjustmentCount', 0) == 0
+            ? data.get('lastAdjustmentId', null) == null
+            : (data.get('lastAdjustmentId', null) is string && data.lastAdjustmentId.matches('^adj_[a-f0-9]{24}$'))
+        )
+        && data.invoiceStatus in ['draft', 'issued', 'void']
+        && isValidInvoicePaymentMath(data)
+        && (data.dueDate == null
+          || (data.dueDate is string && data.dueDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
+        && (data.lastPaymentTransactionId == null
+          || (data.lastPaymentTransactionId is string && data.lastPaymentTransactionId.size() > 0))
+        && data.voidReason is string
+        && data.voidReason.size() <= 300
+        && data.updatedAt is timestamp
+        && data.updatedByUid == request.auth.uid;
     }
 
     function isValidInitialInvoicePaymentLinkAfter(data, invoiceId) {
@@ -1180,16 +1226,11 @@ service cloud.firestore {
     }
 
     function isInvoiceImmutableFieldsUnchanged(reqData, resData) {
-      return reqData.invoiceNumber == resData.invoiceNumber
-        && reqData.bookingId == resData.bookingId
-        && reqData.customerId == resData.customerId
-        && reqData.currency == resData.currency
-        && reqData.customerSnapshot == resData.customerSnapshot
-        && reqData.bookingSnapshot == resData.bookingSnapshot
-        && reqData.financialSnapshot == resData.financialSnapshot
-        && reqData.invoiceDate == resData.invoiceDate
-        && reqData.createdAt == resData.createdAt
-        && reqData.createdByUid == resData.createdByUid
+      return !reqData.diff(resData).affectedKeys().hasAny([
+          'invoiceNumber', 'bookingId', 'customerId', 'currency',
+          'customerSnapshot', 'bookingSnapshot', 'financialSnapshot',
+          'invoiceDate', 'createdAt', 'createdByUid'
+        ])
         && reqData.get('clientPaymentEvidenceRequired', false) == resData.get('clientPaymentEvidenceRequired', false)
         && reqData.get('clientUid', '') == resData.get('clientUid', '')
         && reqData.get('targetType', 'booking') == resData.get('targetType', 'booking')
@@ -1198,27 +1239,32 @@ service cloud.firestore {
         && reqData.get('balanceDuePolicy', null) == resData.get('balanceDuePolicy', null);
     }
 
+    function isInvoiceAdjustmentSummaryUnchanged(reqData, resData) {
+      return reqData.get('adjustmentTotal', 0) == resData.get('adjustmentTotal', 0)
+        && reqData.get('effectiveTotalAmount', reqData.financialSnapshot.totalAmount)
+          == resData.get('effectiveTotalAmount', resData.financialSnapshot.totalAmount)
+        && reqData.get('refundedTotal', 0) == resData.get('refundedTotal', 0)
+        && reqData.get('creditConvertedTotal', 0) == resData.get('creditConvertedTotal', 0)
+        && reqData.get('overpaidCreditBalance', 0) == resData.get('overpaidCreditBalance', 0)
+        && reqData.get('lastAdjustmentId', null) == resData.get('lastAdjustmentId', null)
+        && reqData.get('adjustmentCount', 0) == resData.get('adjustmentCount', 0);
+    }
+
     function isInvoiceAggregateMatchingTxAfter(reqData, resData, invoiceId) {
-      let txAfter = getAfter(/databases/$(database)/documents/paymentTransactions/$(reqData.lastPaymentTransactionId));
-      return txAfter != null
-        && txAfter.data.invoiceId == invoiceId
-        && (
-          txAfter.data.transactionType == 'payment'
-            ? reqData.amountPaid == resData.amountPaid + txAfter.data.amount
-            : (txAfter.data.transactionType == 'reversal'
-                && reqData.amountPaid == resData.amountPaid - txAfter.data.amount)
-        );
+      let diff = reqData.amountPaid - resData.amountPaid;
+      let tx = getAfter(/databases/$(database)/documents/paymentTransactions/$(reqData.lastPaymentTransactionId));
+      return diff != 0
+        && (diff < 0 || diff <= resData.balanceDue)
+        && tx != null
+        && tx.data.invoiceId == invoiceId
+        && tx.data.transactionType == (diff > 0 ? 'payment' : 'reversal')
+        && tx.data.amount == (diff > 0 ? diff : -diff);
     }
 
     function isValidInvoicePaymentAggregateUpdate(reqData, resData, invoiceId) {
-      return resData.invoiceStatus == 'issued'
-        && reqData.invoiceStatus == 'issued'
-        && reqData.voidReason == resData.voidReason
-        && reqData.dueDate == resData.dueDate
-        && reqData.lastPaymentTransactionId is string
+      return reqData.lastPaymentTransactionId is string
         && reqData.lastPaymentTransactionId.size() > 0
         && reqData.lastPaymentTransactionId != resData.lastPaymentTransactionId
-        && existsAfter(/databases/$(database)/documents/paymentTransactions/$(reqData.lastPaymentTransactionId))
         && isInvoiceAggregateMatchingTxAfter(reqData, resData, invoiceId);
     }
 
@@ -1231,10 +1277,6 @@ service cloud.firestore {
       return resData.invoiceStatus == 'issued'
         && reqData.invoiceStatus == 'void'
         && resData.amountPaid == 0
-        && reqData.amountPaid == 0
-        && reqData.balanceDue == resData.balanceDue
-        && reqData.paymentStatus == resData.paymentStatus
-        && reqData.lastPaymentTransactionId == resData.lastPaymentTransactionId
         && reqData.dueDate == resData.dueDate
         && reqData.voidReason is string
         && reqData.voidReason.size() >= 3;
@@ -1252,14 +1294,9 @@ service cloud.firestore {
         );
     }
 
-    function isValidInvoiceRestoreUnvoidUpdate(reqData, resData, invoiceId) {
+    function isValidInvoiceRestoreUnvoidUpdate(reqData, resData) {
       return reqData.invoiceStatus == 'issued'
-        && invoiceId == 'inv_' + resData.bookingId
         && resData.amountPaid == 0
-        && reqData.amountPaid == 0
-        && reqData.balanceDue == resData.balanceDue
-        && reqData.paymentStatus == resData.paymentStatus
-        && reqData.lastPaymentTransactionId == resData.lastPaymentTransactionId
         && reqData.dueDate == resData.dueDate
         && (
           (resData.invoiceStatus == 'void' && reqData.voidReason == '')
@@ -1268,15 +1305,78 @@ service cloud.firestore {
         && isInvoiceRestoreParentBookingValid(resData);
     }
 
-    function isValidInvoiceDueDateUpdate(reqData, resData) {
-      return resData.invoiceStatus == 'issued'
-        && reqData.invoiceStatus == 'issued'
-        && reqData.amountPaid == resData.amountPaid
-        && reqData.balanceDue == resData.balanceDue
-        && reqData.paymentStatus == resData.paymentStatus
+    function isValidInvoiceAdjustmentUpdate(reqData, resData, invoiceId) {
+      let adjAfter = getAfter(/databases/$(database)/documents/invoices/$(invoiceId)/adjustments/$(reqData.lastAdjustmentId));
+      return reqData.amountPaid == resData.amountPaid
+        && reqData.get('refundedTotal', 0) == resData.get('refundedTotal', 0)
+        && reqData.get('creditConvertedTotal', 0) == resData.get('creditConvertedTotal', 0)
         && reqData.lastPaymentTransactionId == resData.lastPaymentTransactionId
-        && reqData.voidReason == resData.voidReason
-        && reqData.dueDate != resData.dueDate;
+        && reqData.get('adjustmentCount', 0) == resData.get('adjustmentCount', 0) + 1
+        && reqData.get('lastAdjustmentId', null) != resData.get('lastAdjustmentId', null)
+        && adjAfter != null
+        && adjAfter.data.invoiceId == invoiceId
+        && reqData.get('adjustmentTotal', 0) == resData.get('adjustmentTotal', 0) + adjAfter.data.deltaAmount
+        && reqData.get('effectiveTotalAmount', -1) >= 0;
+    }
+
+    function isValidInvoiceAdjustmentCreate(data, invoiceId, adjustmentId) {
+      let invPath = /databases/$(database)/documents/invoices/$(invoiceId);
+      let invBefore = get(invPath);
+      let invAfter = getAfter(invPath);
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'adjustmentId',
+          'invoiceId',
+          'targetType',
+          'targetId',
+          'category',
+          'deltaAmount',
+          'reason',
+          'linkedChangeRequestId',
+          'approvedByUid',
+          'clientApprovedAt',
+          'createdAt',
+          'createdByUid'
+        ])
+        && data.size() == 13
+        && data.schemaVersion == 1
+        && adjustmentId.matches('^adj_[a-f0-9]{24}$')
+        && data.adjustmentId == adjustmentId
+        && data.invoiceId == invoiceId
+        && data.targetType in ['booking', 'project']
+        && data.targetId is string
+        && data.targetId.size() >= 1
+        && data.targetId.size() <= 140
+        && data.category in [
+          'duration_change',
+          'room_change',
+          'service_change',
+          'scope_addendum',
+          'discount_credit',
+          'cancellation_fee',
+          'manual_correction'
+        ]
+        && data.deltaAmount is int
+        && data.deltaAmount != 0
+        && data.reason is string
+        && data.reason.trim().size() >= 3
+        && data.reason.size() <= 300
+        && (data.linkedChangeRequestId == null
+          || (data.linkedChangeRequestId is string && data.linkedChangeRequestId.size() >= 1 && data.linkedChangeRequestId.size() <= 140))
+        && data.approvedByUid is string
+        && data.approvedByUid.size() >= 1
+        && data.approvedByUid.size() <= 128
+        && (data.clientApprovedAt == null || data.clientApprovedAt is timestamp)
+        && data.createdAt is timestamp
+        && data.createdByUid == request.auth.uid
+        && invBefore != null
+        && invBefore.data.invoiceStatus == 'issued'
+        && invAfter != null
+        && invAfter.data.invoiceStatus == 'issued'
+        && invAfter.data.lastAdjustmentId == adjustmentId
+        && invAfter.data.get('adjustmentCount', 0) == invBefore.data.get('adjustmentCount', 0) + 1
+        && invAfter.data.get('adjustmentTotal', 0) == invBefore.data.get('adjustmentTotal', 0) + data.deltaAmount
+        && invAfter.data.get('effectiveTotalAmount', 0) >= 0;
     }
 
     function isValidReversalOriginalPayment(data) {
@@ -1322,9 +1422,15 @@ service cloud.firestore {
       return invAfter != null
         && (
           invAfter.data.get('clientPaymentEvidenceRequired', false) == true
-            ? (data.source == 'client_evidence_verified'
+            ? (
+              (data.source == 'client_evidence_verified'
                 && isValidVerifiedEvidenceTxLinkAfter(data, transactionId))
-            : (data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot'])
+              || (data.source == 'staff_cash_desk' && data.paymentMethod == 'cash')
+            )
+            : (
+              data.source in ['booking_initial_payment', 'manual', 'staff_cash_desk', 'legacy_initial_snapshot']
+              && (data.source != 'staff_cash_desk' || data.paymentMethod == 'cash')
+            )
         );
     }
 
@@ -1348,7 +1454,7 @@ service cloud.firestore {
         && data.referenceNumber.size() <= 120
         && data.notes is string
         && data.notes.size() <= 400
-        && data.source in ['booking_initial_payment', 'manual', 'legacy_initial_snapshot', 'client_evidence_verified', 'reversal']
+        && data.source in ['booking_initial_payment', 'manual', 'staff_cash_desk', 'legacy_initial_snapshot', 'client_evidence_verified', 'reversal']
         && data.recordedByUid == request.auth.uid
         && data.createdAt is timestamp
         && existsAfter(/databases/$(database)/documents/invoices/$(data.invoiceId))
@@ -1454,7 +1560,7 @@ service cloud.firestore {
             ? isClientOwnerOfCustomer(data.customerId)
             : (
               inv.data.clientUid == data.clientUid
-              && isClientUidOwner(data.clientUid)
+              && isActiveClient()
             )
         )
         && inv.data.balanceDue is int
@@ -1466,6 +1572,7 @@ service cloud.firestore {
       return evidenceId.matches('^[A-Za-z0-9_-]{4,120}$')
         && data.evidenceSource == 'client_portal'
         && data.status == 'pending_review'
+        && data.paymentMethod in ['transfer', 'qris', 'other']
         && data.clientUid == request.auth.uid
         && data.submittedByUid == request.auth.uid
         && data.reviewedAt == null
@@ -2767,11 +2874,14 @@ service cloud.firestore {
       let invoiceAfter = getAfter(invoicePath);
       let legacyTotal = bookingAfter != null ? bookingAfter.data.get('totalAmount', 0) : 0;
       let legacyPaid = bookingAfter != null ? bookingAfter.data.get('initialPaidAmount', 0) : 0;
+      let expectedEffectiveTotal = invoiceAfter != null
+        ? invoiceAfter.data.get('effectiveTotalAmount', invoiceAfter.data.financialSnapshot.totalAmount)
+        : legacyTotal;
       return bookingAfter != null && (
         invoiceAfter != null
         ? invoiceAfter.data.bookingId == bookingId
           && invoiceAfter.data.customerId == data.customerId
-          && invoiceAfter.data.financialSnapshot.totalAmount == data.effectiveTotalAmount
+          && expectedEffectiveTotal == data.effectiveTotalAmount
           && invoiceAfter.data.paymentStatus == data.paymentStatus
           && bookingAfter.data.get('minimumDepositAmount', null) == data.minimumDepositAmount
           && bookingAfter.data.get('depositStatus', null) == data.depositStatus
@@ -2852,7 +2962,7 @@ service cloud.firestore {
         && data.effectiveTotalAmount >= 0
         && (data.minimumDepositAmount == null || data.minimumDepositAmount is int)
         && (data.depositStatus == null || data.depositStatus is string)
-        && data.paymentStatus in ['unpaid', 'partial', 'paid']
+        && data.paymentStatus in ['unpaid', 'partial', 'paid', 'overpaid_credit_pending']
         && data.createdAt is timestamp
         && data.updatedAt is timestamp
         && data.updatedAt == request.time
@@ -2964,25 +3074,77 @@ service cloud.firestore {
 
       allow update: if isActiveStaff()
         && !isFactoryResetLocked()
-        && request.resource.data.version == resource.data.version + 1
-        && isValidInvoiceBase(request.resource.data, invoiceId)
         && (
-          (
-            isInvoiceImmutableFieldsUnchanged(request.resource.data, resource.data)
+          isLegacyInvoiceClientUidUpdate(request.resource.data, resource.data, invoiceId)
+          || (
+            request.resource.data.version == resource.data.version + 1
+            && isValidInvoiceMutableUpdateBase(request.resource.data)
+            && isInvoiceImmutableFieldsUnchanged(request.resource.data, resource.data)
             && (
-              isValidInvoicePaymentAggregateUpdate(request.resource.data, resource.data, invoiceId)
-              || (
-                isValidInvoiceVoidUpdate(request.resource.data, resource.data)
-                && isInvoiceWithoutPendingEvidenceLock(invoiceId)
+              (
+                resource.data.invoiceStatus == 'issued'
+                && request.resource.data.invoiceStatus == 'issued'
+                && request.resource.data.voidReason == resource.data.voidReason
+                && request.resource.data.dueDate == resource.data.dueDate
+                && isValidInvoiceAdjustmentUpdate(request.resource.data, resource.data, invoiceId)
               )
-              || isValidInvoiceRestoreUnvoidUpdate(request.resource.data, resource.data, invoiceId)
-              || isValidInvoiceDueDateUpdate(request.resource.data, resource.data)
+              || (
+                isInvoiceAdjustmentSummaryUnchanged(request.resource.data, resource.data)
+                && (
+                  (
+                    resource.data.invoiceStatus == 'issued'
+                    && request.resource.data.invoiceStatus == 'issued'
+                    && request.resource.data.voidReason == resource.data.voidReason
+                    && request.resource.data.dueDate == resource.data.dueDate
+                    && isValidInvoicePaymentAggregateUpdate(request.resource.data, resource.data, invoiceId)
+                  )
+                  || (
+                    request.resource.data.amountPaid == resource.data.amountPaid
+                    && request.resource.data.balanceDue == resource.data.balanceDue
+                    && request.resource.data.paymentStatus == resource.data.paymentStatus
+                    && request.resource.data.lastPaymentTransactionId == resource.data.lastPaymentTransactionId
+                    && (
+                      (
+                        isValidInvoiceVoidUpdate(request.resource.data, resource.data)
+                        && isInvoiceWithoutPendingEvidenceLock(invoiceId)
+                      )
+                      || isValidInvoiceRestoreUnvoidUpdate(request.resource.data, resource.data)
+                      || (
+                        resource.data.invoiceStatus == 'issued'
+                        && request.resource.data.invoiceStatus == 'issued'
+                        && request.resource.data.voidReason == resource.data.voidReason
+                        && request.resource.data.dueDate != resource.data.dueDate
+                      )
+                      || (
+                        resource.data.invoiceStatus == 'draft'
+                        && request.resource.data.invoiceStatus == 'issued'
+                        && request.resource.data.dueDate == resource.data.dueDate
+                        && request.resource.data.voidReason == ''
+                      )
+                    )
+                  )
+                )
+              )
             )
           )
-          || isLegacyInvoiceClientUidUpdate(request.resource.data, resource.data, invoiceId)
         );
 
       allow delete: if canFactoryResetDelete();
+
+      match /adjustments/{adjustmentId} {
+        allow get, list: if isActiveStaff()
+          || (
+            exists(/databases/$(database)/documents/invoices/$(invoiceId))
+            && isClientReadableParentInvoiceDoc(invoiceId, {})
+          );
+
+        allow create: if isActiveStaff()
+          && !isFactoryResetLocked()
+          && isValidInvoiceAdjustmentCreate(request.resource.data, invoiceId, adjustmentId);
+
+        allow update: if false;
+        allow delete: if canFactoryResetDelete();
+      }
     }
 
     match /paymentTransactions/{transactionId} {
@@ -4555,7 +4717,7 @@ service cloud.firestore {
         && (
           (isActiveStaff() && isValidReviewInvitationStaffRevoke(request.resource.data, resource.data))
           || (
-            request.auth == null
+            (request.auth == null || isActiveClient())
             && isValidReviewInvitationPublicSubmitUpdate(request.resource.data, resource.data, tokenHash)
           )
         );
@@ -4708,7 +4870,7 @@ service cloud.firestore {
       allow list: if isActiveStaff()
         || resource.data.status == 'published';
 
-      allow create: if request.auth == null
+      allow create: if (request.auth == null || isActiveClient())
         && !isFactoryResetLocked()
         && isValidCustomerReviewPublicCreate(request.resource.data, bookingId);
 

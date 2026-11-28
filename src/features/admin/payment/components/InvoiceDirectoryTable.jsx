@@ -115,14 +115,20 @@ export function InvoiceDirectoryTable({
                 const room = getStudioRoomById(invoice.bookingSnapshot?.studioId);
                 const requiresClientEvidence = Boolean(invoice.clientPaymentEvidenceRequired);
                 const invoiceEvidenceList = evidenceByInvoiceId?.get?.(invoice.id) || [];
-                const pendingEvidence =
-                  invoiceEvidenceList.find(
-                    (ev) => ev.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
-                  ) || null;
+                const pendingEvidenceList = invoiceEvidenceList.filter(
+                  (ev) => ev.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
+                );
+                const pendingEvidence = pendingEvidenceList[0] || null;
                 const canRecordManualPayment =
                   !isVoid && invoice.balanceDue > 0 && !requiresClientEvidence;
+                const canRecordStaffCash =
+                  invoice.invoiceStatus === INVOICE_STATUS.ISSUED &&
+                  invoice.balanceDue > 0 &&
+                  requiresClientEvidence;
                 const canReviewEvidence =
                   !isVoid && invoice.balanceDue > 0 && requiresClientEvidence;
+                const effectiveTotalAmount =
+                  invoice.effectiveTotalAmount ?? invoice.financialSnapshot?.totalAmount ?? 0;
 
                 const serviceLabel = [
                   invoice.bookingSnapshot?.serviceTypeName,
@@ -213,7 +219,9 @@ export function InvoiceDirectoryTable({
                         ) : null}
                         {pendingEvidence ? (
                           <span className="rounded-full border border-amber-500/30 bg-[#FEF4DD] px-2 py-0.2 font-mono text-[9.5px] font-semibold text-[#8A4B08]">
-                            Bukti Menunggu
+                            {pendingEvidenceList.length > 1
+                              ? `${pendingEvidenceList.length} Bukti Menunggu`
+                              : 'Bukti Menunggu'}
                           </span>
                         ) : canReviewEvidence ? (
                           <span className="rounded-full border border-[#FF4B22]/25 bg-[#FFEDE8] px-2 py-0.2 font-mono text-[9.5px] font-semibold text-[#B92B0C]">
@@ -226,7 +234,7 @@ export function InvoiceDirectoryTable({
                     {/* Col 4: Total Amount */}
                     <td className="hidden xl:table-cell xl:px-3.5 xl:py-3 xl:text-right xl:align-middle xl:whitespace-nowrap">
                       <span className="font-mono text-xs font-semibold text-[#151515] tabular-nums">
-                        {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)}
+                        {formatRupiah(effectiveTotalAmount)}
                       </span>
                     </td>
 
@@ -243,7 +251,7 @@ export function InvoiceDirectoryTable({
                         <span className="inline-flex items-baseline gap-1 md:hidden">
                           <span className="text-[11px] text-[#666159]">Total</span>
                           <span className="font-mono text-xs font-semibold text-[#151515] tabular-nums">
-                            {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)}
+                            {formatRupiah(effectiveTotalAmount)}
                           </span>
                         </span>
 
@@ -264,9 +272,7 @@ export function InvoiceDirectoryTable({
                       </div>
 
                       <span className="hidden font-mono text-[10.5px] text-[#666159] tabular-nums md:block 2xl:hidden">
-                        <span className="xl:hidden">
-                          Total {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)} •{' '}
-                        </span>
+                        <span className="xl:hidden">Total {formatRupiah(effectiveTotalAmount)} • </span>
                         Dibayar {formatRupiah(invoice.amountPaid || 0)}
                       </span>
                     </td>
@@ -284,17 +290,32 @@ export function InvoiceDirectoryTable({
                             <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                             <span>Bayar</span>
                           </button>
-                        ) : canReviewEvidence && pendingEvidence ? (
-                          <button
-                            type="button"
-                            onClick={() => onReviewInvoiceEvidence?.(pendingEvidence, invoice)}
-                            aria-label={`Tinjau bukti pembayaran ${invoice.invoiceNumber}`}
-                            className="sa-control sa-btn-lime inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-full px-3 py-1 text-xs font-semibold"
-                          >
-                            <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                            <span>Tinjau Bukti</span>
-                          </button>
-                        ) : null}
+                        ) : (
+                          <>
+                            {canReviewEvidence && pendingEvidence ? (
+                              <button
+                                type="button"
+                                onClick={() => onReviewInvoiceEvidence?.(pendingEvidence, invoice)}
+                                aria-label={`Tinjau bukti pembayaran ${invoice.invoiceNumber}`}
+                                className="sa-control sa-btn-lime inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-full px-3 py-1 text-xs font-semibold"
+                              >
+                                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                                <span>Tinjau Bukti</span>
+                              </button>
+                            ) : null}
+                            {canRecordStaffCash ? (
+                              <button
+                                type="button"
+                                onClick={() => onQuickRecordPayment?.(invoice)}
+                                aria-label={`Catat tunai studio desk ${invoice.invoiceNumber}`}
+                                className="sa-control sa-btn-secondary inline-flex min-h-9 cursor-pointer items-center justify-center gap-1 rounded-full px-3 py-1 text-xs font-semibold hover:bg-[#EDF8C2]"
+                              >
+                                <Banknote className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
+                                <span>Tunai</span>
+                              </button>
+                            ) : null}
+                          </>
+                        )}
 
                         <button
                           type="button"

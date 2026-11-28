@@ -13,9 +13,12 @@
 
 import { FIRESTORE_COLLECTIONS } from '@/features/admin/calendar/repositories/calendar-booking-repository';
 import {
+  normalizeInvoiceAdjustmentRecord,
   normalizeInvoiceRecord,
   normalizePaymentTransactionRecord,
+  projectClientInvoiceAdjustmentRecord,
 } from '@/features/admin/payment/schemas/payment-schema';
+import { getTimestampMillis } from '@/features/admin/payment/utils/invoice-format';
 import { INVOICE_STATUS } from '@/features/admin/payment/utils/invoice-status';
 
 import {
@@ -336,6 +339,64 @@ export function createFirestoreClientBillingRepositoryAdapter() {
         unsubscribes.forEach((unsubscribe) => unsubscribe?.());
       };
     },
+
+    subscribeClientInvoiceAdjustments({ invoiceId, maxLimit = 100, onData, onError }) {
+      const cleanInvoiceId = String(invoiceId || '').trim();
+      if (!cleanInvoiceId) {
+        onData?.([]);
+        return () => {};
+      }
+
+      let cancelled = false;
+      let unsubscribe = null;
+
+      (async () => {
+        try {
+          const [{ collection, limit, onSnapshot, query }, { getFirebaseDb }] = await Promise.all([
+            import('firebase/firestore'),
+            import('@/lib/firebase/firestore'),
+          ]);
+          if (cancelled) return;
+          if (typeof onSnapshot !== 'function') {
+            throw createRepositoryError('unavailable', 'Realtime adjustment listener unavailable.');
+          }
+          const q = query(
+            collection(
+              getFirebaseDb(),
+              FIRESTORE_COLLECTIONS.INVOICES,
+              cleanInvoiceId,
+              FIRESTORE_COLLECTIONS.INVOICE_ADJUSTMENTS,
+            ),
+            limit(maxLimit),
+          );
+          unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+              if (cancelled) return;
+              const items = (snapshot.docs || [])
+                .map((d) => projectClientInvoiceAdjustmentRecord(d.id, d.data()))
+                .filter(Boolean)
+                .sort((a, b) => {
+                  const diff = getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt);
+                  if (diff !== 0) return diff;
+                  return String(b.id || '').localeCompare(String(a.id || ''));
+                });
+              onData?.(items);
+            },
+            (err) => {
+              if (!cancelled) onError?.(err);
+            },
+          );
+        } catch (err) {
+          if (!cancelled) onError?.(err);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+        unsubscribe?.();
+      };
+    },
   };
 }
 
@@ -352,6 +413,7 @@ export function createInMemoryClientBillingRepositoryAdapter({
 } = {}) {
   const sharedStore = bookingAdapter?._sharedStore || null;
   const invoices = sharedStore?.invoices || new Map();
+  const invoiceAdjustments = sharedStore?.invoiceAdjustments || new Map();
   const paymentTransactions = sharedStore?.paymentTransactions || new Map();
 
   const localInvoiceListeners = new Set();
@@ -693,6 +755,53 @@ export function createInMemoryClientBillingRepositoryAdapter({
         }
         if (sharedInvSub && sharedStore?.invoiceSubscribers) {
           sharedStore.invoiceSubscribers.delete(sharedInvSub);
+        }
+      };
+    },
+
+    subscribeClientInvoiceAdjustments({ invoiceId, maxLimit = 100, onData, onError }) {
+      const cleanInvoiceId = String(invoiceId || '').trim();
+      if (!cleanInvoiceId) {
+        onData?.([]);
+        return () => {};
+      }
+
+      let active = true;
+      const pushAdj = () => {
+        if (!active) return;
+        if (simulatedError) {
+          onError?.(simulatedError);
+          return;
+        }
+        const items = Array.from(invoiceAdjustments.values())
+          .filter((adj) => adj && adj.invoiceId === cleanInvoiceId)
+          .map((adj) => projectClientInvoiceAdjustmentRecord(adj.id, normalizeInvoiceAdjustmentRecord(adj.id, adj)))
+          .filter(Boolean)
+          .sort((a, b) => {
+            const diff = getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt);
+            if (diff !== 0) return diff;
+            return String(b.id || '').localeCompare(String(a.id || ''));
+          });
+        onData?.(items.slice(0, maxLimit));
+      };
+
+      localInvoiceListeners.add(pushAdj);
+      let sharedAdjCb = null;
+      if (sharedStore?.invoiceAdjustmentSubscribers) {
+        if (!sharedStore.invoiceAdjustmentSubscribers.has(cleanInvoiceId)) {
+          sharedStore.invoiceAdjustmentSubscribers.set(cleanInvoiceId, new Set());
+        }
+        sharedAdjCb = () => pushAdj();
+        sharedStore.invoiceAdjustmentSubscribers.get(cleanInvoiceId).add(sharedAdjCb);
+      }
+
+      queueMicrotask(pushAdj);
+
+      return () => {
+        active = false;
+        localInvoiceListeners.delete(pushAdj);
+        if (sharedAdjCb && sharedStore?.invoiceAdjustmentSubscribers) {
+          sharedStore.invoiceAdjustmentSubscribers.get(cleanInvoiceId)?.delete(sharedAdjCb);
         }
       };
     },

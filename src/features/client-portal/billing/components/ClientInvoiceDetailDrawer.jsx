@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Printer,
   RefreshCw,
+  Scale,
   UserRound,
   X,
 } from 'lucide-react';
@@ -24,7 +25,10 @@ import {
   formatIndonesianTimestamp,
 } from '@/features/admin/calendar/utils/calendar-date';
 import { AdminEmptyState, AdminStatusBadge } from '@/features/admin/design-system';
-import { INVOICE_STATUS } from '@/features/admin/payment/utils/invoice-status';
+import {
+  getAdjustmentCategoryMeta,
+  INVOICE_STATUS,
+} from '@/features/admin/payment/utils/invoice-status';
 
 import { useClientInvoiceDetail } from '../hooks/useClientInvoiceDetail';
 import {
@@ -70,6 +74,7 @@ export function ClientInvoiceDetailDrawer({
   const {
     invoice,
     transactions,
+    adjustments,
     isLoading,
     isTransactionsLoading,
     hasMoreTransactions,
@@ -115,6 +120,10 @@ export function ClientInvoiceDetailDrawer({
   const isOutstandingIssued = Boolean(
     invoice && invoice.invoiceStatus === INVOICE_STATUS.ISSUED && invoice.balanceDue > 0,
   );
+  const baseTotalAmount = invoice?.financialSnapshot?.totalAmount || 0;
+  const adjustmentTotal = Number(invoice?.adjustmentTotal) || 0;
+  const effectiveTotalAmount = invoice?.effectiveTotalAmount ?? baseTotalAmount;
+  const overpaidCreditBalance = Number(invoice?.overpaidCreditBalance) || 0;
 
   const whatsappHref = invoice
     ? buildClientInvoiceWhatsAppUrl({
@@ -147,6 +156,7 @@ export function ClientInvoiceDetailDrawer({
             <ClientInvoiceDocumentSheet
               invoice={invoice}
               transactions={transactions}
+              adjustments={adjustments}
               studioName={studioName}
               referenceDateIso={referenceDateIso}
             />
@@ -295,7 +305,7 @@ export function ClientInvoiceDetailDrawer({
                       <div>
                         <dt className="text-[#666159]">Total Invoice</dt>
                         <dd className="mt-0.5 font-mono font-semibold text-[#151515] tabular-nums">
-                          {formatClientRupiah(invoice.financialSnapshot?.totalAmount)}
+                          {formatClientRupiah(effectiveTotalAmount)}
                         </dd>
                       </div>
                       <div>
@@ -327,6 +337,24 @@ export function ClientInvoiceDetailDrawer({
                             Pay {formatClientRupiah(Math.max(0, invoice.minimumDepositAmount - invoice.amountPaid))} more
                           </strong>{' '}
                           to confirm your booking (uploaded proofs count only after staff verification).
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {overpaidCreditBalance > 0 ? (
+                      <div
+                        data-testid="client-invoice-overpaid-banner"
+                        className="mt-3 rounded-xl border border-amber-500/35 bg-[#FEF4DD] px-3 py-2.5 text-xs text-[#6A3B00]"
+                      >
+                        <p className="font-bold">
+                          Overpaid Credit Pending: {formatClientRupiah(overpaidCreditBalance)}
+                        </p>
+                        <p className="mt-0.5 leading-relaxed">
+                          Your verified payments exceed the updated invoice total by{' '}
+                          <strong className="font-mono">
+                            {formatClientRupiah(overpaidCreditBalance)}
+                          </strong>
+                          . Please contact the studio desk to arrange a refund or studio credit.
                         </p>
                       </div>
                     ) : null}
@@ -405,10 +433,37 @@ export function ClientInvoiceDetailDrawer({
                         </dd>
                       </div>
 
+                      {adjustmentTotal !== 0 ? (
+                        <>
+                          <div className="flex items-center justify-between gap-4 border-t border-[#151515]/10 pt-2">
+                            <dt className="text-[#666159]">Original Total</dt>
+                            <dd className="font-mono font-semibold text-[#151515] tabular-nums">
+                              {formatClientRupiah(baseTotalAmount)}
+                            </dd>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <dt className="text-[#666159]">
+                              Price Adjustments ({adjustments.length || invoice.adjustmentCount || 1}x)
+                            </dt>
+                            <dd
+                              className={`font-mono font-semibold tabular-nums ${
+                                adjustmentTotal > 0 ? 'text-[#151515]' : 'text-[#B92B0C]'
+                              }`}
+                            >
+                              {adjustmentTotal > 0
+                                ? `+ ${formatClientRupiah(adjustmentTotal)}`
+                                : `- ${formatClientRupiah(Math.abs(adjustmentTotal))}`}
+                            </dd>
+                          </div>
+                        </>
+                      ) : null}
+
                       <div className="flex items-center justify-between gap-4 border-t border-[#151515]/10 pt-2 text-[13px] font-bold">
-                        <dt className="text-[#151515]">Total Invoice</dt>
+                        <dt className="text-[#151515]">
+                          {adjustmentTotal !== 0 ? 'Effective Total Invoice' : 'Total Invoice'}
+                        </dt>
                         <dd className="font-mono text-[#151515] tabular-nums">
-                          {formatClientRupiah(invoice.financialSnapshot?.totalAmount)}
+                          {formatClientRupiah(effectiveTotalAmount)}
                         </dd>
                       </div>
 
@@ -431,8 +486,72 @@ export function ClientInvoiceDetailDrawer({
                             : formatClientRupiah(invoice.balanceDue)}
                         </dd>
                       </div>
+
+                      {overpaidCreditBalance > 0 ? (
+                        <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-500/30 bg-[#FEF4DD] px-2.5 py-2 text-xs font-bold text-[#6A3B00]">
+                          <dt>Overpaid Credit Balance</dt>
+                          <dd className="font-mono tabular-nums">
+                            {formatClientRupiah(overpaidCreditBalance)}
+                          </dd>
+                        </div>
+                      ) : null}
                     </dl>
                   </section>
+
+                  {adjustments.length > 0 ? (
+                    <section
+                      aria-label="Price adjustments"
+                      data-testid="client-invoice-adjustments-section"
+                      className="rounded-2xl border border-[#151515]/10 bg-white p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Scale className="h-4 w-4 text-[#46433D]" aria-hidden="true" />
+                          <h3 className="text-xs font-bold tracking-wider text-[#151515] uppercase">
+                            Price Adjustments
+                          </h3>
+                        </div>
+                        <AdminStatusBadge tone="ivory" size="sm">
+                          {adjustments.length} Entry{adjustments.length > 1 ? 's' : ''}
+                        </AdminStatusBadge>
+                      </div>
+
+                      <ul className="mt-3 space-y-2.5 border-t border-[#151515]/10 pt-3">
+                        {adjustments.map((adj) => {
+                          const catMeta = getAdjustmentCategoryMeta(adj.category);
+                          const isIncrease = adj.deltaAmount >= 0;
+                          return (
+                            <li
+                              key={adj.id}
+                              data-testid={`client-invoice-adjustment-${adj.id}`}
+                              className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-[#151515]/10 bg-[#FAF8F3]/75 p-3 text-xs"
+                            >
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <AdminStatusBadge tone="ivory" size="sm">
+                                  {catMeta.clientLabel || catMeta.label}
+                                </AdminStatusBadge>
+                                <p className="font-medium text-[#151515]">{adj.reason}</p>
+                                {adj.createdAt ? (
+                                  <p className="font-mono text-[10.5px] text-[#666159]">
+                                    {formatIndonesianTimestamp(adj.createdAt)}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <span
+                                className={`shrink-0 font-mono text-sm font-bold tabular-nums ${
+                                  isIncrease ? 'text-[#151515]' : 'text-[#B92B0C]'
+                                }`}
+                              >
+                                {isIncrease
+                                  ? `+ ${formatClientRupiah(adj.deltaAmount)}`
+                                  : `- ${formatClientRupiah(Math.abs(adj.deltaAmount))}`}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+                  ) : null}
 
                   {/* C3: Booking / Service Information (Immutable Snapshot) */}
                   <section className="rounded-2xl border border-[#151515]/10 bg-white p-4">
@@ -592,6 +711,7 @@ export function ClientInvoiceDetailDrawer({
             <ClientInvoiceDocumentSheet
               invoice={invoice}
               transactions={transactions}
+              adjustments={adjustments}
               studioName={studioName}
               referenceDateIso={referenceDateIso}
             />

@@ -152,6 +152,7 @@ function buildInitialFormValues({ mode, initialSlot, editingBooking, normalizedS
       paymentMethod: editingBooking.paymentMethod || 'cash',
       notes: editingBooking.notes || '',
       applyUpdatedPricing: false,
+      pricingAdjustmentReason: '',
     };
   }
 
@@ -862,7 +863,31 @@ export function BookingFormDialog({
     }
   };
 
+  const pricingDeltaAmount =
+    isEditingOrRescheduling && editingBooking
+      ? livePricing.totalAmount - Number(editingBooking.totalAmount || 0)
+      : 0;
+  const requiresPricingAdjustmentReason = Boolean(
+    isEditingOrRescheduling &&
+      isServiceScopeChanged &&
+      formValues.applyUpdatedPricing &&
+      pricingDeltaAmount !== 0,
+  );
+  const cleanPricingAdjustmentReason = String(formValues.pricingAdjustmentReason || '').trim();
+  const pricingAdjustmentReasonError = requiresPricingAdjustmentReason
+    ? cleanPricingAdjustmentReason.length < 3
+      ? 'Alasan penyesuaian tagihan invoice wajib diisi minimal 3 karakter.'
+      : cleanPricingAdjustmentReason.length > 300
+        ? 'Alasan penyesuaian tagihan maksimal 300 karakter.'
+        : ''
+    : '';
+
   const shouldShowFieldError = (field) => {
+    if (field === 'pricingAdjustmentReason') {
+      return Boolean(
+        (hasAttemptedSubmit || touchedFields[field]) && pricingAdjustmentReasonError,
+      );
+    }
     return Boolean((hasAttemptedSubmit || touchedFields[field]) && liveValidation.errors[field]);
   };
 
@@ -897,6 +922,12 @@ export function BookingFormDialog({
         Object.values(liveValidation.errors)[0] ||
         'Periksa kembali field yang belum valid sebelum menyimpan.';
       setSubmitError(firstError);
+      return;
+    }
+
+    if (pricingAdjustmentReasonError) {
+      handleStepSelect('service');
+      setSubmitError(pricingAdjustmentReasonError);
       return;
     }
 
@@ -2492,11 +2523,47 @@ export function BookingFormDialog({
                         <span>Pakai harga &amp; komisi terbaru</span>
                       </label>
                       {formValues.applyUpdatedPricing ? (
-                        <p className="mt-2.5 rounded-xl border border-amber-500/25 bg-white px-3 py-2 text-xs text-[#8A4B08]">
-                          Catatan: Invoice yang sudah dibuat tidak berubah otomatis jika harga
-                          booking diubah. Periksa tagihan melalui halaman Payment and Bill bila
-                          perlu.
-                        </p>
+                        <div className="mt-2.5 space-y-2 rounded-xl border border-amber-500/25 bg-white p-3 text-xs text-[#151515]">
+                          <p className="text-[11px] leading-relaxed text-[#8A4B08]">
+                            Jika tarif baru berbeda (
+                            <strong className="font-mono">
+                              {pricingDeltaAmount >= 0
+                                ? `+${formatRupiah(pricingDeltaAmount)}`
+                                : `-${formatRupiah(Math.abs(pricingDeltaAmount))}`}
+                            </strong>
+                            ), perubahan akan tercatat otomatis sebagai append-only{' '}
+                            <span className="font-mono">Price Adjustment</span> pada invoice terkait
+                            tanpa mengubah snapshot harga awal.
+                          </p>
+                          {pricingDeltaAmount !== 0 ? (
+                            <div>
+                              <label
+                                htmlFor="booking-pricing-adjustment-reason"
+                                className="block text-[11px] font-semibold text-[#151515]"
+                              >
+                                Alasan Penyesuaian Tagihan Invoice{' '}
+                                <span className="text-[#FF4B22]">*</span>
+                              </label>
+                              <textarea
+                                id="booking-pricing-adjustment-reason"
+                                data-testid="booking-pricing-adjustment-reason-input"
+                                rows={2}
+                                maxLength={300}
+                                value={formValues.pricingAdjustmentReason || ''}
+                                onChange={(e) =>
+                                  handleFieldChange('pricingAdjustmentReason', e.target.value)
+                                }
+                                placeholder="Contoh: Perpanjangan durasi sesi rehearsal atas permintaan pelanggan"
+                                className="sa-input mt-1 w-full rounded-lg p-2.5 text-xs"
+                              />
+                              {shouldShowFieldError('pricingAdjustmentReason') ? (
+                                <p role="alert" className="mt-1 text-[11px] font-medium text-[#B92B0C]">
+                                  {pricingAdjustmentReasonError}
+                                </p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
                       ) : null}
                     </div>
                   ) : null}

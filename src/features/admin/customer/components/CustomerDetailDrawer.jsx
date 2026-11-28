@@ -466,8 +466,11 @@ export function CustomerDetailDrawer({
                               {inv.bookingSnapshot?.bookingDate
                                 ? formatIndonesianDateMedium(inv.bookingSnapshot.bookingDate)
                                 : '-'}{' '}
-                              • Total {formatRupiah(inv.financialSnapshot?.totalAmount || 0)} •
-                              Dibayar {formatRupiah(inv.amountPaid || 0)} • Sisa{' '}
+                              • Total{' '}
+                              {formatRupiah(
+                                inv.effectiveTotalAmount ?? inv.financialSnapshot?.totalAmount ?? 0,
+                              )}{' '}
+                              • Dibayar {formatRupiah(inv.amountPaid || 0)} • Sisa{' '}
                               <strong
                                 className={
                                   inv.balanceDue > 0 && !isVoid

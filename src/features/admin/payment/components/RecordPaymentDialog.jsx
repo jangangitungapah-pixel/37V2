@@ -13,6 +13,7 @@ import { generatePaymentEvidenceId } from '@/features/payment-evidence/utils/pay
 
 import { validateRecordPaymentInput } from '../schemas/payment-schema';
 import { mapPaymentErrorToMessage } from '../services/invoice-service';
+import { PAYMENT_SOURCE } from '../utils/invoice-status';
 
 export function RecordPaymentDialog({
   open,
@@ -24,10 +25,13 @@ export function RecordPaymentDialog({
   // Stable operation IDs per dialog open -> safe idempotent retry on flaky networks
   const [operationTxId] = useState(() => generateOperationId('pay'));
   const [operationEvidenceId] = useState(() => generatePaymentEvidenceId());
+  const requiresClientEvidence = Boolean(invoice?.clientPaymentEvidenceRequired);
   const [amountInput, setAmountInput] = useState(() =>
     invoice?.balanceDue > 0 ? String(invoice.balanceDue) : '',
   );
-  const [paymentMethod, setPaymentMethod] = useState('transfer');
+  const [paymentMethod, setPaymentMethod] = useState(() =>
+    invoice?.clientPaymentEvidenceRequired ? 'cash' : 'transfer',
+  );
   const [receivedDate, setReceivedDate] = useState(() => getJakartaTodayIso());
   const [referenceNumber, setReferenceNumber] = useState('');
   const [notes, setNotes] = useState('');
@@ -39,7 +43,13 @@ export function RecordPaymentDialog({
 
   if (!invoice) return null;
 
-  const invoiceTotal = Number(invoice.financialSnapshot?.totalAmount) || 0;
+  const invoiceTotal = Math.max(
+    0,
+    Math.round(
+      Number(invoice.effectiveTotalAmount ?? invoice.financialSnapshot?.totalAmount) || 0,
+    ),
+  );
+  const activePaymentMethod = requiresClientEvidence ? 'cash' : paymentMethod;
   const alreadyPaid = Number(invoice.amountPaid) || 0;
   const currentBalance = Number(invoice.balanceDue) || 0;
   const parsedAmount = parseMoneyInput(amountInput);
@@ -61,10 +71,17 @@ export function RecordPaymentDialog({
     setFieldErrors({});
     setSubmitError('');
 
+    if (requiresClientEvidence && activePaymentMethod !== 'cash') {
+      setSubmitError(
+        'Invoice Client Portal hanya menerima pencatatan Tunai Studio Desk melalui modal ini.',
+      );
+      return;
+    }
+
     const validation = validateRecordPaymentInput(
       {
         amount: parsedAmount,
-        paymentMethod,
+        paymentMethod: activePaymentMethod,
         receivedDate,
         referenceNumber,
         notes,
@@ -95,6 +112,7 @@ export function RecordPaymentDialog({
         expectedVersion: invoice.version,
         amount: validation.data.amount,
         paymentMethod: validation.data.paymentMethod,
+        ...(requiresClientEvidence ? { source: PAYMENT_SOURCE.STAFF_CASH_DESK } : {}),
         receivedDate: validation.data.receivedDate,
         referenceNumber: validation.data.referenceNumber,
         notes: validation.data.notes,
@@ -227,23 +245,44 @@ export function RecordPaymentDialog({
               <span className="block text-xs font-semibold text-[#151515]">
                 Metode Pembayaran <span className="text-[#FF4B22]">*</span>
               </span>
+              {requiresClientEvidence ? (
+                <div
+                  data-testid="record-payment-staff-cash-notice"
+                  className="mt-1.5 rounded-xl border border-amber-500/30 bg-[#FEF4DD] px-3 py-2 text-[11px] leading-relaxed text-[#8A4B08]"
+                >
+                  <strong>Studio Desk Cash Only:</strong> Invoice ini berasal dari Client Portal.
+                  Admin hanya dapat mencatat langsung pembayaran <strong>Tunai di Studio</strong>.
+                  Transfer/QRIS/Lainnya wajib melalui unggah bukti pelanggan dan verifikasi bukti.
+                </div>
+              ) : null}
               <div
                 role="group"
                 aria-label="Pilih metode pembayaran"
                 className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4"
               >
                 {PAYMENT_METHOD_OPTIONS.map((m) => {
-                  const isSelected = paymentMethod === m.id;
+                  const isSelected = activePaymentMethod === m.id;
+                  const isMethodDisabled = requiresClientEvidence && m.id !== 'cash';
                   return (
                     <button
                       key={m.id}
                       type="button"
-                      onClick={() => setPaymentMethod(m.id)}
+                      disabled={isMethodDisabled}
+                      onClick={() => {
+                        if (!isMethodDisabled) setPaymentMethod(m.id);
+                      }}
                       aria-pressed={isSelected}
+                      title={
+                        isMethodDisabled
+                          ? 'Gunakan unggah bukti Client Portal untuk metode non-tunai'
+                          : m.label
+                      }
                       className={
                         isSelected
                           ? 'min-h-10 cursor-pointer rounded-xl border border-[#8BAD12]/50 bg-[#EDF8C2] px-2.5 py-1.5 text-xs font-semibold text-[#243300] shadow-xs'
-                          : 'min-h-10 cursor-pointer rounded-xl border border-[#151515]/12 bg-[#FAF8F3] px-2.5 py-1.5 text-xs font-medium text-[#46433D] hover:bg-white'
+                          : isMethodDisabled
+                            ? 'min-h-10 cursor-not-allowed rounded-xl border border-[#151515]/10 bg-[#FAF8F3]/60 px-2.5 py-1.5 text-xs font-medium text-[#8B857B] opacity-50'
+                            : 'min-h-10 cursor-pointer rounded-xl border border-[#151515]/12 bg-[#FAF8F3] px-2.5 py-1.5 text-xs font-medium text-[#46433D] hover:bg-white'
                       }
                     >
                       {m.label}

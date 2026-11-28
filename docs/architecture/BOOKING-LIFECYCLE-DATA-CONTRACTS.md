@@ -194,7 +194,7 @@ Preserves ALL 45 existing Schema V1 fields (for 100% compatibility with `commiss
 
 #### New Subcollection: `invoices/{invoiceId}/adjustments/{adjustmentId}` (`AD-06`)
 - **ID:** `adj_{24hex}` (append-only, `allow update, delete: if false` except Factory Reset).
-- **Fields (12 exact keys):** `schemaVersion: 1`, `adjustmentId`, `invoiceId`, `targetType`, `targetId`, `category` (`'duration_change' | 'room_change' | 'service_change' | 'scope_addendum' | 'discount_credit' | 'cancellation_fee' | 'manual_correction'`), `deltaAmount` (`int != 0`, positive increases bill, negative decreases bill), `reason` (`3..300` chars), `linkedChangeRequestId` (`string | null`), `approvedByUid` (`string`), `clientApprovedAt` (`Timestamp | null`), `createdAt` (`Timestamp`), `createdByUid` (`string`).
+- **Fields (13 exact keys):** `schemaVersion: 1`, `adjustmentId`, `invoiceId`, `targetType`, `targetId`, `category` (`'duration_change' | 'room_change' | 'service_change' | 'scope_addendum' | 'discount_credit' | 'cancellation_fee' | 'manual_correction'`), `deltaAmount` (`int != 0`, positive increases bill, negative decreases bill), `reason` (`3..300` chars), `linkedChangeRequestId` (`string | null`), `approvedByUid` (`string`), `clientApprovedAt` (`Timestamp | null`), `createdAt` (`Timestamp`), `createdByUid` (`string`).
 
 #### `paymentTransactions/{transactionId}` (Extended Append-Only Ledger)
 - Preserves all 15 existing keys (exact append-only `allow update: if false`).

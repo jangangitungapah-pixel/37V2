@@ -26,9 +26,12 @@ import {
 } from '@/features/admin/customer/utils/phone-number';
 import {
   buildInvoiceDocumentFromBooking,
+  generateAdjustmentId,
+  normalizeInvoiceAdjustmentRecord,
   normalizeInvoiceRecord,
   normalizePaymentTransactionRecord,
 } from '@/features/admin/payment/schemas/payment-schema';
+import { applyInvoiceAdjustmentInTransaction } from '@/features/admin/payment/services/adjustment-service';
 import { getTimestampMillis } from '@/features/admin/payment/utils/invoice-format';
 import {
   buildInitialPaymentId,
@@ -2247,6 +2250,7 @@ export async function updateOrRescheduleBooking({
   bookingId,
   expectedVersion,
   eventId = generateOperationId('evt'),
+  adjustmentId = generateAdjustmentId(),
   actorUid,
   formValues,
   mode = 'edit',
@@ -2256,6 +2260,7 @@ export async function updateOrRescheduleBooking({
   const cleanActorUid = assertAuthenticatedStaffActor(actorUid);
   const cleanBookingId = String(bookingId || '').trim();
   const cleanEventId = String(eventId || '').trim() || generateOperationId('evt');
+  const cleanAdjustmentId = String(adjustmentId || '').trim() || generateAdjustmentId();
 
   if (!cleanBookingId) {
     throw createBookingServiceError('booking/not-found', 'ID booking wajib disertakan.');
@@ -2396,31 +2401,6 @@ export async function updateOrRescheduleBooking({
       }
     }
 
-    // 2. ALL WRITES AFTER READS
-    const timestamp = tx.nowValue();
-    const newSlotIdSet = new Set(newSlots.map((s) => s.id));
-    const oldSlotIdSet = new Set(oldSlots.map((s) => s.id));
-
-    // Delete old slots that are no longer needed
-    for (const oldSlot of oldSlots) {
-      if (!newSlotIdSet.has(oldSlot.id) && slotMap.get(oldSlot.id)) {
-        tx.deleteSlot(oldSlot.id);
-      }
-    }
-
-    // Create/update new slots
-    for (const newSlot of newSlots) {
-      if (!oldSlotIdSet.has(newSlot.id) || !slotMap.get(newSlot.id)) {
-        tx.setSlot(newSlot.id, {
-          bookingId: cleanBookingId,
-          date: newSlot.date,
-          studioId: newSlot.studioId,
-          slotStartMinute: newSlot.slotStartMinute,
-          createdAt: timestamp,
-        });
-      }
-    }
-
     const scheduleChanged =
       existingBooking.date !== payload.date ||
       existingBooking.studioId !== payload.studioId ||
@@ -2445,6 +2425,67 @@ export async function updateOrRescheduleBooking({
 
     const shouldApplyNewSnapshot =
       isServiceScopeChanged && Boolean(formValues?.applyUpdatedPricing);
+
+    const prevInvoiceEffectiveTotal = existingInvoice
+      ? Math.max(
+          0,
+          Math.round(
+            Number(
+              existingInvoice.effectiveTotalAmount ??
+                existingInvoice.financialSnapshot?.totalAmount ??
+                0,
+            ) || 0,
+          ),
+        )
+      : 0;
+    const pricingDeltaAmount =
+      shouldApplyNewSnapshot && existingInvoice ? payload.totalAmount - prevInvoiceEffectiveTotal : 0;
+
+    let existingAdjustment = null;
+    if (shouldApplyNewSnapshot && existingInvoice && pricingDeltaAmount !== 0) {
+      if (existingInvoice.invoiceStatus !== INVOICE_STATUS.ISSUED) {
+        throw createBookingServiceError(
+          'booking/invoice-not-issued-for-adjustment',
+          'Tarif booking tidak dapat diterapkan ke invoice karena status invoice tidak Issued (Draft/Void).',
+        );
+      }
+      const cleanPricingReason = String(formValues?.pricingAdjustmentReason || '').trim();
+      if (cleanPricingReason.length < 3 || cleanPricingReason.length > 300) {
+        throw createBookingServiceError(
+          'booking/adjustment-reason-required',
+          'Alasan penyesuaian tagihan invoice wajib diisi (3–300 karakter) saat mengubah tarif pada booking yang memiliki invoice.',
+        );
+      }
+      existingAdjustment =
+        typeof tx.getInvoiceAdjustment === 'function'
+          ? await tx.getInvoiceAdjustment(existingInvoice.id, cleanAdjustmentId)
+          : null;
+    }
+
+    // 2. ALL WRITES AFTER READS
+    const timestamp = tx.nowValue();
+    const newSlotIdSet = new Set(newSlots.map((s) => s.id));
+    const oldSlotIdSet = new Set(oldSlots.map((s) => s.id));
+
+    // Delete old slots that are no longer needed
+    for (const oldSlot of oldSlots) {
+      if (!newSlotIdSet.has(oldSlot.id) && slotMap.get(oldSlot.id)) {
+        tx.deleteSlot(oldSlot.id);
+      }
+    }
+
+    // Create/update new slots
+    for (const newSlot of newSlots) {
+      if (!oldSlotIdSet.has(newSlot.id) || !slotMap.get(newSlot.id)) {
+        tx.setSlot(newSlot.id, {
+          bookingId: cleanBookingId,
+          date: newSlot.date,
+          studioId: newSlot.studioId,
+          slotStartMinute: newSlot.slotStartMinute,
+          createdAt: timestamp,
+        });
+      }
+    }
 
     const nextVersion = (Number(existingBooking.version) || 1) + 1;
 
@@ -2562,9 +2603,35 @@ export async function updateOrRescheduleBooking({
     };
 
     tx.updateBooking(cleanBookingId, updatedFields);
+
+    let invoiceForProjection = existingInvoice;
+    if (shouldApplyNewSnapshot && existingInvoice && pricingDeltaAmount !== 0) {
+      const cleanPricingReason = String(formValues?.pricingAdjustmentReason || '').trim();
+      const adjCategory =
+        existingBooking.serviceTypeId === payload.serviceTypeId &&
+        existingEffectiveOptionId === nextEffectiveOptionId &&
+        existingBooking.durationMinutes !== payload.durationMinutes
+          ? 'duration_change'
+          : 'service_change';
+      const adjResult = applyInvoiceAdjustmentInTransaction(tx, {
+        adjustmentId: cleanAdjustmentId,
+        existingInvoice,
+        existingAdjustment,
+        // `setClientReservation` immediately below writes the unified booking + invoice projection
+        existingClientReservation: null,
+        expectedVersion: existingInvoice.version,
+        category: adjCategory,
+        deltaAmount: pricingDeltaAmount,
+        reason: cleanPricingReason,
+        actorUid: cleanActorUid,
+        now: timestamp,
+      });
+      invoiceForProjection = adjResult.invoice;
+    }
+
     const clientReservationProjection = buildClientReservationProjection(
       { ...existingBooking, ...updatedFields, id: cleanBookingId },
-      existingInvoice,
+      invoiceForProjection,
       timestamp,
     );
     if (clientReservationProjection) {
@@ -3027,6 +3094,7 @@ export function createInMemoryBookingRepositoryAdapter(
   const customers = new Map();
   const phoneIndex = new Map();
   const invoices = new Map();
+  const invoiceAdjustments = new Map();
   const paymentTransactions = new Map();
   const paymentEvidence = new Map();
   const paymentEvidenceLocks = new Map();
@@ -3052,6 +3120,7 @@ export function createInMemoryBookingRepositoryAdapter(
   const invoiceSubscribers = new Set();
   const invoiceDocSubscribers = new Map();
   const invoiceRangeSubscribers = new Set();
+  const invoiceAdjustmentSubscribers = new Map();
   const transactionSubscribers = new Set();
   const invoiceTransactionSubscribers = new Map();
   const paymentEvidenceSubscribers = new Set();
@@ -3418,6 +3487,7 @@ export function createInMemoryBookingRepositoryAdapter(
       customers,
       phoneIndex,
       invoices,
+      invoiceAdjustments,
       paymentTransactions,
       paymentEvidence,
       paymentEvidenceLocks,
@@ -3439,6 +3509,7 @@ export function createInMemoryBookingRepositoryAdapter(
       invoiceSubscribers,
       invoiceDocSubscribers,
       invoiceRangeSubscribers,
+      invoiceAdjustmentSubscribers,
       transactionSubscribers,
       invoiceTransactionSubscribers,
       paymentEvidenceSubscribers,
@@ -3463,6 +3534,26 @@ export function createInMemoryBookingRepositoryAdapter(
       notifyPublicAvailabilityMetadata: notifyPublicAvailabilityMetadataSubscribers,
       notifyCustomers: notifyCustomerSubscribers,
       notifyInvoices: notifyInvoiceSubscribers,
+      notifyInvoiceAdjustments(targetInvoiceId = null) {
+        const keys = targetInvoiceId
+          ? [targetInvoiceId]
+          : Array.from(invoiceAdjustmentSubscribers.keys());
+        for (const invId of keys) {
+          const listeners = invoiceAdjustmentSubscribers.get(invId);
+          if (!listeners || listeners.size === 0) continue;
+          const items = Array.from(invoiceAdjustments.values())
+            .filter((adj) => adj && adj.invoiceId === invId)
+            .map((adj) => normalizeInvoiceAdjustmentRecord(adj.id, adj))
+            .sort((a, b) => {
+              const diff = getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt);
+              if (diff !== 0) return diff;
+              return String(b.id || '').localeCompare(String(a.id || ''));
+            });
+          for (const cb of listeners) {
+            cb?.(items);
+          }
+        }
+      },
       notifyTransactions: notifyTransactionSubscribers,
       notifyPaymentEvidence() {
         for (const listener of paymentEvidenceSubscribers) {
@@ -3529,6 +3620,7 @@ export function createInMemoryBookingRepositoryAdapter(
         customers: new Map(customers),
         phoneIndex: new Map(phoneIndex),
         invoices: new Map(invoices),
+        invoiceAdjustments: new Map(invoiceAdjustments),
         paymentTransactions: new Map(paymentTransactions),
         paymentEvidence: new Map(paymentEvidence),
         paymentEvidenceLocks: new Map(paymentEvidenceLocks),
@@ -3554,6 +3646,7 @@ export function createInMemoryBookingRepositoryAdapter(
         const stagedCustomers = new Map(customers);
         const stagedPhoneIndex = new Map(phoneIndex);
         const stagedInvoices = new Map(invoices);
+        const stagedInvoiceAdjustments = new Map(invoiceAdjustments);
         const stagedPaymentTransactions = new Map(paymentTransactions);
         const stagedPaymentEvidence = new Map(paymentEvidence);
         const stagedPaymentEvidenceLocks = new Map(paymentEvidenceLocks);
@@ -3634,9 +3727,21 @@ export function createInMemoryBookingRepositoryAdapter(
             const item = stagedInvoices.get(id);
             return item ? normalizeInvoiceRecord(id, item) : null;
           },
+          async getClientReservation(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedClientReservations.get(id);
+            return item ? { ...item } : null;
+          },
           setClientReservation(id, data) {
             writeStarted = true;
             stagedClientReservations.set(id, { id, ...data });
+          },
+          updateClientReservation(id, data) {
+            writeStarted = true;
+            const prev = stagedClientReservations.get(id) || {};
+            stagedClientReservations.set(id, { id, ...prev, ...data });
           },
           async getPaymentTransaction(id) {
             if (writeStarted) {
@@ -3680,6 +3785,13 @@ export function createInMemoryBookingRepositoryAdapter(
             }
             const item = stagedRefundCases.get(id);
             return item ? { ...item } : null;
+          },
+          async getInvoiceAdjustment(invoiceId, adjustmentId) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedInvoiceAdjustments.get(`${invoiceId}__${adjustmentId}`);
+            return item ? normalizeInvoiceAdjustmentRecord(adjustmentId, item) : null;
           },
           async getBookingPolicies() {
             if (writeStarted) {
@@ -3758,6 +3870,13 @@ export function createInMemoryBookingRepositoryAdapter(
             writeStarted = true;
             const prev = stagedInvoices.get(id) || {};
             stagedInvoices.set(id, normalizeInvoiceRecord(id, { ...prev, ...data }));
+          },
+          setInvoiceAdjustment(invoiceId, adjustmentId, data) {
+            writeStarted = true;
+            stagedInvoiceAdjustments.set(
+              `${invoiceId}__${adjustmentId}`,
+              normalizeInvoiceAdjustmentRecord(adjustmentId, data),
+            );
           },
           setPaymentTransaction(id, data) {
             writeStarted = true;
@@ -3872,6 +3991,8 @@ export function createInMemoryBookingRepositoryAdapter(
         for (const [k, v] of stagedPhoneIndex) phoneIndex.set(k, v);
         invoices.clear();
         for (const [k, v] of stagedInvoices) invoices.set(k, v);
+        invoiceAdjustments.clear();
+        for (const [k, v] of stagedInvoiceAdjustments) invoiceAdjustments.set(k, v);
         paymentTransactions.clear();
         for (const [k, v] of stagedPaymentTransactions) paymentTransactions.set(k, v);
         paymentEvidence.clear();
@@ -3894,6 +4015,19 @@ export function createInMemoryBookingRepositoryAdapter(
         notifyPublicAvailabilitySubscribers();
         notifyCustomerSubscribers();
         notifyInvoiceSubscribers();
+        for (const [invId, listeners] of invoiceAdjustmentSubscribers.entries()) {
+          const items = Array.from(invoiceAdjustments.values())
+            .filter((adj) => adj && adj.invoiceId === invId)
+            .map((adj) => normalizeInvoiceAdjustmentRecord(adj.id, adj))
+            .sort((a, b) => {
+              const diff = getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt);
+              if (diff !== 0) return diff;
+              return String(b.id || '').localeCompare(String(a.id || ''));
+            });
+          for (const cb of listeners) {
+            cb?.(items);
+          }
+        }
         notifyTransactionSubscribers();
         notifyClientReservations();
         for (const listener of paymentEvidenceSubscribers) {

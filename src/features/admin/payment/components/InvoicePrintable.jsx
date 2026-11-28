@@ -45,8 +45,16 @@ function getOrCreatePrintPortalElement() {
  * and inside `#studio-print-portal` for clean browser Print / Save as PDF.
  * Never displays fabricated legal addresses, tax IDs, bank accounts, or internal fees.
  */
-export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
+export function InvoiceDocumentSheet({ invoice, transactions = [], adjustments = [] }) {
   if (!invoice) return null;
+
+  const baseTotal = Math.max(0, Math.round(Number(invoice.financialSnapshot?.totalAmount) || 0));
+  const adjustmentTotal = Math.round(Number(invoice.adjustmentTotal) || 0);
+  const effectiveTotal = Math.max(
+    0,
+    Math.round(Number(invoice.effectiveTotalAmount ?? baseTotal) || 0),
+  );
+  const overpaidCreditBalance = Math.max(0, Math.round(Number(invoice.overpaidCreditBalance) || 0));
 
   const isVoid = invoice.invoiceStatus === INVOICE_STATUS.VOID;
   const effectiveStatus = getEffectivePaymentStatus(invoice);
@@ -225,11 +233,26 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
               </div>
             ) : null}
 
+            {adjustmentTotal !== 0 ? (
+              <>
+                <div className="flex justify-between gap-3 border-t border-neutral-300 pt-1.5">
+                  <dt className="text-studio-muted-ink">Total Awal</dt>
+                  <dd className="font-bold tabular-nums">{formatRupiah(baseTotal)}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-studio-muted-ink">Penyesuaian Harga</dt>
+                  <dd className="font-bold tabular-nums">
+                    {adjustmentTotal > 0
+                      ? `+${formatRupiah(adjustmentTotal)}`
+                      : `-${formatRupiah(Math.abs(adjustmentTotal))}`}
+                  </dd>
+                </div>
+              </>
+            ) : null}
+
             <div className="border-studio-ink flex justify-between gap-3 border-t-2 pt-2 text-sm font-extrabold">
-              <dt>Total Invoice</dt>
-              <dd className="tabular-nums">
-                {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)}
-              </dd>
+              <dt>{adjustmentTotal !== 0 ? 'Total Efektif Invoice' : 'Total Invoice'}</dt>
+              <dd className="tabular-nums">{formatRupiah(effectiveTotal)}</dd>
             </div>
 
             <div className="flex justify-between gap-3 text-emerald-800">
@@ -251,9 +274,41 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
                 {formatRupiah(invoice.balanceDue || 0)}
               </dd>
             </div>
+
+            {overpaidCreditBalance > 0 ? (
+              <div className="flex justify-between gap-3 text-amber-800">
+                <dt>Kelebihan Bayar / Kredit</dt>
+                <dd className="font-extrabold tabular-nums">
+                  {formatRupiah(overpaidCreditBalance)}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </div>
       </section>
+
+      {adjustments.length > 0 ? (
+        <section className="print-avoid-break mt-4 border-t border-neutral-300 pt-3">
+          <p className="text-studio-muted-ink font-mono text-[9.5px] font-extrabold tracking-wider uppercase">
+            Penyesuaian Harga ({adjustments.length})
+          </p>
+          <div className="mt-2 space-y-1">
+            {adjustments.map((adj) => (
+              <div
+                key={adj.id}
+                className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10.5px]"
+              >
+                <span>{adj.reason}</span>
+                <span className="font-extrabold tabular-nums">
+                  {adj.deltaAmount >= 0
+                    ? `+${formatRupiah(adj.deltaAmount)}`
+                    : `-${formatRupiah(Math.abs(adj.deltaAmount))}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* 5. Payment History Summary */}
       {transactions.length > 0 ? (
@@ -309,7 +364,13 @@ export function InvoiceDocumentSheet({ invoice, transactions = [] }) {
 /**
  * Interactive Print / Save as PDF & Copy-to-WhatsApp Preview Modal for an Invoice.
  */
-export function InvoicePrintable({ open, invoice, transactions = [], onOpenChange }) {
+export function InvoicePrintable({
+  open,
+  invoice,
+  transactions = [],
+  adjustments = [],
+  onOpenChange,
+}) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -411,7 +472,11 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
 
               {/* Scrollable Preview Canvas */}
               <div className="sa-safe-bottom min-h-0 flex-1 overflow-y-auto bg-[#EBE7DC]/75 p-3 sm:p-6">
-                <InvoiceDocumentSheet invoice={invoice} transactions={transactions} />
+                <InvoiceDocumentSheet
+                  invoice={invoice}
+                  transactions={transactions}
+                  adjustments={adjustments}
+                />
               </div>
             </Dialog.Popup>
           </Dialog.Viewport>
@@ -421,7 +486,11 @@ export function InvoicePrintable({ open, invoice, transactions = [], onOpenChang
       {/* Isolated A4 Print Portal (visible ONLY inside @media print) */}
       {portalRoot
         ? createPortal(
-            <InvoiceDocumentSheet invoice={invoice} transactions={transactions} />,
+            <InvoiceDocumentSheet
+              invoice={invoice}
+              transactions={transactions}
+              adjustments={adjustments}
+            />,
             portalRoot,
           )
         : null}

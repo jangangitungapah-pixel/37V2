@@ -13,6 +13,7 @@ import {
   Printer,
   ReceiptText,
   RotateCcw,
+  Scale,
   ShieldCheck,
   UserRound,
   X,
@@ -46,6 +47,7 @@ import {
 import { useInvoiceDetail } from '../hooks/useInvoiceDetail';
 import { buildWhatsAppInvoiceSummary } from '../utils/invoice-format';
 import {
+  getAdjustmentCategoryMeta,
   getEffectivePaymentStatus,
   getInvoiceStatusMeta,
   getPaymentSourceMeta,
@@ -61,6 +63,7 @@ export function InvoiceDetailDrawer({
   open,
   onOpenChange,
   onOpenRecordPayment,
+  onOpenAdjustment,
   onOpenEvidenceReview,
   onOpenPrintPreview,
   onOpenReceipt,
@@ -71,6 +74,7 @@ export function InvoiceDetailDrawer({
   const {
     invoice: liveInvoice,
     transactions,
+    adjustments,
     reversedTransactionIds,
     isLoading,
     error,
@@ -96,12 +100,33 @@ export function InvoiceDetailDrawer({
   const invoiceMeta = getInvoiceStatusMeta(invoice?.invoiceStatus);
   const room = getStudioRoomById(invoice?.bookingSnapshot?.studioId);
   const requiresClientEvidence = Boolean(invoice?.clientPaymentEvidenceRequired);
-  const pendingEvidence =
-    invoiceEvidence.find((ev) => ev.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW) || null;
+  const pendingEvidenceList = invoiceEvidence.filter(
+    (ev) => ev.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
+  );
+  const pendingEvidence = pendingEvidenceList[0] || null;
   const canRecordPayment = Boolean(
     invoice && !isVoid && invoice.balanceDue > 0 && !requiresClientEvidence,
   );
+  const canRecordStaffCash = Boolean(
+    invoice && invoice.invoiceStatus === INVOICE_STATUS.ISSUED && invoice.balanceDue > 0 && requiresClientEvidence,
+  );
+  const canAdjustInvoice = Boolean(
+    invoice && invoice.invoiceStatus === INVOICE_STATUS.ISSUED && onOpenAdjustment,
+  );
   const canVoid = Boolean(invoice && invoice.invoiceStatus === INVOICE_STATUS.ISSUED);
+  const baseTotalAmount = Math.max(
+    0,
+    Math.round(Number(invoice?.financialSnapshot?.totalAmount) || 0),
+  );
+  const adjustmentTotal = Math.round(Number(invoice?.adjustmentTotal) || 0);
+  const effectiveTotalAmount = Math.max(
+    0,
+    Math.round(Number(invoice?.effectiveTotalAmount ?? baseTotalAmount) || 0),
+  );
+  const overpaidCreditBalance = Math.max(
+    0,
+    Math.round(Number(invoice?.overpaidCreditBalance) || 0),
+  );
 
   const handleCopySummary = async () => {
     if (!invoice) return;
@@ -200,25 +225,55 @@ export function InvoiceDetailDrawer({
                     <span>Catat Pembayaran</span>
                   </button>
                 ) : requiresClientEvidence && !isVoid && invoice.balanceDue > 0 ? (
-                  pendingEvidence ? (
-                    <button
-                      type="button"
-                      onClick={() => onOpenEvidenceReview?.(pendingEvidence, invoice)}
-                      className="sa-control sa-btn-lime inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold"
-                    >
-                      <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>Tinjau Bukti Pembayaran</span>
-                    </button>
-                  ) : (
-                    <AdminStatusBadge tone="orange" size="sm">
-                      Menunggu Bukti Pembayaran Client
-                    </AdminStatusBadge>
-                  )
+                  <>
+                    {pendingEvidence ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenEvidenceReview?.(pendingEvidence, invoice)}
+                        className="sa-control sa-btn-lime inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>
+                          Tinjau Bukti
+                          {pendingEvidenceList.length > 1
+                            ? ` (${pendingEvidenceList.length})`
+                            : ' Pembayaran'}
+                        </span>
+                      </button>
+                    ) : (
+                      <AdminStatusBadge tone="orange" size="sm">
+                        Menunggu Bukti Pembayaran Client
+                      </AdminStatusBadge>
+                    )}
+                    {canRecordStaffCash ? (
+                      <button
+                        type="button"
+                        data-testid="invoice-record-staff-cash-button"
+                        onClick={() => onOpenRecordPayment?.(invoice)}
+                        className="sa-control sa-btn-secondary inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold"
+                      >
+                        <Banknote className="h-3.5 w-3.5 text-[#0F6246]" aria-hidden="true" />
+                        <span>Catat Tunai (Desk)</span>
+                      </button>
+                    ) : null}
+                  </>
+                ) : null}
+
+                {canAdjustInvoice ? (
+                  <button
+                    type="button"
+                    data-testid="invoice-open-adjustment-button"
+                    onClick={() => onOpenAdjustment?.(invoice)}
+                    className="sa-control sa-btn-secondary inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold"
+                  >
+                    <Scale className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
+                    <span>Penyesuaian Harga</span>
+                  </button>
                 ) : null}
 
                 <button
                   type="button"
-                  onClick={() => onOpenPrintPreview?.(invoice, transactions)}
+                  onClick={() => onOpenPrintPreview?.(invoice, transactions, adjustments)}
                   className="sa-control sa-btn-secondary inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold"
                 >
                   <Printer className="h-3.5 w-3.5 text-[#46433D]" aria-hidden="true" />
@@ -360,11 +415,31 @@ export function InvoiceDetailDrawer({
                         </dd>
                       </div>
                     ) : null}
+                    {adjustmentTotal !== 0 ? (
+                      <>
+                        <div className="flex justify-between gap-2 border-t border-[#151515]/[0.06] pt-2">
+                          <dt className="text-[#666159]">Total Awal (Snapshot)</dt>
+                          <dd className="font-semibold text-[#151515] tabular-nums">
+                            {formatRupiah(baseTotalAmount)}
+                          </dd>
+                        </div>
+                        <div
+                          className={`flex justify-between gap-2 ${
+                            adjustmentTotal > 0 ? 'text-[#151515]' : 'text-[#B92B0C]'
+                          }`}
+                        >
+                          <dt>Penyesuaian Harga ({adjustments.length || invoice.adjustmentCount || 1}x)</dt>
+                          <dd className="font-semibold tabular-nums">
+                            {adjustmentTotal > 0
+                              ? `+${formatRupiah(adjustmentTotal)}`
+                              : `-${formatRupiah(Math.abs(adjustmentTotal))}`}
+                          </dd>
+                        </div>
+                      </>
+                    ) : null}
                     <div className="flex justify-between gap-2 border-t border-[#151515]/[0.08] pt-2 text-sm font-bold text-[#151515]">
-                      <dt>Total Invoice</dt>
-                      <dd className="tabular-nums">
-                        {formatRupiah(invoice.financialSnapshot?.totalAmount || 0)}
-                      </dd>
+                      <dt>{adjustmentTotal !== 0 ? 'Total Efektif Invoice' : 'Total Invoice'}</dt>
+                      <dd className="tabular-nums">{formatRupiah(effectiveTotalAmount)}</dd>
                     </div>
                     <div className="flex justify-between gap-2 text-[#0F6246]">
                       <dt>Sudah Dibayar</dt>
@@ -388,7 +463,24 @@ export function InvoiceDetailDrawer({
                         {formatRupiah(invoice.balanceDue || 0)}
                       </dd>
                     </div>
+                    {overpaidCreditBalance > 0 ? (
+                      <div className="flex justify-between gap-2 rounded-xl border border-amber-500/30 bg-[#FEF4DD] px-2.5 py-2 text-xs font-bold text-[#8A4B08]">
+                        <dt>Kelebihan Bayar (Overpaid Credit)</dt>
+                        <dd className="tabular-nums">{formatRupiah(overpaidCreditBalance)}</dd>
+                      </div>
+                    ) : null}
                   </dl>
+                  {overpaidCreditBalance > 0 ? (
+                    <p
+                      data-testid="admin-invoice-overpaid-notice"
+                      className="mt-2.5 rounded-xl border border-amber-500/30 bg-[#FEF4DD]/70 px-3 py-2 text-[11px] leading-relaxed text-[#8A4B08]"
+                    >
+                      Total pembayaran melampaui total tagihan efektif setelah penyesuaian harga.
+                      Terdapat saldo kelebihan bayar{' '}
+                      <strong className="font-mono">{formatRupiah(overpaidCreditBalance)}</strong>{' '}
+                      yang menunggu penyelesaian refund atau konversi kredit.
+                    </p>
+                  ) : null}
                 </AdminSurface>
 
                 {/* 2. Customer Info */}
@@ -646,6 +738,73 @@ export function InvoiceDetailDrawer({
                     </ul>
                   )}
                 </AdminSurface>
+
+                {/* 4.5 Append-Only Price Adjustments History */}
+                {adjustments.length > 0 ? (
+                  <AdminSurface
+                    as="section"
+                    variant="card"
+                    aria-labelledby="invoice-adjustments-heading"
+                    data-testid="invoice-adjustments-section"
+                    className="p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#151515]/[0.07] pb-2.5">
+                      <h3
+                        id="invoice-adjustments-heading"
+                        className="flex items-center gap-1.5 text-xs font-semibold tracking-tight text-[#151515] sm:text-sm"
+                      >
+                        <Scale className="h-4 w-4 text-[#666159]" aria-hidden="true" />
+                        <span>Riwayat Penyesuaian Harga ({adjustments.length})</span>
+                      </h3>
+                      <span className="font-mono text-[11px] font-semibold text-[#666159]">
+                        Netto:{' '}
+                        {adjustmentTotal >= 0
+                          ? `+${formatRupiah(adjustmentTotal)}`
+                          : `-${formatRupiah(Math.abs(adjustmentTotal))}`}
+                      </span>
+                    </div>
+
+                    <ul className="mt-3 space-y-2.5">
+                      {adjustments.map((adj) => {
+                        const catMeta = getAdjustmentCategoryMeta(adj.category);
+                        const isIncrease = adj.deltaAmount >= 0;
+                        return (
+                          <li
+                            key={adj.id}
+                            data-testid={`admin-invoice-adjustment-item-${adj.id}`}
+                            className="rounded-xl border border-[#151515]/10 bg-[#FAF8F3]/75 p-3 text-xs"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <AdminStatusBadge tone="ivory" size="sm">
+                                    {catMeta.label}
+                                  </AdminStatusBadge>
+                                  <span className="font-mono text-[10px] text-[#8B857B]">
+                                    {adj.adjustmentId}
+                                  </span>
+                                </div>
+                                <p className="text-xs font-medium text-[#151515]">{adj.reason}</p>
+                                <p className="font-mono text-[10.5px] text-[#666159]">
+                                  {formatIndonesianTimestamp(adj.createdAt)}
+                                </p>
+                              </div>
+                              <span
+                                className={`shrink-0 font-mono text-sm font-bold tabular-nums ${
+                                  isIncrease ? 'text-[#0F6246]' : 'text-[#B92B0C]'
+                                }`}
+                              >
+                                {isIncrease
+                                  ? `+${formatRupiah(adj.deltaAmount)}`
+                                  : `-${formatRupiah(Math.abs(adj.deltaAmount))}`}
+                              </span>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </AdminSurface>
+                ) : null}
 
                 {/* 5. Linked Payment Evidence History (Client-Submitted & Admin-Attached) */}
                 {(requiresClientEvidence || invoiceEvidence.length > 0) ? (

@@ -8,7 +8,9 @@ import { SUPPORTED_PAYMENT_METHODS } from '@/features/admin/payment/utils/invoic
 import { toNonNegativeRupiahInt } from '@/features/admin/payment/utils/payment-calculation';
 
 import {
+  CLIENT_PORTAL_PAYMENT_METHODS,
   PAYMENT_EVIDENCE_FIELD_LIMITS,
+  PAYMENT_EVIDENCE_LEGACY_SECURE_URL_MAX,
   PAYMENT_EVIDENCE_SCHEMA_VERSION,
   PAYMENT_EVIDENCE_SOURCES,
   PAYMENT_EVIDENCE_STATUSES,
@@ -45,8 +47,9 @@ export const clientEvidenceSubmissionInputSchema = z.object({
     .number({ invalid_type_error: 'Please enter a valid payment amount in IDR.' })
     .int('Payment amount must be a whole Rupiah integer.')
     .positive('Payment amount must be greater than Rp 0.'),
-  paymentMethod: z.enum(SUPPORTED_PAYMENT_METHODS, {
-    message: 'Please select a valid payment method.',
+  paymentMethod: z.enum(CLIENT_PORTAL_PAYMENT_METHODS, {
+    message:
+      'Cash payments cannot be uploaded here. Pay Cash directly at Studio Desk, or choose Transfer, QRIS, or Other.',
   }),
   claimedPaidAt: z
     .string()
@@ -254,7 +257,11 @@ export function normalizePaymentEvidenceAsset(raw = null) {
     cloudName: String(raw.cloudName || '').trim(),
     cloudinaryPublicId: String(raw.cloudinaryPublicId || '').trim(),
     cloudinaryAssetId: String(raw.cloudinaryAssetId || '').trim(),
-    secureUrl: isValidPaymentEvidenceDeliveryUrl(secureUrl) ? secureUrl : '',
+    secureUrl: isValidPaymentEvidenceDeliveryUrl(secureUrl, '', {
+      maxLength: PAYMENT_EVIDENCE_LEGACY_SECURE_URL_MAX,
+    })
+      ? secureUrl
+      : '',
     resourceType: 'image',
     format: normalizeEvidenceImageFormat(raw.format || 'jpg'),
     width: Math.max(0, Math.round(Number(raw.width) || 0)),

@@ -32,10 +32,18 @@ export function generatePaymentEvidenceId(prefix = 'ev') {
  * Validates that a URL is a strict HTTPS Cloudinary image delivery URL.
  * When `expectedCloudName` is provided, also requires `/<expectedCloudName>/image/upload/`.
  */
-export function isValidPaymentEvidenceDeliveryUrl(url, expectedCloudName = '') {
+export function isValidPaymentEvidenceDeliveryUrl(
+  url,
+  expectedCloudName = '',
+  { maxLength = PAYMENT_EVIDENCE_FIELD_LIMITS.secureUrlMax } = {},
+) {
   if (typeof url !== 'string') return false;
   const trimmed = url.trim();
-  if (!trimmed || trimmed.length > PAYMENT_EVIDENCE_FIELD_LIMITS.secureUrlMax) return false;
+  const effectiveMaxLength =
+    Number.isFinite(Number(maxLength)) && Number(maxLength) > 0
+      ? Number(maxLength)
+      : PAYMENT_EVIDENCE_FIELD_LIMITS.secureUrlMax;
+  if (!trimmed || trimmed.length > effectiveMaxLength) return false;
   if (/\s/.test(trimmed)) return false;
 
   try {
@@ -60,8 +68,11 @@ export function isValidPaymentEvidenceDeliveryUrl(url, expectedCloudName = '') {
  * Builds an optimized Cloudinary thumbnail/preview URL from a validated `secureUrl`.
  * Returns empty string for any unvalidated or non-Cloudinary URL.
  */
-export function buildPaymentEvidencePreviewUrl(secureUrl, { width = 720 } = {}) {
-  if (!isValidPaymentEvidenceDeliveryUrl(secureUrl)) return '';
+export function buildPaymentEvidencePreviewUrl(
+  secureUrl,
+  { width = 720, maxLength = PAYMENT_EVIDENCE_FIELD_LIMITS.secureUrlMax } = {},
+) {
+  if (!isValidPaymentEvidenceDeliveryUrl(secureUrl, '', { maxLength })) return '';
   const trimmed = secureUrl.trim();
   const marker = '/image/upload/';
   const markerIndex = trimmed.indexOf(marker);
@@ -165,13 +176,17 @@ export function getClientInvoiceEvidenceIndicator(invoice, invoiceEvidenceList =
     ),
   );
 
-  const hasPending = clientSubmissions.some(
+  const pendingItems = clientSubmissions.filter(
     (item) => item.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
   );
-  if (hasPending) {
+  if (pendingItems.length > 0) {
     return {
       key: 'under_review',
-      label: 'Under Review',
+      label:
+        pendingItems.length > 1
+          ? `${pendingItems.length} Under Review`
+          : 'Under Review',
+      pendingCount: pendingItems.length,
       tone: 'amber',
     };
   }
@@ -198,4 +213,82 @@ export function getClientInvoiceEvidenceIndicator(invoice, invoiceEvidenceList =
   }
 
   return null;
+}
+
+/**
+ * Summarizes pending_review evidence submissions for multi-pending Client & Admin displays (`OD-05`).
+ */
+export function summarizePendingEvidence(evidenceItems = [], balanceDue = 0) {
+  const safeItems = Array.isArray(evidenceItems) ? evidenceItems : [];
+  const pendingItems = safeItems.filter(
+    (item) =>
+      item &&
+      item.evidenceSource === PAYMENT_EVIDENCE_SOURCES.CLIENT_PORTAL &&
+      item.status === PAYMENT_EVIDENCE_STATUSES.PENDING_REVIEW,
+  );
+  const pendingClaimedTotal = pendingItems.reduce(
+    (sum, item) => sum + Math.max(0, Math.round(Number(item.claimedAmount) || 0)),
+    0,
+  );
+  const safeBalance = Math.max(0, Math.round(Number(balanceDue) || 0));
+  const exceedsLiveBalance = pendingClaimedTotal > safeBalance;
+  const projectedRemainingAfterPending = Math.max(0, safeBalance - pendingClaimedTotal);
+
+  return {
+    pendingItems,
+    pendingCount: pendingItems.length,
+    pendingClaimedTotal,
+    exceedsLiveBalance,
+    projectedRemainingAfterPending,
+  };
+}
+
+/**
+ * Detects duplicate Cloudinary assets or transfer reference numbers across evidence items (`OD-05`).
+ */
+export function detectDuplicateEvidenceSignals(
+  candidate = {},
+  existingItems = [],
+  { excludeEvidenceId = '' } = {},
+) {
+  const cleanExcludeId = String(excludeEvidenceId || candidate?.id || '').trim();
+  const targetPublicId = String(
+    candidate?.evidence?.cloudinaryPublicId || candidate?.cloudinaryPublicId || '',
+  ).trim();
+  const targetAssetId = String(
+    candidate?.evidence?.cloudinaryAssetId || candidate?.cloudinaryAssetId || '',
+  ).trim();
+  const targetRef = String(candidate?.referenceNumber || '')
+    .trim()
+    .toLowerCase();
+
+  const matchingAssetItems = [];
+  const matchingReferenceItems = [];
+
+  for (const item of Array.isArray(existingItems) ? existingItems : []) {
+    if (!item || (cleanExcludeId && item.id === cleanExcludeId)) continue;
+    const itemPublicId = String(item.evidence?.cloudinaryPublicId || '').trim();
+    const itemAssetId = String(item.evidence?.cloudinaryAssetId || '').trim();
+    const itemRef = String(item.referenceNumber || '')
+      .trim()
+      .toLowerCase();
+
+    if (
+      (targetPublicId && itemPublicId && itemPublicId === targetPublicId) ||
+      (targetAssetId && itemAssetId && itemAssetId === targetAssetId)
+    ) {
+      matchingAssetItems.push(item);
+    }
+
+    if (targetRef && itemRef && itemRef === targetRef) {
+      matchingReferenceItems.push(item);
+    }
+  }
+
+  return {
+    hasDuplicateAsset: matchingAssetItems.length > 0,
+    hasDuplicateReference: matchingReferenceItems.length > 0,
+    matchingAssetItems,
+    matchingReferenceItems,
+  };
 }
