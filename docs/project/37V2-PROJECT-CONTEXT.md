@@ -151,12 +151,12 @@ Phase 0 audited this existing baseline and froze the cross-domain architecture. 
 
 ## 9. Current project phase and hard boundaries
 
-As of the current branch (`feature/phase-2-offer-revisions-deposit-hold-engine`):
+As of the current branch (`feature/phase-3-multi-method-payments-staff-cash-adjustments`):
 - Phase 0 — Business Logic Discovery & Architecture Freeze: completed as documentation.
 - Phase 1 — Core Domain, Identity & Policy Foundation: **Owner-accepted on `2026-11-28`** at `2762923ea6de93345058b97012951555f1a354f2` (`docs/handoffs/PHASE-1-OWNER-ACCEPTANCE-RECORD.md`, `verify:phase1` `4/4` PASS). **Production Firebase deployment and production `clientReservations` backfill have NOT been performed** and remain separate rollout preconditions.
 - Phase 2 — Offer Revisions & Deposit Hold Engine: **Owner-accepted on `2026-11-28`** at `d9125b9446b53871f062f2f0d5b37ab6db73b1b3` (`docs/handoffs/PHASE-2-OWNER-ACCEPTANCE-RECORD.md`, `verify:phase1` & `verify:phase2` `4/4` PASS). **Production Firebase deployment and live backfill remain NOT PERFORMED.**
-- Phase 3 — Multi-Method Payment, Staff Cash & Price Adjustments: **implemented locally on `feature/phase-3-multi-method-payments-staff-cash-adjustments`** (`docs/handoffs/HANDOFF-PHASE-3-MULTI-METHOD-PAYMENT-ADJUSTMENTS.md`), pending Owner review. Local only; not deployed.
-- Phases 4–5: remain **blocked** until Phase 3 Owner acceptance and required deployment preconditions.
+- Phase 3 — Multi-Method Payment, Staff Cash & Price Adjustments: **implemented locally on `feature/phase-3-multi-method-payments-staff-cash-adjustments`** (`docs/handoffs/HANDOFF-PHASE-3-MULTI-METHOD-PAYMENT-ADJUSTMENTS.md`), pending Owner review. **Production Rules Blocker & Remediation:** initial Phase 3 Rules (`47c3a5e` / Ruleset `65f12907...`) were rejected by production activation on `studio37classic` (`331,716` compiled executable bytes vs `< 256,000` bytes ceiling); production remains on prior Ruleset `2ca8e80a...`. Local scope optimization (`docs/architecture/FIRESTORE-RULES-SCOPE-OPTIMIZATION.md`) reduced root helpers from `202` to `30`, localized `171` collection helpers into their narrowest `match` scopes, removed `1` unused helper (`isValidBookingCreate`), and passed `audit:rules:scope` + `verify:phase3` (`4/4` PASS). Post-remediation compiled executable size is `NOT MEASURED` locally and remains the next controlled verification gate upon separately authorized production deployment.
+- Phases 4–5: remain **blocked** until Phase 3 Owner acceptance and required deployment preconditions (including compiled executable size `< 256,000` bytes confirmation).
 
 ## 10. Engineering workflow and safety rules
 

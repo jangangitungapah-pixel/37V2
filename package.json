@@ -19,6 +19,7 @@
     "test:watch": "vitest --watch",
     "test:rules": "firebase emulators:exec --only firestore --project demo-studio37-rules \"node scripts/test-firestore-rules.mjs\"",
     "test:rules:diagnostics": "node scripts/run-firestore-rules-diagnostics.mjs",
+    "audit:rules:scope": "node scripts/audit-firestore-rules-scope.mjs --check",
     "verify:phase1": "node scripts/run-phase-1-gate-diagnostics.mjs",
     "verify:phase2": "node scripts/run-phase-2-gate-diagnostics.mjs",
     "verify:phase3": "node scripts/run-phase-3-gate-diagnostics.mjs"

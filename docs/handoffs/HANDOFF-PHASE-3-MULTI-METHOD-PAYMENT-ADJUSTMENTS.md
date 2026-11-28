@@ -33,7 +33,7 @@ Phase 3 delivers the complete domain engine, transactional persistence, security
    - Updated `updateOrRescheduleBooking()` and `BookingFormDialog.jsx` so scope/duration price changes on an issued invoice atomically record an `/adjustments` document requiring a non-empty `pricingAdjustmentReason` (`3..300` chars) and preserving `financialSnapshot`, instead of overwriting invoice totals directly (`booking/invoice-not-issued-for-adjustment`, `booking/adjustment-reason-required`).
    - Added `isValidInvoiceDraftIssueUpdate` (`draft -> issued`) in `firestore.rules` + `issueDraftInvoice()` in `invoice-service.js`.
    - Updated `reviewInvitations.update` and `customerReviews.create` in `firestore.rules` to `(request.auth == null || isActiveClient())` so signed-in active Clients can submit post-session reviews.
-   - Optimized `invoices.update` rules (`isValidInvoiceMutableUpdateBase` + factored lifecycle/immutable checks) to stay well within Firestore's 1,000-expression evaluation budget (`firestore.rules` file size: `241,463 bytes < 262,144 bytes`).
+   - Optimized `invoices.update` rules (`isValidInvoiceMutableUpdateBase` + factored lifecycle/immutable checks) to stay well within Firestore's 1,000-expression evaluation budget (`firestore.rules` at initial Phase 3 commit `47c3a5e` measured `235,980` LF UTF-8 bytes / `241,463` Windows CRLF disk bytes; subsequently localized from `202` -> `30` root helpers, measuring `244,017` LF UTF-8 bytes / `249,490` CRLF disk bytes, strictly under Firebase's `262,144`-byte source limit).
    - Extended Factory Reset v1 (`factory-reset-config.js`, `factory-reset-repository.js`, `factory-reset-service.js`, `FactoryResetResult.jsx`, `factory-reset.test.jsx`) to `29` manifest targets with `invoices_adjustments` (`order: 9.5`) deleted cleanly before parent `invoices`.
 
 ---
@@ -44,6 +44,9 @@ Phase 3 delivers the complete domain engine, transactional persistence, security
 - `docs/handoffs/PHASE-2-OWNER-ACCEPTANCE-RECORD.md`
 - `docs/architecture/PHASE-3-MULTI-METHOD-PAYMENT-ADJUSTMENT-IMPLEMENTATION.md`
 - `docs/handoffs/HANDOFF-PHASE-3-MULTI-METHOD-PAYMENT-ADJUSTMENTS.md`
+- `docs/architecture/FIRESTORE-RULES-SCOPE-OPTIMIZATION.md`
+- `scripts/audit-firestore-rules-scope.mjs`
+- `src/lib/firestore/rules-scope-audit.test.js`
 - `scripts/run-phase-3-gate-diagnostics.mjs`
 - `src/features/admin/payment/services/adjustment-service.js`
 - `src/features/admin/payment/components/InvoiceAdjustmentDialog.jsx`
@@ -61,38 +64,46 @@ Phase 3 delivers the complete domain engine, transactional persistence, security
 
 ## 3. Verification Results (Observed Locally)
 
-All checks ran locally after final code, rules, and test edits (`git diff --check`: `exit=0`):
+All checks ran locally after final code, rules, scope-localization, and test edits (`git diff --check`: `exit=0`):
 
-1. **`npm run verify:phase1` — PASS (`4/4` stages)**
-   - **ESLint (`npm run lint`):** `PASS` (`0` errors)
-   - **Vitest (`npm run test:run`):** `PASS` (`32/32` test files, `270/270` tests passed, `35.67s`)
-   - **Real Firestore Security Rules Emulator (`npm run test:rules:diagnostics`):** `PASS` (`ALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!`, log `logs/firestore-rules/rules-diagnostics-2026-11-28T07-13-22-950Z.txt`)
-   - **Production Build (`npm run build`):** `PASS` (`4277` modules transformed; known Vite large-chunk warning preserved)
-   - **Gate Log:** `logs/phase1/phase1-gates-2026-11-28T07-12-24-948Z.txt`
+1. **Firestore Rules Scope Audit (`npm run audit:rules:scope`) — PASS (`exit=0`)**
+   - Validated `43` collection-level matches + `4` nested subcollection matches (`47` non-root matches), `201` total helpers (`30` cross-collection helpers retained at root, `171` collection/subcollection-localized helpers, `0` localizable root candidates remaining, `0` unused helpers, `0` scope/wildcard resolution errors).
+   - Source size after localization: `244,017` LF-normalized UTF-8 bytes (`249,490` Windows CRLF disk bytes), strictly below the `262,144`-byte source limit. *(Reconciles earlier note: at initial commit `47c3a5e`, `241,463` bytes was the Windows CRLF disk byte count / API character display, whereas LF-normalized UTF-8 source bytes were `235,980` bytes; see Section 4 below for production compiled-executable limits.)*
 
-2. **`npm run verify:phase2` — PASS (`4/4` stages)**
-   - **ESLint (`npm run lint`):** `PASS` (`0` errors)
-   - **Vitest (`npm run test:run`):** `PASS` (`32/32` test files, `270/270` tests passed, `31.58s`)
-   - **Real Firestore Security Rules Emulator (`npm run test:rules:diagnostics`):** `PASS` (`ALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!`, log `logs/firestore-rules/rules-diagnostics-2026-11-28T07-14-58-440Z.txt`)
-   - **Production Build (`npm run build`):** `PASS` (`4277` modules transformed)
-   - **Gate Log:** `logs/phase2/phase2-gates-2026-11-28T07-13-55-356Z.txt`
+2. **`npm run verify:phase1` — PASS (`4/4` stages at Phase 3 baseline `47c3a5e` prerequisites)**
+   - Recorded prior Phase 1 baseline gate on `feature/phase-3-multi-method-payments-staff-cash-adjustments`: `32/32` test files (`270/270` tests), Real Rules Emulator `PASS`, Vite `PASS` (`logs/phase1/phase1-gates-2026-11-28T07-12-24-948Z.txt`).
 
-3. **`npm run verify:phase3` — PASS (`4/4` stages)**
-   - **ESLint (`npm run lint`):** `PASS` (`0` errors)
-   - **Vitest (`npm run test:run`):** `PASS` (`32/32` test files, `270/270` tests passed, `37.91s`)
-   - **Real Firestore Security Rules Emulator (`npm run test:rules:diagnostics`):** `PASS` (all regression + Phase 3 checks: Staff Cash Desk on Portal invoices, manual non-cash block, Client cash block, 500-char URL cap, multi-pending + 50 lock cap, `/adjustments` subcollection atomicity/immutability/Client read/negative total denial, `draft -> issued`, active Client review submission, Factory Reset delete of `/adjustments`; log `logs/firestore-rules/rules-diagnostics-2026-11-28T07-16-37-056Z.txt`)
-   - **Production Build (`npm run build`):** `PASS` (`4277` modules transformed, `12.13s`; known large-chunk warning preserved)
-   - **Gate Log:** `logs/phase3/phase3-gates-2026-11-28T07-15-29-844Z.txt`
+3. **`npm run verify:phase2` — PASS (`4/4` stages at Phase 3 baseline `47c3a5e` prerequisites)**
+   - Recorded prior Phase 2 regression gate on `feature/phase-3-multi-method-payments-staff-cash-adjustments`: `32/32` test files (`270/270` tests), Real Rules Emulator `PASS`, Vite `PASS` (`logs/phase2/phase2-gates-2026-11-28T07-13-55-356Z.txt`).
 
-4. **`firestore.rules` Size Check:** `241,463 bytes` (under Firebase `262,144` bytes / 256 KB cap).
+4. **`npm run verify:phase3` (Latest Post-Remediation Gate) — PASS (`4/4` stages)**
+   - **ESLint (`npm run lint`):** `PASS` (`exit=0`, `0` errors)
+   - **Vitest (`npm run test:run`):** `PASS` (`exit=0`, `33/33` test files, `273/273` tests passed, `34.04s`, including `rules-scope-audit.test.js` and `public-availability.test.jsx`)
+   - **Real Firestore Security Rules Emulator (`npm run test:rules:diagnostics`):** `PASS` (`exit=0`, `ALL FIRESTORE SECURITY RULES TESTS PASSED (REAL EMULATOR)!`; log `logs/firestore-rules/rules-diagnostics-2026-11-28T10-57-15-796Z.txt`)
+   - **Production Build (`npm run build`):** `PASS` (`exit=0`, `4277` modules transformed, `12.66s`; known Vite large-chunk warning preserved)
+   - **Gate Log:** `logs/phase3/phase3-gates-2026-11-28T10-56-11-643Z.txt`
 
 ---
 
-## 4. Non-Executed / Out-of-Scope Actions & Owner Next Step
+## 4. Production Rules Compiled-Size Incident & Local Scope Remediation
 
-- **NOT EXECUTED (by Phase 3 boundary):**
-  - No `firebase deploy` (Rules, Indexes, or Hosting).
+- **Owner Review Status:** Phase 3 remains **READY FOR OWNER REVIEW** (unless separately accepted by the Owner).
+- **Production Release Incident (`studio37classic`):**
+  - Production `projects/studio37classic/releases/cloud.firestore` currently remains active on the prior Ruleset **`2ca8e80a-50ee-4a5d-8d6d-913d3c91cab9`** (`updateTime: 2026-11-24T15:26:52.373102Z`).
+  - Phase 3 Ruleset **`65f12907-04f3-40e8-9ff2-278ac527da9d`** (exact SHA-256 `730cb06bb1805de3e9225374e94995d88024bef646693c7a00b258a04c8655f4` matching `47c3a5e:firestore.rules`, `235,980` LF UTF-8 source bytes) is **NOT active in production** because Firebase rejected release activation with:
+    `HTTP 400 INVALID_ARGUMENT: Total size of compiled executables must be smaller than 256000 bytes (actual: 331716 bytes)`.
+- **Local Scope-Localization Remediation Executed:**
+  - Root cause: `202` helper functions declared inside the root `match /databases/{database}/documents` scope were inherited across `47` child match blocks, inflating the compiled executable above Firebase's `256,000`-byte ceiling.
+  - Remediation (`docs/architecture/FIRESTORE-RULES-SCOPE-OPTIMIZATION.md`): retained only the `30` genuinely cross-collection shared helpers at root, relocated `171` collection/subcollection-specific helpers into their narrowest valid enclosing `match` block (placed cleanly after `allow` blocks), and removed the proven-unused helper `isValidBookingCreate` (`0` callers; inline `allow create` predicates in `/bookings/{bookingId}` already enforce every constraint).
+  - Post-remediation compiled executable size: **`NOT MEASURED`** locally (`.firebaserc` configures only production `studio37classic`; the Firestore Emulator tests rule semantics and expression budgets rather than production binary executable bytes). Verification of compiled executable bytes strictly below `256,000` bytes must occur during the next separately authorized, controlled production publish.
+
+---
+
+## 5. Non-Executed / Out-of-Scope Actions & Owner Next Step
+
+- **NOT EXECUTED (strict boundaries preserved):**
+  - No `firebase deploy` (Rules, Indexes, or Hosting), no `projects/studio37classic/releases/cloud.firestore` PATCH/POST, no new production Rulesets created/deleted.
   - No production `clientReservations` migration/backfill.
   - No Factory Reset execution against live data.
   - No merge into `main`, no PR opened, and no Phase 4 or Phase 5 code written.
-- **Recommended Owner Action:** Review the Phase 3 diff, test coverage, and gate logs on branch `feature/phase-3-multi-method-payments-staff-cash-adjustments`; confirm acceptance before authorizing Phase 4 or any staging/production deployment prerequisites.
+- **Recommended Owner Action:** Review the Phase 3 implementation and Firestore Rules scope optimization on `feature/phase-3-multi-method-payments-staff-cash-adjustments`; confirm Owner acceptance and separately authorize controlled Rules verification/publication (`compiled executable < 256,000 bytes`) before moving to Phase 4.
