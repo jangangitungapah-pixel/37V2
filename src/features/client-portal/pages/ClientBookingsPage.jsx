@@ -184,6 +184,7 @@ export function ClientBookingsPage({ now } = {}) {
                       record={item}
                       whatsappNumber={whatsappNumber}
                       studioName={studioName}
+                      now={now}
                     />
                   ))}
                 </div>
@@ -233,6 +234,7 @@ export function ClientBookingsPage({ now } = {}) {
                       record={item}
                       whatsappNumber={whatsappNumber}
                       studioName={studioName}
+                      now={now}
                     />
                   ))}
                 </div>
@@ -274,6 +276,7 @@ export function ClientBookingsPage({ now } = {}) {
                       record={item}
                       whatsappNumber={whatsappNumber}
                       studioName={studioName}
+                      now={now}
                     />
                   ))}
                 </div>

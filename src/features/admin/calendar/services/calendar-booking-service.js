@@ -51,6 +51,23 @@ import {
 } from '@/features/payment-evidence/schemas/payment-evidence-schema';
 import { generatePaymentEvidenceId } from '@/features/payment-evidence/utils/payment-evidence-utils';
 import {
+  assertOfferModeAuthorized,
+  normalizeOfferRecord,
+  OFFER_STATUSES,
+} from '@/features/admin/booking-requests/schemas/offer-schema';
+import {
+  DEFAULT_BOOKING_POLICIES,
+} from '@/features/admin/settings/booking-policies/config/booking-policies-config';
+import {
+  normalizeBookingPolicies,
+} from '@/features/admin/settings/booking-policies/utils/booking-policies-normalize';
+import {
+  buildDepositPolicySnapshot,
+  computeDepositStatus,
+  resolveBalanceDuePolicySnapshot,
+  resolveEffectiveHoldDeadline,
+} from '@/features/admin/settings/booking-policies/utils/booking-policy-engine';
+import {
   DEFAULT_PRICING_SETTINGS,
   DELIVERY_MODES,
 } from '@/features/admin/settings/pricing/config/default-pricing-settings';
@@ -63,6 +80,9 @@ import {
   BOOKING_EVENT_TYPES,
   BOOKING_SESSION_STATUS,
   CALENDAR_BOOKINGS_QUERY_LIMIT,
+  CANCELLATION_TYPES,
+  CONFIRMATION_SOURCES,
+  RESERVATION_STATUS,
   STUDIO_TIME_ZONE,
 } from '../config/calendar-config';
 import {
@@ -77,6 +97,7 @@ import {
   formatMinuteOfDay,
   formatMinuteRange,
   isBookingNoShowEligible,
+  normalizeBookingReservationStatus,
 } from '../utils/booking-time';
 import { getJakartaTodayIso } from '../utils/calendar-date';
 
@@ -221,7 +242,7 @@ export function mapBookingErrorToMessage(error) {
   }
 
   if (
-    code.startsWith('booking/') &&
+    (code.startsWith('booking/') || code.startsWith('hold/') || code.startsWith('offer/')) &&
     typeof error?.message === 'string' &&
     error.message.trim().length > 0
   ) {
@@ -260,6 +281,13 @@ export async function createBooking({
   formValues,
   customerResolution = null,
   pricingSettings = DEFAULT_PRICING_SETTINGS,
+  bookingPolicies = null,
+  acceptedOfferId = '',
+  holdMode = '', // '' (auto from policy/initial payment) | 'deposit_hold' | 'confirmed'
+  holdOverrideHours = null,
+  holdOverrideExpiresAt = null,
+  holdOverrideReason = '',
+  now = new Date(),
   bookingRequestId = '',
   requestActivityEventId = generateOperationId('reqact'),
   optionalInitialPaymentEvidence = null,
@@ -271,6 +299,7 @@ export async function createBooking({
   const cleanBookingId = String(bookingId || '').trim() || generateOperationId('bkg');
   const cleanEventId = String(eventId || '').trim() || generateOperationId('evt');
   const cleanBookingRequestId = String(bookingRequestId || '').trim();
+  const cleanAcceptedOfferId = String(acceptedOfferId || '').trim();
   const cleanRequestActivityEventId =
     String(requestActivityEventId || '').trim() || generateOperationId('reqact');
 
@@ -341,7 +370,7 @@ export async function createBooking({
     : '';
 
   return adapter.runAtomicTransaction(async (tx) => {
-    // 1. ALL READS FIRST (Booking, Event, PhoneIndex, Invoice, Initial Payment, Optional Request, and Slots)
+    // 1. ALL READS FIRST (Booking, Event, PhoneIndex, Invoice, Initial Payment, Request, Offer, Policies, and Slots)
     const [
       existingBooking,
       existingEvent,
@@ -349,6 +378,8 @@ export async function createBooking({
       existingInvoice,
       existingInitialPayment,
       existingBookingRequest,
+      explicitAcceptedOffer,
+      remoteBookingPolicies,
       ...slotSnapshots
     ] = await Promise.all([
       tx.getBooking(cleanBookingId),
@@ -359,13 +390,39 @@ export async function createBooking({
       cleanBookingRequestId && typeof tx.getBookingRequest === 'function'
         ? tx.getBookingRequest(cleanBookingRequestId)
         : Promise.resolve(null),
+      cleanBookingRequestId &&
+      cleanAcceptedOfferId &&
+      typeof tx.getBookingRequestOffer === 'function'
+        ? tx.getBookingRequestOffer(cleanBookingRequestId, cleanAcceptedOfferId)
+        : Promise.resolve(null),
+      !bookingPolicies && typeof tx.getBookingPolicies === 'function'
+        ? tx.getBookingPolicies()
+        : Promise.resolve(null),
       ...requiredSlots.map((slot) => tx.getSlot(slot.id)),
     ]);
+
+    const fallbackActiveOffer =
+      cleanBookingRequestId &&
+      !cleanAcceptedOfferId &&
+      existingBookingRequest?.activeOfferId &&
+      typeof tx.getBookingRequestOffer === 'function'
+        ? await tx.getBookingRequestOffer(
+            cleanBookingRequestId,
+            existingBookingRequest.activeOfferId,
+          )
+        : null;
 
     // Idempotent retry: if this exact bookingId + eventId was already committed, return it
     // without touching customer bookingCount, aliases, phone index, invoice, initial payment, or request twice
     if (existingBooking && existingEvent) {
       return existingBooking;
+    }
+
+    if (cleanAcceptedOfferId && !cleanBookingRequestId) {
+      throw createBookingServiceError(
+        'offer/not-found',
+        'Offer harus terhubung dengan booking request sumber yang valid.',
+      );
     }
 
     if (cleanBookingRequestId) {
@@ -397,6 +454,52 @@ export async function createBooking({
         throw createBookingServiceError(
           'booking/request-ineligible',
           `Booking request berstatus "${existingBookingRequest.status}" sehingga tidak dapat dikonversi menjadi booking Calendar.`,
+        );
+      }
+    }
+
+    const resolvedOffer =
+      explicitAcceptedOffer ||
+      (fallbackActiveOffer?.status === OFFER_STATUSES.ACCEPTED ? fallbackActiveOffer : null);
+
+    if (cleanAcceptedOfferId) {
+      if (!explicitAcceptedOffer) {
+        throw createBookingServiceError(
+          'offer/not-found',
+          'Offer revisi yang dipilih tidak ditemukan pada request ini.',
+        );
+      }
+      assertOfferModeAuthorized(explicitAcceptedOffer.offerMode);
+      if (explicitAcceptedOffer.status !== OFFER_STATUSES.ACCEPTED) {
+        throw createBookingServiceError(
+          'offer/not-accepted',
+          `Offer berstatus "${explicitAcceptedOffer.status}" dan belum disetujui Client untuk dikonversi menjadi reservasi.`,
+        );
+      }
+    } else if (fallbackActiveOffer && fallbackActiveOffer.status === OFFER_STATUSES.SENT) {
+      throw createBookingServiceError(
+        'offer/pending-client-response',
+        'Request masih memiliki penawaran aktif yang menunggu respons Client. Catat respons Client atau tarik penawaran sebelum membuat reservasi.',
+      );
+    }
+
+    if (resolvedOffer) {
+      assertOfferModeAuthorized(resolvedOffer.offerMode);
+      const sched = resolvedOffer.scheduleSnapshot || {};
+      const svc = resolvedOffer.serviceSnapshot || {};
+      const fin = resolvedOffer.financialSnapshot || {};
+      const offerMatchesPayload =
+        sched.studioId === payload.studioId &&
+        sched.date === payload.date &&
+        Number(sched.startMinute) === payload.startMinute &&
+        Number(sched.endMinute) === payload.endMinute &&
+        svc.serviceTypeId === payload.serviceTypeId &&
+        svc.serviceOptionId === payload.serviceOptionId &&
+        Number(fin.totalAmount) === payload.totalAmount;
+      if (!offerMatchesPayload) {
+        throw createBookingServiceError(
+          'offer/payload-mismatch',
+          'Jadwal, layanan, atau total harga reservasi harus sesuai dengan Offer yang telah disetujui Client.',
         );
       }
     }
@@ -549,8 +652,111 @@ export async function createBooking({
       );
     }
 
+    // Policy, Deposit Confirmation Gate, Balance Due & Hold Deadline Evaluation (before any writes)
+    const initialPaidInt = Math.max(0, Math.round(Number(payload.initialPaidAmount) || 0));
+    if (isClientPortalOrigin && initialPaidInt > 0) {
+      throw createBookingServiceError(
+        'booking/client-evidence-required',
+        'Booking dari Client Portal wajib melalui alur unggah dan verifikasi bukti pembayaran di Client Portal setelah invoice diterbitkan. Pilih status awal Belum Bayar.',
+      );
+    }
+
+    const effectivePolicies = normalizeBookingPolicies(
+      bookingPolicies || remoteBookingPolicies || DEFAULT_BOOKING_POLICIES,
+    );
+    const depositPolicySnapshot = resolvedOffer?.depositPolicySnapshot
+      ? {
+          ...resolvedOffer.depositPolicySnapshot,
+        }
+      : buildDepositPolicySnapshot({
+          policies: effectivePolicies,
+          serviceTypeId: payload.serviceTypeId,
+          serviceOptionId: payload.serviceOptionId,
+          totalAmount: payload.totalAmount,
+          subtotal: payload.subtotal,
+        });
+    const balanceDuePolicy = resolvedOffer?.balanceDuePolicy
+      ? {
+          ...resolvedOffer.balanceDuePolicy,
+        }
+      : resolveBalanceDuePolicySnapshot({
+          policies: effectivePolicies,
+          serviceTypeId: payload.serviceTypeId,
+          serviceOptionId: payload.serviceOptionId,
+          bookingDate: payload.date,
+          startMinute: payload.startMinute,
+        });
+
+    const minimumDepositAmount = Math.max(
+      0,
+      Math.round(Number(depositPolicySnapshot?.minimumDepositAmount) || 0),
+    );
+    const verifiedInitialPaid = isClientPortalOrigin ? 0 : initialPaidInt;
+    const depositStatus = computeDepositStatus({
+      depositType: depositPolicySnapshot.type,
+      minimumDepositAmount,
+      amountPaid: verifiedInitialPaid,
+    });
+    const isNoDepositPolicy =
+      depositPolicySnapshot.type === 'none' || minimumDepositAmount <= 0;
+    const isDepositMetAtCreation = !isNoDepositPolicy && verifiedInitialPaid >= minimumDepositAmount;
+    const cleanHoldMode = String(holdMode || '').trim();
+    const cleanHoldOverrideReason = String(holdOverrideReason || '').trim();
+
+    if (cleanHoldMode === RESERVATION_STATUS.DEPOSIT_HOLD && isNoDepositPolicy) {
+      throw createBookingServiceError(
+        'hold/deposit-not-required',
+        'Kebijakan layanan ini tidak mewajibkan Deposit (DP), sehingga reservasi langsung berstatus Confirmed tanpa Deposit Hold.',
+      );
+    }
+
+    let reservationStatus;
+    let sessionStatus;
+    let confirmationSource;
+    let resolvedHoldDeadline = null;
+
+    if (isNoDepositPolicy) {
+      reservationStatus = RESERVATION_STATUS.CONFIRMED;
+      sessionStatus = BOOKING_SESSION_STATUS.UPCOMING;
+      confirmationSource = CONFIRMATION_SOURCES.NO_DEPOSIT_POLICY;
+    } else if (isDepositMetAtCreation) {
+      reservationStatus = RESERVATION_STATUS.CONFIRMED;
+      sessionStatus = BOOKING_SESSION_STATUS.UPCOMING;
+      confirmationSource = CONFIRMATION_SOURCES.DEPOSIT_VERIFIED;
+    } else if (cleanHoldMode === RESERVATION_STATUS.CONFIRMED) {
+      if (cleanHoldOverrideReason.length < 5) {
+        throw createBookingServiceError(
+          'hold/override-reason-required',
+          'Mengonfirmasi reservasi tanpa memenuhi minimum DP wajib menyertakan alasan override minimal 5 karakter.',
+        );
+      }
+      reservationStatus = RESERVATION_STATUS.CONFIRMED;
+      sessionStatus = BOOKING_SESSION_STATUS.UPCOMING;
+      confirmationSource = CONFIRMATION_SOURCES.STAFF_OVERRIDE;
+    } else {
+      resolvedHoldDeadline = resolveEffectiveHoldDeadline({
+        policies: effectivePolicies,
+        serviceTypeId: payload.serviceTypeId,
+        serviceOptionId: payload.serviceOptionId,
+        bookingDate: payload.date,
+        startMinute: payload.startMinute,
+        baseDate: now instanceof Date ? now : new Date(now),
+        overrideHoldHours: holdOverrideHours,
+        overrideHoldExpiresAt: holdOverrideExpiresAt,
+        overrideReason: cleanHoldOverrideReason,
+      });
+      reservationStatus = RESERVATION_STATUS.DEPOSIT_HOLD;
+      sessionStatus = BOOKING_SESSION_STATUS.PENDING_CONFIRMATION;
+      confirmationSource = '';
+    }
+
     // 2. ALL WRITES AFTER ALL READS
     const timestamp = tx.nowValue();
+    const holdExpiresAtVal = resolvedHoldDeadline
+      ? typeof tx.timestampFromDate === 'function'
+        ? tx.timestampFromDate(resolvedHoldDeadline.holdExpiresAtDate)
+        : resolvedHoldDeadline.holdExpiresAtDate
+      : null;
 
     if (!isClientPortalOrigin && targetExistingProfile) {
       const nextAliases =
@@ -653,14 +859,19 @@ export async function createBooking({
       });
     }
 
+    const acceptedOfferIdValue =
+      resolvedOffer?.offerId ||
+      cleanAcceptedOfferId ||
+      String(existingBookingRequest?.acceptedOfferId || '');
+
     const bookingDoc = {
+      schemaVersion: 2,
       customerId: resolvedCustomerId,
       clientUid: isClientPortalOrigin ? requestedClientUid : '',
       source: isClientPortalOrigin ? 'client_portal' : 'staff_created',
-      sourceRequestId: isClientPortalOrigin ? cleanBookingRequestId : '',
-      acceptedOfferId: isClientPortalOrigin
-        ? String(existingBookingRequest.acceptedOfferId || '')
-        : '',
+      sourceRequestId: cleanBookingRequestId || '',
+      acceptedOfferId: acceptedOfferIdValue,
+      invoiceId: deterministicInvoiceId,
       customerName: payload.customerName,
       phone: payload.phone,
       phoneNormalized: payload.phoneNormalized,
@@ -693,7 +904,33 @@ export async function createBooking({
       initialPaymentStatus: payload.initialPaymentStatus,
       initialPaidAmount: payload.initialPaidAmount,
       paymentMethod: payload.paymentMethod,
-      sessionStatus: BOOKING_SESSION_STATUS.UPCOMING,
+      reservationStatus,
+      sessionStatus,
+      depositPolicySnapshot,
+      minimumDepositAmount,
+      depositStatus,
+      depositIntegrityAlert: false,
+      balanceDuePolicy,
+      holdExpiresAt: holdExpiresAtVal,
+      holdExtensionCount: 0,
+      holdLastExtendedAt: null,
+      holdLastExtendedByUid: '',
+      holdLastExtensionReason: '',
+      expiredAt: null,
+      expiredByUid: '',
+      expiryReason: '',
+      restoredAt: null,
+      restoredByUid: '',
+      restorationReason: '',
+      confirmedAt: reservationStatus === RESERVATION_STATUS.CONFIRMED ? timestamp : null,
+      confirmedByUid: reservationStatus === RESERVATION_STATUS.CONFIRMED ? cleanActorUid : '',
+      confirmationSource,
+      confirmationOverrideReason:
+        confirmationSource === CONFIRMATION_SOURCES.STAFF_OVERRIDE ? cleanHoldOverrideReason : '',
+      cancelledAt: null,
+      cancelledByUid: '',
+      cancellationType: '',
+      cancellationReason: '',
       checkedInAt: null,
       checkedInByUid: '',
       actualStartedAt: null,
@@ -725,7 +962,10 @@ export async function createBooking({
 
     tx.setEvent(cleanEventId, {
       bookingId: cleanBookingId,
-      eventType: BOOKING_EVENT_TYPES.CREATED,
+      eventType:
+        reservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD
+          ? BOOKING_EVENT_TYPES.HOLD_CREATED
+          : BOOKING_EVENT_TYPES.CREATED,
       actorUid: cleanActorUid,
       createdAt: timestamp,
       previousValue: null,
@@ -736,21 +976,17 @@ export async function createBooking({
         endMinute: payload.endMinute,
         durationMinutes: payload.durationMinutes,
         serviceLabel: payload.serviceLabel,
-        sessionStatus: BOOKING_SESSION_STATUS.UPCOMING,
+        reservationStatus,
+        sessionStatus,
+        depositStatus,
       },
-      note: `Booking dibuat untuk ${payload.customerName} (${formatMinuteRange(payload.startMinute, payload.endMinute)})`,
+      note:
+        reservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD
+          ? `Deposit Hold dibuat untuk ${payload.customerName} (${formatMinuteRange(payload.startMinute, payload.endMinute)}), minimum DP Rp ${minimumDepositAmount.toLocaleString('id-ID')}`
+          : `Booking dibuat untuk ${payload.customerName} (${formatMinuteRange(payload.startMinute, payload.endMinute)})`,
     });
 
-    // 3. Automatic Invoice & Optional Initial Payment Transaction (Phase 8 + Payment Evidence v1)
-    const initialPaidInt = Math.max(0, Math.round(Number(payload.initialPaidAmount) || 0));
-
-    if (isClientPortalOrigin && initialPaidInt > 0) {
-      throw createBookingServiceError(
-        'booking/client-evidence-required',
-        'Booking dari Client Portal wajib melalui alur unggah dan verifikasi bukti pembayaran di Client Portal setelah invoice diterbitkan. Pilih status awal Belum Bayar.',
-      );
-    }
-
+    // 3. Automatic Invoice & Optional Initial Payment Transaction (Phase 8 + Phase 2 Policy Snapshots)
     const hasInitialPayment = !isClientPortalOrigin && initialPaidInt > 0;
     const { invoiceId, invoiceNumber, invoiceDoc } = buildInvoiceDocumentFromBooking({
       bookingId: cleanBookingId,
@@ -759,10 +995,15 @@ export async function createBooking({
       actorUid: cleanActorUid,
       timestamp,
       invoiceDate: timestamp,
-      dueDate: null,
+      dueDate:
+        effectivePolicies.version >= 1 || resolvedOffer ? balanceDuePolicy?.dueDate || null : null,
       initialPaymentTransactionId: hasInitialPayment ? deterministicInitialPaymentId : null,
       initialPaidAmount: hasInitialPayment ? initialPaidInt : 0,
       clientPaymentEvidenceRequired: isClientPortalOrigin,
+      depositPolicySnapshot,
+      minimumDepositAmount,
+      depositStatus,
+      balanceDuePolicy,
     });
     const canonicalInvoiceDoc = isClientPortalOrigin
       ? { ...invoiceDoc, clientUid: requestedClientUid }
@@ -864,6 +1105,9 @@ export async function createBooking({
         status: BOOKING_REQUEST_STATUS.CONFIRMED,
         linkedBookingId: cleanBookingId,
         confirmedBookingSnapshot,
+        acceptedOfferId: acceptedOfferIdValue,
+        convertedAt: timestamp,
+        convertedByUid: cleanActorUid,
         confirmedAt: timestamp,
         confirmedByUid: cleanActorUid,
         assignedStaffUid: existingBookingRequest.assignedStaffUid || cleanActorUid,
@@ -878,7 +1122,10 @@ export async function createBooking({
           fromStatus: existingBookingRequest.status,
           toStatus: BOOKING_REQUEST_STATUS.CONFIRMED,
           linkedBookingId: cleanBookingId,
-          note: `Dikonfirmasi ke booking ${confirmedBookingSnapshot.bookingReference} (${bookingDoc.date} ${formatMinuteRange(bookingDoc.startMinute, bookingDoc.endMinute)})`,
+          note:
+            reservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD
+              ? `Dikonversi menjadi Deposit Hold ${confirmedBookingSnapshot.bookingReference} (${bookingDoc.date} ${formatMinuteRange(bookingDoc.startMinute, bookingDoc.endMinute)})`
+              : `Dikonfirmasi ke booking ${confirmedBookingSnapshot.bookingReference} (${bookingDoc.date} ${formatMinuteRange(bookingDoc.startMinute, bookingDoc.endMinute)})`,
           actorUid: cleanActorUid,
           actorName: '',
           createdAt: timestamp,
@@ -887,6 +1134,28 @@ export async function createBooking({
     }
 
     return normalizeBookingRecord(cleanBookingId, bookingDoc);
+  });
+}
+
+export const createReservation = createBooking;
+
+export async function createReservationFromOffer({
+  requestId,
+  offerId,
+  ...rest
+}) {
+  const cleanRequestId = String(requestId || '').trim();
+  const cleanOfferId = String(offerId || '').trim();
+  if (!cleanRequestId || !cleanOfferId) {
+    throw createBookingServiceError(
+      'offer/not-found',
+      'Request ID dan Accepted Offer ID wajib disertakan untuk membuat reservasi dari Offer.',
+    );
+  }
+  return createBooking({
+    ...rest,
+    bookingRequestId: cleanRequestId,
+    acceptedOfferId: cleanOfferId,
   });
 }
 
@@ -935,12 +1204,13 @@ export async function updateOrRescheduleBooking({
     }
 
     if (
+      normalizeBookingReservationStatus(existingBooking) === RESERVATION_STATUS.EXPIRED ||
       existingBooking.sessionStatus === BOOKING_SESSION_STATUS.CANCELLED ||
       existingBooking.sessionStatus === BOOKING_SESSION_STATUS.NO_SHOW
     ) {
       throw createBookingServiceError(
         'booking/cancelled-immutable',
-        'Booking yang sudah dibatalkan atau No Show tidak dapat diubah jadwalnya.',
+        'Booking yang sudah kedaluwarsa (Expired), dibatalkan, atau No Show tidak dapat diubah jadwalnya.',
       );
     }
 
@@ -1169,6 +1439,37 @@ export async function updateOrRescheduleBooking({
       commissionSnapshot: shouldApplyNewSnapshot
         ? payload.commissionSnapshot
         : (existingBooking.commissionSnapshot ?? null),
+      schemaVersion: Math.max(2, Number(existingBooking.schemaVersion) || 2),
+      clientUid: existingBooking.clientUid || '',
+      source: existingBooking.source || 'staff_created',
+      sourceRequestId: existingBooking.sourceRequestId || '',
+      acceptedOfferId: existingBooking.acceptedOfferId || '',
+      invoiceId: existingBooking.invoiceId || `inv_${cleanBookingId}`,
+      reservationStatus: normalizeBookingReservationStatus(existingBooking),
+      depositPolicySnapshot: existingBooking.depositPolicySnapshot ?? null,
+      minimumDepositAmount: existingBooking.minimumDepositAmount ?? 0,
+      depositStatus: existingBooking.depositStatus ?? null,
+      depositIntegrityAlert: Boolean(existingBooking.depositIntegrityAlert),
+      balanceDuePolicy: existingBooking.balanceDuePolicy ?? null,
+      holdExpiresAt: existingBooking.holdExpiresAt ?? null,
+      holdExtensionCount: existingBooking.holdExtensionCount || 0,
+      holdLastExtendedAt: existingBooking.holdLastExtendedAt ?? null,
+      holdLastExtendedByUid: existingBooking.holdLastExtendedByUid || '',
+      holdLastExtensionReason: existingBooking.holdLastExtensionReason || '',
+      expiredAt: existingBooking.expiredAt ?? null,
+      expiredByUid: existingBooking.expiredByUid || '',
+      expiryReason: existingBooking.expiryReason || '',
+      restoredAt: existingBooking.restoredAt ?? null,
+      restoredByUid: existingBooking.restoredByUid || '',
+      restorationReason: existingBooking.restorationReason || '',
+      confirmedAt: existingBooking.confirmedAt ?? null,
+      confirmedByUid: existingBooking.confirmedByUid || '',
+      confirmationSource: existingBooking.confirmationSource || '',
+      confirmationOverrideReason: existingBooking.confirmationOverrideReason || '',
+      cancelledAt: existingBooking.cancelledAt ?? null,
+      cancelledByUid: existingBooking.cancelledByUid || '',
+      cancellationType: existingBooking.cancellationType || '',
+      cancellationReason: existingBooking.cancellationReason || '',
       initialPaymentStatus: existingBooking.initialPaymentStatus,
       initialPaidAmount: existingBooking.initialPaidAmount,
       paymentMethod: existingBooking.paymentMethod,
@@ -1256,6 +1557,7 @@ export async function cancelBooking({
   eventId = generateOperationId('evt'),
   actorUid,
   reason = '',
+  cancellationType = CANCELLATION_TYPES.STUDIO_CANCEL,
   adapter = getBookingRepositoryAdapter(),
 }) {
   const cleanActorUid = assertAuthenticatedStaffActor(actorUid);
@@ -1284,6 +1586,13 @@ export async function cancelBooking({
 
     if (existingBooking.sessionStatus === BOOKING_SESSION_STATUS.CANCELLED) {
       return existingBooking;
+    }
+
+    if (normalizeBookingReservationStatus(existingBooking) === RESERVATION_STATUS.EXPIRED) {
+      throw createBookingServiceError(
+        'hold/already-expired',
+        'Reservasi sudah berstatus Expired dan slot telah dilepaskan.',
+      );
     }
 
     if (existingBooking.sessionStatus === BOOKING_SESSION_STATUS.COMPLETED) {
@@ -1323,9 +1632,18 @@ export async function cancelBooking({
       }
     });
 
+    const cleanReason = String(reason || '').trim();
+    const resolvedCancellationType = Object.values(CANCELLATION_TYPES).includes(cancellationType)
+      ? cancellationType
+      : CANCELLATION_TYPES.STUDIO_CANCEL;
     const nextVersion = (Number(existingBooking.version) || 1) + 1;
     const cancelPatch = {
+      reservationStatus: RESERVATION_STATUS.CANCELLED,
       sessionStatus: BOOKING_SESSION_STATUS.CANCELLED,
+      cancelledAt: timestamp,
+      cancelledByUid: cleanActorUid,
+      cancellationType: resolvedCancellationType,
+      cancellationReason: cleanReason,
       updatedAt: timestamp,
       updatedByUid: cleanActorUid,
       version: nextVersion,
@@ -1356,7 +1674,6 @@ export async function cancelBooking({
       tx.deletePublicAvailability?.(cleanBookingId);
     }
 
-    const cleanReason = String(reason || '').trim();
     tx.setEvent(cleanEventId, {
       bookingId: cleanBookingId,
       eventType: BOOKING_EVENT_TYPES.CANCELLED,
@@ -1454,9 +1771,23 @@ export async function transitionBookingSession({
     }
 
     const currentStatus = existingBooking.sessionStatus;
+    const currentReservationStatus = normalizeBookingReservationStatus(existingBooking);
     const timestamp = tx.nowValue();
     const nextVersion = (Number(existingBooking.version) || 1) + 1;
     const cleanNote = String(note || '').trim();
+
+    if (
+      ['check_in', 'start_session', 'complete_session', 'mark_no_show'].includes(action) &&
+      (currentReservationStatus !== RESERVATION_STATUS.CONFIRMED ||
+        currentStatus === BOOKING_SESSION_STATUS.PENDING_CONFIRMATION)
+    ) {
+      throw createBookingServiceError(
+        'booking/deposit-hold-not-confirmed',
+        currentReservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD
+          ? 'Reservasi masih berstatus Deposit Hold (Pending Confirmation). Konfirmasi reservasi atau verifikasi minimum DP sebelum check-in atau memulai sesi.'
+          : `Sesi tidak dapat dijalankan pada reservasi berstatus "${currentReservationStatus}".`,
+      );
+    }
 
     const lifecyclePatch = {
       updatedAt: timestamp,
@@ -1612,6 +1943,7 @@ export function createInMemoryBookingRepositoryAdapter(
   initialPaymentTransactions = [],
 ) {
   const bookings = new Map();
+  const rawBookings = new Map();
   const rawCommissionSnapshots = new Map();
   const slots = new Map();
   const publicAvailability = new Map();
@@ -1622,6 +1954,9 @@ export function createInMemoryBookingRepositoryAdapter(
   const invoices = new Map();
   const paymentTransactions = new Map();
   const paymentEvidence = new Map();
+  const paymentEvidenceLocks = new Map();
+  const refundCases = new Map();
+  let bookingPolicies = null;
   const clientReservations = new Map();
   const commissionBatches = new Map();
   const commissionPostingItems = new Map();
@@ -1632,7 +1967,9 @@ export function createInMemoryBookingRepositoryAdapter(
   const bookingRequests = new Map();
   const bookingRequestActivities = new Map();
   const bookingRequestCommunications = new Map();
+  const bookingRequestOffers = new Map();
   const rangeSubscribers = new Set();
+  const depositHoldSubscribers = new Set();
   const publicAvailabilitySubscribers = new Set();
   const publicAvailabilityMetadataSubscribers = new Set();
   const eventSubscribers = new Map();
@@ -1652,7 +1989,31 @@ export function createInMemoryBookingRepositoryAdapter(
   const bookingRequestDocSubscribers = new Map();
   const bookingRequestActivitySubscribers = new Map();
   const bookingRequestCommSubscribers = new Map();
+  const bookingRequestOfferSubscribers = new Map();
   let transactionQueue = Promise.resolve();
+
+  function notifyBookingOffers(targetRequestId = '') {
+    if (!targetRequestId) return;
+    const list = Array.from(bookingRequestOffers.values())
+      .filter((o) => o.requestId === targetRequestId)
+      .sort((a, b) => (Number(b.revisionNumber) || 1) - (Number(a.revisionNumber) || 1));
+    bookingRequestOfferSubscribers.get(targetRequestId)?.forEach((sub) => {
+      sub.onData?.(list.map((o) => ({ ...o })));
+    });
+  }
+
+  function notifyDepositHolds() {
+    const holds = Array.from(bookings.values())
+      .filter((b) => normalizeBookingReservationStatus(b) === RESERVATION_STATUS.DEPOSIT_HOLD)
+      .sort((a, b) => getTimestampMillis(a.holdExpiresAt) - getTimestampMillis(b.holdExpiresAt));
+    for (const sub of depositHoldSubscribers) {
+      const limited = holds.slice(0, sub.maxLimit);
+      sub.onData?.({
+        holds: limited.map((h) => ({ ...h })),
+        isTruncated: holds.length > sub.maxLimit,
+      });
+    }
+  }
 
   function notifyBookingRequests(targetRequestId = '') {
     const allSorted = Array.from(bookingRequests.values()).sort((a, b) => {
@@ -1923,6 +2284,7 @@ export function createInMemoryBookingRepositoryAdapter(
   // Seed initial bookings and their slot locks if provided
   for (const seed of initialBookings) {
     const seedId = seed.id || generateOperationId('bkg');
+    rawBookings.set(seedId, { id: seedId, ...seed });
     const normalized = normalizeBookingRecord(seedId, seed);
     bookings.set(normalized.id, normalized);
     rawCommissionSnapshots.set(
@@ -1931,7 +2293,8 @@ export function createInMemoryBookingRepositoryAdapter(
     );
     if (
       normalized.sessionStatus !== BOOKING_SESSION_STATUS.CANCELLED &&
-      normalized.sessionStatus !== BOOKING_SESSION_STATUS.NO_SHOW
+      normalized.sessionStatus !== BOOKING_SESSION_STATUS.NO_SHOW &&
+      normalizeBookingReservationStatus(normalized) !== RESERVATION_STATUS.EXPIRED
     ) {
       const seedSlots = buildBookingSlotRecords({
         bookingId: normalized.id,
@@ -1971,6 +2334,7 @@ export function createInMemoryBookingRepositoryAdapter(
   return {
     _sharedStore: {
       bookings,
+      rawBookings,
       rawCommissionSnapshots,
       slots,
       publicAvailability,
@@ -1981,6 +2345,9 @@ export function createInMemoryBookingRepositoryAdapter(
       invoices,
       paymentTransactions,
       paymentEvidence,
+      paymentEvidenceLocks,
+      refundCases,
+      getBookingPoliciesSnapshot: () => bookingPolicies,
       commissionBatches,
       commissionPostingItems,
       commissionReviewResolutions,
@@ -1990,6 +2357,7 @@ export function createInMemoryBookingRepositoryAdapter(
       bookingRequests,
       bookingRequestActivities,
       bookingRequestCommunications,
+      bookingRequestOffers,
       publicAvailabilitySubscribers,
       publicAvailabilityMetadataSubscribers,
       customerSubscribers,
@@ -2009,8 +2377,13 @@ export function createInMemoryBookingRepositoryAdapter(
       bookingRequestDocSubscribers,
       bookingRequestActivitySubscribers,
       bookingRequestCommSubscribers,
+      bookingRequestOfferSubscribers,
       enqueueTransaction,
-      notifyBookings: notifyRangeSubscribers,
+      notifyBookings: () => {
+        notifyRangeSubscribers();
+        notifyDepositHolds();
+      },
+      notifyEvents: notifyEventSubscribers,
       notifyPublicAvailability: notifyPublicAvailabilitySubscribers,
       notifyPublicAvailabilityMetadata: notifyPublicAvailabilityMetadataSubscribers,
       notifyCustomers: notifyCustomerSubscribers,
@@ -2024,6 +2397,43 @@ export function createInMemoryBookingRepositoryAdapter(
       notifyCommissions: notifyCommissionSubscribers,
       notifyBookkeeping: notifyBookkeepingSubscribers,
       notifyBookingRequests,
+      notifyBookingOffers,
+      notifyClientReservations,
+    },
+
+    _seedBookingPolicies(policies = null) {
+      bookingPolicies = policies ? normalizeBookingPolicies(policies) : null;
+    },
+
+    _seedOffer(requestId, offerId, data = {}) {
+      const cleanReqId = String(requestId || data.requestId || '').trim();
+      const cleanOfferId = String(offerId || data.offerId || data.id || '').trim();
+      if (!cleanReqId || !cleanOfferId) return;
+      const norm = normalizeOfferRecord(cleanOfferId, { ...data, requestId: cleanReqId });
+      if (norm) {
+        bookingRequestOffers.set(cleanOfferId, norm);
+        notifyBookingOffers(cleanReqId);
+      }
+    },
+
+    _seedPaymentEvidence(evidenceId, data = {}) {
+      const cleanId = String(evidenceId || data.id || '').trim();
+      if (!cleanId) return;
+      const norm = normalizePaymentEvidenceRecord(cleanId, data);
+      if (norm) {
+        paymentEvidence.set(cleanId, norm);
+        for (const listener of paymentEvidenceSubscribers) listener();
+      }
+    },
+
+    _seedBookingRequest(requestId, data = {}) {
+      const cleanId = String(requestId || data.id || '').trim();
+      if (!cleanId) return;
+      const norm = normalizeBookingRequestRecord(cleanId, data);
+      if (norm) {
+        bookingRequests.set(cleanId, norm);
+        notifyBookingRequests(cleanId);
+      }
     },
 
     _seedClientReservation(id, data = {}) {
@@ -2036,6 +2446,7 @@ export function createInMemoryBookingRepositoryAdapter(
     _inspectState() {
       return {
         bookings: new Map(bookings),
+        rawBookings: new Map(rawBookings),
         slots: new Map(slots),
         publicAvailability: new Map(publicAvailability),
         publicAvailabilityMetadata: new Map(publicAvailabilityMetadata),
@@ -2045,10 +2456,14 @@ export function createInMemoryBookingRepositoryAdapter(
         invoices: new Map(invoices),
         paymentTransactions: new Map(paymentTransactions),
         paymentEvidence: new Map(paymentEvidence),
+        paymentEvidenceLocks: new Map(paymentEvidenceLocks),
+        refundCases: new Map(refundCases),
+        bookingPolicies: bookingPolicies ? { ...bookingPolicies } : null,
         clientReservations: new Map(clientReservations),
         bookingRequests: new Map(bookingRequests),
         bookingRequestActivities: new Map(bookingRequestActivities),
         bookingRequestCommunications: new Map(bookingRequestCommunications),
+        bookingRequestOffers: new Map(bookingRequestOffers),
       };
     },
 
@@ -2056,6 +2471,7 @@ export function createInMemoryBookingRepositoryAdapter(
       return enqueueTransaction(async () => {
         // Work on staged copies so any thrown error leaves the store untouched (atomic rollback)
         const stagedBookings = new Map(bookings);
+        const stagedRawBookings = new Map(rawBookings);
         const stagedRawCommissionSnapshots = new Map(rawCommissionSnapshots);
         const stagedSlots = new Map(slots);
         const stagedPublicAvailability = new Map(publicAvailability);
@@ -2065,20 +2481,47 @@ export function createInMemoryBookingRepositoryAdapter(
         const stagedInvoices = new Map(invoices);
         const stagedPaymentTransactions = new Map(paymentTransactions);
         const stagedPaymentEvidence = new Map(paymentEvidence);
+        const stagedPaymentEvidenceLocks = new Map(paymentEvidenceLocks);
+        const stagedRefundCases = new Map(refundCases);
         const stagedClientReservations = new Map(clientReservations);
         const stagedBookingRequests = new Map(bookingRequests);
         const stagedBookingRequestActivities = new Map(bookingRequestActivities);
+        const stagedBookingRequestOffers = new Map(bookingRequestOffers);
         const touchedBookingIds = new Set();
         const touchedRequestIds = new Set();
+        const touchedOfferRequestIds = new Set();
         let writeStarted = false;
 
         const txContext = {
-          nowValue: () => ({ seconds: Math.floor(Date.now() / 1000) }),
+          nowValue: () => {
+            const ms = Date.now();
+            return {
+              seconds: Math.floor(ms / 1000),
+              nanoseconds: (ms % 1000) * 1_000_000,
+              toDate: () => new Date(ms),
+            };
+          },
+          timestampFromDate: (date) => {
+            const d = date instanceof Date ? date : new Date(date);
+            const ms = d.getTime();
+            return {
+              seconds: Math.floor(ms / 1000),
+              nanoseconds: (ms % 1000) * 1_000_000,
+              toDate: () => new Date(ms),
+            };
+          },
           async getBooking(id) {
             if (writeStarted) {
               throw new Error('Firestore transactions require all reads before writes.');
             }
             const item = stagedBookings.get(id);
+            return item ? { ...item } : null;
+          },
+          async getBookingRaw(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedRawBookings.get(id) || stagedBookings.get(id);
             return item ? { ...item } : null;
           },
           async getSlot(id) {
@@ -2134,6 +2577,57 @@ export function createInMemoryBookingRepositoryAdapter(
             const item = stagedBookingRequests.get(id);
             return item ? normalizeBookingRequestRecord(id, item) : null;
           },
+          async getBookingRequestOffer(requestId, offerId) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedBookingRequestOffers.get(String(offerId || '').trim());
+            if (!item || item.requestId !== requestId) return null;
+            return { ...item };
+          },
+          async getPaymentEvidenceLock(invoiceId) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedPaymentEvidenceLocks.get(invoiceId);
+            return item ? { ...item } : null;
+          },
+          async getPaymentEvidence(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedPaymentEvidence.get(id);
+            return item ? normalizePaymentEvidenceRecord(id, item) : null;
+          },
+          async getRefundCase(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedRefundCases.get(id);
+            return item ? { ...item } : null;
+          },
+          async getBookingPolicies() {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            return bookingPolicies ? { ...bookingPolicies } : null;
+          },
+          async listPendingPaymentEvidenceForInvoice(invoiceId) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            return Array.from(stagedPaymentEvidence.values())
+              .filter((ev) => ev && ev.invoiceId === invoiceId && ev.status === 'pending_review')
+              .map((ev) => ({ ...ev }));
+          },
+          async listTransactionsForInvoice(invoiceId) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            return Array.from(stagedPaymentTransactions.values())
+              .filter((t) => t && t.invoiceId === invoiceId)
+              .map((t) => normalizePaymentTransactionRecord(t.id, t));
+          },
           setBooking(id, data) {
             writeStarted = true;
             touchedBookingIds.add(id);
@@ -2141,16 +2635,19 @@ export function createInMemoryBookingRepositoryAdapter(
               id,
               'commissionSnapshot' in data ? (data.commissionSnapshot ?? null) : null,
             );
+            stagedRawBookings.set(id, { id, ...data });
             stagedBookings.set(id, normalizeBookingRecord(id, data));
           },
           updateBooking(id, data) {
             writeStarted = true;
             touchedBookingIds.add(id);
-            const prev = stagedBookings.get(id) || {};
+            const prevBooking = stagedBookings.get(id) || stagedRawBookings.get(id) || {};
+            const prevRaw = stagedRawBookings.get(id) || {};
             if ('commissionSnapshot' in data) {
               stagedRawCommissionSnapshots.set(id, data.commissionSnapshot ?? null);
             }
-            stagedBookings.set(id, normalizeBookingRecord(id, { ...prev, ...data }));
+            stagedRawBookings.set(id, { id, ...prevRaw, ...data });
+            stagedBookings.set(id, normalizeBookingRecord(id, { ...prevBooking, ...data }));
           },
           setSlot(id, data) {
             writeStarted = true;
@@ -2238,6 +2735,45 @@ export function createInMemoryBookingRepositoryAdapter(
               ...normalizeActivityEvent(eventId, { ...data, createdAt: nowIso }),
             });
           },
+          setBookingRequestOffer(requestId, offerId, data) {
+            writeStarted = true;
+            touchedRequestIds.add(requestId);
+            touchedOfferRequestIds.add(requestId);
+            const nowIso = new Date().toISOString();
+            stagedBookingRequestOffers.set(
+              offerId,
+              normalizeOfferRecord(offerId, {
+                ...data,
+                requestId,
+                createdAt: data.createdAt?.seconds ? data.createdAt : nowIso,
+                updatedAt: nowIso,
+              }),
+            );
+          },
+          updateBookingRequestOffer(requestId, offerId, data) {
+            writeStarted = true;
+            touchedRequestIds.add(requestId);
+            touchedOfferRequestIds.add(requestId);
+            const prev = stagedBookingRequestOffers.get(offerId) || {};
+            const nowIso = new Date().toISOString();
+            stagedBookingRequestOffers.set(
+              offerId,
+              normalizeOfferRecord(offerId, {
+                ...prev,
+                ...data,
+                requestId,
+                updatedAt: nowIso,
+              }),
+            );
+          },
+          setPaymentEvidenceLock(invoiceId, data) {
+            writeStarted = true;
+            stagedPaymentEvidenceLocks.set(invoiceId, { id: invoiceId, ...data });
+          },
+          setRefundCase(refundId, data) {
+            writeStarted = true;
+            stagedRefundCases.set(refundId, { id: refundId, ...data });
+          },
         };
 
         const result = await transactionWork(txContext);
@@ -2245,6 +2781,8 @@ export function createInMemoryBookingRepositoryAdapter(
         // Commit staged changes atomically
         bookings.clear();
         for (const [k, v] of stagedBookings) bookings.set(k, v);
+        rawBookings.clear();
+        for (const [k, v] of stagedRawBookings) rawBookings.set(k, v);
         rawCommissionSnapshots.clear();
         for (const [k, v] of stagedRawCommissionSnapshots) rawCommissionSnapshots.set(k, v);
         slots.clear();
@@ -2263,14 +2801,21 @@ export function createInMemoryBookingRepositoryAdapter(
         for (const [k, v] of stagedPaymentTransactions) paymentTransactions.set(k, v);
         paymentEvidence.clear();
         for (const [k, v] of stagedPaymentEvidence) paymentEvidence.set(k, v);
+        paymentEvidenceLocks.clear();
+        for (const [k, v] of stagedPaymentEvidenceLocks) paymentEvidenceLocks.set(k, v);
+        refundCases.clear();
+        for (const [k, v] of stagedRefundCases) refundCases.set(k, v);
         clientReservations.clear();
         for (const [k, v] of stagedClientReservations) clientReservations.set(k, v);
         bookingRequests.clear();
         for (const [k, v] of stagedBookingRequests) bookingRequests.set(k, v);
         bookingRequestActivities.clear();
         for (const [k, v] of stagedBookingRequestActivities) bookingRequestActivities.set(k, v);
+        bookingRequestOffers.clear();
+        for (const [k, v] of stagedBookingRequestOffers) bookingRequestOffers.set(k, v);
 
         notifyRangeSubscribers();
+        notifyDepositHolds();
         notifyPublicAvailabilitySubscribers();
         notifyCustomerSubscribers();
         notifyInvoiceSubscribers();
@@ -2287,6 +2832,11 @@ export function createInMemoryBookingRepositoryAdapter(
         if (touchedRequestIds.size > 0) {
           for (const reqId of touchedRequestIds) {
             notifyBookingRequests(reqId);
+          }
+        }
+        if (touchedOfferRequestIds.size > 0) {
+          for (const reqId of touchedOfferRequestIds) {
+            notifyBookingOffers(reqId);
           }
         }
 
@@ -2348,6 +2898,31 @@ export function createInMemoryBookingRepositoryAdapter(
       notifyEventSubscribers(bookingId);
       return () => {
         set.delete(onData);
+      };
+    },
+
+    async getBookingPolicies() {
+      return bookingPolicies ? { ...bookingPolicies } : null;
+    },
+
+    async listPendingPaymentEvidenceForInvoice(invoiceId) {
+      return Array.from(paymentEvidence.values())
+        .filter((ev) => ev && ev.invoiceId === invoiceId && ev.status === 'pending_review')
+        .map((ev) => ({ ...ev }));
+    },
+
+    async listTransactionsForInvoice(invoiceId) {
+      return Array.from(paymentTransactions.values())
+        .filter((t) => t && t.invoiceId === invoiceId)
+        .map((t) => normalizePaymentTransactionRecord(t.id, t));
+    },
+
+    subscribeDepositHoldBookings({ maxLimit = 100, onData }) {
+      const sub = { maxLimit: Math.max(1, Number(maxLimit) || 100), onData };
+      depositHoldSubscribers.add(sub);
+      notifyDepositHolds();
+      return () => {
+        depositHoldSubscribers.delete(sub);
       };
     },
   };

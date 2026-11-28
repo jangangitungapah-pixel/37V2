@@ -272,6 +272,13 @@ export function canTransitionBookingRequestStatus({
     return { allowed: true, reason: '' };
   }
 
+  if (nextStatus === BOOKING_REQUEST_STATUS.OFFER_SENT) {
+    return {
+      allowed: false,
+      reason: 'Status Offer Sent hanya dapat terjadi melalui transaksi pengiriman Offer resmi.',
+    };
+  }
+
   const allowedTargets = ALLOWED_MANUAL_STATUS_TRANSITIONS[currentStatus] || [];
   if (!allowedTargets.includes(nextStatus)) {
     return {

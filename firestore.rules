@@ -304,60 +304,17 @@ service cloud.firestore {
     }
 
     function isValidBookingKeys(data) {
-      return data.keys().hasOnly([
-        'customerId',
-        'clientUid',
-        'source',
-        'sourceRequestId',
-        'acceptedOfferId',
-        'customerName',
-        'phone',
-        'phoneNormalized',
-        'bandName',
-        'studioId',
-        'serviceTypeId',
-        'serviceTypeName',
-        'serviceOptionId',
-        'serviceOptionName',
-        'deliveryMode',
-        'pricingMode',
-        'pricingSettingsVersion',
-        'serviceId',
-        'serviceLabel',
-        'packageId',
-        'packageLabel',
-        'recordingTypeId',
-        'recordingTypeLabel',
-        'date',
-        'startMinute',
-        'durationMinutes',
-        'endMinute',
-        'timeZone',
-        'unitRate',
-        'subtotal',
-        'discountAmount',
-        'totalAmount',
-        'automaticDiscount',
-        'commissionSnapshot',
-        'initialPaymentStatus',
-        'initialPaidAmount',
-        'paymentMethod',
-        'sessionStatus',
-        'checkedInAt',
-        'checkedInByUid',
-        'actualStartedAt',
-        'actualCompletedAt',
-        'notes',
-        'createdAt',
-        'createdByUid',
-        'updatedAt',
-        'updatedByUid',
-        'version'
-      ]);
+      return data.size() >= 25
+        && data.size() <= 78
+        && !data.keys().hasAny([
+          'role', 'active', 'amountPaid', 'balanceDue', 'paymentStatus', 'invoiceStatus', 'offerMode'
+        ]);
     }
 
     function isValidBookingUpdateKeys(affected) {
       return affected.hasOnly([
+        'schemaVersion',
+        'invoiceId',
         'customerName',
         'phone',
         'phoneNormalized',
@@ -387,7 +344,12 @@ service cloud.firestore {
         'totalAmount',
         'automaticDiscount',
         'commissionSnapshot',
+        'reservationStatus',
         'sessionStatus',
+        'cancelledAt',
+        'cancelledByUid',
+        'cancellationType',
+        'cancellationReason',
         'checkedInAt',
         'checkedInByUid',
         'actualStartedAt',
@@ -400,8 +362,32 @@ service cloud.firestore {
     }
 
     function isBookingLifecycleOnlyUpdate(reqData, resData, affected) {
-      return affected.hasOnly([
+      return reqData.sessionStatus in ['upcoming', 'in_progress', 'completed', 'no_show', 'cancelled']
+        && (!('reservationStatus' in reqData) || reqData.reservationStatus in ['confirmed', 'cancelled'])
+        && resData.get('reservationStatus', 'confirmed') != 'expired'
+        && (
+          resData.get('reservationStatus', 'confirmed') == 'confirmed'
+          || reqData.sessionStatus == 'cancelled'
+        )
+        && (
+          reqData.sessionStatus in ['cancelled', 'upcoming']
+          || reqData.get('reservationStatus', 'confirmed') == 'confirmed'
+        )
+        && reqData.get('restoredAt', null) == resData.get('restoredAt', null)
+        && reqData.get('expiredAt', null) == resData.get('expiredAt', null)
+        && reqData.get('startMinute', 0) == resData.get('startMinute', 0)
+        && reqData.get('endMinute', 0) == resData.get('endMinute', 0)
+        && reqData.get('date', '') == resData.get('date', '')
+        && reqData.get('studioId', '') == resData.get('studioId', '')
+        && reqData.get('notes', '') == resData.get('notes', '')
+        && reqData.get('totalAmount', 0) == resData.get('totalAmount', 0)
+        && affected.hasOnly([
+          'reservationStatus',
           'sessionStatus',
+          'cancelledAt',
+          'cancelledByUid',
+          'cancellationType',
+          'cancellationReason',
           'checkedInAt',
           'checkedInByUid',
           'actualStartedAt',
@@ -410,7 +396,6 @@ service cloud.firestore {
           'updatedByUid',
           'version'
         ])
-        && reqData.sessionStatus in ['upcoming', 'in_progress', 'completed', 'no_show', 'cancelled']
         && (!('checkedInAt' in reqData) || reqData.checkedInAt == null || reqData.checkedInAt is timestamp)
         && (!('checkedInByUid' in reqData) || reqData.checkedInByUid is string)
         && (!('actualStartedAt' in reqData) || reqData.actualStartedAt == null || reqData.actualStartedAt is timestamp)
@@ -419,6 +404,146 @@ service cloud.firestore {
         && reqData.updatedByUid == request.auth.uid
         && reqData.version is int
         && reqData.version == resData.version + 1;
+    }
+
+    function isBookingLifecycleEligibleBeforeDiff(reqData, resData) {
+      return reqData.sessionStatus in ['upcoming', 'in_progress', 'completed', 'no_show', 'cancelled']
+        && (!('reservationStatus' in reqData) || reqData.reservationStatus in ['confirmed', 'cancelled'])
+        && resData.get('reservationStatus', 'confirmed') != 'expired'
+        && (
+          resData.get('reservationStatus', 'confirmed') == 'confirmed'
+          || reqData.sessionStatus == 'cancelled'
+        )
+        && (
+          reqData.sessionStatus in ['cancelled', 'upcoming']
+          || reqData.get('reservationStatus', 'confirmed') == 'confirmed'
+        )
+        && reqData.get('restoredAt', null) == resData.get('restoredAt', null)
+        && reqData.get('expiredAt', null) == resData.get('expiredAt', null)
+        && reqData.get('startMinute', 0) == resData.get('startMinute', 0)
+        && reqData.get('endMinute', 0) == resData.get('endMinute', 0)
+        && reqData.get('date', '') == resData.get('date', '')
+        && reqData.get('studioId', '') == resData.get('studioId', '')
+        && reqData.get('notes', '') == resData.get('notes', '')
+        && reqData.get('totalAmount', 0) == resData.get('totalAmount', 0);
+    }
+
+    function isHoldDepositVerifiedByInvoiceAfter(bookingId, reqData) {
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$('inv_' + bookingId));
+      return invAfter != null && invAfter.data.amountPaid >= reqData.get('minimumDepositAmount', 0);
+    }
+
+    function isHoldExpiryAllowedByLockAndInvoice(bookingId) {
+      let lockPath = /databases/$(database)/documents/paymentEvidenceLocks/$('inv_' + bookingId);
+      let invBefore = get(/databases/$(database)/documents/invoices/$('inv_' + bookingId));
+      let invAfter = getAfter(/databases/$(database)/documents/invoices/$('inv_' + bookingId));
+      return (!exists(lockPath) || get(lockPath).data.pendingCount == 0)
+        && (
+          invBefore == null
+          || invBefore.data.amountPaid > 0
+          || (invAfter != null && invAfter.data.invoiceStatus == 'void')
+        );
+    }
+
+    function isBookingHoldImmutableFieldsUnchanged(reqData, resData) {
+      return reqData.customerId == resData.customerId
+        && reqData.get('clientUid', '') == resData.get('clientUid', '')
+        && reqData.get('invoiceId', '') == resData.get('invoiceId', '')
+        && reqData.customerName == resData.customerName
+        && reqData.phone == resData.phone
+        && reqData.bandName == resData.bandName
+        && reqData.studioId == resData.studioId
+        && reqData.date == resData.date
+        && reqData.startMinute == resData.startMinute
+        && reqData.durationMinutes == resData.durationMinutes
+        && reqData.endMinute == resData.endMinute
+        && reqData.unitRate == resData.unitRate
+        && reqData.subtotal == resData.subtotal
+        && reqData.discountAmount == resData.discountAmount
+        && reqData.totalAmount == resData.totalAmount
+        && reqData.initialPaymentStatus == resData.initialPaymentStatus
+        && reqData.initialPaidAmount == resData.initialPaidAmount
+        && reqData.paymentMethod == resData.paymentMethod
+        && reqData.get('minimumDepositAmount', 0) == resData.get('minimumDepositAmount', 0)
+        && reqData.get('serviceTypeId', '') == resData.get('serviceTypeId', '')
+        && reqData.get('serviceOptionId', '') == resData.get('serviceOptionId', '')
+        && reqData.get('createdAt', null) == resData.get('createdAt', null)
+        && reqData.get('createdByUid', '') == resData.get('createdByUid', '')
+        && reqData.size() <= 78
+        && !reqData.keys().hasAny(['role', 'active', 'amountPaid', 'balanceDue', 'paymentStatus', 'invoiceStatus', 'offerMode']);
+    }
+
+    function isBookingHoldLifecycleUpdate(reqData, resData, bookingId) {
+      let prevRes = resData.get('reservationStatus', 'confirmed');
+      let nextRes = reqData.get('reservationStatus', 'confirmed');
+      return (
+          prevRes in ['deposit_hold', 'expired']
+          || nextRes != prevRes
+          || reqData.get('depositStatus', '') != resData.get('depositStatus', '')
+          || reqData.get('depositIntegrityAlert', false) != resData.get('depositIntegrityAlert', false)
+        )
+        && reqData.updatedAt is timestamp
+        && reqData.updatedByUid == request.auth.uid
+        && reqData.version is int
+        && reqData.version == resData.version + 1
+        && isBookingHoldImmutableFieldsUnchanged(reqData, resData)
+        && (
+          (
+            prevRes == 'deposit_hold'
+            && nextRes == 'confirmed'
+            && reqData.sessionStatus == 'upcoming'
+            && reqData.holdExpiresAt == null
+            && reqData.confirmedAt is timestamp
+            && reqData.confirmedByUid == request.auth.uid
+            && reqData.confirmationSource in ['deposit_verified', 'no_deposit_policy', 'staff_override']
+            && (reqData.confirmationSource != 'deposit_verified' || isHoldDepositVerifiedByInvoiceAfter(bookingId, reqData))
+            && (reqData.confirmationSource != 'staff_override' || (reqData.confirmationOverrideReason is string && reqData.confirmationOverrideReason.size() >= 5))
+          )
+          || (
+            prevRes == 'deposit_hold'
+            && nextRes == 'deposit_hold'
+            && reqData.sessionStatus == 'pending_confirmation'
+            && reqData.holdExpiresAt is timestamp
+            && reqData.holdExtensionCount == resData.get('holdExtensionCount', 0) + 1
+            && reqData.holdLastExtendedAt is timestamp
+            && reqData.holdLastExtendedByUid == request.auth.uid
+            && reqData.holdLastExtensionReason is string
+            && reqData.holdLastExtensionReason.size() >= 5
+          )
+          || (
+            prevRes == 'deposit_hold'
+            && nextRes == 'expired'
+            && reqData.sessionStatus == 'cancelled'
+            && reqData.expiredAt is timestamp
+            && reqData.expiredByUid == request.auth.uid
+            && reqData.expiryReason is string
+            && reqData.expiryReason.size() >= 5
+            && isHoldExpiryAllowedByLockAndInvoice(bookingId)
+          )
+          || (
+            prevRes == 'expired'
+            && nextRes in ['deposit_hold', 'confirmed']
+            && (nextRes == 'deposit_hold'
+              ? reqData.sessionStatus == 'pending_confirmation' && reqData.holdExpiresAt is timestamp
+              : reqData.sessionStatus == 'upcoming' && reqData.holdExpiresAt == null)
+            && reqData.restoredAt is timestamp
+            && reqData.restoredByUid == request.auth.uid
+            && reqData.restorationReason is string
+            && reqData.restorationReason.size() >= 5
+          )
+          || (
+            nextRes == prevRes
+            && reqData.sessionStatus == resData.sessionStatus
+            && (
+              reqData.get('depositStatus', '') != resData.get('depositStatus', '')
+              || reqData.get('depositIntegrityAlert', false) != resData.get('depositIntegrityAlert', false)
+            )
+            && reqData.get('confirmedAt', null) == resData.get('confirmedAt', null)
+            && reqData.get('expiredAt', null) == resData.get('expiredAt', null)
+            && reqData.get('restoredAt', null) == resData.get('restoredAt', null)
+            && reqData.get('holdLastExtendedAt', null) == resData.get('holdLastExtendedAt', null)
+          )
+        );
     }
 
     function isValidBookingV2ServiceFields(data) {
@@ -434,37 +559,39 @@ service cloud.firestore {
     }
 
     function isValidAutomaticDiscountMap(disc, subtotal, discountAmount) {
-      let eb = disc.eligibleBlocks;
-      let dpb = disc.discountPerBlock;
-      let td = disc.totalDiscount;
-      let raw = eb * dpb;
       return disc.size() == 5
         && disc.type == 'duration_multiple'
         && disc.intervalMinutes is int
         && disc.intervalMinutes > 0
-        && eb is int
-        && eb > 0
-        && dpb is int
-        && dpb > 0
-        && td is int
-        && td > 0
-        && td <= subtotal
-        && td == (raw > subtotal ? subtotal : raw)
-        && discountAmount == td;
+        && disc.eligibleBlocks is int
+        && disc.eligibleBlocks > 0
+        && disc.discountPerBlock is int
+        && disc.discountPerBlock > 0
+        && disc.totalDiscount is int
+        && disc.totalDiscount > 0
+        && disc.totalDiscount <= subtotal
+        && discountAmount == disc.totalDiscount
+        && (
+          disc.totalDiscount == disc.eligibleBlocks * disc.discountPerBlock
+          || (disc.totalDiscount == subtotal && disc.eligibleBlocks * disc.discountPerBlock > subtotal)
+        );
     }
 
     function isValidBookingAutomaticDiscountShape(data) {
-      let disc = data.get('automaticDiscount', null);
-      return disc == null
-        || (disc is map && isValidAutomaticDiscountMap(disc, data.subtotal, data.discountAmount));
+      return !('automaticDiscount' in data)
+        || data.automaticDiscount == null
+        || (
+          data.automaticDiscount is map
+          && isValidAutomaticDiscountMap(data.automaticDiscount, data.subtotal, data.discountAmount)
+        );
     }
 
     function isBookingAutomaticDiscountMathMatched(data) {
-      let disc = data.get('automaticDiscount', null);
-      return disc == null
+      return !('automaticDiscount' in data)
+        || data.automaticDiscount == null
         || (
-          disc.eligibleBlocks * disc.intervalMinutes <= data.durationMinutes
-          && (disc.eligibleBlocks + 1) * disc.intervalMinutes > data.durationMinutes
+          data.automaticDiscount.eligibleBlocks * data.automaticDiscount.intervalMinutes <= data.durationMinutes
+          && (data.automaticDiscount.eligibleBlocks + 1) * data.automaticDiscount.intervalMinutes > data.durationMinutes
         );
     }
 
@@ -591,10 +718,10 @@ service cloud.firestore {
       let ipa = data.initialPaidAmount;
       return data.customerName is string
         && data.customerName.size() > 0
-        && (!('clientUid' in data) || (data.clientUid is string && data.clientUid.size() <= 128))
-        && (!('source' in data) || data.source in ['client_portal', 'staff_created'])
-        && (!('sourceRequestId' in data) || (data.sourceRequestId is string && data.sourceRequestId.size() <= 128))
-        && (!('acceptedOfferId' in data) || (data.acceptedOfferId is string && data.acceptedOfferId.size() <= 128))
+        && data.get('clientUid', '') is string
+        && data.get('source', 'staff_created') in ['client_portal', 'staff_created']
+        && data.get('sourceRequestId', '') is string
+        && data.get('acceptedOfferId', '') is string
         && data.phone is string
         && data.phone.size() > 0
         && data.bandName is string
@@ -615,7 +742,6 @@ service cloud.firestore {
         && dm is int
         && dm > 0
         && dm % 30 == 0
-        && em is int
         && em == sm + dm
         && em <= 1380
         && data.timeZone == 'Asia/Jakarta'
@@ -626,7 +752,6 @@ service cloud.firestore {
         && da is int
         && da >= 0
         && da <= sub
-        && tot is int
         && tot >= 0
         && tot == sub - da
         && data.initialPaymentStatus in ['unpaid', 'partial', 'paid']
@@ -634,7 +759,17 @@ service cloud.firestore {
         && ipa >= 0
         && ipa <= tot
         && data.paymentMethod is string
-        && data.sessionStatus in ['upcoming', 'in_progress', 'completed', 'no_show', 'cancelled']
+        && data.sessionStatus in ['pending_confirmation', 'upcoming', 'in_progress', 'completed', 'no_show', 'cancelled']
+        && (
+          !('reservationStatus' in data)
+          || (
+            data.reservationStatus in ['deposit_hold', 'confirmed', 'expired', 'cancelled']
+            && (data.reservationStatus != 'deposit_hold'
+              || (data.sessionStatus == 'pending_confirmation' && data.get('holdExpiresAt', null) is timestamp))
+            && (data.reservationStatus == 'confirmed'
+              || !(data.sessionStatus in ['in_progress', 'completed', 'no_show']))
+          )
+        )
         && data.notes is string
         && data.version is int
         && data.version >= 1;
@@ -761,13 +896,6 @@ service cloud.firestore {
 
     function isLegacyBookingCustomerLinkUpdate(reqData, resData, affected) {
       return resData.get('customerId', '') == ''
-        && affected.hasOnly([
-          'customerId',
-          'phoneNormalized',
-          'updatedAt',
-          'updatedByUid',
-          'version'
-        ])
         && reqData.customerId is string
         && reqData.customerId.size() > 0
         && reqData.phoneNormalized is string
@@ -775,6 +903,13 @@ service cloud.firestore {
         && reqData.updatedByUid == request.auth.uid
         && reqData.updatedAt is timestamp
         && reqData.version == resData.version + 1
+        && affected.hasOnly([
+          'customerId',
+          'phoneNormalized',
+          'updatedAt',
+          'updatedByUid',
+          'version'
+        ])
         && isLinkedCustomerPhoneMatchedAfter(reqData.customerId, reqData.phoneNormalized, false);
     }
 
@@ -788,15 +923,20 @@ service cloud.firestore {
         && data.version == 1;
     }
 
-    function isValidBookingFocusedPricingUpdate(reqData, resData, affected) {
+    function isValidBookingFocusedPricingUpdate(reqData, resData) {
       // Use this fast path only when duration changes; unchanged-scope price edits
       // must continue through the stricter standard-update branch.
-      return reqData.durationMinutes != resData.durationMinutes
-        && affected.hasAny([
-          'durationMinutes', 'unitRate', 'subtotal', 'discountAmount',
-          'totalAmount', 'automaticDiscount', 'commissionSnapshot'
-        ])
-        && affected.hasOnly([
+      return ('durationMinutes' in reqData)
+        && ('durationMinutes' in resData)
+        && reqData.durationMinutes != resData.durationMinutes
+        && (
+          reqData.subtotal != resData.subtotal
+          || reqData.discountAmount != resData.discountAmount
+          || reqData.totalAmount != resData.totalAmount
+          || reqData.unitRate != resData.unitRate
+          || reqData.diff(resData).affectedKeys().hasAny(['automaticDiscount', 'commissionSnapshot'])
+        )
+        && reqData.diff(resData).affectedKeys().hasOnly([
           'startMinute', 'durationMinutes', 'endMinute', 'unitRate',
           'subtotal', 'discountAmount', 'totalAmount', 'automaticDiscount',
           'commissionSnapshot', 'notes', 'updatedAt', 'updatedByUid', 'version'
@@ -809,7 +949,6 @@ service cloud.firestore {
         && reqData.durationMinutes is int
         && reqData.durationMinutes > 0
         && reqData.durationMinutes % 30 == 0
-        && reqData.endMinute is int
         && reqData.endMinute == reqData.startMinute + reqData.durationMinutes
         && reqData.endMinute <= 1380
         && reqData.timeZone == 'Asia/Jakarta'
@@ -820,7 +959,6 @@ service cloud.firestore {
         && reqData.discountAmount is int
         && reqData.discountAmount >= 0
         && reqData.discountAmount <= reqData.subtotal
-        && reqData.totalAmount is int
         && reqData.totalAmount == reqData.subtotal - reqData.discountAmount
         && isValidBookingAutomaticDiscountShape(reqData)
         && isBookingAutomaticDiscountMathMatched(reqData)
@@ -830,60 +968,50 @@ service cloud.firestore {
         && reqData.version is int
         && reqData.version == resData.version + 1;
     }
-    function isValidBookingStandardUpdate(reqData, resData, affected) {
-      let scopeUnchanged = isServiceScopeUnchanged(reqData, resData);
-      // MapDiff identifies top-level nested-map changes; avoid deep map equality
-      // to keep worst-case pricing recalculation within Firestore's expression budget.
-      let discUnchanged = !affected.hasAny(['automaticDiscount'])
-        || (
-          reqData.get('automaticDiscount', null) == null
-          && resData.get('automaticDiscount', null) == null
-        );
-      let commUnchanged = !affected.hasAny(['commissionSnapshot'])
-        || (
-          reqData.get('commissionSnapshot', null) == null
-          && resData.get('commissionSnapshot', null) == null
-        );
-      return isValidBookingUpdateKeys(affected)
-        && isValidBookingCoreShape(reqData)
-        && reqData.updatedByUid == request.auth.uid
-        && (
-          scopeUnchanged
-            ? (
-              reqData.unitRate == resData.unitRate
-              && reqData.subtotal == resData.subtotal
-              && reqData.discountAmount == resData.discountAmount
-              && reqData.totalAmount == resData.totalAmount
-              && discUnchanged
-              && commUnchanged
-            )
-            : (
-              (
-                (discUnchanged && reqData.discountAmount == resData.discountAmount && reqData.subtotal == resData.subtotal)
-                || (
-                  isValidBookingAutomaticDiscountShape(reqData)
-                  && (discUnchanged || isBookingAutomaticDiscountMathMatched(reqData))
-                )
-              )
-              && (commUnchanged || isValidBookingCommissionSnapshot(reqData))
-            )
+    function isValidBookingStandardPricingUpdate(reqData, resData, affected) {
+      return isServiceScopeUnchanged(reqData, resData)
+        ? (
+          reqData.unitRate == resData.unitRate
+          && reqData.subtotal == resData.subtotal
+          && reqData.discountAmount == resData.discountAmount
+          && reqData.totalAmount == resData.totalAmount
+          && (
+            !affected.hasAny(['automaticDiscount'])
+            || (reqData.get('automaticDiscount', null) == null && resData.get('automaticDiscount', null) == null)
+          )
+          && (
+            !affected.hasAny(['commissionSnapshot'])
+            || (reqData.get('commissionSnapshot', null) == null && resData.get('commissionSnapshot', null) == null)
+          )
+        )
+        : (
+          isValidBookingAutomaticDiscountShape(reqData)
+          && isBookingAutomaticDiscountMathMatched(reqData)
+          && isValidBookingCommissionSnapshot(reqData)
         );
     }
 
-    function isLegacyBookingClientUidUpdate(reqData, resData, affected, bookingId) {
+    function isValidBookingStandardUpdate(reqData, resData) {
+      return isValidBookingUpdateKeys(reqData.diff(resData).affectedKeys())
+        && isValidBookingCoreShape(reqData)
+        && reqData.updatedByUid == request.auth.uid
+        && isValidBookingStandardPricingUpdate(reqData, resData, reqData.diff(resData).affectedKeys());
+    }
+
+    function isLegacyBookingClientUidUpdate(reqData, resData, bookingId) {
       let requestId = reqData.get('sourceRequestId', '');
       let clientUid = reqData.get('clientUid', '');
       return resData.get('clientUid', '') == ''
-        && requestId is string
-        && requestId.size() > 0
         && clientUid is string
         && clientUid.size() > 0
+        && requestId is string
+        && requestId.size() > 0
         && reqData.get('source', '') == 'client_portal'
         && reqData.get('acceptedOfferId', '') is string
         && reqData.updatedByUid == request.auth.uid
         && reqData.updatedAt is timestamp
         && reqData.version == resData.version + 1
-        && affected.hasOnly([
+        && reqData.diff(resData).affectedKeys().hasOnly([
           'clientUid', 'source', 'sourceRequestId', 'acceptedOfferId',
           'updatedAt', 'updatedByUid', 'version'
         ])
@@ -894,24 +1022,24 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.linkedBookingId == bookingId;
     }
 
-    function isLegacyBookingCrmClientUidUpdate(reqData, resData, affected, bookingId) {
+    function isLegacyBookingCrmClientUidUpdate(reqData, resData, bookingId) {
       let customerId = resData.get('customerId', '');
       let clientUid = reqData.get('clientUid', '');
       let reservationPath = /databases/$(database)/documents/clientReservations/$(bookingId);
-      return isActiveOwner()
-        && existsAfter(reservationPath)
-        && resData.get('clientUid', '') == ''
-        && customerId is string
-        && customerId.size() > 0
+      return resData.get('clientUid', '') == ''
         && clientUid is string
         && clientUid.size() > 0
         && clientUid.size() <= 128
+        && customerId is string
+        && customerId.size() > 0
         && reqData.get('customerId', '') == customerId
-        && affected.hasOnly(['clientUid', 'updatedAt', 'updatedByUid', 'version'])
         && reqData.updatedAt is timestamp
         && reqData.updatedByUid == request.auth.uid
         && reqData.version is int
         && reqData.version == resData.version + 1
+        && isActiveOwner()
+        && reqData.diff(resData).affectedKeys().hasOnly(['clientUid', 'updatedAt', 'updatedByUid', 'version'])
+        && existsAfter(reservationPath)
         && isActiveLinkedCrmClientCustomerMatch(clientUid, customerId)
         && getAfter(reservationPath).data.bookingId == bookingId
         && getAfter(reservationPath).data.customerId == customerId
@@ -920,13 +1048,23 @@ service cloud.firestore {
     }
 
     function isValidBookingUpdate(reqData, resData, bookingId) {
-      let affected = reqData.diff(resData).affectedKeys();
-      return isValidBookingFocusedPricingUpdate(reqData, resData, affected)
-        || isBookingLifecycleOnlyUpdate(reqData, resData, affected)
-        || isLegacyBookingCustomerLinkUpdate(reqData, resData, affected)
-        || isLegacyBookingClientUidUpdate(reqData, resData, affected, bookingId)
-        || isLegacyBookingCrmClientUidUpdate(reqData, resData, affected, bookingId)
-        || isValidBookingStandardUpdate(reqData, resData, affected);
+      return isValidBookingFocusedPricingUpdate(reqData, resData)
+        || (
+          isBookingLifecycleEligibleBeforeDiff(reqData, resData)
+          && isBookingLifecycleOnlyUpdate(reqData, resData, reqData.diff(resData).affectedKeys())
+        )
+        || isBookingHoldLifecycleUpdate(reqData, resData, bookingId)
+        || (
+          resData.get('customerId', '') == ''
+          && isLegacyBookingCustomerLinkUpdate(reqData, resData, reqData.diff(resData).affectedKeys())
+        )
+        || isLegacyBookingClientUidUpdate(reqData, resData, bookingId)
+        || isLegacyBookingCrmClientUidUpdate(reqData, resData, bookingId)
+        || (
+          resData.get('reservationStatus', 'confirmed') in ['confirmed', 'deposit_hold']
+          && reqData.get('reservationStatus', 'confirmed') == resData.get('reservationStatus', 'confirmed')
+          && isValidBookingStandardUpdate(reqData, resData)
+        );
     }
 
     function isValidInvoiceSnapshots(data) {
@@ -972,24 +1110,16 @@ service cloud.firestore {
     }
 
     function isValidInvoiceBase(data, invoiceId) {
-      return (
-          data.size() == 20
-          || (
-            data.size() == 21
-            && (
-              ('clientPaymentEvidenceRequired' in data && data.clientPaymentEvidenceRequired is bool)
-              || ('clientUid' in data && data.clientUid is string && data.clientUid.size() <= 128)
-            )
-          )
-          || (
-            data.size() == 22
-            && 'clientPaymentEvidenceRequired' in data
-            && data.clientPaymentEvidenceRequired is bool
-            && 'clientUid' in data
-            && data.clientUid is string
-            && data.clientUid.size() <= 128
-          )
-        )
+      return data.size() >= 20
+        && data.size() <= 27
+        && !data.keys().hasAny(['reservationStatus', 'sessionStatus', 'commissionSnapshot'])
+        && data.get('clientPaymentEvidenceRequired', false) is bool
+        && data.get('clientUid', '') is string
+        && data.get('targetType', 'booking') in ['booking', 'project']
+        && (data.get('depositPolicySnapshot', null) == null || data.depositPolicySnapshot is map)
+        && (data.get('minimumDepositAmount', 0) is int && data.get('minimumDepositAmount', 0) >= 0)
+        && data.get('depositStatus', 'not_required') in ['not_required', 'awaiting_deposit', 'partial_below_minimum', 'met']
+        && (data.get('balanceDuePolicy', null) == null || data.balanceDuePolicy is map)
         && data.invoiceNumber is string
         && data.invoiceNumber.matches('^37MS-\\d{8}-[A-Z0-9]{12}$')
         && data.bookingId is string
@@ -1000,7 +1130,6 @@ service cloud.firestore {
         && data.currency == 'IDR'
         && isValidInvoiceSnapshots(data)
         && isValidInvoicePaymentMath(data)
-        && (!('clientUid' in data) || (data.clientUid is string && data.clientUid.size() <= 128))
         && data.invoiceDate is timestamp
         && (data.dueDate == null
           || (data.dueDate is string && data.dueDate.matches('^\\d{4}-\\d{2}-\\d{2}$')))
@@ -1030,24 +1159,24 @@ service cloud.firestore {
     }
 
     function isLegacyInvoiceClientUidUpdate(reqData, resData, invoiceId) {
-      let booking = getAfter(/databases/$(database)/documents/bookings/$(resData.bookingId));
       let clientUid = reqData.get('clientUid', '');
+      let booking = getAfter(/databases/$(database)/documents/bookings/$(resData.bookingId));
       return resData.get('clientUid', '') == ''
         && clientUid is string
         && clientUid.size() > 0
         && invoiceId == 'inv_' + reqData.bookingId
-        && booking != null
-        && booking.data.get('clientUid', '') == clientUid
-        && reqData.diff(resData).affectedKeys().hasOnly([
-          'clientUid', 'updatedAt', 'updatedByUid', 'version'
-        ])
         && reqData.amountPaid == resData.amountPaid
         && reqData.balanceDue == resData.balanceDue
         && reqData.paymentStatus == resData.paymentStatus
         && reqData.lastPaymentTransactionId == resData.lastPaymentTransactionId
         && reqData.updatedByUid == request.auth.uid
         && reqData.updatedAt is timestamp
-        && reqData.version == resData.version + 1;
+        && reqData.version == resData.version + 1
+        && reqData.diff(resData).affectedKeys().hasOnly([
+          'clientUid', 'updatedAt', 'updatedByUid', 'version'
+        ])
+        && booking != null
+        && booking.data.get('clientUid', '') == clientUid;
     }
 
     function isInvoiceImmutableFieldsUnchanged(reqData, resData) {
@@ -1062,7 +1191,11 @@ service cloud.firestore {
         && reqData.createdAt == resData.createdAt
         && reqData.createdByUid == resData.createdByUid
         && reqData.get('clientPaymentEvidenceRequired', false) == resData.get('clientPaymentEvidenceRequired', false)
-        && reqData.get('clientUid', '') == resData.get('clientUid', '');
+        && reqData.get('clientUid', '') == resData.get('clientUid', '')
+        && reqData.get('targetType', 'booking') == resData.get('targetType', 'booking')
+        && reqData.get('depositPolicySnapshot', null) == resData.get('depositPolicySnapshot', null)
+        && reqData.get('minimumDepositAmount', 0) == resData.get('minimumDepositAmount', 0)
+        && reqData.get('balanceDuePolicy', null) == resData.get('balanceDuePolicy', null);
     }
 
     function isInvoiceAggregateMatchingTxAfter(reqData, resData, invoiceId) {
@@ -1089,6 +1222,11 @@ service cloud.firestore {
         && isInvoiceAggregateMatchingTxAfter(reqData, resData, invoiceId);
     }
 
+    function isInvoiceWithoutPendingEvidenceLock(invoiceId) {
+      let lockPath = /databases/$(database)/documents/paymentEvidenceLocks/$(invoiceId);
+      return !exists(lockPath) || get(lockPath).data.pendingCount == 0;
+    }
+
     function isValidInvoiceVoidUpdate(reqData, resData) {
       return resData.invoiceStatus == 'issued'
         && reqData.invoiceStatus == 'void'
@@ -1100,6 +1238,34 @@ service cloud.firestore {
         && reqData.dueDate == resData.dueDate
         && reqData.voidReason is string
         && reqData.voidReason.size() >= 3;
+    }
+
+    function isInvoiceRestoreParentBookingValid(resData) {
+      let bookingBefore = get(/databases/$(database)/documents/bookings/$(resData.bookingId));
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(resData.bookingId));
+      return bookingBefore == null
+        || (
+          bookingBefore.data.get('reservationStatus', 'confirmed') in ['deposit_hold', 'expired']
+          && bookingAfter != null
+          && bookingAfter.data.get('reservationStatus', 'confirmed') in ['deposit_hold', 'confirmed']
+          && bookingAfter.data.version == bookingBefore.data.version + 1
+        );
+    }
+
+    function isValidInvoiceRestoreUnvoidUpdate(reqData, resData, invoiceId) {
+      return reqData.invoiceStatus == 'issued'
+        && invoiceId == 'inv_' + resData.bookingId
+        && resData.amountPaid == 0
+        && reqData.amountPaid == 0
+        && reqData.balanceDue == resData.balanceDue
+        && reqData.paymentStatus == resData.paymentStatus
+        && reqData.lastPaymentTransactionId == resData.lastPaymentTransactionId
+        && reqData.dueDate == resData.dueDate
+        && (
+          (resData.invoiceStatus == 'void' && reqData.voidReason == '')
+          || (resData.invoiceStatus == 'issued' && reqData.voidReason == resData.voidReason)
+        )
+        && isInvoiceRestoreParentBookingValid(resData);
     }
 
     function isValidInvoiceDueDateUpdate(reqData, resData) {
@@ -2537,7 +2703,13 @@ service cloud.firestore {
 
       allow create: if isActiveStaff()
         && !isFactoryResetLocked()
-        && isValidBookingCreate(request.resource.data);
+        && isValidBookingKeys(request.resource.data)
+        && isValidBookingShape(request.resource.data)
+        && hasValidBookingCustomerLinkAfter(request.resource.data)
+        && isBookingAutomaticDiscountMathMatched(request.resource.data)
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.version == 1;
 
       allow update: if isActiveStaff()
         && !isFactoryResetLocked()
@@ -2546,48 +2718,45 @@ service cloud.firestore {
       allow delete: if canFactoryResetDelete();
     }
 
-    function isClientReservationBookingMatched(data, bookingId) {
-      let bookingPath = /databases/$(database)/documents/bookings/$(bookingId);
-      let bookingAfter = getAfter(bookingPath);
-      let expectedServiceName = bookingAfter != null
-        ? (
-          bookingAfter.data.get('serviceTypeName', '') != ''
-            ? bookingAfter.data.serviceTypeName
-            : (
-              bookingAfter.data.get('serviceTypeId', '') != ''
-                ? bookingAfter.data.serviceTypeId
-                : bookingAfter.data.get('serviceLabel', '')
-            )
-        )
-        : '';
-      let expectedOptionName = bookingAfter != null
-        ? (
-          bookingAfter.data.get('serviceOptionName', '') != ''
-            ? bookingAfter.data.serviceOptionName
-            : bookingAfter.data.get('packageLabel', '')
-        )
-        : '';
-      return bookingAfter != null
-        && bookingAfter.data.get('clientUid', '') == data.clientUid
-        && bookingAfter.data.customerId == data.customerId
-        && bookingAfter.data.get('sourceRequestId', '') == data.sourceRequestId
-        && bookingAfter.data.get('acceptedOfferId', '') == data.acceptedOfferId
-        && bookingAfter.data.date == data.date
-        && bookingAfter.data.studioId == data.studioId
-        && bookingAfter.data.startMinute == data.startMinute
-        && bookingAfter.data.endMinute == data.endMinute
-        && bookingAfter.data.durationMinutes == data.durationMinutes
-        && bookingAfter.data.get('timeZone', 'Asia/Jakarta') == data.timeZone
+    function isClientReservationBookingDataMatched(data, b) {
+      let expectedServiceName = b.get('serviceTypeName', '') != ''
+        ? b.serviceTypeName
+        : (
+          b.get('serviceTypeId', '') != ''
+            ? b.serviceTypeId
+            : b.get('serviceLabel', '')
+        );
+      let expectedOptionName = b.get('serviceOptionName', '') != ''
+        ? b.serviceOptionName
+        : b.get('packageLabel', '');
+      return b.get('clientUid', '') == data.clientUid
+        && b.customerId == data.customerId
+        && b.get('sourceRequestId', '') == data.sourceRequestId
+        && b.get('acceptedOfferId', '') == data.acceptedOfferId
+        && b.date == data.date
+        && b.studioId == data.studioId
+        && b.startMinute == data.startMinute
+        && b.endMinute == data.endMinute
+        && b.durationMinutes == data.durationMinutes
+        && b.get('timeZone', 'Asia/Jakarta') == data.timeZone
         && expectedServiceName == data.serviceTypeName
         && expectedOptionName == data.serviceOptionName
-        && bookingAfter.data.get('sessionStatus', 'upcoming') == data.sessionStatus
+        && b.get('sessionStatus', 'upcoming') == data.sessionStatus
         && data.reservationStatus == (
-          bookingAfter.data.get('sessionStatus', 'upcoming') == 'cancelled'
-            ? 'cancelled'
-            : bookingAfter.data.get('reservationStatus', 'confirmed')
+          b.get('reservationStatus', '') != ''
+            ? b.reservationStatus
+            : (b.get('sessionStatus', 'upcoming') == 'cancelled'
+              ? 'cancelled'
+              : 'confirmed')
         )
-        && bookingAfter.data.get('holdExpiresAt', null) == data.holdExpiresAt
-        && bookingAfter.data.version == data.version;
+        && b.get('holdExpiresAt', null) == data.holdExpiresAt
+        && b.version == data.version;
+    }
+
+    function isClientReservationBookingMatched(data, bookingId) {
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(bookingId));
+      return bookingAfter != null
+        && isClientReservationBookingDataMatched(data, bookingAfter.data);
     }
 
     function isClientReservationFinancialSummaryMatched(data, bookingId) {
@@ -2629,10 +2798,7 @@ service cloud.firestore {
       let bookingAfter = getAfter(bookingPath);
       let invoiceBefore = get(invoicePath);
       let invoiceAfter = getAfter(invoicePath);
-      return (
-          bookingBefore == null && bookingAfter != null
-        )
-        || isActiveOwner()
+      return (bookingBefore == null && bookingAfter != null)
         || (
           bookingBefore != null
           && bookingAfter != null
@@ -2648,7 +2814,8 @@ service cloud.firestore {
               && invoiceAfter.data.updatedAt == request.time
             )
           )
-        );
+        )
+        || isActiveOwner();
     }
 
     function isValidClientReservationShape(data, bookingId) {
@@ -2703,6 +2870,15 @@ service cloud.firestore {
       allow delete: if canFactoryResetDelete();
     }
 
+    function isValidSlotCanonicalBookingAfter(data) {
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(data.bookingId));
+      return bookingAfter != null
+        && bookingAfter.data.date == data.date
+        && bookingAfter.data.studioId == data.studioId
+        && !(bookingAfter.data.get('reservationStatus', 'confirmed') in ['expired', 'cancelled'])
+        && !(bookingAfter.data.sessionStatus in ['cancelled', 'no_show']);
+    }
+
     match /bookingSlots/{slotId} {
       allow read: if isActiveStaff();
 
@@ -2724,21 +2900,10 @@ service cloud.firestore {
         && request.resource.data.slotStartMinute >= 600
         && request.resource.data.slotStartMinute < 1380
         && request.resource.data.slotStartMinute % 30 == 0
-        && existsAfter(
-          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
-        )
-        && getAfter(
-          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
-        ).data.date == request.resource.data.date
-        && getAfter(
-          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
-        ).data.studioId == request.resource.data.studioId
-        && getAfter(
-          /databases/$(database)/documents/bookings/$(request.resource.data.bookingId)
-        ).data.sessionStatus != 'cancelled';
+        && isValidSlotCanonicalBookingAfter(request.resource.data);
 
-      allow delete: if canFactoryResetDelete()
-        || (!isFactoryResetLocked() && isActiveStaff());
+      allow delete: if (!isFactoryResetLocked() && isActiveStaff())
+        || canFactoryResetDelete();
     }
 
     match /bookingEvents/{eventId} {
@@ -2799,14 +2964,18 @@ service cloud.firestore {
 
       allow update: if isActiveStaff()
         && !isFactoryResetLocked()
-        && isValidInvoiceBase(request.resource.data, invoiceId)
         && request.resource.data.version == resource.data.version + 1
+        && isValidInvoiceBase(request.resource.data, invoiceId)
         && (
           (
             isInvoiceImmutableFieldsUnchanged(request.resource.data, resource.data)
             && (
               isValidInvoicePaymentAggregateUpdate(request.resource.data, resource.data, invoiceId)
-              || isValidInvoiceVoidUpdate(request.resource.data, resource.data)
+              || (
+                isValidInvoiceVoidUpdate(request.resource.data, resource.data)
+                && isInvoiceWithoutPendingEvidenceLock(invoiceId)
+              )
+              || isValidInvoiceRestoreUnvoidUpdate(request.resource.data, resource.data, invoiceId)
               || isValidInvoiceDueDateUpdate(request.resource.data, resource.data)
             )
           )
@@ -2873,6 +3042,87 @@ service cloud.firestore {
             && isValidStaffEvidenceRejectUpdate(request.resource.data))
         );
 
+      allow delete: if canFactoryResetDelete();
+    }
+
+    function isValidPaymentEvidenceLockWrite(nextData, prevRes, invoiceId) {
+      let invPath = /databases/$(database)/documents/invoices/$(invoiceId);
+      let invDoc = get(invPath);
+      return nextData.keys().hasOnly([
+          'schemaVersion', 'invoiceId', 'bookingId', 'customerId', 'clientUid',
+          'pendingEvidenceIds', 'pendingCount', 'updatedAt', 'updatedByUid', 'version'
+        ])
+        && nextData.size() == 10
+        && nextData.schemaVersion == 1
+        && nextData.invoiceId == invoiceId
+        && nextData.bookingId is string && nextData.bookingId.size() > 0
+        && nextData.customerId is string
+        && nextData.clientUid is string && nextData.clientUid.size() <= 128
+        && nextData.pendingEvidenceIds is list
+        && nextData.pendingCount is int
+        && nextData.pendingCount == nextData.pendingEvidenceIds.size()
+        && nextData.pendingCount >= 0 && nextData.pendingCount <= 50
+        && nextData.updatedAt is timestamp
+        && nextData.updatedByUid == request.auth.uid
+        && nextData.version is int
+        && nextData.version == (prevRes == null ? 1 : prevRes.data.version + 1)
+        && (
+          isActiveStaff()
+          || (
+            isActiveClient()
+            && nextData.clientUid == request.auth.uid
+            && nextData.pendingCount == (prevRes == null ? 1 : prevRes.data.pendingCount + 1)
+            && invDoc != null
+            && invDoc.data.get('clientUid', '') == request.auth.uid
+            && invDoc.data.invoiceStatus == 'issued'
+            && invDoc.data.get('clientPaymentEvidenceRequired', false) == true
+          )
+        );
+    }
+
+    match /paymentEvidenceLocks/{invoiceId} {
+      allow get: if isActiveStaff()
+        || (
+          isActiveClient()
+          && (
+            (resource != null && resource.data.clientUid == request.auth.uid)
+            || (
+              exists(/databases/$(database)/documents/invoices/$(invoiceId))
+              && get(/databases/$(database)/documents/invoices/$(invoiceId)).data.get('clientUid', '') == request.auth.uid
+            )
+          )
+        );
+      allow list: if isActiveStaff();
+      allow create, update: if !isFactoryResetLocked()
+        && isValidPaymentEvidenceLockWrite(request.resource.data, resource, invoiceId);
+      allow delete: if canFactoryResetDelete();
+    }
+
+    match /refundCases/{refundId} {
+      allow get, list: if isActiveStaff()
+        || (isActiveClient() && resource != null && resource.data.get('clientUid', '') == request.auth.uid);
+      allow create: if isActiveStaff()
+        && !isFactoryResetLocked()
+        && request.resource.data.keys().hasOnly([
+          'schemaVersion', 'refundId', 'targetType', 'bookingId', 'projectId', 'invoiceId',
+          'customerId', 'clientUid', 'triggerCategory', 'sourcePaymentTransactionIds',
+          'maxRefundableAmount', 'requestedAmount', 'approvedAmount', 'forfeitedAmount',
+          'resolutionMethod', 'status', 'requestReason', 'decisionReason',
+          'creditRemainingAmount', 'settlementInfo', 'reviewedByUid', 'reviewedAt',
+          'createdAt', 'createdByUid', 'updatedAt', 'updatedByUid', 'version'
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.refundId == refundId
+        && request.resource.data.targetType == 'booking'
+        && request.resource.data.triggerCategory in ['hold_expired_partial_paid', 'late_payment_expired']
+        && request.resource.data.status == 'under_review'
+        && request.resource.data.maxRefundableAmount is int
+        && request.resource.data.maxRefundableAmount > 0
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.version == 1
+        && existsAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
+        && getAfter(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.reservationStatus == 'expired';
+      allow update: if false;
       allow delete: if canFactoryResetDelete();
     }
 
@@ -3294,18 +3544,20 @@ service cloud.firestore {
 
     function isPublicAvailabilityMatchedToCanonicalBookingAfter(data, bookingId) {
       let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(bookingId));
-      return existsAfter(/databases/$(database)/documents/bookings/$(bookingId))
-        && bookingAfter != null
+      return bookingAfter != null
         && bookingAfter.data.date == data.date
         && bookingAfter.data.studioId == data.studioId
         && bookingAfter.data.startMinute == data.startMinute
         && bookingAfter.data.endMinute == data.endMinute
+        && !(bookingAfter.data.get('reservationStatus', 'confirmed') in ['expired', 'cancelled'])
         && !(bookingAfter.data.sessionStatus in ['cancelled', 'no_show']);
     }
 
     function isPublicAvailabilityDeleteAllowedAfter(bookingId) {
-      return !existsAfter(/databases/$(database)/documents/bookings/$(bookingId))
-        || getAfter(/databases/$(database)/documents/bookings/$(bookingId)).data.sessionStatus in ['cancelled', 'no_show'];
+      let bookingAfter = getAfter(/databases/$(database)/documents/bookings/$(bookingId));
+      return bookingAfter == null
+        || bookingAfter.data.get('reservationStatus', 'confirmed') in ['expired', 'cancelled']
+        || bookingAfter.data.sessionStatus in ['cancelled', 'no_show'];
     }
 
     function isValidPublicAvailabilityMetadataShape(data) {
@@ -3333,8 +3585,8 @@ service cloud.firestore {
         && isValidPublicAvailabilityProjectionShape(request.resource.data)
         && isPublicAvailabilityMatchedToCanonicalBookingAfter(request.resource.data, bookingId);
 
-      allow delete: if canFactoryResetDelete()
-        || (!isFactoryResetLocked() && isActiveStaff() && isPublicAvailabilityDeleteAllowedAfter(bookingId));
+      allow delete: if (!isFactoryResetLocked() && isActiveStaff() && isPublicAvailabilityDeleteAllowedAfter(bookingId))
+        || canFactoryResetDelete();
     }
 
     match /publicAvailabilityMetadata/{docId} {
@@ -3468,84 +3720,78 @@ service cloud.firestore {
     }
 
     function isValidPublicBookingRequestKeys(data) {
-      return data.keys().hasOnly([
-        'schemaVersion',
-        'requestReference',
-        'requestType',
-        'status',
-        'statusReason',
-        'customerName',
-        'bandName',
-        'contactPhone',
-        'publicServiceId',
-        'serviceLabelSnapshot',
-        'requestedRoomId',
-        'preferredDate',
-        'preferredStartMinute',
-        'preferredDurationMinutes',
-        'targetDeadline',
-        'notes',
-        'privacyConsent',
-        'consentVersion',
-        'source',
-        'assignedStaffUid',
-        'assignedStaffName',
-        'lastCommunicationAt',
-        'lastCommunicationType',
-        'lastCommunicationStatus',
-        'linkedBookingId',
-        'confirmedBookingSnapshot',
-        'confirmedAt',
-        'confirmedByUid',
-        'appCheckState',
-        'createdAt',
-        'updatedAt',
-        'updatedByUid',
-        'version'
+      return data.keys().hasAll([
+        'schemaVersion', 'requestReference', 'requestType', 'status', 'statusReason',
+        'customerName', 'bandName', 'contactPhone', 'publicServiceId', 'serviceLabelSnapshot',
+        'requestedRoomId', 'preferredDate', 'preferredStartMinute', 'preferredDurationMinutes',
+        'targetDeadline', 'notes', 'privacyConsent', 'consentVersion', 'source',
+        'assignedStaffUid', 'assignedStaffName', 'lastCommunicationAt', 'lastCommunicationType',
+        'lastCommunicationStatus', 'linkedBookingId', 'confirmedBookingSnapshot',
+        'confirmedAt', 'confirmedByUid', 'appCheckState', 'createdAt', 'updatedAt',
+        'updatedByUid', 'version'
       ]) && data.size() == 33;
     }
 
+    function isValidPublicBookingRequestUpdateKeys(data) {
+      return data.keys().hasAll([
+        'schemaVersion', 'requestReference', 'requestType', 'status', 'statusReason',
+        'customerName', 'bandName', 'contactPhone', 'publicServiceId', 'serviceLabelSnapshot',
+        'requestedRoomId', 'preferredDate', 'preferredStartMinute', 'preferredDurationMinutes',
+        'targetDeadline', 'notes', 'privacyConsent', 'consentVersion', 'source',
+        'assignedStaffUid', 'assignedStaffName', 'lastCommunicationAt', 'lastCommunicationType',
+        'lastCommunicationStatus', 'linkedBookingId', 'confirmedBookingSnapshot',
+        'confirmedAt', 'confirmedByUid', 'appCheckState', 'createdAt', 'updatedAt',
+        'updatedByUid', 'version'
+      ]) && data.keys().hasOnly([
+        'schemaVersion', 'requestReference', 'requestType', 'status', 'statusReason',
+        'customerName', 'bandName', 'contactPhone', 'publicServiceId', 'serviceLabelSnapshot',
+        'requestedRoomId', 'preferredDate', 'preferredStartMinute', 'preferredDurationMinutes',
+        'targetDeadline', 'notes', 'privacyConsent', 'consentVersion', 'source',
+        'assignedStaffUid', 'assignedStaffName', 'lastCommunicationAt', 'lastCommunicationType',
+        'lastCommunicationStatus', 'linkedBookingId', 'confirmedBookingSnapshot',
+        'confirmedAt', 'confirmedByUid', 'appCheckState', 'createdAt', 'updatedAt',
+        'updatedByUid', 'version',
+        'activeOfferId', 'activeOfferSummary', 'acceptedOfferId', 'linkedProjectId', 'convertedAt', 'convertedByUid'
+      ]);
+    }
+
     function isValidClientBookingRequestKeys(data) {
-      return data.keys().hasOnly([
-        'schemaVersion',
-        'requestReference',
-        'requestType',
-        'status',
-        'statusReason',
-        'customerName',
-        'bandName',
-        'contactPhone',
-        'publicServiceId',
-        'serviceLabelSnapshot',
-        'requestedRoomId',
-        'preferredDate',
-        'preferredStartMinute',
-        'preferredDurationMinutes',
-        'targetDeadline',
-        'notes',
-        'privacyConsent',
-        'consentVersion',
-        'source',
-        'clientUid',
-        'customerId',
-        'serviceOptionId',
-        'serviceOptionName',
-        'pricingVersion',
-        'assignedStaffUid',
-        'assignedStaffName',
-        'lastCommunicationAt',
-        'lastCommunicationType',
-        'lastCommunicationStatus',
-        'linkedBookingId',
-        'confirmedBookingSnapshot',
-        'confirmedAt',
-        'confirmedByUid',
-        'appCheckState',
-        'createdAt',
-        'updatedAt',
-        'updatedByUid',
-        'version'
+      return data.keys().hasAll([
+        'schemaVersion', 'requestReference', 'requestType', 'status', 'statusReason',
+        'customerName', 'bandName', 'contactPhone', 'publicServiceId', 'serviceLabelSnapshot',
+        'requestedRoomId', 'preferredDate', 'preferredStartMinute', 'preferredDurationMinutes',
+        'targetDeadline', 'notes', 'privacyConsent', 'consentVersion', 'source',
+        'clientUid', 'customerId', 'serviceOptionId', 'serviceOptionName', 'pricingVersion',
+        'assignedStaffUid', 'assignedStaffName', 'lastCommunicationAt', 'lastCommunicationType',
+        'lastCommunicationStatus', 'linkedBookingId', 'confirmedBookingSnapshot',
+        'confirmedAt', 'confirmedByUid', 'appCheckState', 'createdAt', 'updatedAt',
+        'updatedByUid', 'version'
       ]) && data.size() == 38;
+    }
+
+    function isValidClientBookingRequestUpdateKeys(data) {
+      return data.keys().hasAll([
+        'schemaVersion', 'requestReference', 'requestType', 'status', 'statusReason',
+        'customerName', 'bandName', 'contactPhone', 'publicServiceId', 'serviceLabelSnapshot',
+        'requestedRoomId', 'preferredDate', 'preferredStartMinute', 'preferredDurationMinutes',
+        'targetDeadline', 'notes', 'privacyConsent', 'consentVersion', 'source',
+        'clientUid', 'customerId', 'serviceOptionId', 'serviceOptionName', 'pricingVersion',
+        'assignedStaffUid', 'assignedStaffName', 'lastCommunicationAt', 'lastCommunicationType',
+        'lastCommunicationStatus', 'linkedBookingId', 'confirmedBookingSnapshot',
+        'confirmedAt', 'confirmedByUid', 'appCheckState', 'createdAt', 'updatedAt',
+        'updatedByUid', 'version'
+      ]) && data.keys().hasOnly([
+        'schemaVersion', 'requestReference', 'requestType', 'status', 'statusReason',
+        'customerName', 'bandName', 'contactPhone', 'publicServiceId', 'serviceLabelSnapshot',
+        'requestedRoomId', 'preferredDate', 'preferredStartMinute', 'preferredDurationMinutes',
+        'targetDeadline', 'notes', 'privacyConsent', 'consentVersion', 'source',
+        'clientUid', 'customerId', 'serviceOptionId', 'serviceOptionName', 'pricingVersion',
+        'assignedStaffUid', 'assignedStaffName', 'lastCommunicationAt', 'lastCommunicationType',
+        'lastCommunicationStatus', 'linkedBookingId', 'confirmedBookingSnapshot',
+        'confirmedAt', 'confirmedByUid', 'appCheckState', 'createdAt', 'updatedAt',
+        'updatedByUid', 'version',
+        'activeOfferId', 'activeOfferSummary', 'acceptedOfferId', 'linkedProjectId', 'convertedAt', 'convertedByUid'
+      ]);
     }
 
     function isValidPublicBookingRequestScheduleShape(data) {
@@ -3724,6 +3970,7 @@ service cloud.firestore {
         && existsAfter(/databases/$(database)/documents/bookings/$(nextData.linkedBookingId))
         && bookingAfter != null
         && bookingAfter.data.sessionStatus != 'cancelled'
+        && bookingAfter.data.get('reservationStatus', 'confirmed') != 'expired'
         && isValidConfirmedBookingSnapshot(
           nextData.confirmedBookingSnapshot,
           nextData.linkedBookingId,
@@ -3731,7 +3978,28 @@ service cloud.firestore {
         );
     }
 
-    function isValidBookingRequestStatusTransition(nextData, prevData) {
+    function isValidBookingRequestOfferUpdateByStaff(nextData, prevData, requestId) {
+      let activeId = nextData.get('activeOfferId', '');
+      let offerAfter = getAfter(/databases/$(database)/documents/publicBookingRequests/$(requestId)/offers/$(activeId));
+      return activeId is string
+        && activeId.size() > 0
+        && offerAfter != null
+        && (
+          (
+            nextData.status == 'offer_sent'
+            && prevData.status in ['new', 'in_review', 'awaiting_customer', 'offer_sent', 'accepted']
+            && offerAfter.data.status == 'sent'
+            && offerAfter.data.offerMode == 'quote_only'
+          )
+          || (
+            prevData.status == 'offer_sent'
+            && nextData.status in ['in_review', 'awaiting_customer', 'accepted', 'closed']
+            && offerAfter.data.status in ['withdrawn', 'expired', 'accepted', 'rejected']
+          )
+        );
+    }
+
+    function isValidBookingRequestStatusTransition(nextData, prevData, requestId) {
       return (
         nextData.status == prevData.status
         && nextData.statusReason == prevData.statusReason
@@ -3742,7 +4010,7 @@ service cloud.firestore {
       ) || (
         nextData.status == 'confirmed'
         && prevData.requestType == 'studio_booking'
-        && prevData.status in ['new', 'in_review', 'awaiting_customer', 'accepted']
+        && prevData.status in ['new', 'in_review', 'awaiting_customer', 'offer_sent', 'accepted']
         && prevData.linkedBookingId == null
         && nextData.linkedBookingId is string
         && nextData.linkedBookingId.size() > 0
@@ -3756,11 +4024,15 @@ service cloud.firestore {
         && nextData.confirmedAt == prevData.confirmedAt
         && nextData.confirmedByUid == prevData.confirmedByUid
         && (
-          (prevData.status == 'new' && nextData.status in ['in_review', 'awaiting_customer', 'accepted', 'declined', 'closed'])
-          || (prevData.status == 'in_review' && nextData.status in ['awaiting_customer', 'accepted', 'declined', 'closed'])
-          || (prevData.status == 'awaiting_customer' && nextData.status in ['in_review', 'accepted', 'declined', 'closed'])
-          || (prevData.status == 'accepted' && nextData.status in ['in_review', 'awaiting_customer', 'declined', 'closed'])
-          || (prevData.status == 'declined' && nextData.status == 'closed')
+          isValidBookingRequestOfferUpdateByStaff(nextData, prevData, requestId)
+          || (
+            (prevData.status == 'new' && nextData.status in ['in_review', 'awaiting_customer', 'accepted', 'declined', 'closed'])
+            || (prevData.status == 'in_review' && nextData.status in ['awaiting_customer', 'accepted', 'declined', 'closed'])
+            || (prevData.status == 'awaiting_customer' && nextData.status in ['in_review', 'accepted', 'declined', 'closed'])
+            || (prevData.status == 'offer_sent' && nextData.status in ['in_review', 'awaiting_customer', 'declined', 'closed'])
+            || (prevData.status == 'accepted' && nextData.status in ['in_review', 'awaiting_customer', 'declined', 'closed'])
+            || (prevData.status == 'declined' && nextData.status == 'closed')
+          )
         )
         && (
           !(nextData.status in ['declined', 'closed'])
@@ -3769,11 +4041,11 @@ service cloud.firestore {
       );
     }
 
-    function isValidBookingRequestStaffUpdate(nextData, prevData) {
+    function isValidBookingRequestStaffUpdate(nextData, prevData, requestId) {
       return (
           prevData.source == 'client_portal'
-            ? isValidClientBookingRequestKeys(nextData)
-            : isValidPublicBookingRequestKeys(nextData)
+            ? isValidClientBookingRequestUpdateKeys(nextData)
+            : isValidPublicBookingRequestUpdateKeys(nextData)
         )
         && isBookingRequestCustomerFieldsUnchanged(nextData, prevData)
         && nextData.version == prevData.version + 1
@@ -3788,7 +4060,40 @@ service cloud.firestore {
         && nextData.lastCommunicationType.size() <= 60
         && nextData.lastCommunicationStatus is string
         && nextData.lastCommunicationStatus.size() <= 60
-        && isValidBookingRequestStatusTransition(nextData, prevData);
+        && isValidBookingRequestStatusTransition(nextData, prevData, requestId);
+    }
+
+    function isValidBookingRequestClientOfferResponseUpdate(nextData, prevData, requestId) {
+      let activeId = prevData.get('activeOfferId', '');
+      let offerPath = /databases/$(database)/documents/publicBookingRequests/$(requestId)/offers/$(activeId);
+      let offerBefore = get(offerPath);
+      let offerAfter = getAfter(offerPath);
+      let affected = nextData.diff(prevData).affectedKeys();
+      return prevData.source == 'client_portal'
+        && prevData.clientUid == request.auth.uid
+        && prevData.status in ['offer_sent', 'in_review', 'awaiting_customer']
+        && activeId is string
+        && activeId.size() > 0
+        && affected.hasOnly(['status', 'activeOfferSummary', 'updatedAt', 'updatedByUid', 'version'])
+        && nextData.updatedByUid == request.auth.uid
+        && nextData.updatedAt is timestamp
+        && nextData.version == prevData.version + 1
+        && offerBefore != null
+        && offerBefore.data.status == 'sent'
+        && offerBefore.data.offerMode == 'quote_only'
+        && offerBefore.data.supersededByOfferId == null
+        && offerAfter != null
+        && offerAfter.data.version == offerBefore.data.version + 1
+        && offerAfter.data.respondedByUid == request.auth.uid
+        && (
+          (offerAfter.data.status == 'accepted'
+            && nextData.status == 'accepted'
+            && request.time <= offerBefore.data.offerExpiresAt)
+          || (offerAfter.data.status == 'rejected'
+            && nextData.status == 'in_review')
+        )
+        && nextData.activeOfferSummary is map
+        && nextData.activeOfferSummary.status == offerAfter.data.status;
     }
 
     function isValidBookingRequestCommunicationCreate(data) {
@@ -3832,7 +4137,11 @@ service cloud.firestore {
           'createdAt'
         ])
         && data.size() == 8
-        && data.eventType in ['request_created', 'status_changed', 'booking_confirmed', 'staff_assigned']
+        && data.eventType in [
+          'request_created', 'status_changed', 'booking_confirmed', 'staff_assigned',
+          'offer_sent', 'offer_revised', 'offer_accepted', 'offer_rejected',
+          'offer_withdrawn', 'offer_expired'
+        ]
         && (data.fromStatus == null || data.fromStatus is string)
         && (data.toStatus == null || data.toStatus is string)
         && (data.linkedBookingId == null || data.linkedBookingId is string)
@@ -3842,6 +4151,90 @@ service cloud.firestore {
         && data.actorName is string
         && data.actorName.size() <= 120
         && data.createdAt is timestamp;
+    }
+
+    function isValidOfferCreate(data, offerId, requestId) {
+      return data.keys().hasOnly([
+          'schemaVersion', 'offerId', 'offerNumber', 'revisionNumber', 'requestId',
+          'clientUid', 'customerId', 'offerMode', 'provisionalBookingId',
+          'scheduleSnapshot', 'serviceSnapshot', 'financialSnapshot',
+          'depositPolicySnapshot', 'holdDeadline', 'balanceDuePolicy',
+          'offerExpiresAt', 'staffNoteToClient', 'status', 'supersededByOfferId',
+          'respondedAt', 'respondedByUid', 'responseReason', 'withdrawalOrExpiryReason',
+          'createdAt', 'createdByUid', 'updatedAt', 'updatedByUid', 'version'
+        ])
+        && data.size() == 28
+        && data.schemaVersion == 1
+        && data.offerId == offerId
+        && data.offerNumber is string
+        && data.offerNumber.matches('^OFF-\\d{2,}$')
+        && data.revisionNumber is int && data.revisionNumber >= 1
+        && data.requestId == requestId
+        // Enforces Section 3 ADR boundary: deposit_hold_offer blocked pending Owner timing choice
+        && data.offerMode == 'quote_only'
+        && data.provisionalBookingId == null
+        && data.status == 'sent'
+        && data.supersededByOfferId == null
+        && data.respondedAt == null
+        && data.offerExpiresAt is timestamp
+        && data.staffNoteToClient is string && data.staffNoteToClient.size() <= 1000
+        && data.scheduleSnapshot is map
+        && data.serviceSnapshot is map
+        && data.financialSnapshot is map
+        && data.financialSnapshot.totalAmount is int && data.financialSnapshot.totalAmount >= 0
+        && data.depositPolicySnapshot is map
+        && data.balanceDuePolicy is map
+        && data.createdByUid == request.auth.uid
+        && data.updatedByUid == request.auth.uid
+        && data.version == 1;
+    }
+
+    function isValidOfferStaffUpdate(nextData, prevData, requestId) {
+      let reqDoc = get(/databases/$(database)/documents/publicBookingRequests/$(requestId));
+      return prevData.status == 'sent'
+        && nextData.offerId == prevData.offerId
+        && nextData.requestId == prevData.requestId
+        && nextData.revisionNumber == prevData.revisionNumber
+        && nextData.offerMode == 'quote_only'
+        && nextData.updatedByUid == request.auth.uid
+        && nextData.updatedAt is timestamp
+        && nextData.version == prevData.version + 1
+        && (
+          (nextData.status == 'superseded'
+            && nextData.supersededByOfferId is string
+            && nextData.supersededByOfferId.size() > 0)
+          || (nextData.status in ['withdrawn', 'expired']
+            && nextData.withdrawalOrExpiryReason is string
+            && nextData.withdrawalOrExpiryReason.size() >= 3)
+          || (nextData.status in ['accepted', 'rejected']
+            && (reqDoc == null || reqDoc.data.source != 'client_portal'))
+        );
+    }
+
+    function isValidOfferClientRespondUpdate(nextData, prevData, requestId, offerId) {
+      let reqDoc = get(/databases/$(database)/documents/publicBookingRequests/$(requestId));
+      let affected = nextData.diff(prevData).affectedKeys();
+      return prevData.status == 'sent'
+        && prevData.offerMode == 'quote_only'
+        && prevData.supersededByOfferId == null
+        && reqDoc != null
+        && reqDoc.data.source == 'client_portal'
+        && reqDoc.data.clientUid == request.auth.uid
+        && reqDoc.data.get('activeOfferId', '') == offerId
+        && affected.hasOnly([
+          'status', 'respondedAt', 'respondedByUid', 'responseReason',
+          'updatedAt', 'updatedByUid', 'version'
+        ])
+        && nextData.respondedByUid == request.auth.uid
+        && nextData.respondedAt is timestamp
+        && nextData.updatedByUid == request.auth.uid
+        && nextData.updatedAt is timestamp
+        && nextData.responseReason is string && nextData.responseReason.size() <= 300
+        && nextData.version == prevData.version + 1
+        && (
+          (nextData.status == 'accepted' && request.time <= prevData.offerExpiresAt)
+          || nextData.status == 'rejected'
+        );
     }
 
     match /publicBookingRequests/{requestId} {
@@ -3863,11 +4256,32 @@ service cloud.firestore {
       allow create: if !isFactoryResetLocked()
         && isValidPublicBookingRequestCreate(request.resource.data, requestId);
 
-      allow update: if isActiveStaff()
-        && !isFactoryResetLocked()
-        && isValidBookingRequestStaffUpdate(request.resource.data, resource.data);
+      allow update: if !isFactoryResetLocked()
+        && (
+          (isActiveStaff() && isValidBookingRequestStaffUpdate(request.resource.data, resource.data, requestId))
+          || (isActiveClient() && isValidBookingRequestClientOfferResponseUpdate(request.resource.data, resource.data, requestId))
+        );
 
       allow delete: if canFactoryResetDelete();
+
+      match /offers/{offerId} {
+        allow get, list: if isActiveStaff()
+          || (
+            isActiveClient()
+            && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.source == 'client_portal'
+            && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.clientUid == request.auth.uid
+          );
+        allow create: if isActiveStaff()
+          && !isFactoryResetLocked()
+          && isValidOfferCreate(request.resource.data, offerId, requestId);
+        allow update: if !isFactoryResetLocked()
+          && resource != null
+          && (
+            (isActiveStaff() && isValidOfferStaffUpdate(request.resource.data, resource.data, requestId))
+            || (isActiveClient() && isValidOfferClientRespondUpdate(request.resource.data, resource.data, requestId, offerId))
+          );
+        allow delete: if canFactoryResetDelete();
+      }
 
       match /communications/{eventId} {
         allow read: if isActiveStaff();
@@ -3880,9 +4294,17 @@ service cloud.firestore {
 
       match /activities/{eventId} {
         allow read: if isActiveStaff();
-        allow create: if isActiveStaff()
-          && !isFactoryResetLocked()
-          && isValidBookingRequestActivityCreate(request.resource.data);
+        allow create: if !isFactoryResetLocked()
+          && isValidBookingRequestActivityCreate(request.resource.data)
+          && (
+            isActiveStaff()
+            || (
+              isActiveClient()
+              && request.resource.data.eventType in ['offer_accepted', 'offer_rejected']
+              && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.source == 'client_portal'
+              && get(/databases/$(database)/documents/publicBookingRequests/$(requestId)).data.clientUid == request.auth.uid
+            )
+          );
         allow update: if false;
         allow delete: if canFactoryResetDelete();
       }

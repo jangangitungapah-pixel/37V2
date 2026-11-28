@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import { AdminPageHeader, AdminStatusBadge } from '@/features/admin/design-system';
 import { useClientPaymentEvidence } from '@/features/payment-evidence/hooks/useClientPaymentEvidence';
@@ -45,9 +46,12 @@ export function ClientInvoicesPage({
   const studioName = siteSettings?.studioName || '37 Music Studio';
   const publicWhatsappNumber = siteSettings?.publicWhatsappNumber || '';
 
+  const [searchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState('');
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(
+    () => searchParams.get('invoiceId') || '',
+  );
 
   const filteredInvoices = useMemo(
     () =>

@@ -78,7 +78,12 @@ export async function voidInvoice({
   }
 
   return adapter.runAtomicTransaction(async (tx) => {
-    const existing = await tx.getInvoice(cleanInvoiceId);
+    const [existing, existingLock] = await Promise.all([
+      tx.getInvoice(cleanInvoiceId),
+      typeof tx.getPaymentEvidenceLock === 'function'
+        ? tx.getPaymentEvidenceLock(cleanInvoiceId)
+        : Promise.resolve(null),
+    ]);
     if (!existing) {
       throw createPaymentServiceError('invoice/not-found', 'Dokumen invoice tidak ditemukan.');
     }
@@ -108,6 +113,13 @@ export async function voidInvoice({
       );
     }
 
+    if ((Number(existingLock?.pendingCount) || 0) > 0) {
+      throw createPaymentServiceError(
+        'invoice/pending-evidence-exists',
+        'Invoice masih memiliki bukti pembayaran berstatus Pending Review. Verifikasi atau tolak bukti pembayaran tersebut sebelum melakukan void invoice.',
+      );
+    }
+
     const now = tx.nowValue();
     const existingClientUid = String(existing.clientUid || '').trim();
     const updatedDoc = {
@@ -124,6 +136,15 @@ export async function voidInvoice({
       amountPaid: 0,
       balanceDue: existing.balanceDue,
       paymentStatus: existing.paymentStatus,
+      ...(existing.targetType ? { targetType: existing.targetType } : {}),
+      ...(existing.depositPolicySnapshot
+        ? { depositPolicySnapshot: existing.depositPolicySnapshot }
+        : {}),
+      ...(Number.isInteger(existing.minimumDepositAmount)
+        ? { minimumDepositAmount: existing.minimumDepositAmount }
+        : {}),
+      ...(existing.depositStatus ? { depositStatus: existing.depositStatus } : {}),
+      ...(existing.balanceDuePolicy ? { balanceDuePolicy: existing.balanceDuePolicy } : {}),
       invoiceDate: existing.invoiceDate,
       dueDate: existing.dueDate,
       lastPaymentTransactionId: existing.lastPaymentTransactionId,
@@ -198,6 +219,15 @@ export async function updateInvoiceDueDate({
       amountPaid: existing.amountPaid,
       balanceDue: existing.balanceDue,
       paymentStatus: existing.paymentStatus,
+      ...(existing.targetType ? { targetType: existing.targetType } : {}),
+      ...(existing.depositPolicySnapshot
+        ? { depositPolicySnapshot: existing.depositPolicySnapshot }
+        : {}),
+      ...(Number.isInteger(existing.minimumDepositAmount)
+        ? { minimumDepositAmount: existing.minimumDepositAmount }
+        : {}),
+      ...(existing.depositStatus ? { depositStatus: existing.depositStatus } : {}),
+      ...(existing.balanceDuePolicy ? { balanceDuePolicy: existing.balanceDuePolicy } : {}),
       invoiceDate: existing.invoiceDate,
       dueDate: cleanDueDate,
       lastPaymentTransactionId: existing.lastPaymentTransactionId,

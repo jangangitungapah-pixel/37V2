@@ -111,9 +111,11 @@ function createFullOperationalSeed({ bookingsCount = 14 } = {}) {
       bookingSlots: [{ id: '2026-11-22__room-a__600' }, { id: '2026-11-22__room-a__660' }],
       publicAvailability: [{ id: 'bkg_001' }],
       clientReservations: [],
+      paymentEvidenceLocks: [{ id: 'inv_001' }],
       paymentEvidence: [{ id: 'ev_001' }],
       paymentTransactions: [{ id: 'pay_001' }],
       invoices: [{ id: 'inv_001' }],
+      refundCases: [{ id: 'ref_001' }],
       commissionReviewResolutions: [{ id: 'res_001' }],
       commissionPostingItems: [{ id: 'cpi_001' }],
       commissionBatches: [{ id: 'cb_001' }],
@@ -132,10 +134,12 @@ function createFullOperationalSeed({ bookingsCount = 14 } = {}) {
       req_001: {
         communications: [{ id: 'comm_001' }, { id: 'comm_002' }],
         activities: [{ id: 'act_001' }],
+        offers: [{ id: 'off_001' }],
       },
       req_002: {
         communications: [{ id: 'comm_003' }],
         activities: [{ id: 'act_002' }, { id: 'act_003' }],
+        offers: [],
       },
     },
     initialPreserved: {
@@ -171,7 +175,7 @@ afterEach(() => {
 });
 
 describe('Danger Area & Operational Factory Reset Engine', () => {
-  it('1. Dry Run Preview accurately counts all 25 operational targets without mutating anything and blocks incomplete preflight', async () => {
+  it('1. Dry Run Preview accurately counts all 28 operational targets without mutating anything and blocks incomplete preflight', async () => {
     const adapter = createInMemoryFactoryResetRepositoryAdapter(
       createFullOperationalSeed({ bookingsCount: 14 }),
     );
@@ -179,14 +183,17 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
 
     const preflight = await previewFactoryReset({ actor: owner, adapter });
     expect(preflight.isComplete).toBe(true);
-    expect(preflight.items).toHaveLength(25);
-    expect(preflight.topLevelDocumentCount).toBe(32);
-    expect(preflight.subcollectionDocumentCount).toBe(6);
-    expect(preflight.totalDeleteOperations).toBe(38);
+    expect(preflight.items).toHaveLength(28);
+    expect(preflight.topLevelDocumentCount).toBe(34);
+    expect(preflight.subcollectionDocumentCount).toBe(7);
+    expect(preflight.totalDeleteOperations).toBe(41);
 
     const byKey = Object.fromEntries(preflight.items.map((item) => [item.key, item.count]));
     expect(byKey.publicBookingRequests_communications).toBe(3);
     expect(byKey.publicBookingRequests_activities).toBe(3);
+    expect(byKey.publicBookingRequests_offers).toBe(1);
+    expect(byKey.paymentEvidenceLocks).toBe(1);
+    expect(byKey.refundCases).toBe(1);
     expect(byKey.publicBookingRequests).toBe(2);
     expect(byKey.bookings).toBe(14);
     expect(adapter._inspectState().committedDeleteBatchesCount).toBe(0);
@@ -374,10 +381,10 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     });
 
     expect(result.status).toBe(FACTORY_RESET_STATUS.COMPLETED);
-    expect(result.totalDeletedCount).toBe(49);
+    expect(result.totalDeletedCount).toBe(52);
     expect(result.verificationSummary).toEqual({
       allZero: true,
-      checkedCollectionsCount: 25,
+      checkedCollectionsCount: 28,
       remainingTotal: 0,
     });
 
@@ -388,15 +395,19 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     }
     expect(state.communicationsCount).toBe(0);
     expect(state.activitiesCount).toBe(0);
+    expect(state.offersCount).toBe(0);
 
     // Subcollections must complete before parent publicBookingRequests
     const commIdx = result.completedCollections.indexOf('publicBookingRequests_communications');
     const actIdx = result.completedCollections.indexOf('publicBookingRequests_activities');
+    const offerIdx = result.completedCollections.indexOf('publicBookingRequests_offers');
     const parentIdx = result.completedCollections.indexOf('publicBookingRequests');
     expect(commIdx).toBeGreaterThanOrEqual(0);
     expect(actIdx).toBeGreaterThanOrEqual(0);
+    expect(offerIdx).toBeGreaterThanOrEqual(0);
     expect(parentIdx).toBeGreaterThan(commIdx);
     expect(parentIdx).toBeGreaterThan(actIdx);
+    expect(parentIdx).toBeGreaterThan(offerIdx);
 
     // Preserved collections untouched (including Customer Reviews & Public Review Stats)
     expect(state.preservedCounts).toEqual({
@@ -423,8 +434,8 @@ describe('Danger Area & Operational Factory Reset Engine', () => {
     const adapter = createInMemoryFactoryResetRepositoryAdapter(
       createFullOperationalSeed({ bookingsCount: 15 }),
     );
-    // Batches 0..19 clean up earlier collections, batch 20 deletes bkg_001..bkg_010; fail on batch 21
-    adapter._setFailDeleteAtBatch(21);
+    // Batches 0..22 clean up earlier collections, batch 23 deletes bkg_001..bkg_010; fail on batch 24
+    adapter._setFailDeleteAtBatch(24);
 
     const owner = buildActor({ role: 'owner' });
     const preflight = await previewFactoryReset({ actor: owner, adapter });

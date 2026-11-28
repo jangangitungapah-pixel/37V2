@@ -36,6 +36,13 @@ import {
 } from '@/features/admin/customer/utils/phone-number';
 
 import {
+  DEFAULT_BOOKING_POLICIES,
+} from '@/features/admin/settings/booking-policies/config/booking-policies-config';
+import {
+  buildDepositPolicySnapshot,
+  resolveEffectiveHoldDeadline,
+} from '@/features/admin/settings/booking-policies/utils/booking-policy-engine';
+import {
   DEFAULT_PRICING_SETTINGS,
   DELIVERY_MODES,
   DISCOUNT_RULE_MODES,
@@ -73,6 +80,7 @@ import {
   resolveServiceAndOption,
 } from '../utils/booking-pricing';
 import { formatDurationMinutes, formatMinuteOfDay, formatMinuteRange } from '../utils/booking-time';
+import { formatIndonesianTimestamp } from '../utils/calendar-date';
 import { formatIndonesianDateFull, getJakartaTodayIso } from '../utils/calendar-date';
 
 const FORM_STEPS = [
@@ -197,7 +205,7 @@ function buildInitialFormValues({ mode, initialSlot, editingBooking, normalizedS
     serviceId: manualServiceRequired ? '' : defaultService?.id || 'rehearsal',
     packageId: '',
     recordingTypeId: '',
-    manualCustomerPrice: '',
+    manualCustomerPrice: initialSlot?.manualCustomerPrice ? String(initialSlot.manualCustomerPrice) : '',
     manualStaffFee: '0',
     manualOwnerFee: '0',
     manualRecordingOperatorFee: '0',
@@ -219,9 +227,11 @@ export function BookingFormDialog({
   mode = 'create',
   initialSlot = null,
   sourceBookingRequest = null,
+  sourceOffer = null,
   editingBooking = null,
   existingBookings = [],
   pricingSettings = DEFAULT_PRICING_SETTINGS,
+  bookingPolicies = DEFAULT_BOOKING_POLICIES,
   onOpenChange,
   onSubmitBooking,
   returnFocusRef = null,
@@ -263,6 +273,11 @@ export function BookingFormDialog({
     phoneNormalized: '',
     result: null,
     error: '',
+  });
+  const [holdControlState, setHoldControlState] = useState({
+    holdMode: '', // '' | 'deposit_hold' | 'confirmed'
+    holdOverrideHours: '',
+    holdOverrideReason: '',
   });
   const [manualCustomerChoice, setManualCustomerChoice] = useState(null);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
@@ -635,6 +650,85 @@ export function BookingFormDialog({
     [displayedPricing.commissionSnapshot],
   );
 
+  const sourceDepositSnapshot = sourceOffer?.depositPolicySnapshot || null;
+  const policyDepositPreview = useMemo(() => {
+    if (isEditingOrRescheduling) return null;
+    if (sourceDepositSnapshot) {
+      return sourceDepositSnapshot;
+    }
+    return buildDepositPolicySnapshot({
+      policies: bookingPolicies || DEFAULT_BOOKING_POLICIES,
+      serviceTypeId: formValues.serviceTypeId,
+      serviceOptionId: formValues.serviceOptionId,
+      totalAmount: displayedPricing.totalAmount,
+      subtotal: displayedPricing.subtotal,
+    });
+  }, [
+    isEditingOrRescheduling,
+    sourceDepositSnapshot,
+    bookingPolicies,
+    formValues.serviceTypeId,
+    formValues.serviceOptionId,
+    displayedPricing.totalAmount,
+    displayedPricing.subtotal,
+  ]);
+
+  const policyHoldPreview = useMemo(() => {
+    if (
+      isEditingOrRescheduling ||
+      !policyDepositPreview ||
+      policyDepositPreview.type === 'none' ||
+      policyDepositPreview.minimumDepositAmount <= 0
+    ) {
+      return { required: false, error: '', deadlineIso: '' };
+    }
+    const verifiedInitialPaid = isClientPortalSourceRequest
+      ? 0
+      : Math.max(0, Math.round(Number(displayedPricing.initialPaidAmount) || 0));
+    if (
+      verifiedInitialPaid >= policyDepositPreview.minimumDepositAmount ||
+      holdControlState.holdMode === 'confirmed'
+    ) {
+      return { required: false, error: '', deadlineIso: '' };
+    }
+    try {
+      const resolved = resolveEffectiveHoldDeadline({
+        policies: bookingPolicies || DEFAULT_BOOKING_POLICIES,
+        serviceTypeId: formValues.serviceTypeId,
+        serviceOptionId: formValues.serviceOptionId,
+        bookingDate: formValues.date,
+        startMinute: Number(formValues.startMinute),
+        overrideHoldHours: holdControlState.holdOverrideHours || null,
+        overrideReason: holdControlState.holdOverrideReason,
+      });
+      return {
+        required: true,
+        error: '',
+        deadlineIso: resolved.holdExpiresAtIso,
+        deadlineDate: resolved.holdExpiresAtDate,
+      };
+    } catch (err) {
+      return {
+        required: true,
+        error: err?.message || 'Durasi hold perlu diisi.',
+        deadlineIso: '',
+      };
+    }
+  }, [
+    isEditingOrRescheduling,
+    policyDepositPreview,
+    isClientPortalSourceRequest,
+    displayedPricing.initialPaidAmount,
+    holdControlState.holdMode,
+    holdControlState.holdOverrideHours,
+    holdControlState.holdOverrideReason,
+    bookingPolicies,
+    formValues.serviceTypeId,
+    formValues.serviceOptionId,
+    formValues.date,
+    formValues.startMinute,
+  ]);
+
   const liveValidation = useMemo(
     () =>
       validateBookingFormPayload(
@@ -906,6 +1000,12 @@ export function BookingFormDialog({
         formValues: submissionFormValues,
         customerResolution,
         bookingRequestId: sourceBookingRequest?.id || '',
+        acceptedOfferId: sourceOffer?.id || '',
+        holdMode: holdControlState.holdMode,
+        holdOverrideHours: holdControlState.holdOverrideHours
+          ? Number(holdControlState.holdOverrideHours)
+          : null,
+        holdOverrideReason: holdControlState.holdOverrideReason,
         ...(optionalInitialPaymentEvidence
           ? {
             optionalInitialPaymentEvidence,
@@ -2201,6 +2301,151 @@ export function BookingFormDialog({
                       ) : null}
                     </>
                   )}
+
+                  {/* Policy Deposit & Hold Control Panel (Create only when DP applies) */}
+                  {!isEditingOrRescheduling &&
+                  policyDepositPreview &&
+                  policyDepositPreview.type !== 'none' &&
+                  policyDepositPreview.minimumDepositAmount > 0 ? (
+                    <div
+                      data-testid="booking-form-hold-policy-panel"
+                      className="mt-4 space-y-2.5 rounded-2xl border border-amber-500/30 bg-[#FEF4DD]/65 p-4 text-xs"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-bold text-[#6A3B00]">
+                          Kebijakan Deposit (Min. DP {formatRupiah(policyDepositPreview.minimumDepositAmount)})
+                        </span>
+                        <span className="font-mono text-[10.5px] font-semibold text-[#6A3B00]">
+                          {policyHoldPreview.required ? 'Akan dibuat sebagai Deposit Hold' : 'Langsung Confirmed'}
+                        </span>
+                      </div>
+
+                      {sourceOffer ? (
+                        <p className="text-[11px] font-medium text-[#46433D]">
+                          Mengikuti snapshot Offer <strong>{sourceOffer.offerNumber}</strong>.
+                        </p>
+                      ) : null}
+
+                      {policyHoldPreview.required ? (
+                        policyHoldPreview.deadlineIso ? (
+                          <p className="text-[11px] text-[#46433D]">
+                            Slot dikunci sementara (<strong>Deposit Hold</strong>) hingga{' '}
+                            <strong>{formatIndonesianTimestamp(policyHoldPreview.deadlineDate)}</strong>.
+                          </p>
+                        ) : (
+                          <p role="alert" className="text-[11px] font-semibold text-[#B92B0C]">
+                            {policyHoldPreview.error}
+                          </p>
+                        )
+                      ) : null}
+
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHoldControlState({
+                              holdMode: '',
+                              holdOverrideHours: '',
+                              holdOverrideReason: '',
+                            })
+                          }
+                          className={`cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${
+                            holdControlState.holdMode === '' && !holdControlState.holdOverrideHours
+                              ? 'border-[#151515] bg-[#151515] text-white'
+                              : 'border-[#151515]/15 bg-white text-[#46433D]'
+                          }`}
+                        >
+                          Otomatis Sesuai Kebijakan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHoldControlState((prev) => ({
+                              ...prev,
+                              holdMode: 'deposit_hold',
+                              holdOverrideHours: prev.holdOverrideHours || '24',
+                            }))
+                          }
+                          className={`cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${
+                            holdControlState.holdMode === 'deposit_hold'
+                              ? 'border-amber-600 bg-amber-600 text-white'
+                              : 'border-[#151515]/15 bg-white text-[#46433D]'
+                          }`}
+                        >
+                          Override Durasi Hold
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHoldControlState((prev) => ({
+                              ...prev,
+                              holdMode: 'confirmed',
+                              holdOverrideHours: '',
+                            }))
+                          }
+                          className={`cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${
+                            holdControlState.holdMode === 'confirmed'
+                              ? 'border-emerald-700 bg-emerald-700 text-white'
+                              : 'border-[#151515]/15 bg-white text-[#46433D]'
+                          }`}
+                        >
+                          Override Langsung Confirmed
+                        </button>
+                      </div>
+
+                      {holdControlState.holdMode === 'deposit_hold' ||
+                      holdControlState.holdMode === 'confirmed' ? (
+                        <div className="grid gap-2.5 pt-1 sm:grid-cols-2">
+                          {holdControlState.holdMode === 'deposit_hold' ? (
+                            <div>
+                              <label
+                                htmlFor="booking-hold-override-hours"
+                                className="block text-[11px] font-semibold text-[#151515]"
+                              >
+                                Durasi Hold Override (Jam, 1–168)
+                              </label>
+                              <input
+                                id="booking-hold-override-hours"
+                                type="number"
+                                min={1}
+                                max={168}
+                                value={holdControlState.holdOverrideHours}
+                                onChange={(e) =>
+                                  setHoldControlState((prev) => ({
+                                    ...prev,
+                                    holdOverrideHours: e.target.value,
+                                  }))
+                                }
+                                className="sa-input mt-1 min-h-9 w-full rounded-lg bg-white px-2.5 py-1 font-mono text-xs"
+                              />
+                            </div>
+                          ) : null}
+                          <div className={holdControlState.holdMode === 'confirmed' ? 'sm:col-span-2' : ''}>
+                            <label
+                              htmlFor="booking-hold-override-reason"
+                              className="block text-[11px] font-semibold text-[#151515]"
+                            >
+                              Alasan Override (Min. 5 karakter)
+                            </label>
+                            <input
+                              id="booking-hold-override-reason"
+                              type="text"
+                              maxLength={300}
+                              value={holdControlState.holdOverrideReason}
+                              onChange={(e) =>
+                                setHoldControlState((prev) => ({
+                                  ...prev,
+                                  holdOverrideReason: e.target.value,
+                                }))
+                              }
+                              placeholder="Mis. Pelanggan reguler bayar di studio"
+                              className="sa-input mt-1 min-h-9 w-full rounded-lg bg-white px-2.5 py-1 text-xs"
+                            />
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   {/* Notes Field */}
                   <div className="mt-4">

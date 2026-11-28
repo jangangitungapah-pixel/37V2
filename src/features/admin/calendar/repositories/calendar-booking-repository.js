@@ -7,6 +7,13 @@ import {
   normalizePaymentTransactionRecord,
 } from '@/features/admin/payment/schemas/payment-schema';
 
+import { normalizeOfferRecord } from '@/features/admin/booking-requests/schemas/offer-schema';
+import {
+  BOOKING_POLICIES_COLLECTION,
+  BOOKING_POLICIES_DOC_ID,
+} from '@/features/admin/settings/booking-policies/config/booking-policies-config';
+import { normalizeBookingPolicies } from '@/features/admin/settings/booking-policies/utils/booking-policies-normalize';
+
 import {
   BOOKING_SESSION_STATUS,
   CALENDAR_BOOKINGS_QUERY_LIMIT,
@@ -20,6 +27,7 @@ export const FIRESTORE_COLLECTIONS = {
   BOOKING_EVENTS: 'bookingEvents',
   PUBLIC_BOOKING_REQUESTS: 'publicBookingRequests',
   BOOKING_REQUEST_ACTIVITIES: 'activities',
+  BOOKING_REQUEST_OFFERS: 'offers',
   PUBLIC_AVAILABILITY: 'publicAvailability',
   PUBLIC_AVAILABILITY_METADATA: 'publicAvailabilityMetadata',
   CUSTOMERS: 'customers',
@@ -31,7 +39,11 @@ export const FIRESTORE_COLLECTIONS = {
   INVOICES: 'invoices',
   PAYMENT_TRANSACTIONS: 'paymentTransactions',
   PAYMENT_EVIDENCE: 'paymentEvidence',
+  PAYMENT_EVIDENCE_LOCKS: 'paymentEvidenceLocks',
   CLIENT_RESERVATIONS: 'clientReservations',
+  REFUND_CASES: 'refundCases',
+  SETTINGS: BOOKING_POLICIES_COLLECTION,
+  BOOKING_POLICIES_DOC_ID,
   COMMISSION_BATCHES: 'commissionBatches',
   COMMISSION_POSTING_ITEMS: 'commissionPostingItems',
   COMMISSION_REVIEW_RESOLUTIONS: 'commissionReviewResolutions',
@@ -194,7 +206,28 @@ export function normalizeBookingRecord(id, data = {}) {
     minimumDepositAmount:
       Number.isInteger(data.minimumDepositAmount) ? data.minimumDepositAmount : null,
     holdExpiresAt: data.holdExpiresAt ?? null,
+    holdExtensionCount: Math.max(0, Number(data.holdExtensionCount) || 0),
+    holdLastExtendedAt: data.holdLastExtendedAt ?? null,
+    holdLastExtendedByUid: String(data.holdLastExtendedByUid || ''),
+    holdLastExtensionReason: String(data.holdLastExtensionReason || ''),
     depositStatus: typeof data.depositStatus === 'string' ? data.depositStatus : null,
+    balanceDuePolicy: data.balanceDuePolicy ?? null,
+    confirmedAt: data.confirmedAt ?? null,
+    confirmedByUid: String(data.confirmedByUid || ''),
+    confirmationSource: data.confirmationSource ?? null,
+    confirmationOverrideReason: String(data.confirmationOverrideReason || ''),
+    expiredAt: data.expiredAt ?? null,
+    expiredByUid: String(data.expiredByUid || ''),
+    expiryReason: String(data.expiryReason || ''),
+    cancelledAt: data.cancelledAt ?? null,
+    cancelledByUid: String(data.cancelledByUid || ''),
+    cancellationType: data.cancellationType ?? null,
+    cancellationReason: String(data.cancellationReason || ''),
+    restoredAt: data.restoredAt ?? null,
+    restoredByUid: String(data.restoredByUid || ''),
+    restorationReason: String(data.restorationReason || ''),
+    depositIntegrityAlert: data.depositIntegrityAlert === true,
+    invoiceId: String(data.invoiceId || (id ? `inv_${id}` : '')),
     checkedInAt: data.checkedInAt ?? null,
     checkedInByUid: String(data.checkedInByUid || ''),
     actualStartedAt: data.actualStartedAt ?? null,
@@ -270,19 +303,23 @@ function getTimestampMillis(value) {
 export function createFirestoreBookingRepositoryAdapter() {
   return {
     async runAtomicTransaction(transactionWork) {
-      const [{ doc, runTransaction, serverTimestamp }, { getFirebaseDb }] = await Promise.all([
-        import('firebase/firestore'),
-        import('@/lib/firebase/firestore'),
-      ]);
+      const [{ doc, runTransaction, serverTimestamp, Timestamp }, { getFirebaseDb }] =
+        await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
       const db = getFirebaseDb();
 
       return runTransaction(db, async (tx) => {
         const txContext = {
           nowValue: () => serverTimestamp(),
+          timestampFromDate: (date) => Timestamp.fromDate(date instanceof Date ? date : new Date(date)),
           async getBooking(bookingId) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKINGS, bookingId);
             const snap = await tx.get(ref);
             return snap.exists() ? normalizeBookingRecord(snap.id, snap.data()) : null;
+          },
+          async getBookingRaw(bookingId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKINGS, bookingId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? { id: snap.id, ...snap.data() } : null;
           },
           async getSlot(slotId) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKING_SLOTS, slotId);
@@ -318,6 +355,41 @@ export function createFirestoreBookingRepositoryAdapter() {
             const ref = doc(db, FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS, requestId);
             const snap = await tx.get(ref);
             return snap.exists() ? { id: snap.id, ...snap.data(), _raw: snap.data() } : null;
+          },
+          async getBookingRequestOffer(requestId, offerId) {
+            const ref = doc(
+              db,
+              FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
+              requestId,
+              FIRESTORE_COLLECTIONS.BOOKING_REQUEST_OFFERS,
+              offerId,
+            );
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizeOfferRecord(snap.id, snap.data()) : null;
+          },
+          async getPaymentEvidenceLock(invoiceId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE_LOCKS, invoiceId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+          },
+          async getPaymentEvidence(evidenceId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE, evidenceId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+          },
+          async getRefundCase(refundId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.REFUND_CASES, refundId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+          },
+          async getBookingPolicies() {
+            const ref = doc(
+              db,
+              FIRESTORE_COLLECTIONS.SETTINGS,
+              FIRESTORE_COLLECTIONS.BOOKING_POLICIES_DOC_ID,
+            );
+            const snap = await tx.get(ref);
+            return snap.exists() ? normalizeBookingPolicies(snap.data()) : null;
           },
           setBooking(bookingId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKINGS, bookingId);
@@ -391,6 +463,34 @@ export function createFirestoreBookingRepositoryAdapter() {
               FIRESTORE_COLLECTIONS.BOOKING_REQUEST_ACTIVITIES,
               eventId,
             );
+            tx.set(ref, data);
+          },
+          setBookingRequestOffer(requestId, offerId, data) {
+            const ref = doc(
+              db,
+              FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
+              requestId,
+              FIRESTORE_COLLECTIONS.BOOKING_REQUEST_OFFERS,
+              offerId,
+            );
+            tx.set(ref, data);
+          },
+          updateBookingRequestOffer(requestId, offerId, data) {
+            const ref = doc(
+              db,
+              FIRESTORE_COLLECTIONS.PUBLIC_BOOKING_REQUESTS,
+              requestId,
+              FIRESTORE_COLLECTIONS.BOOKING_REQUEST_OFFERS,
+              offerId,
+            );
+            tx.update(ref, data);
+          },
+          setPaymentEvidenceLock(invoiceId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE_LOCKS, invoiceId);
+            tx.set(ref, data);
+          },
+          setRefundCase(refundId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.REFUND_CASES, refundId);
             tx.set(ref, data);
           },
         };
@@ -607,6 +707,98 @@ export function createFirestoreBookingRepositoryAdapter() {
           if (!isCancelled) {
             onError?.(err);
           }
+        }
+      })();
+
+      return () => {
+        isCancelled = true;
+        unsubscribe?.();
+      };
+    },
+
+    async getBookingPolicies() {
+      const [{ doc, getDoc }, { getFirebaseDb }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@/lib/firebase/firestore'),
+      ]);
+      const db = getFirebaseDb();
+      const snap = await getDoc(
+        doc(
+          db,
+          FIRESTORE_COLLECTIONS.SETTINGS,
+          FIRESTORE_COLLECTIONS.BOOKING_POLICIES_DOC_ID,
+        ),
+      );
+      return snap.exists() ? normalizeBookingPolicies(snap.data()) : null;
+    },
+
+    async listPendingPaymentEvidenceForInvoice(invoiceId) {
+      if (!invoiceId) return [];
+      const [{ collection, getDocs, limit, query, where }, { getFirebaseDb }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@/lib/firebase/firestore'),
+      ]);
+      const db = getFirebaseDb();
+      const q = query(
+        collection(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE),
+        where('invoiceId', '==', String(invoiceId).trim()),
+        limit(50),
+      );
+      const snap = await getDocs(q);
+      return snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((ev) => ev.status === 'pending_review');
+    },
+
+    async listTransactionsForInvoice(invoiceId) {
+      if (!invoiceId) return [];
+      const [{ collection, getDocs, limit, query, where }, { getFirebaseDb }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@/lib/firebase/firestore'),
+      ]);
+      const db = getFirebaseDb();
+      const q = query(
+        collection(db, FIRESTORE_COLLECTIONS.PAYMENT_TRANSACTIONS),
+        where('invoiceId', '==', String(invoiceId).trim()),
+        limit(50),
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => normalizePaymentTransactionRecord(d.id, d.data()));
+    },
+
+    subscribeDepositHoldBookings({ maxLimit = 100, onData, onError }) {
+      let unsubscribe = null;
+      let isCancelled = false;
+
+      (async () => {
+        try {
+          const [{ collection, limit, onSnapshot, orderBy, query, where }, { getFirebaseDb }] =
+            await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+          if (isCancelled) return;
+
+          const db = getFirebaseDb();
+          const q = query(
+            collection(db, FIRESTORE_COLLECTIONS.BOOKINGS),
+            where('reservationStatus', '==', 'deposit_hold'),
+            orderBy('holdExpiresAt', 'asc'),
+            limit(maxLimit),
+          );
+
+          unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+              if (isCancelled) return;
+              const holds = snapshot.docs.map((docSnap) =>
+                normalizeBookingRecord(docSnap.id, docSnap.data()),
+              );
+              onData?.({ holds, isTruncated: snapshot.docs.length >= maxLimit });
+            },
+            (err) => {
+              if (!isCancelled) onError?.(err);
+            },
+          );
+        } catch (err) {
+          if (!isCancelled) onError?.(err);
         }
       })();
 

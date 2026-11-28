@@ -43,8 +43,8 @@ export const FACTORY_RESET_PREVIEW_GROUPS = Object.freeze([
 ]);
 
 /**
- * Authoritative dependency-aware ordered deletion manifest (25 explicit targets).
- * Subcollections (`communications`, `activities`) are always deleted and verified empty
+ * Authoritative dependency-aware ordered deletion manifest (28 explicit targets).
+ * Subcollections (`communications`, `activities`, `offers`) are always deleted and verified empty
  * before deleting parent `publicBookingRequests` documents, and dependents are deleted
  * before canonical `bookings` and `customers`.
  */
@@ -70,6 +70,17 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     kind: 'subcollection',
     group: 'booking_requests',
     order: 2,
+  },
+  {
+    key: 'publicBookingRequests_offers',
+    label: 'Request Offer Revisions (Subcollection)',
+    collection: 'offers',
+    parentCollection: 'publicBookingRequests',
+    subcollection: 'offers',
+    pathPattern: 'publicBookingRequests/{requestId}/offers',
+    kind: 'subcollection',
+    group: 'booking_requests',
+    order: 2.5,
   },
   {
     key: 'publicBookingRequests',
@@ -117,6 +128,15 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     order: 7,
   },
   {
+    key: 'paymentEvidenceLocks',
+    label: 'Payment Evidence Pending Locks',
+    collection: 'paymentEvidenceLocks',
+    pathPattern: 'paymentEvidenceLocks',
+    kind: 'collection',
+    group: 'financial',
+    order: 7.5,
+  },
+  {
     key: 'paymentEvidence',
     label: 'Payment Evidence Submissions',
     collection: 'paymentEvidence',
@@ -142,6 +162,15 @@ export const FACTORY_RESET_DELETION_MANIFEST = Object.freeze([
     kind: 'collection',
     group: 'financial',
     order: 10,
+  },
+  {
+    key: 'refundCases',
+    label: 'Refund Handoff Cases',
+    collection: 'refundCases',
+    pathPattern: 'refundCases',
+    kind: 'collection',
+    group: 'financial',
+    order: 10.5,
   },
   {
     key: 'commissionReviewResolutions',

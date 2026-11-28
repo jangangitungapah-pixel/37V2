@@ -14,12 +14,24 @@
  * - Append-only compensating reversals (`pay_rev_{originalTransactionId}`) with zero direct edits/deletes
  */
 
+import {
+  BOOKING_EVENT_TYPES,
+  BOOKING_SESSION_STATUS,
+  CONFIRMATION_SOURCES,
+  RESERVATION_STATUS,
+} from '@/features/admin/calendar/config/calendar-config';
 import { generateOperationId } from '@/features/admin/calendar/repositories/calendar-booking-repository';
 import { formatRupiah } from '@/features/admin/calendar/utils/booking-pricing';
+import { normalizeBookingReservationStatus } from '@/features/admin/calendar/utils/booking-time';
 import {
   getJakartaTodayIso,
   isValidIsoDateString,
 } from '@/features/admin/calendar/utils/calendar-date';
+import {
+  computeDepositStatus,
+  DEPOSIT_STATUS,
+} from '@/features/admin/settings/booking-policies/utils/booking-policy-engine';
+import { buildPublicAvailabilityProjectionFromBooking } from '@/features/public-availability/utils/public-availability-calculation';
 import {
   PAYMENT_EVIDENCE_SCHEMA_VERSION,
   PAYMENT_EVIDENCE_SOURCES,
@@ -81,6 +93,44 @@ function isMatchingClientReservation(reservation, invoice) {
   );
 }
 
+function resolveInvoiceDepositRequirement(invoice, booking = null) {
+  const hasSnapshot = Boolean(
+    invoice?.depositPolicySnapshot ||
+    booking?.depositPolicySnapshot ||
+    Number.isInteger(invoice?.minimumDepositAmount) ||
+    Number.isInteger(booking?.minimumDepositAmount) ||
+    invoice?.depositStatus ||
+    booking?.depositStatus,
+  );
+  if (!hasSnapshot) {
+    return {
+      hasDepositPolicy: false,
+      depositType: 'none',
+      minimumDepositAmount: 0,
+    };
+  }
+  const minimumDepositAmount = Math.max(
+    0,
+    Number.isInteger(booking?.minimumDepositAmount)
+      ? booking.minimumDepositAmount
+      : Number.isInteger(invoice?.minimumDepositAmount)
+        ? invoice.minimumDepositAmount
+        : Number.isInteger(booking?.depositPolicySnapshot?.minimumDepositAmount)
+          ? booking.depositPolicySnapshot.minimumDepositAmount
+          : Number(invoice?.depositPolicySnapshot?.minimumDepositAmount) || 0,
+  );
+  const depositType = String(
+    booking?.depositPolicySnapshot?.type ||
+      invoice?.depositPolicySnapshot?.type ||
+      (minimumDepositAmount > 0 ? 'fixed' : 'none'),
+  );
+  return {
+    hasDepositPolicy: true,
+    depositType,
+    minimumDepositAmount,
+  };
+}
+
 export function applyValidatedPaymentInTransaction(
   tx,
   {
@@ -88,6 +138,7 @@ export function applyValidatedPaymentInTransaction(
     existingInvoice,
     existingTransaction = null,
     existingClientReservation = null,
+    existingBooking = null,
     expectedVersion,
     amount,
     paymentMethod = 'cash',
@@ -135,6 +186,22 @@ export function applyValidatedPaymentInTransaction(
     throw createPaymentServiceError(
       'payment/invoice-not-issued',
       'Pembayaran hanya dapat dicatat pada invoice berstatus Issued.',
+    );
+  }
+
+  const bookingReservationStatus = existingBooking
+    ? normalizeBookingReservationStatus(existingBooking)
+    : RESERVATION_STATUS.CONFIRMED;
+  if (existingBooking && bookingReservationStatus === RESERVATION_STATUS.EXPIRED) {
+    throw createPaymentServiceError(
+      'payment/booking-hold-expired',
+      'Reservasi terkait sudah berstatus Expired dan slot ruangannya telah dilepaskan. Lakukan Restore Expired Reservation (jika slot masih tersedia) sebelum menerima pembayaran.',
+    );
+  }
+  if (existingBooking && bookingReservationStatus === RESERVATION_STATUS.CANCELLED) {
+    throw createPaymentServiceError(
+      'payment/booking-cancelled',
+      'Reservasi terkait sudah dibatalkan sehingga pembayaran baru tidak dapat diterapkan.',
     );
   }
 
@@ -217,6 +284,18 @@ export function applyValidatedPaymentInTransaction(
     createdAt: effectiveNow,
   };
 
+  const { hasDepositPolicy, depositType, minimumDepositAmount } = resolveInvoiceDepositRequirement(
+    existingInvoice,
+    existingBooking,
+  );
+  const nextDepositStatus = hasDepositPolicy
+    ? computeDepositStatus({
+        depositType,
+        minimumDepositAmount,
+        amountPaid: nextTotals.amountPaid,
+      })
+    : null;
+
   const existingClientUid = String(existingInvoice.clientUid || '').trim();
   const updatedInvoiceDoc = {
     invoiceNumber: existingInvoice.invoiceNumber,
@@ -232,6 +311,17 @@ export function applyValidatedPaymentInTransaction(
     amountPaid: nextTotals.amountPaid,
     balanceDue: nextTotals.balanceDue,
     paymentStatus: nextTotals.paymentStatus,
+    ...(existingInvoice.targetType ? { targetType: existingInvoice.targetType } : {}),
+    ...(existingInvoice.depositPolicySnapshot
+      ? { depositPolicySnapshot: existingInvoice.depositPolicySnapshot }
+      : {}),
+    ...(Number.isInteger(existingInvoice.minimumDepositAmount)
+      ? { minimumDepositAmount: existingInvoice.minimumDepositAmount }
+      : {}),
+    ...(nextDepositStatus ? { depositStatus: nextDepositStatus } : {}),
+    ...(existingInvoice.balanceDuePolicy
+      ? { balanceDuePolicy: existingInvoice.balanceDuePolicy }
+      : {}),
     invoiceDate: existingInvoice.invoiceDate,
     dueDate: existingInvoice.dueDate,
     lastPaymentTransactionId: cleanTxId,
@@ -245,20 +335,103 @@ export function applyValidatedPaymentInTransaction(
 
   tx.setPaymentTransaction(cleanTxId, transactionDoc);
   tx.updateInvoice(cleanInvoiceId, updatedInvoiceDoc);
+
+  // OD-01 Deposit Confirmation Gate + Partial Payment Progression
+  const shouldPromoteHoldToConfirmed =
+    Boolean(existingBooking) &&
+    bookingReservationStatus === RESERVATION_STATUS.DEPOSIT_HOLD &&
+    (!hasDepositPolicy ||
+      depositType === 'none' ||
+      nextDepositStatus === DEPOSIT_STATUS.NOT_REQUIRED ||
+      nextDepositStatus === DEPOSIT_STATUS.MET);
+
+  const clientReservationPatch = {
+    paymentStatus: nextTotals.paymentStatus,
+    updatedAt: effectiveNow,
+  };
+  if (nextDepositStatus) {
+    clientReservationPatch.depositStatus = nextDepositStatus;
+  }
+
+  if (existingBooking && typeof tx.updateBooking === 'function') {
+    if (shouldPromoteHoldToConfirmed) {
+      const confirmationSource =
+        !hasDepositPolicy || depositType === 'none'
+          ? CONFIRMATION_SOURCES.NO_DEPOSIT_POLICY
+          : CONFIRMATION_SOURCES.DEPOSIT_VERIFIED;
+      const nextBookingVersion = (Number(existingBooking.version) || 1) + 1;
+      const confirmPatch = {
+        reservationStatus: RESERVATION_STATUS.CONFIRMED,
+        sessionStatus: BOOKING_SESSION_STATUS.UPCOMING,
+        holdExpiresAt: null,
+        depositStatus: nextDepositStatus || DEPOSIT_STATUS.MET,
+        confirmedAt: effectiveNow,
+        confirmedByUid: cleanActorUid,
+        confirmationSource,
+        updatedAt: effectiveNow,
+        updatedByUid: cleanActorUid,
+        version: nextBookingVersion,
+      };
+      tx.updateBooking(existingBooking.id, confirmPatch);
+      const nextBookingForProjection = { ...existingBooking, ...confirmPatch };
+      delete nextBookingForProjection.id;
+      const nextPub = buildPublicAvailabilityProjectionFromBooking(
+        nextBookingForProjection,
+        effectiveNow,
+      );
+      if (nextPub && typeof tx.setPublicAvailability === 'function') {
+        tx.setPublicAvailability(existingBooking.id, nextPub);
+      }
+      if (typeof tx.setBookingEvent === 'function') {
+        tx.setBookingEvent(`evt_dp_confirm_${cleanTxId}`, {
+          bookingId: existingBooking.id,
+          eventType: BOOKING_EVENT_TYPES.RESERVATION_CONFIRMED,
+          actorUid: cleanActorUid,
+          createdAt: effectiveNow,
+          previousValue: {
+            reservationStatus: existingBooking.reservationStatus,
+            sessionStatus: existingBooking.sessionStatus,
+            depositStatus: existingBooking.depositStatus,
+          },
+          newValue: {
+            reservationStatus: RESERVATION_STATUS.CONFIRMED,
+            sessionStatus: BOOKING_SESSION_STATUS.UPCOMING,
+            depositStatus: confirmPatch.depositStatus,
+            confirmationSource,
+          },
+          note: `Reservasi terkonfirmasi otomatis setelah pembayaran (${formatRupiah(nextTotals.amountPaid)}) memenuhi minimum DP.`,
+        });
+      }
+      clientReservationPatch.reservationStatus = RESERVATION_STATUS.CONFIRMED;
+      clientReservationPatch.sessionStatus = BOOKING_SESSION_STATUS.UPCOMING;
+      clientReservationPatch.holdExpiresAt = null;
+      clientReservationPatch.version = nextBookingVersion;
+    } else if (
+      nextDepositStatus &&
+      (existingBooking.depositPolicySnapshot != null || existingBooking.depositStatus != null) &&
+      existingBooking.depositStatus !== nextDepositStatus
+    ) {
+      tx.updateBooking(existingBooking.id, {
+        depositStatus: nextDepositStatus,
+        updatedAt: effectiveNow,
+        updatedByUid: cleanActorUid,
+        version: (Number(existingBooking.version) || 1) + 1,
+      });
+    }
+  }
+
   if (
     isMatchingClientReservation(existingClientReservation, existingInvoice) &&
     typeof tx.updateClientReservation === 'function'
   ) {
-    tx.updateClientReservation(existingInvoice.bookingId, {
-      paymentStatus: nextTotals.paymentStatus,
-      updatedAt: effectiveNow,
-    });
+    tx.updateClientReservation(existingInvoice.bookingId, clientReservationPatch);
   }
 
   return {
     invoice: normalizeInvoiceRecord(cleanInvoiceId, updatedInvoiceDoc),
     transaction: normalizePaymentTransactionRecord(cleanTxId, transactionDoc),
     idempotentReplay: false,
+    promotedToConfirmed: shouldPromoteHoldToConfirmed,
     now: effectiveNow,
   };
 }
@@ -331,16 +504,21 @@ export async function recordInvoicePayment({
     ]);
 
     // 2. SHARED TRANSACTIONAL VALIDATION & WRITES
-    const existingClientReservation =
+    const [existingClientReservation, existingBooking] = await Promise.all([
       existingInvoice?.bookingId && typeof tx.getClientReservation === 'function'
-        ? await tx.getClientReservation(existingInvoice.bookingId)
-        : null;
+        ? tx.getClientReservation(existingInvoice.bookingId)
+        : Promise.resolve(null),
+      existingInvoice?.bookingId && typeof tx.getBooking === 'function'
+        ? tx.getBooking(existingInvoice.bookingId)
+        : Promise.resolve(null),
+    ]);
 
     const applied = applyValidatedPaymentInTransaction(tx, {
       transactionId: cleanTxId,
       existingInvoice,
       existingTransaction,
       existingClientReservation,
+      existingBooking,
       expectedVersion,
       amount: validation.data.amount,
       paymentMethod: validation.data.paymentMethod,
@@ -455,10 +633,14 @@ export async function reversePaymentTransaction({
       throw createPaymentServiceError('invoice/not-found', 'Invoice tidak ditemukan.');
     }
 
-    const existingClientReservation =
+    const [existingClientReservation, existingBooking] = await Promise.all([
       existingInvoice.bookingId && typeof tx.getClientReservation === 'function'
-        ? await tx.getClientReservation(existingInvoice.bookingId)
-        : null;
+        ? tx.getClientReservation(existingInvoice.bookingId)
+        : Promise.resolve(null),
+      existingInvoice.bookingId && typeof tx.getBooking === 'function'
+        ? tx.getBooking(existingInvoice.bookingId)
+        : Promise.resolve(null),
+    ]);
 
     if (existingInvoice.invoiceStatus === INVOICE_STATUS.VOID) {
       throw createPaymentServiceError(
@@ -533,6 +715,18 @@ export async function reversePaymentTransaction({
       createdAt: now,
     };
 
+    const { hasDepositPolicy, depositType, minimumDepositAmount } = resolveInvoiceDepositRequirement(
+      existingInvoice,
+      existingBooking,
+    );
+    const nextDepositStatus = hasDepositPolicy
+      ? computeDepositStatus({
+          depositType,
+          minimumDepositAmount,
+          amountPaid: nextTotals.amountPaid,
+        })
+      : null;
+
     const existingClientUid = String(existingInvoice.clientUid || '').trim();
     const updatedInvoiceDoc = {
       invoiceNumber: existingInvoice.invoiceNumber,
@@ -548,6 +742,17 @@ export async function reversePaymentTransaction({
       amountPaid: nextTotals.amountPaid,
       balanceDue: nextTotals.balanceDue,
       paymentStatus: nextTotals.paymentStatus,
+      ...(existingInvoice.targetType ? { targetType: existingInvoice.targetType } : {}),
+      ...(existingInvoice.depositPolicySnapshot
+        ? { depositPolicySnapshot: existingInvoice.depositPolicySnapshot }
+        : {}),
+      ...(Number.isInteger(existingInvoice.minimumDepositAmount)
+        ? { minimumDepositAmount: existingInvoice.minimumDepositAmount }
+        : {}),
+      ...(nextDepositStatus ? { depositStatus: nextDepositStatus } : {}),
+      ...(existingInvoice.balanceDuePolicy
+        ? { balanceDuePolicy: existingInvoice.balanceDuePolicy }
+        : {}),
       invoiceDate: existingInvoice.invoiceDate,
       dueDate: existingInvoice.dueDate,
       lastPaymentTransactionId: reversalTxId,
@@ -561,14 +766,46 @@ export async function reversePaymentTransaction({
 
     tx.setPaymentTransaction(reversalTxId, reversalDoc);
     tx.updateInvoice(cleanInvoiceId, updatedInvoiceDoc);
+
+    const reservationReversalPatch = {
+      paymentStatus: nextTotals.paymentStatus,
+      updatedAt: now,
+    };
+    if (nextDepositStatus) {
+      reservationReversalPatch.depositStatus = nextDepositStatus;
+    }
+
+    if (
+      existingBooking &&
+      nextDepositStatus &&
+      (existingBooking.depositPolicySnapshot != null || existingBooking.depositStatus != null) &&
+      typeof tx.updateBooking === 'function'
+    ) {
+      const bookingResStatus = normalizeBookingReservationStatus(existingBooking);
+      const fellBelowMinimumOnConfirmed =
+        bookingResStatus === RESERVATION_STATUS.CONFIRMED &&
+        nextDepositStatus !== DEPOSIT_STATUS.NOT_REQUIRED &&
+        nextDepositStatus !== DEPOSIT_STATUS.MET;
+      if (
+        existingBooking.depositStatus !== nextDepositStatus ||
+        (fellBelowMinimumOnConfirmed && existingBooking.depositIntegrityAlert !== true)
+      ) {
+        // Never auto-demote Confirmed -> Deposit Hold on reversal; flag integrity alert cleanly instead.
+        tx.updateBooking(existingBooking.id, {
+          depositStatus: nextDepositStatus,
+          ...(fellBelowMinimumOnConfirmed ? { depositIntegrityAlert: true } : {}),
+          updatedAt: now,
+          updatedByUid: cleanActorUid,
+          version: (Number(existingBooking.version) || 1) + 1,
+        });
+      }
+    }
+
     if (
       isMatchingClientReservation(existingClientReservation, existingInvoice) &&
       typeof tx.updateClientReservation === 'function'
     ) {
-      tx.updateClientReservation(existingInvoice.bookingId, {
-        paymentStatus: nextTotals.paymentStatus,
-        updatedAt: now,
-      });
+      tx.updateClientReservation(existingInvoice.bookingId, reservationReversalPatch);
     }
 
     return {

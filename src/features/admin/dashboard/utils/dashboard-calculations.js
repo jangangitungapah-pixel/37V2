@@ -17,6 +17,10 @@ import {
   BOOKING_SESSION_STATUS,
   SESSION_STATUS_META,
 } from '@/features/admin/calendar/config/calendar-config';
+import {
+  isBookingHoldOverdue,
+  normalizeBookingReservationStatus,
+} from '@/features/admin/calendar/utils/booking-time';
 import { getJakartaTodayIso } from '@/features/admin/calendar/utils/calendar-date';
 import { INVENTORY_ITEM_TYPES } from '@/features/admin/inventory/config/inventory-config';
 import { deriveEquipmentStatusMeta } from '@/features/admin/inventory/utils/inventory-status';
@@ -440,6 +444,7 @@ export function evaluateInventoryAttentionItems({
 export function buildNeedsAttentionItems({
   invoices = [],
   todayBookings = [],
+  depositHoldBookings = [],
   activePayables = [],
   commissionReviewSummary = null,
   inventoryItems = [],
@@ -448,6 +453,7 @@ export function buildNeedsAttentionItems({
   isOwner = false,
   todayIso = getJakartaTodayIso(),
   currentMinuteOfDay = null,
+  now = undefined,
 } = {}) {
   const items = [];
   const uniqueInvoices = deduplicateRecordsById(invoices);
@@ -493,6 +499,39 @@ export function buildNeedsAttentionItems({
       amount: overdueTotalAmount,
       actionLabel: 'Buka Tagihan',
       href: '/admin/payment-and-bill',
+      ownerOnly: false,
+    });
+  }
+
+  // 1A2. Overdue Deposit Hold Reservations (Owner & Staff)
+  const uniqueOverdueHolds = deduplicateRecordsById(depositHoldBookings).filter(
+    (b) =>
+      normalizeBookingReservationStatus(b) === 'deposit_hold' &&
+      isBookingHoldOverdue(b, now),
+  );
+  if (uniqueOverdueHolds.length > 0) {
+    const firstHold = uniqueOverdueHolds[0];
+    const sampleNames = uniqueOverdueHolds
+      .slice(0, 2)
+      .map((h) => h.customerName)
+      .filter(Boolean)
+      .join(', ');
+    items.push({
+      id: DASHBOARD_ATTENTION_TYPES.OVERDUE_DEPOSIT_HOLDS,
+      type: DASHBOARD_ATTENTION_TYPES.OVERDUE_DEPOSIT_HOLDS,
+      priority: DASHBOARD_ATTENTION_PRIORITY[DASHBOARD_ATTENTION_TYPES.OVERDUE_DEPOSIT_HOLDS],
+      severity: 'critical',
+      badgeLabel: 'Hold Kedaluwarsa',
+      badgeTone: 'danger',
+      title: `${uniqueOverdueHolds.length} Deposit Hold Melewati Batas Waktu`,
+      description: `Hold untuk ${sampleNames || 'booking'} melewati tenggat WIB. Tinjau untuk Extend, Confirm Override, atau Expire Manual.`,
+      count: uniqueOverdueHolds.length,
+      amount: null,
+      actionLabel: 'Kelola Hold',
+      href:
+        uniqueOverdueHolds.length === 1 && firstHold?.id
+          ? `/admin/calendar?date=${encodeURIComponent(firstHold.date || todayIso)}&bookingId=${encodeURIComponent(firstHold.id)}`
+          : '/admin/calendar',
       ownerOnly: false,
     });
   }

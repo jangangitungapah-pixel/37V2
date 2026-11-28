@@ -52,6 +52,7 @@ import {
 import {
   BOOKING_SESSION_STATUS,
   INITIAL_PAYMENT_STATUS,
+  RESERVATION_STATUS,
   TIMELINE_HOURLY_SLOTS,
 } from './config/calendar-config';
 import {
@@ -833,7 +834,13 @@ describe('Phase 5 — Admin Calendar & Studio Booking Management', () => {
         adapter: spyingAdapter,
       });
       expect(cancelled.sessionStatus).toBe(BOOKING_SESSION_STATUS.CANCELLED);
+      expect(cancelled.reservationStatus).toBe(RESERVATION_STATUS.CANCELLED);
       expect(recordedPatches[3].keys).toEqual([
+        'cancellationReason',
+        'cancellationType',
+        'cancelledAt',
+        'cancelledByUid',
+        'reservationStatus',
         'sessionStatus',
         'updatedAt',
         'updatedByUid',

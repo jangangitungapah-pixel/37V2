@@ -14,6 +14,7 @@ const PENDING_REQUEST_STATUSES = new Set([
   BOOKING_REQUEST_STATUS.NEW,
   BOOKING_REQUEST_STATUS.IN_REVIEW,
   BOOKING_REQUEST_STATUS.AWAITING_CUSTOMER,
+  BOOKING_REQUEST_STATUS.OFFER_SENT,
   BOOKING_REQUEST_STATUS.ACCEPTED,
 ]);
 
@@ -208,7 +209,14 @@ export function getClientBookingStatusMeta(
       return {
         label: 'Deposit Pending',
         tone: 'orange',
-        helperText: 'Your time slot is temporarily held while the required deposit is pending.',
+        helperText: 'Your time slot is temporarily held while the required deposit is pending verification.',
+      };
+    }
+    if (reservationStatus === 'expired') {
+      return {
+        label: 'Hold Expired',
+        tone: 'neutral',
+        helperText: 'This provisional hold expired and the studio time slot was released.',
       };
     }
     if (isPastConfirmed) {
@@ -262,6 +270,14 @@ export function getClientBookingStatusMeta(
       label: 'Awaiting Reply',
       tone: 'ivory',
       helperText: 'Our team reached out via WhatsApp to finalize your details.',
+    };
+  }
+
+  if (status === BOOKING_REQUEST_STATUS.OFFER_SENT) {
+    return {
+      label: 'Offer Received',
+      tone: 'lime',
+      helperText: 'Our studio team sent a formal schedule & pricing offer awaiting your review.',
     };
   }
 
@@ -325,6 +341,14 @@ function getRecentActivityActionLabel(item, _view) {
   if (status === BOOKING_REQUEST_STATUS.AWAITING_CUSTOMER) {
     return 'Waiting for your reply';
   }
+  if (status === BOOKING_REQUEST_STATUS.OFFER_SENT) {
+    return {
+      label: 'Offer Received',
+      tone: 'lime',
+      helperText: 'Our studio team sent a formal schedule & pricing offer awaiting your review.',
+    };
+  }
+
   if (status === BOOKING_REQUEST_STATUS.ACCEPTED) {
     return 'Request approved · Finalizing schedule';
   }

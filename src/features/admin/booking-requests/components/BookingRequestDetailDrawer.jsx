@@ -41,6 +41,8 @@ import {
   BookingRequestStatusBadge,
   BookingRequestTypeBadge,
 } from './BookingRequestStatusBadge';
+import { OfferComposerCard } from './OfferComposerCard';
+import { OfferRevisionHistoryList } from './OfferRevisionHistoryList';
 import { WhatsAppMessageComposer } from './WhatsAppMessageComposer';
 
 const TRANSITION_BUTTON_META = {
@@ -82,7 +84,7 @@ function RequestSectionHeading({ icon: Icon, eyebrow, title, description }) {
 }
 
 export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, actorUid, actorName }) {
-  const { request, communications, activities, availabilityContext, isLoading, error } =
+  const { request, communications, activities, offers, availabilityContext, isLoading, error } =
     useBookingRequestDetail(open ? requestId : '');
 
   const [pendingReasonTarget, setPendingReasonTarget] = useState('');
@@ -94,17 +96,34 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
     ? ALLOWED_MANUAL_STATUS_TRANSITIONS[request.status] || []
     : [];
 
+  const activeOffer =
+    offers.find((o) => o.id === request?.activeOfferId) || offers[0] || null;
+  const acceptedOffer =
+    offers.find((o) => o.status === 'accepted' && (!request?.activeOfferId || o.id === request.activeOfferId)) ||
+    null;
+  const hasPendingSentOffer = Boolean(
+    request?.status === BOOKING_REQUEST_STATUS.OFFER_SENT && activeOffer?.status === 'sent',
+  );
+
   const canConvertToCalendarBooking = Boolean(
     request &&
     request.requestType === BOOKING_REQUEST_TYPES.STUDIO_BOOKING &&
     !request.linkedBookingId &&
+    !hasPendingSentOffer &&
     [
       BOOKING_REQUEST_STATUS.NEW,
       BOOKING_REQUEST_STATUS.IN_REVIEW,
       BOOKING_REQUEST_STATUS.AWAITING_CUSTOMER,
+      BOOKING_REQUEST_STATUS.OFFER_SENT,
       BOOKING_REQUEST_STATUS.ACCEPTED,
     ].includes(request.status),
   );
+
+  const calendarConvertUrl = request
+    ? acceptedOffer
+      ? `/admin/calendar?action=new-booking&requestId=${encodeURIComponent(request.id)}&offerId=${encodeURIComponent(acceptedOffer.id)}`
+      : `/admin/calendar?action=new-booking&requestId=${encodeURIComponent(request.id)}`
+    : '/admin/calendar';
 
   const handleTransitionClick = async (targetStatus) => {
     if (!request || isUpdatingStatus) return;
@@ -480,6 +499,32 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
                         </div>
                       </section>
                     )}
+
+                    {request.requestType === BOOKING_REQUEST_TYPES.STUDIO_BOOKING ? (
+                      <>
+                        <OfferComposerCard
+                          key={`${request.id}:${activeOffer?.id || 'none'}:${activeOffer?.status || 'none'}:${activeOffer?.version || 0}`}
+                          request={request}
+                          offers={offers}
+                          actorUid={actorUid}
+                          actorName={actorName}
+                        />
+                        <section
+                          aria-labelledby="offer-history-heading"
+                          className="space-y-3 rounded-2xl border border-[#151515]/10 bg-white p-4 shadow-[0_2px_8px_rgba(21,21,21,0.035)] sm:p-5"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 id="offer-history-heading" className="text-sm font-bold text-[#151515]">
+                              Riwayat Revisi Offer ({offers.length})
+                            </h3>
+                          </div>
+                          <OfferRevisionHistoryList
+                            offers={offers}
+                            activeOfferId={request.activeOfferId || ''}
+                          />
+                        </section>
+                      </>
+                    ) : null}
                   </main>
 
                   <aside className="min-w-0 space-y-4">
@@ -527,20 +572,32 @@ export function BookingRequestDetailDrawer({ requestId, open, onOpenChange, acto
                         </div>
                       ) : null}
 
-                      {canConvertToCalendarBooking ? (
+                      {hasPendingSentOffer ? (
+                        <div
+                          data-testid="pending-offer-conversion-notice"
+                          className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900"
+                        >
+                          Offer aktif (<strong>{activeOffer?.offerNumber}</strong>) masih menunggu respons Client. Tarik/tandai expired Offer atau tunggu persetujuan Client sebelum membuat reservasi Calendar.
+                        </div>
+                      ) : canConvertToCalendarBooking ? (
                         <div className="space-y-2">
                           <Link
-                            to={'/admin/calendar?action=new-booking&requestId=' + encodeURIComponent(request.id)}
+                            to={calendarConvertUrl}
                             data-testid="convert-to-calendar-booking-link"
                             className="sa-btn-orange inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-bold tracking-wide uppercase shadow-sm"
                           >
                             <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-                            <span>Lanjutkan di Calendar</span>
+                            <span>
+                              {acceptedOffer
+                                ? `Buat Reservasi (${acceptedOffer.offerNumber})`
+                                : 'Lanjutkan di Calendar'}
+                            </span>
                             <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                           </Link>
                           <p className="text-[10px] leading-relaxed text-[#777166]">
-                            Booking baru akan dibuat melalui form Calendar. Slot baru terkunci setelah proses
-                            pembuatan booking berhasil.
+                            {acceptedOffer
+                              ? 'Jadwal & harga dari Accepted Offer akan diisi otomatis untuk membuat Deposit Hold atau Confirmed Reservation.'
+                              : 'Booking baru akan dibuat melalui form Calendar. Slot baru terkunci setelah proses pembuatan booking berhasil.'}
                           </p>
                         </div>
                       ) : request.requestType === BOOKING_REQUEST_TYPES.POST_PRODUCTION_INQUIRY ? (

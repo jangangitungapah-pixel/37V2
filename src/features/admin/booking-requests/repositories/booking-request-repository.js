@@ -6,11 +6,16 @@ import {
   BOOKING_REQUEST_COMMUNICATIONS_SUBCOLLECTION,
   BOOKING_REQUEST_INBOX_PAGE_SIZE,
   BOOKING_REQUEST_NEW_BADGE_LIMIT,
+  BOOKING_REQUEST_OFFERS_SUBCOLLECTION,
   BOOKING_REQUEST_SOURCES,
   BOOKING_REQUEST_STATUS,
   BOOKING_REQUEST_TIMELINE_LIMIT,
   PUBLIC_BOOKING_REQUESTS_COLLECTION,
 } from '../config/booking-request-config';
+import {
+  normalizeOfferRecord,
+  projectClientOfferRecord,
+} from '../schemas/offer-schema';
 import {
   normalizeActivityEvent,
   normalizeBookingRequestRecord,
@@ -554,6 +559,176 @@ export function createFirestoreBookingRequestRepositoryAdapter() {
         };
       });
     },
+
+    async getOfferById(requestId, offerId) {
+      if (!requestId || !offerId) return null;
+      const [{ doc, getDoc }, { getFirebaseDb }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@/lib/firebase/firestore'),
+      ]);
+      const db = getFirebaseDb();
+      const snap = await getDoc(
+        doc(
+          db,
+          PUBLIC_BOOKING_REQUESTS_COLLECTION,
+          requestId,
+          BOOKING_REQUEST_OFFERS_SUBCOLLECTION,
+          offerId,
+        ),
+      );
+      return snap.exists() ? normalizeOfferRecord(snap.id, snap.data()) : null;
+    },
+
+    async listOffersByRequestId(requestId, { maxLimit = 50, clientSafe = false } = {}) {
+      if (!requestId) return [];
+      const [{ collection, getDocs, limit, orderBy, query }, { getFirebaseDb }] =
+        await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+      const db = getFirebaseDb();
+      const q = query(
+        collection(
+          db,
+          PUBLIC_BOOKING_REQUESTS_COLLECTION,
+          requestId,
+          BOOKING_REQUEST_OFFERS_SUBCOLLECTION,
+        ),
+        orderBy('revisionNumber', 'desc'),
+        limit(maxLimit),
+      );
+      const snap = await getDocs(q);
+      return snap.docs
+        .map((d) => {
+          const norm = normalizeOfferRecord(d.id, d.data());
+          return clientSafe ? projectClientOfferRecord(norm) : norm;
+        })
+        .filter(Boolean);
+    },
+
+    subscribeRequestOffers({ requestId, clientSafe = false, maxLimit = 50, onData, onError }) {
+      let unsubscribe = null;
+      let isCancelled = false;
+
+      if (!requestId) {
+        onData?.([]);
+        return () => {};
+      }
+
+      (async () => {
+        try {
+          const [{ collection, limit, onSnapshot, orderBy, query }, { getFirebaseDb }] =
+            await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+          if (isCancelled) return;
+
+          const db = getFirebaseDb();
+          const q = query(
+            collection(
+              db,
+              PUBLIC_BOOKING_REQUESTS_COLLECTION,
+              requestId,
+              BOOKING_REQUEST_OFFERS_SUBCOLLECTION,
+            ),
+            orderBy('revisionNumber', 'desc'),
+            limit(maxLimit),
+          );
+
+          unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+              if (isCancelled) return;
+              const items = snapshot.docs
+                .map((d) => {
+                  const norm = normalizeOfferRecord(d.id, d.data());
+                  return clientSafe ? projectClientOfferRecord(norm) : norm;
+                })
+                .filter(Boolean);
+              onData?.(items);
+            },
+            (err) => {
+              if (!isCancelled) onError?.(err);
+            },
+          );
+        } catch (err) {
+          if (!isCancelled) onError?.(err);
+        }
+      })();
+
+      return () => {
+        isCancelled = true;
+        unsubscribe?.();
+      };
+    },
+
+    async runOfferTransaction({ requestId, txWork }) {
+      const [{ doc, runTransaction, serverTimestamp, Timestamp }, { getFirebaseDb }] =
+        await Promise.all([import('firebase/firestore'), import('@/lib/firebase/firestore')]);
+      const db = getFirebaseDb();
+
+      return runTransaction(db, async (tx) => {
+        const txContext = {
+          nowValue: () => serverTimestamp(),
+          timestampFromDate: (date) => Timestamp.fromDate(date instanceof Date ? date : new Date(date)),
+          async getRequest(targetReqId = requestId) {
+            const ref = doc(db, PUBLIC_BOOKING_REQUESTS_COLLECTION, targetReqId);
+            const snap = await tx.get(ref);
+            return snap.exists()
+              ? {
+                  ...normalizeBookingRequestRecord(snap.id, snap.data()),
+                  _raw: snap.data(),
+                }
+              : null;
+          },
+          async getOffer(offerId, targetReqId = requestId) {
+            if (!offerId) return null;
+            const ref = doc(
+              db,
+              PUBLIC_BOOKING_REQUESTS_COLLECTION,
+              targetReqId,
+              BOOKING_REQUEST_OFFERS_SUBCOLLECTION,
+              offerId,
+            );
+            const snap = await tx.get(ref);
+            return snap.exists()
+              ? { ...normalizeOfferRecord(snap.id, snap.data()), _raw: snap.data() }
+              : null;
+          },
+          updateRequest(data, targetReqId = requestId) {
+            const ref = doc(db, PUBLIC_BOOKING_REQUESTS_COLLECTION, targetReqId);
+            tx.update(ref, data);
+          },
+          setOffer(offerId, data, targetReqId = requestId) {
+            const ref = doc(
+              db,
+              PUBLIC_BOOKING_REQUESTS_COLLECTION,
+              targetReqId,
+              BOOKING_REQUEST_OFFERS_SUBCOLLECTION,
+              offerId,
+            );
+            tx.set(ref, data);
+          },
+          updateOffer(offerId, data, targetReqId = requestId) {
+            const ref = doc(
+              db,
+              PUBLIC_BOOKING_REQUESTS_COLLECTION,
+              targetReqId,
+              BOOKING_REQUEST_OFFERS_SUBCOLLECTION,
+              offerId,
+            );
+            tx.update(ref, data);
+          },
+          setActivity(activityId, data, targetReqId = requestId) {
+            const ref = doc(
+              db,
+              PUBLIC_BOOKING_REQUESTS_COLLECTION,
+              targetReqId,
+              BOOKING_REQUEST_ACTIVITIES_SUBCOLLECTION,
+              activityId,
+            );
+            tx.set(ref, data);
+          },
+        };
+
+        return txWork(txContext);
+      });
+    },
   };
 }
 
@@ -570,12 +745,14 @@ export function createInMemoryBookingRequestRepositoryAdapter(
   const requests = shared?.bookingRequests || new Map();
   const activities = shared?.bookingRequestActivities || new Map();
   const communications = shared?.bookingRequestCommunications || new Map();
+  const offers = shared?.bookingRequestOffers || new Map();
   const newSubscribers = shared?.bookingRequestNewSubscribers || new Set();
   const listSubscribers = shared?.bookingRequestListSubscribers || new Set();
   const docSubscribers = shared?.bookingRequestDocSubscribers || new Map();
   const clientSubscribers = shared?.bookingRequestClientSubscribers || new Set();
   const activitySubscribers = shared?.bookingRequestActivitySubscribers || new Map();
   const commSubscribers = shared?.bookingRequestCommSubscribers || new Map();
+  const offerSubscribers = shared?.bookingRequestOfferSubscribers || new Map();
 
   let queuedCreateError = null;
   let queuedUpdateError = null;
@@ -597,6 +774,18 @@ export function createInMemoryBookingRequestRepositoryAdapter(
   }
 
   function notifyAll(targetRequestId = '') {
+    if (targetRequestId) {
+      const targetOffers = Array.from(offers.values())
+        .filter((o) => o.requestId === targetRequestId)
+        .sort((a, b) => (Number(b.revisionNumber) || 1) - (Number(a.revisionNumber) || 1));
+      offerSubscribers.get(targetRequestId)?.forEach((sub) => {
+        const list = sub.clientSafe
+          ? targetOffers.map((o) => projectClientOfferRecord(o)).filter(Boolean)
+          : targetOffers.map((o) => ({ ...o }));
+        sub.onData?.(list);
+      });
+    }
+
     if (shared?.notifyBookingRequests) {
       shared.notifyBookingRequests(targetRequestId);
       return;
@@ -943,6 +1132,151 @@ export function createInMemoryBookingRequestRepositoryAdapter(
       return shared?.enqueueTransaction ? shared.enqueueTransaction(work) : work();
     },
 
+    async getOfferById(requestId, offerId) {
+      const target = offers.get(String(offerId || '').trim());
+      if (!target || target.requestId !== requestId) return null;
+      return { ...target };
+    },
+
+    async listOffersByRequestId(requestId, { maxLimit = 50, clientSafe = false } = {}) {
+      return Array.from(offers.values())
+        .filter((o) => o.requestId === requestId)
+        .sort((a, b) => (Number(b.revisionNumber) || 1) - (Number(a.revisionNumber) || 1))
+        .slice(0, maxLimit)
+        .map((o) => (clientSafe ? projectClientOfferRecord(o) : { ...o }))
+        .filter(Boolean);
+    },
+
+    subscribeRequestOffers({ requestId, clientSafe = false, maxLimit = 50, onData }) {
+      if (!requestId) {
+        onData?.([]);
+        return () => {};
+      }
+      if (!offerSubscribers.has(requestId)) offerSubscribers.set(requestId, new Set());
+      const sub = { clientSafe, onData };
+      const set = offerSubscribers.get(requestId);
+      set.add(sub);
+      const list = Array.from(offers.values())
+        .filter((o) => o.requestId === requestId)
+        .sort((a, b) => (Number(b.revisionNumber) || 1) - (Number(a.revisionNumber) || 1))
+        .slice(0, maxLimit)
+        .map((o) => (clientSafe ? projectClientOfferRecord(o) : { ...o }))
+        .filter(Boolean);
+      onData?.(list);
+      return () => {
+        set.delete(sub);
+      };
+    },
+
+    async runOfferTransaction({ requestId, txWork }) {
+      if (queuedUpdateError) {
+        const err = queuedUpdateError;
+        queuedUpdateError = null;
+        throw err;
+      }
+
+      const work = async () => {
+        const stagedRequests = new Map(requests);
+        const stagedOffers = new Map(offers);
+        const stagedActivities = new Map(activities);
+        const touchedRequestIds = new Set();
+        let writeStarted = false;
+
+        const txContext = {
+          nowValue: () => ({ seconds: Math.floor(Date.now() / 1000) }),
+          timestampFromDate: (date) => ({
+            seconds: Math.floor((date instanceof Date ? date.getTime() : Date.now()) / 1000),
+          }),
+          async getRequest(targetReqId = requestId) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const cur = stagedRequests.get(targetReqId);
+            return cur ? { ...cur, _raw: cur } : null;
+          },
+          async getOffer(offerId, targetReqId = requestId) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            if (!offerId) return null;
+            const found = stagedOffers.get(offerId);
+            if (!found || found.requestId !== targetReqId) return null;
+            return { ...found, _raw: found };
+          },
+          updateRequest(data, targetReqId = requestId) {
+            writeStarted = true;
+            touchedRequestIds.add(targetReqId);
+            const prev = stagedRequests.get(targetReqId) || {};
+            const nowIso = new Date().toISOString();
+            stagedRequests.set(
+              targetReqId,
+              normalizeBookingRequestRecord(targetReqId, {
+                ...prev,
+                ...data,
+                updatedAt: nowIso,
+              }),
+            );
+          },
+          setOffer(offerId, data, targetReqId = requestId) {
+            writeStarted = true;
+            touchedRequestIds.add(targetReqId);
+            const nowIso = new Date().toISOString();
+            stagedOffers.set(
+              offerId,
+              normalizeOfferRecord(offerId, {
+                ...data,
+                requestId: targetReqId,
+                createdAt: data.createdAt?.seconds ? data.createdAt : nowIso,
+                updatedAt: nowIso,
+              }),
+            );
+          },
+          updateOffer(offerId, data, targetReqId = requestId) {
+            writeStarted = true;
+            touchedRequestIds.add(targetReqId);
+            const prev = stagedOffers.get(offerId) || {};
+            const nowIso = new Date().toISOString();
+            stagedOffers.set(
+              offerId,
+              normalizeOfferRecord(offerId, {
+                ...prev,
+                ...data,
+                requestId: targetReqId,
+                respondedAt: data.respondedAt ? nowIso : prev.respondedAt,
+                updatedAt: nowIso,
+              }),
+            );
+          },
+          setActivity(activityId, data, targetReqId = requestId) {
+            writeStarted = true;
+            touchedRequestIds.add(targetReqId);
+            const nowIso = new Date().toISOString();
+            stagedActivities.set(activityId, {
+              requestId: targetReqId,
+              ...normalizeActivityEvent(activityId, { ...data, createdAt: nowIso }),
+            });
+          },
+        };
+
+        const result = await txWork(txContext);
+
+        requests.clear();
+        for (const [k, v] of stagedRequests) requests.set(k, v);
+        offers.clear();
+        for (const [k, v] of stagedOffers) offers.set(k, v);
+        activities.clear();
+        for (const [k, v] of stagedActivities) activities.set(k, v);
+
+        for (const reqId of touchedRequestIds) {
+          notifyAll(reqId);
+        }
+
+        return result;
+      };
+
+      return shared?.enqueueTransaction ? shared.enqueueTransaction(work) : work();
+    },
+
     _seedRequests(list = []) {
       for (const item of list) {
         const norm = normalizeBookingRequestRecord(item.id, item);
@@ -968,6 +1302,7 @@ export function createInMemoryBookingRequestRepositoryAdapter(
         requests: new Map(requests),
         activities: new Map(activities),
         communications: new Map(communications),
+        offers: new Map(offers),
       };
     },
   };

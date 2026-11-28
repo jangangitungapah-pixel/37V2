@@ -337,11 +337,12 @@ export function createInMemoryFactoryResetRepositoryAdapter({
     }
   }
 
-  // Map<parentRequestId, { communications: Map<id, doc>, activities: Map<id, doc> }>
+  // Map<parentRequestId, { communications: Map<id, doc>, activities: Map<id, doc>, offers: Map<id, doc> }>
   const requestSubcollectionsMap = new Map();
   for (const [parentId, subs] of Object.entries(initialRequestSubcollections || {})) {
     const commMap = new Map();
     const actMap = new Map();
+    const offerMap = new Map();
     for (const c of subs?.communications || []) {
       const cid = c?.id || `comm_${commMap.size + 1}`;
       commMap.set(cid, { id: cid, ...c });
@@ -350,9 +351,14 @@ export function createInMemoryFactoryResetRepositoryAdapter({
       const aid = a?.id || `act_${actMap.size + 1}`;
       actMap.set(aid, { id: aid, ...a });
     }
+    for (const o of subs?.offers || []) {
+      const oid = o?.id || `off_${offerMap.size + 1}`;
+      offerMap.set(oid, { id: oid, ...o });
+    }
     requestSubcollectionsMap.set(parentId, {
       communications: commMap,
       activities: actMap,
+      offers: offerMap,
     });
   }
 
@@ -406,9 +412,11 @@ export function createInMemoryFactoryResetRepositoryAdapter({
       }
       let communicationsCount = 0;
       let activitiesCount = 0;
+      let offersCount = 0;
       for (const subs of requestSubcollectionsMap.values()) {
         communicationsCount += subs.communications.size;
         activitiesCount += subs.activities.size;
+        offersCount += subs.offers?.size || 0;
       }
       const preservedCounts = {};
       for (const [colName, docsMap] of preservedCollectionsMap.entries()) {
@@ -421,6 +429,7 @@ export function createInMemoryFactoryResetRepositoryAdapter({
         operationalCounts,
         communicationsCount,
         activitiesCount,
+        offersCount,
         preservedCounts,
         publicAvailabilityMetadataState,
         operation: storedOperation ? { ...storedOperation } : null,

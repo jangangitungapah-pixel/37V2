@@ -133,10 +133,13 @@ export async function submitClientPaymentEvidence({
 
   try {
     return await adapter.runAtomicTransaction(async (tx) => {
-      // 1. Read ONLY the parent invoice (never GET non-existent paymentEvidence/{id},
-      //    because Firestore Security Rules require `resource != null` on Client `get`
-      //    to prevent cross-customer document existence probing).
-      const existingInvoice = await tx.getInvoice(cleanInvoiceId);
+      // 1. Read the parent invoice and any existing pending lock before writes.
+      const [existingInvoice, existingLock] = await Promise.all([
+        tx.getInvoice(cleanInvoiceId),
+        typeof tx.getPaymentEvidenceLock === 'function'
+          ? tx.getPaymentEvidenceLock(cleanInvoiceId)
+          : Promise.resolve(null),
+      ]);
 
       if (!existingInvoice) {
         throw createPaymentServiceError(
@@ -214,6 +217,25 @@ export async function submitClientPaymentEvidence({
       };
 
       tx.setPaymentEvidence(cleanEvidenceId, docData);
+
+      if (typeof tx.setPaymentEvidenceLock === 'function') {
+        const prevIds = Array.isArray(existingLock?.pendingEvidenceIds)
+          ? existingLock.pendingEvidenceIds.map((v) => String(v || '').trim()).filter(Boolean)
+          : [];
+        const nextIds = Array.from(new Set([...prevIds, cleanEvidenceId]));
+        tx.setPaymentEvidenceLock(cleanInvoiceId, {
+          schemaVersion: 1,
+          invoiceId: cleanInvoiceId,
+          bookingId: existingInvoice.bookingId,
+          customerId: String(existingInvoice.customerId || cleanCustomerId),
+          clientUid: cleanUid,
+          pendingEvidenceIds: nextIds,
+          pendingCount: nextIds.length,
+          updatedAt: now,
+          updatedByUid: cleanUid,
+          version: (Number(existingLock?.version) || 0) + 1,
+        });
+      }
 
       return {
         evidence: projectClientPaymentEvidenceRecord(cleanEvidenceId, docData),
@@ -303,14 +325,21 @@ export async function verifyClientPaymentEvidence({
       );
     }
 
-    const [existingInvoice, existingTransaction] = await Promise.all([
+    const [existingInvoice, existingTransaction, existingLock] = await Promise.all([
       tx.getInvoice(existingEvidence.invoiceId),
       tx.getPaymentTransaction(deterministicTxId),
+      typeof tx.getPaymentEvidenceLock === 'function'
+        ? tx.getPaymentEvidenceLock(existingEvidence.invoiceId)
+        : Promise.resolve(null),
     ]);
-    const existingClientReservation =
+    const [existingClientReservation, existingBooking] = await Promise.all([
       existingInvoice?.bookingId && typeof tx.getClientReservation === 'function'
-        ? await tx.getClientReservation(existingInvoice.bookingId)
-        : null;
+        ? tx.getClientReservation(existingInvoice.bookingId)
+        : Promise.resolve(null),
+      existingInvoice?.bookingId && typeof tx.getBooking === 'function'
+        ? tx.getBooking(existingInvoice.bookingId)
+        : Promise.resolve(null),
+    ]);
 
     // Strict Idempotency: repeated verification of already-verified evidence NEVER double-counts
     if (
@@ -342,6 +371,9 @@ export async function verifyClientPaymentEvidence({
     }
 
     if (
+      expectedEvidenceVersion !== null &&
+      expectedEvidenceVersion !== undefined &&
+      expectedEvidenceVersion !== '' &&
       Number.isInteger(Number(expectedEvidenceVersion)) &&
       existingEvidence.version !== Number(expectedEvidenceVersion)
     ) {
@@ -383,6 +415,7 @@ export async function verifyClientPaymentEvidence({
       existingInvoice,
       existingTransaction,
       existingClientReservation,
+      existingBooking,
       expectedVersion: expectedInvoiceVersion,
       amount: amountValidation.data.verifiedAmount,
       paymentMethod: existingEvidence.paymentMethod,
@@ -422,6 +455,25 @@ export async function verifyClientPaymentEvidence({
     };
 
     tx.updatePaymentEvidence(cleanEvidenceId, updatedEvidenceDoc);
+
+    if (typeof tx.setPaymentEvidenceLock === 'function') {
+      const prevIds = Array.isArray(existingLock?.pendingEvidenceIds)
+        ? existingLock.pendingEvidenceIds.map((v) => String(v || '').trim()).filter(Boolean)
+        : [];
+      const nextIds = prevIds.filter((id) => id !== cleanEvidenceId);
+      tx.setPaymentEvidenceLock(existingEvidence.invoiceId, {
+        schemaVersion: 1,
+        invoiceId: existingEvidence.invoiceId,
+        bookingId: existingEvidence.bookingId,
+        customerId: existingEvidence.customerId,
+        clientUid: String(existingLock?.clientUid || existingEvidence.clientUid || ''),
+        pendingEvidenceIds: nextIds,
+        pendingCount: nextIds.length,
+        updatedAt: now,
+        updatedByUid: cleanActorUid,
+        version: (Number(existingLock?.version) || 0) + 1,
+      });
+    }
 
     return {
       invoice: applied.invoice,
@@ -470,6 +522,10 @@ export async function rejectClientPaymentEvidence({
         'Dokumen bukti pembayaran tidak ditemukan.',
       );
     }
+    const existingLock =
+      typeof tx.getPaymentEvidenceLock === 'function'
+        ? await tx.getPaymentEvidenceLock(existingEvidence.invoiceId)
+        : null;
 
     if (existingEvidence.evidenceSource !== PAYMENT_EVIDENCE_SOURCES.CLIENT_PORTAL) {
       throw createPaymentServiceError(
@@ -486,6 +542,9 @@ export async function rejectClientPaymentEvidence({
     }
 
     if (
+      expectedEvidenceVersion !== null &&
+      expectedEvidenceVersion !== undefined &&
+      expectedEvidenceVersion !== '' &&
       Number.isInteger(Number(expectedEvidenceVersion)) &&
       existingEvidence.version !== Number(expectedEvidenceVersion)
     ) {
@@ -523,6 +582,25 @@ export async function rejectClientPaymentEvidence({
     };
 
     tx.updatePaymentEvidence(cleanEvidenceId, updatedEvidenceDoc);
+
+    if (typeof tx.setPaymentEvidenceLock === 'function') {
+      const prevIds = Array.isArray(existingLock?.pendingEvidenceIds)
+        ? existingLock.pendingEvidenceIds.map((v) => String(v || '').trim()).filter(Boolean)
+        : [];
+      const nextIds = prevIds.filter((id) => id !== cleanEvidenceId);
+      tx.setPaymentEvidenceLock(existingEvidence.invoiceId, {
+        schemaVersion: 1,
+        invoiceId: existingEvidence.invoiceId,
+        bookingId: existingEvidence.bookingId,
+        customerId: existingEvidence.customerId,
+        clientUid: String(existingLock?.clientUid || existingEvidence.clientUid || ''),
+        pendingEvidenceIds: nextIds,
+        pendingCount: nextIds.length,
+        updatedAt: now,
+        updatedByUid: cleanActorUid,
+        version: (Number(existingLock?.version) || 0) + 1,
+      });
+    }
     return normalizePaymentEvidenceRecord(cleanEvidenceId, updatedEvidenceDoc);
   });
 }

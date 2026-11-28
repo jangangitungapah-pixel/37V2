@@ -188,6 +188,17 @@ export function normalizeInvoiceRecord(id, data = {}) {
     amountPaid,
     balanceDue,
     paymentStatus: computeStoredPaymentStatus(totalAmount, amountPaid),
+    targetType: String(data.targetType || 'booking').trim(),
+    depositPolicySnapshot: data.depositPolicySnapshot ?? null,
+    minimumDepositAmount:
+      data.minimumDepositAmount !== null &&
+      data.minimumDepositAmount !== undefined &&
+      data.minimumDepositAmount !== '' &&
+      Number.isInteger(Number(data.minimumDepositAmount))
+        ? Math.max(0, Math.round(Number(data.minimumDepositAmount)))
+        : null,
+    depositStatus: typeof data.depositStatus === 'string' ? data.depositStatus : null,
+    balanceDuePolicy: data.balanceDuePolicy ?? null,
     invoiceDate: data.invoiceDate ?? data.createdAt ?? null,
     dueDate:
       typeof data.dueDate === 'string' && isValidIsoDateString(data.dueDate)
@@ -262,6 +273,10 @@ export function buildInvoiceDocumentFromBooking({
   initialPaymentTransactionId = null,
   initialPaidAmount = 0,
   clientPaymentEvidenceRequired = false,
+  depositPolicySnapshot = null,
+  minimumDepositAmount = null,
+  depositStatus = null,
+  balanceDuePolicy = null,
 }) {
   const cleanBookingId = String(bookingId || booking?.id || '').trim();
   const invoiceId = buildInvoiceId(cleanBookingId);
@@ -286,10 +301,12 @@ export function buildInvoiceDocumentFromBooking({
     booking?.serviceOptionName || booking?.packageLabel || booking?.recordingTypeLabel || '',
   ).trim();
 
+  const existingClientUid = String(booking?.clientUid || '').trim();
   const invoiceDoc = {
     invoiceNumber,
     bookingId: cleanBookingId,
     customerId: String(customerId ?? booking?.customerId ?? '').trim(),
+    ...(existingClientUid ? { clientUid: existingClientUid } : {}),
     invoiceStatus: INVOICE_STATUS.ISSUED,
     currency: 'IDR',
     clientPaymentEvidenceRequired: Boolean(clientPaymentEvidenceRequired),
@@ -318,6 +335,10 @@ export function buildInvoiceDocumentFromBooking({
     amountPaid: safeInitialPaid,
     balanceDue,
     paymentStatus: computeStoredPaymentStatus(totalAmount, safeInitialPaid),
+    ...(depositPolicySnapshot ? { depositPolicySnapshot } : {}),
+    ...(Number.isInteger(minimumDepositAmount) ? { minimumDepositAmount } : {}),
+    ...(typeof depositStatus === 'string' && depositStatus ? { depositStatus } : {}),
+    ...(balanceDuePolicy ? { balanceDuePolicy } : {}),
     invoiceDate,
     dueDate: typeof dueDate === 'string' && isValidIsoDateString(dueDate) ? dueDate.trim() : null,
     lastPaymentTransactionId: safeInitialPaid > 0 ? initialPaymentTransactionId : null,

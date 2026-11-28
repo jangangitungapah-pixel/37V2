@@ -26,6 +26,10 @@ import {
   PUBLIC_SERVICE_OPTIONS,
 } from '../config/booking-request-config';
 
+import {
+  buildActiveOfferSummary,
+} from '../schemas/offer-schema';
+
 export function generateBookingRequestId() {
   const randomUuid =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -228,15 +232,21 @@ export function normalizeBookingRequestRecord(id, raw = {}) {
         : null,
     assignedStaffUid: String(raw.assignedStaffUid || '').trim(),
     assignedStaffName: String(raw.assignedStaffName || '').trim(),
+    activeOfferId: raw.activeOfferId ? String(raw.activeOfferId).trim() : null,
+    activeOfferSummary: raw.activeOfferSummary ? buildActiveOfferSummary(raw.activeOfferSummary) : null,
     lastCommunicationAt: raw.lastCommunicationAt ?? null,
     lastCommunicationAtIso: normalizeTimestampToIso(raw.lastCommunicationAt),
     lastCommunicationType: String(raw.lastCommunicationType || '').trim(),
     lastCommunicationStatus: String(raw.lastCommunicationStatus || '').trim(),
     linkedBookingId: raw.linkedBookingId ? String(raw.linkedBookingId).trim() : null,
+    linkedProjectId: raw.linkedProjectId ? String(raw.linkedProjectId).trim() : null,
     confirmedBookingSnapshot: normalizeConfirmedBookingSnapshot(raw.confirmedBookingSnapshot),
     confirmedAt: raw.confirmedAt ?? null,
     confirmedAtIso: normalizeTimestampToIso(raw.confirmedAt),
     confirmedByUid: String(raw.confirmedByUid || '').trim(),
+    convertedAt: raw.convertedAt ?? null,
+    convertedAtIso: normalizeTimestampToIso(raw.convertedAt),
+    convertedByUid: String(raw.convertedByUid || '').trim(),
     appCheckState: String(raw.appCheckState || 'unconfigured').trim(),
     createdAt: raw.createdAt ?? null,
     createdAtIso: normalizeTimestampToIso(raw.createdAt),

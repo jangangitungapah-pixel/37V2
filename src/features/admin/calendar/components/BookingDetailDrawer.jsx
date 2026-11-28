@@ -30,9 +30,11 @@ import {
   BOOKING_EVENT_LABELS,
   getInitialPaymentStatusMeta,
   getPaymentMethodLabel,
+  getReservationStatusMeta,
   getSessionStatusMeta,
   getStudioRoomById,
 } from '../config/calendar-config';
+import { HoldLifecyclePanel } from './HoldLifecyclePanel';
 import { useBookingEvents } from '../hooks/useCalendarBookings';
 import { generateOperationId } from '../repositories/calendar-booking-repository';
 import {
@@ -44,6 +46,7 @@ import {
   formatDurationMinutes,
   formatMinuteRange,
   getBookingLifecycleCapabilities,
+  normalizeBookingReservationStatus,
 } from '../utils/booking-time';
 import { formatIndonesianDateFull, formatIndonesianTimestamp } from '../utils/calendar-date';
 
@@ -54,6 +57,7 @@ export function BookingDetailDrawer({
   onEditBooking = null,
   onRescheduleBooking = null,
   onLifecycleAction = null,
+  actorUid = '',
   readOnly = false,
   overlayZIndexClass = '',
   now = undefined,
@@ -84,6 +88,8 @@ export function BookingDetailDrawer({
     ? getInvoiceStatusMeta(latestPayment.invoiceStatus)
     : null;
   const sessionMeta = getSessionStatusMeta(booking.sessionStatus);
+  const resStatus = normalizeBookingReservationStatus(booking);
+  const resMeta = getReservationStatusMeta(resStatus);
   const capabilities = getBookingLifecycleCapabilities(booking, now);
   const financial = extractBookingFinancialSnapshot(booking);
   const commissionDisplay = getCommissionSnapshotDisplay(booking.commissionSnapshot);
@@ -148,6 +154,11 @@ export function BookingDetailDrawer({
                     className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold sm:px-2.5 sm:text-[11px] ${room.badgeClass}`}
                   >
                     {room.label}
+                  </span>
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[10px] font-medium sm:px-2.5 sm:text-[11px] ${resMeta.badgeClass}`}
+                  >
+                    {resMeta.shortLabel}
                   </span>
                   <span
                     className={`rounded-full border px-2 py-0.5 text-[10px] font-medium sm:px-2.5 sm:text-[11px] ${sessionMeta.badgeClass}`}
@@ -279,6 +290,15 @@ export function BookingDetailDrawer({
                 </div>
               </div>
             ) : null}
+
+            {/* SECTION 0: DEPOSIT HOLD & RESTORATION PANEL */}
+            <HoldLifecyclePanel
+              booking={booking}
+              actorUid={actorUid}
+              latestPayment={latestPayment}
+              isInteractive={isInteractive}
+              now={now}
+            />
 
             {/* SECTION 1: BOOKING OVERVIEW */}
             <section aria-labelledby="drawer-overview-heading" className="sa-card p-4 sm:p-5">
@@ -626,6 +646,12 @@ export function BookingDetailDrawer({
               capabilities.noShowReason ? (
                 <p className="mt-2.5 text-xs text-[#666159]">
                   Info No Show: {capabilities.noShowReason}
+                </p>
+              ) : null}
+
+              {resStatus === 'deposit_hold' ? (
+                <p className="mt-2.5 text-xs font-medium text-[#8A4B08]">
+                  Check-in &amp; Start Session dinonaktifkan selama reservasi berstatus Deposit Hold (Pending Confirmation).
                 </p>
               ) : null}
 

@@ -24,11 +24,14 @@ export function createFirestoreBookingPoliciesRepositoryAdapter() {
             ref,
             (snapshot) => {
               if (cancelled) return;
+              const hasDoc =
+                typeof snapshot?.exists === 'function'
+                  ? snapshot.exists()
+                  : Boolean(snapshot?.exists);
+              const rawData = typeof snapshot?.data === 'function' ? snapshot.data() : null;
               onData?.({
-                policies: normalizeBookingPolicies(
-                  snapshot.exists() ? snapshot.data() : DEFAULT_BOOKING_POLICIES,
-                ),
-                isPersisted: snapshot.exists(),
+                policies: normalizeBookingPolicies(hasDoc && rawData ? rawData : DEFAULT_BOOKING_POLICIES),
+                isPersisted: Boolean(hasDoc),
               });
             },
             (error) => {

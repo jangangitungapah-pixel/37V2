@@ -8,6 +8,7 @@
 
 import {
   FIRESTORE_COLLECTIONS,
+  normalizeBookingEventRecord,
   normalizeBookingRecord,
 } from '@/features/admin/calendar/repositories/calendar-booking-repository';
 import {
@@ -85,6 +86,23 @@ export function createFirestorePaymentRepositoryAdapter() {
             const ref = doc(db, FIRESTORE_COLLECTIONS.CLIENT_RESERVATIONS, bookingId);
             const snap = await tx.get(ref);
             return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+          },
+          async getPaymentEvidenceLock(invoiceId) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE_LOCKS, invoiceId);
+            const snap = await tx.get(ref);
+            return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+          },
+          updateBooking(bookingId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKINGS, bookingId);
+            tx.update(ref, data);
+          },
+          setBookingEvent(eventId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.BOOKING_EVENTS, eventId);
+            tx.set(ref, data);
+          },
+          setPaymentEvidenceLock(invoiceId, data) {
+            const ref = doc(db, FIRESTORE_COLLECTIONS.PAYMENT_EVIDENCE_LOCKS, invoiceId);
+            tx.set(ref, data);
           },
           updateClientReservation(bookingId, data) {
             const ref = doc(db, FIRESTORE_COLLECTIONS.CLIENT_RESERVATIONS, bookingId);
@@ -471,9 +489,11 @@ export function createFirestorePaymentRepositoryAdapter() {
 export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
   const sharedStore = bookingAdapter?._sharedStore || null;
   const bookings = sharedStore?.bookings || new Map();
+  const events = sharedStore?.events || new Map();
   const invoices = sharedStore?.invoices || new Map();
   const paymentTransactions = sharedStore?.paymentTransactions || new Map();
   const paymentEvidence = sharedStore?.paymentEvidence || new Map();
+  const paymentEvidenceLocks = sharedStore?.paymentEvidenceLocks || new Map();
   const clientReservations = sharedStore?.clientReservations || new Map();
   const invoiceSubscribers = sharedStore?.invoiceSubscribers || new Set();
   const invoiceDocSubscribers = sharedStore?.invoiceDocSubscribers || new Map();
@@ -575,9 +595,11 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
   return {
     _sharedStore: sharedStore || {
       bookings,
+      events,
       invoices,
       paymentTransactions,
       paymentEvidence,
+      paymentEvidenceLocks,
       clientReservations,
       invoiceSubscribers,
       invoiceDocSubscribers,
@@ -606,10 +628,14 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
 
     runAtomicTransaction(transactionWork) {
       return enqueue(async () => {
+        const stagedBookings = new Map(bookings);
+        const stagedEvents = new Map(events);
         const stagedInvoices = new Map(invoices);
         const stagedTransactions = new Map(paymentTransactions);
         const stagedEvidence = new Map(paymentEvidence);
+        const stagedEvidenceLocks = new Map(paymentEvidenceLocks);
         const stagedClientReservations = new Map(clientReservations);
+        const touchedBookingIds = new Set();
         let writeStarted = false;
 
         const txContext = {
@@ -635,7 +661,7 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
             if (writeStarted) {
               throw new Error('Firestore transactions require all reads before writes.');
             }
-            const item = bookings.get(id);
+            const item = stagedBookings.get(id);
             return item ? normalizeBookingRecord(id, item) : null;
           },
           async getPaymentEvidence(id) {
@@ -645,12 +671,34 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
             const item = stagedEvidence.get(id);
             return item ? normalizePaymentEvidenceRecord(id, item) : null;
           },
+          async getPaymentEvidenceLock(id) {
+            if (writeStarted) {
+              throw new Error('Firestore transactions require all reads before writes.');
+            }
+            const item = stagedEvidenceLocks.get(id);
+            return item ? { ...item } : null;
+          },
           async getClientReservation(id) {
             if (writeStarted) {
               throw new Error('Firestore transactions require all reads before writes.');
             }
             const item = stagedClientReservations.get(id);
             return item ? { id, ...item } : null;
+          },
+          updateBooking(id, data) {
+            writeStarted = true;
+            touchedBookingIds.add(id);
+            const prev = stagedBookings.get(id) || {};
+            stagedBookings.set(id, normalizeBookingRecord(id, { ...prev, ...data }));
+          },
+          setBookingEvent(id, data) {
+            writeStarted = true;
+            touchedBookingIds.add(data.bookingId);
+            stagedEvents.set(id, normalizeBookingEventRecord(id, data));
+          },
+          setPaymentEvidenceLock(id, data) {
+            writeStarted = true;
+            stagedEvidenceLocks.set(id, { id, ...data });
           },
           updateClientReservation(id, data) {
             writeStarted = true;
@@ -683,17 +731,29 @@ export function createInMemoryPaymentRepositoryAdapter(bookingAdapter = null) {
 
         const result = await transactionWork(txContext);
 
+        bookings.clear();
+        for (const [k, v] of stagedBookings) bookings.set(k, v);
+        events.clear();
+        for (const [k, v] of stagedEvents) events.set(k, v);
         invoices.clear();
         for (const [k, v] of stagedInvoices) invoices.set(k, v);
         paymentTransactions.clear();
         for (const [k, v] of stagedTransactions) paymentTransactions.set(k, v);
         paymentEvidence.clear();
         for (const [k, v] of stagedEvidence) paymentEvidence.set(k, v);
+        paymentEvidenceLocks.clear();
+        for (const [k, v] of stagedEvidenceLocks) paymentEvidenceLocks.set(k, v);
         clientReservations.clear();
         for (const [k, v] of stagedClientReservations) clientReservations.set(k, v);
 
         notifyInvoices();
         sharedStore?.notifyClientReservations?.();
+        if (touchedBookingIds.size > 0) {
+          sharedStore?.notifyBookings?.();
+          for (const bId of touchedBookingIds) {
+            sharedStore?.notifyEvents?.(bId);
+          }
+        }
         notifyTransactions();
         if (sharedStore?.notifyPaymentEvidence) {
           sharedStore.notifyPaymentEvidence();

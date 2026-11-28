@@ -9,6 +9,7 @@ import {
 } from '@/features/admin/booking-requests/config/booking-request-config';
 import { getBookingRequestRepositoryAdapter } from '@/features/admin/booking-requests/repositories/booking-request-repository';
 import { mapPublicServiceToInternalPricing } from '@/features/admin/booking-requests/utils/booking-request-normalize';
+import { useBookingPolicies } from '@/features/admin/settings/booking-policies/hooks/useBookingPolicies';
 import { usePricingSettings } from '@/features/admin/settings/hooks/usePricingSettings';
 import { useCalendarInvoiceSummaries } from '@/features/admin/payment/hooks/useInvoicePaymentSummaries';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -51,6 +52,7 @@ export function AdminCalendarPage() {
     activeStudioServiceTypes,
     isLoading: isPricingLoading,
   } = usePricingSettings();
+  const { policies: bookingPolicies } = useBookingPolicies();
   const actorUid = user?.uid || profile?.uid || '';
   const actorRole = String(role || profile?.role || '')
     .trim()
@@ -74,6 +76,7 @@ export function AdminCalendarPage() {
   } = availabilitySync;
   const [searchParams, setSearchParams] = useSearchParams();
   const requestIdParam = searchParams.get('requestId') || '';
+  const offerIdParam = searchParams.get('offerId') || '';
   const isRequestAction = searchParams.get('action') === 'new-booking' && Boolean(requestIdParam);
 
   const [viewMode, setViewMode] = useState(getInitialCalendarViewMode);
@@ -99,6 +102,7 @@ export function AdminCalendarPage() {
       open: shouldOpenNew,
       mode: 'create',
       sourceBookingRequest: null,
+      sourceOffer: null,
       initialSlot: shouldOpenNew
         ? {
           date: initialDate,
@@ -119,7 +123,7 @@ export function AdminCalendarPage() {
       return undefined;
     }
 
-    const loadKey = `${requestIdParam}:${activeStudioServiceTypes.map((s) => s.id).join(',')}`;
+    const loadKey = `${requestIdParam}:${offerIdParam}:${activeStudioServiceTypes.map((s) => s.id).join(',')}`;
     if (loadedRequestKeyRef.current === loadKey) {
       return undefined;
     }
@@ -129,8 +133,8 @@ export function AdminCalendarPage() {
 
     (async () => {
       try {
-        const loaded =
-          await getBookingRequestRepositoryAdapter().getBookingRequestById(requestIdParam);
+        const reqRepo = getBookingRequestRepositoryAdapter();
+        const loaded = await reqRepo.getBookingRequestById(requestIdParam);
         if (isCancelled) return;
         loadedRequestKeyRef.current = loadKey;
 
@@ -160,14 +164,36 @@ export function AdminCalendarPage() {
           return;
         }
 
+        const candidateOfferId = offerIdParam || loaded.activeOfferId || '';
+        const loadedOffer =
+          candidateOfferId && typeof reqRepo.getOfferById === 'function'
+            ? await reqRepo.getOfferById(loaded.id, candidateOfferId)
+            : null;
+        if (isCancelled) return;
+
+        if (offerIdParam && !loadedOffer) {
+          setRequestLoadError(`Offer "${offerIdParam}" tidak ditemukan pada request ini.`);
+          return;
+        }
+        if (loadedOffer?.status === 'sent') {
+          setRequestLoadError(
+            `Offer ${loadedOffer.offerNumber} masih menunggu respons Client. Tarik/tandai expired atau catat persetujuan Client terlebih dahulu.`,
+          );
+          return;
+        }
+
+        const acceptedOffer = loadedOffer?.status === 'accepted' ? loadedOffer : null;
         const serviceMapping = mapPublicServiceToInternalPricing(
           loaded.publicServiceId,
           activeStudioServiceTypes,
-          loaded.serviceOptionId,
+          acceptedOffer?.serviceSnapshot?.serviceOptionId || loaded.serviceOptionId,
         );
-        const targetDate = isValidIsoDateString(loaded.preferredDate)
-          ? loaded.preferredDate
-          : getJakartaTodayIso();
+        const offerDate = acceptedOffer?.scheduleSnapshot?.date;
+        const targetDate = isValidIsoDateString(offerDate)
+          ? offerDate
+          : isValidIsoDateString(loaded.preferredDate)
+            ? loaded.preferredDate
+            : getJakartaTodayIso();
 
         setActiveDate(targetDate);
         setBookingDialogState((prev) => ({
@@ -175,27 +201,45 @@ export function AdminCalendarPage() {
           open: true,
           mode: 'create',
           sourceBookingRequest: loaded,
+          sourceOffer: acceptedOffer,
           initialSlot: {
             customerName: loaded.customerName,
             bandName: loaded.bandName,
             phone: loaded.contactPhone,
             notes: loaded.notes,
             date: targetDate,
-            studioId: loaded.requestedRoomId === 'room-b' ? 'room-b' : 'room-a',
-            startMinute: Number.isInteger(loaded.preferredStartMinute)
-              ? loaded.preferredStartMinute
-              : 600,
-            durationMinutes: Number.isInteger(loaded.preferredDurationMinutes)
-              ? loaded.preferredDurationMinutes
-              : 120,
-            defaultServiceId: serviceMapping.requiresManualSelection
-              ? ''
-              : serviceMapping.serviceTypeId,
-            defaultOptionId: serviceMapping.requiresManualSelection
-              ? ''
-              : serviceMapping.serviceOptionId,
-            requiresManualServiceSelection: serviceMapping.requiresManualSelection,
-            serviceMappingWarning: serviceMapping.reason,
+            studioId:
+              acceptedOffer?.scheduleSnapshot?.studioId ||
+              (loaded.requestedRoomId === 'room-b' ? 'room-b' : 'room-a'),
+            startMinute: Number.isInteger(acceptedOffer?.scheduleSnapshot?.startMinute)
+              ? acceptedOffer.scheduleSnapshot.startMinute
+              : Number.isInteger(loaded.preferredStartMinute)
+                ? loaded.preferredStartMinute
+                : 600,
+            durationMinutes: Number.isInteger(acceptedOffer?.scheduleSnapshot?.durationMinutes)
+              ? acceptedOffer.scheduleSnapshot.durationMinutes
+              : Number.isInteger(loaded.preferredDurationMinutes)
+                ? loaded.preferredDurationMinutes
+                : 120,
+            defaultServiceId: acceptedOffer?.serviceSnapshot?.serviceTypeId
+              ? acceptedOffer.serviceSnapshot.serviceTypeId
+              : serviceMapping.requiresManualSelection
+                ? ''
+                : serviceMapping.serviceTypeId,
+            defaultOptionId: acceptedOffer?.serviceSnapshot?.serviceOptionId
+              ? acceptedOffer.serviceSnapshot.serviceOptionId
+              : serviceMapping.requiresManualSelection
+                ? ''
+                : serviceMapping.serviceOptionId,
+            manualCustomerPrice:
+              acceptedOffer?.serviceSnapshot?.pricingMode === 'manual_quote' &&
+              acceptedOffer?.financialSnapshot?.totalAmount
+                ? String(acceptedOffer.financialSnapshot.totalAmount)
+                : '',
+            requiresManualServiceSelection: acceptedOffer
+              ? false
+              : serviceMapping.requiresManualSelection,
+            serviceMappingWarning: acceptedOffer ? '' : serviceMapping.reason,
           },
           editingBooking: null,
         }));
@@ -209,7 +253,7 @@ export function AdminCalendarPage() {
     return () => {
       isCancelled = true;
     };
-  }, [isRequestAction, requestIdParam, isPricingLoading, activeStudioServiceTypes]);
+  }, [isRequestAction, requestIdParam, offerIdParam, isPricingLoading, activeStudioServiceTypes]);
 
   const [selectedBookingId, setSelectedBookingId] = useState(
     () => searchParams.get('bookingId') || '',
@@ -327,6 +371,10 @@ export function AdminCalendarPage() {
     formValues,
     customerResolution = null,
     bookingRequestId = '',
+    acceptedOfferId = '',
+    holdMode = '',
+    holdOverrideHours = null,
+    holdOverrideReason = '',
     optionalInitialPaymentEvidence = null,
     initialEvidenceId = '',
   }) => {
@@ -358,13 +406,23 @@ export function AdminCalendarPage() {
         formValues,
         customerResolution,
         pricingSettings,
+        bookingPolicies,
+        acceptedOfferId,
+        holdMode,
+        holdOverrideHours,
+        holdOverrideReason,
         bookingRequestId,
         optionalInitialPaymentEvidence,
         initialEvidenceId,
       });
+      const isHoldCreated = created.reservationStatus === 'deposit_hold';
       const message = bookingRequestId
-        ? `Booking resmi untuk "${created.customerName}" berhasil dibuat dan request dikonfirmasi.`
-        : `Booking baru untuk "${created.customerName}" berhasil disimpan.`;
+        ? isHoldCreated
+          ? `Deposit Hold untuk "${created.customerName}" dibuat dan menunggu DP.`
+          : `Booking resmi untuk "${created.customerName}" berhasil dibuat dan request dikonfirmasi.`
+        : isHoldCreated
+          ? `Deposit Hold untuk "${created.customerName}" berhasil disimpan.`
+          : `Booking baru untuk "${created.customerName}" berhasil disimpan.`;
       setStatusFeedback(message);
       toast.success(message);
       if (bookingRequestId) {
@@ -541,9 +599,11 @@ export function AdminCalendarPage() {
         mode={bookingDialogState.mode}
         initialSlot={bookingDialogState.initialSlot}
         sourceBookingRequest={bookingDialogState.sourceBookingRequest}
+        sourceOffer={bookingDialogState.sourceOffer}
         editingBooking={bookingDialogState.editingBooking}
         existingBookings={activeSlotBookings}
         pricingSettings={pricingSettings}
+        bookingPolicies={bookingPolicies}
         onOpenChange={(nextOpen) =>
           setBookingDialogState((prev) => ({
             ...prev,
@@ -559,6 +619,7 @@ export function AdminCalendarPage() {
         key={selectedBooking?.id || 'closed'}
         booking={selectedBooking}
         open={Boolean(selectedBooking)}
+        actorUid={actorUid}
         onOpenChange={(nextOpen) => {
           if (!nextOpen) {
             setSelectedBookingId('');

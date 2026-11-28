@@ -105,6 +105,7 @@ export function useBookingRequestDetail(requestId = '') {
   });
   const [communications, setCommunications] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [offers, setOffers] = useState([]);
   const [dateBookingsState, setDateBookingsState] = useState({
     date: '',
     bookings: [],
@@ -153,11 +154,25 @@ export function useBookingRequestDetail(requestId = '') {
       onError: () => {},
     });
 
+    const unsubOffers =
+      typeof requestAdapter.subscribeRequestOffers === 'function'
+        ? requestAdapter.subscribeRequestOffers({
+            requestId,
+            clientSafe: false,
+            maxLimit: 50,
+            onData: (items) => {
+              if (!isCancelled) setOffers(items || []);
+            },
+            onError: () => {},
+          })
+        : null;
+
     return () => {
       isCancelled = true;
       unsubDoc?.();
       unsubComms?.();
       unsubActs?.();
+      unsubOffers?.();
     };
   }, [requestAdapter, requestId]);
 
@@ -219,6 +234,7 @@ export function useBookingRequestDetail(requestId = '') {
     request: activeRequest,
     communications: requestId ? communications : [],
     activities: requestId ? activities : [],
+    offers: requestId ? offers : [],
     availabilityContext,
     isLoading,
     error: docState.loadedId === requestId ? docState.error : null,

@@ -17,7 +17,7 @@ export function BookingRequestStatusBadge({ status, size = 'md' }) {
     <AdminStatusBadge
       tone={meta.tone}
       size={size}
-      dot={status === 'new' || status === 'accepted' || status === 'confirmed'}
+      dot={status === 'new' || status === 'offer_sent' || status === 'accepted' || status === 'confirmed'}
     >
       {size === 'sm' ? meta.shortLabel : meta.label}
     </AdminStatusBadge>

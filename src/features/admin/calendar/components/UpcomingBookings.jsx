@@ -4,10 +4,11 @@ import { getPaymentStatusMeta } from '@/features/admin/payment/utils/invoice-sta
 
 import {
   getInitialPaymentStatusMeta,
+  getReservationStatusMeta,
   getSessionStatusMeta,
   getStudioRoomById,
 } from '../config/calendar-config';
-import { formatMinuteRange } from '../utils/booking-time';
+import { formatMinuteRange, normalizeBookingReservationStatus } from '../utils/booking-time';
 import { formatIndonesianDateMedium } from '../utils/calendar-date';
 
 export function UpcomingBookings({ bookings = [], onSelectBooking, onOpenNewBooking }) {
@@ -61,6 +62,8 @@ export function UpcomingBookings({ bookings = [], onSelectBooking, onOpenNewBook
               ? getPaymentStatusMeta(booking.invoiceSummary.paymentStatus)
               : getInitialPaymentStatusMeta(booking.initialPaymentStatus);
             const sessionMeta = getSessionStatusMeta(booking.sessionStatus);
+            const resStatus = normalizeBookingReservationStatus(booking);
+            const resMeta = resStatus === 'deposit_hold' ? getReservationStatusMeta(resStatus) : null;
             const serviceSummary =
               booking.packageLabel || booking.recordingTypeLabel || booking.serviceLabel;
 
@@ -117,6 +120,13 @@ export function UpcomingBookings({ bookings = [], onSelectBooking, onOpenNewBook
                     >
                       {sessionMeta.label}
                     </span>
+                    {resMeta ? (
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${resMeta.badgeClass}`}
+                      >
+                        {resMeta.shortLabel}
+                      </span>
+                    ) : null}
                   </div>
                 </button>
               </li>

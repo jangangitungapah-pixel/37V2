@@ -2,8 +2,8 @@
 
 **Application:** 37 Music Studio  
 **Repository:** https://github.com/jangangitungapah-pixel/37V2  
-**Current working branch:** feature/phase-1-core-domain-identity-policy-foundation  
-**Current project phase:** Booking Lifecycle — Phase 1 Remediation (not accepted yet)
+**Current working branch:** `feature/phase-2-offer-revisions-deposit-hold-engine` (branched from accepted Phase 1 tip `2762923ea6de93345058b97012951555f1a354f2`)  
+**Current project phase:** Booking Lifecycle — Phase 1 Owner-Accepted (Not Deployed); Phase 2 Independent Deliverables Implemented & Locally Verified (Dependent `deposit_hold_offer` Path Explicitly `BLOCKED` Pending Owner ADR Choice A vs B; Local Dev Only)
 
 This document gives a new engineering session enough product and repository context to make correct decisions instead of treating the latest test failures as an isolated task.
 
@@ -151,13 +151,11 @@ Phase 0 audited this existing baseline and froze the cross-domain architecture. 
 
 ## 9. Current project phase and hard boundaries
 
-As of the current branch:
+As of the current branch (`feature/phase-2-offer-revisions-deposit-hold-engine`):
 - Phase 0 — Business Logic Discovery & Architecture Freeze: completed as documentation.
-- Phase 1 — Core Domain, Identity & Policy Foundation: source implementation committed, but **not accepted** because local Gate 1 checks fail and additional identity/consistency gates remain open.
-- Phase 2 — Offer Revisions & Deposit Hold Engine: **blocked** until Phase 1 is verified and accepted.
-- Phases 3–5: deferred in the architecture roadmap.
-
-Phase 1 has not implemented the full reservation/payment lifecycle. Booking Policies configuration and public policy projection exist as foundation; they do not yet execute Offer, hold creation, deposit confirmation, expiry, change, refund, or Mix & Master project transitions.
+- Phase 1 — Core Domain, Identity & Policy Foundation: **Owner-accepted on `2026-11-28`** at `2762923ea6de93345058b97012951555f1a354f2` (`docs/handoffs/PHASE-1-OWNER-ACCEPTANCE-RECORD.md`, `verify:phase1` `4/4` PASS). **Production Firebase deployment and production `clientReservations` backfill have NOT been performed** and remain separate rollout preconditions.
+- Phase 2 — Offer Revisions & Deposit Hold Engine: **independent deliverables implemented & locally verified (`verify:phase2` `4/4` PASS — ESLint `0`, Vitest `31/31` files / `258/258` tests, Firestore Rules Emulator PASS, Vite production build PASS); dependent `deposit_hold_offer` path explicitly `BLOCKED` behind `offer/deposit-hold-timing-unresolved` pending Owner ADR Choice A vs B** (`docs/handoffs/HANDOFF-PHASE-2-OFFER-REVISIONS-DEPOSIT-HOLD-ENGINE.md`). Local only; not deployed.
+- Phases 3–5: remain **blocked** until Phase 2 Owner review/ADR resolution and required deployment preconditions.
 
 ## 10. Engineering workflow and safety rules
 

@@ -1,6 +1,7 @@
 export const PUBLIC_BOOKING_REQUESTS_COLLECTION = 'publicBookingRequests';
 export const BOOKING_REQUEST_COMMUNICATIONS_SUBCOLLECTION = 'communications';
 export const BOOKING_REQUEST_ACTIVITIES_SUBCOLLECTION = 'activities';
+export const BOOKING_REQUEST_OFFERS_SUBCOLLECTION = 'offers';
 export const BOOKING_REQUEST_TEMPLATES_COLLECTION = 'bookingRequestMessageTemplates';
 
 export const BOOKING_REQUEST_SCHEMA_VERSION = 1;
@@ -21,6 +22,7 @@ export const BOOKING_REQUEST_STATUS = Object.freeze({
   NEW: 'new',
   IN_REVIEW: 'in_review',
   AWAITING_CUSTOMER: 'awaiting_customer',
+  OFFER_SENT: 'offer_sent',
   ACCEPTED: 'accepted',
   CONFIRMED: 'confirmed',
   DECLINED: 'declined',
@@ -31,6 +33,7 @@ export const BOOKING_REQUEST_STATUS_ORDER = Object.freeze([
   BOOKING_REQUEST_STATUS.NEW,
   BOOKING_REQUEST_STATUS.IN_REVIEW,
   BOOKING_REQUEST_STATUS.AWAITING_CUSTOMER,
+  BOOKING_REQUEST_STATUS.OFFER_SENT,
   BOOKING_REQUEST_STATUS.ACCEPTED,
   BOOKING_REQUEST_STATUS.CONFIRMED,
   BOOKING_REQUEST_STATUS.DECLINED,
@@ -58,6 +61,13 @@ export const BOOKING_REQUEST_STATUS_META = Object.freeze({
     shortLabel: 'Awaiting Customer',
     tone: 'ivory',
     description: 'Menunggu respons atau klarifikasi tambahan dari pelanggan.',
+  },
+  [BOOKING_REQUEST_STATUS.OFFER_SENT]: {
+    id: BOOKING_REQUEST_STATUS.OFFER_SENT,
+    label: 'Offer Sent',
+    shortLabel: 'Offer Sent',
+    tone: 'amber',
+    description: 'Penawaran resmi (Offer) telah dikirim dan menunggu persetujuan Client.',
   },
   [BOOKING_REQUEST_STATUS.ACCEPTED]: {
     id: BOOKING_REQUEST_STATUS.ACCEPTED,
@@ -115,6 +125,12 @@ export const ALLOWED_MANUAL_STATUS_TRANSITIONS = Object.freeze({
     BOOKING_REQUEST_STATUS.DECLINED,
     BOOKING_REQUEST_STATUS.CLOSED,
   ],
+  [BOOKING_REQUEST_STATUS.OFFER_SENT]: [
+    BOOKING_REQUEST_STATUS.IN_REVIEW,
+    BOOKING_REQUEST_STATUS.AWAITING_CUSTOMER,
+    BOOKING_REQUEST_STATUS.DECLINED,
+    BOOKING_REQUEST_STATUS.CLOSED,
+  ],
   [BOOKING_REQUEST_STATUS.ACCEPTED]: [
     BOOKING_REQUEST_STATUS.IN_REVIEW,
     BOOKING_REQUEST_STATUS.AWAITING_CUSTOMER,
@@ -137,6 +153,12 @@ export const BOOKING_REQUEST_ACTIVITY_TYPES = Object.freeze({
   STATUS_CHANGED: 'status_changed',
   BOOKING_CONFIRMED: 'booking_confirmed',
   STAFF_ASSIGNED: 'staff_assigned',
+  OFFER_SENT: 'offer_sent',
+  OFFER_REVISED: 'offer_revised',
+  OFFER_ACCEPTED: 'offer_accepted',
+  OFFER_REJECTED: 'offer_rejected',
+  OFFER_WITHDRAWN: 'offer_withdrawn',
+  OFFER_EXPIRED: 'offer_expired',
 });
 
 export const BOOKING_REQUEST_INBOX_PAGE_SIZE = 50;

@@ -91,6 +91,28 @@ export function projectClientInvoiceRecord(idOrRecord, maybeRawData = undefined)
     amountPaid: toNonNegativeRupiahInt(normalized.amountPaid),
     balanceDue: toNonNegativeRupiahInt(normalized.balanceDue),
     paymentStatus: normalized.paymentStatus,
+    ...(Number.isInteger(normalized.minimumDepositAmount)
+      ? { minimumDepositAmount: normalized.minimumDepositAmount }
+      : {}),
+    ...(normalized.depositStatus ? { depositStatus: normalized.depositStatus } : {}),
+    ...(normalized.depositPolicySnapshot
+      ? {
+          depositPolicySnapshot: {
+            type: normalized.depositPolicySnapshot.type,
+            minimumDepositAmount: toNonNegativeRupiahInt(
+              normalized.depositPolicySnapshot.minimumDepositAmount,
+            ),
+          },
+        }
+      : {}),
+    ...(normalized.balanceDuePolicy
+      ? {
+          balanceDuePolicy: {
+            trigger: normalized.balanceDuePolicy.trigger,
+            dueDate: normalized.balanceDuePolicy.dueDate,
+          },
+        }
+      : {}),
     invoiceDate: normalized.invoiceDate,
     dueDate: normalized.dueDate,
     createdAt: normalized.createdAt,

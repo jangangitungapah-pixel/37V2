@@ -5,8 +5,14 @@ import {
   getInitialPaymentStatusMeta,
   getSessionStatusMeta,
   getStudioRoomById,
+  RESERVATION_STATUS,
 } from '../config/calendar-config';
-import { formatDurationMinutes, formatMinuteOfDay, formatMinuteRange } from '../utils/booking-time';
+import {
+  formatDurationMinutes,
+  formatMinuteOfDay,
+  formatMinuteRange,
+  normalizeBookingReservationStatus,
+} from '../utils/booking-time';
 
 export function CalendarBookingCard({
   booking,
@@ -21,6 +27,9 @@ export function CalendarBookingCard({
     ? getPaymentStatusMeta(booking.invoiceSummary.paymentStatus)
     : getInitialPaymentStatusMeta(booking.initialPaymentStatus);
   const sessionMeta = getSessionStatusMeta(booking.sessionStatus);
+  const resStatus = normalizeBookingReservationStatus(booking);
+  const isDepositHold = resStatus === RESERVATION_STATUS.DEPOSIT_HOLD;
+  const isExpired = resStatus === RESERVATION_STATUS.EXPIRED;
   const isCancelled = booking.sessionStatus === BOOKING_SESSION_STATUS.CANCELLED;
   const timeRangeLabel = formatMinuteRange(booking.startMinute, booking.endMinute, false);
   const durationLabel = formatDurationMinutes(booking.durationMinutes);
@@ -29,17 +38,23 @@ export function CalendarBookingCard({
   const isLongDuration = Number(booking.durationMinutes) >= 90;
   const isRoomA = booking.studioId === 'room-a';
 
-  const cardSurfaceClass = isCancelled
-    ? 'border-[#C8C4BA] bg-[#F0EFEA] text-[#67635C] opacity-80'
-    : isRoomA
-      ? 'border-[#A7BF4E]/75 bg-gradient-to-br from-[#F4F8E2] via-[#FCFDF8] to-[#EEF4D8] text-[#202A08] shadow-[0_3px_10px_-7px_rgba(48,65,9,0.5)]'
-      : 'border-[#ECA287]/75 bg-gradient-to-br from-[#FFF0E8] via-[#FFFCF9] to-[#FBE6DC] text-[#3E1B11] shadow-[0_3px_10px_-7px_rgba(123,46,23,0.42)]';
+  const cardSurfaceClass =
+    isCancelled || isExpired
+      ? 'border-[#C8C4BA] bg-[#F0EFEA] text-[#67635C] opacity-80'
+      : isDepositHold
+        ? 'border-dashed border-amber-500/75 bg-gradient-to-br from-[#FEF4DD] via-[#FFFDF7] to-[#FBECCB] text-[#5C3405] shadow-[0_3px_10px_-7px_rgba(138,75,8,0.45)]'
+        : isRoomA
+          ? 'border-[#A7BF4E]/75 bg-gradient-to-br from-[#F4F8E2] via-[#FCFDF8] to-[#EEF4D8] text-[#202A08] shadow-[0_3px_10px_-7px_rgba(48,65,9,0.5)]'
+          : 'border-[#ECA287]/75 bg-gradient-to-br from-[#FFF0E8] via-[#FFFCF9] to-[#FBE6DC] text-[#3E1B11] shadow-[0_3px_10px_-7px_rgba(123,46,23,0.42)]';
 
-  const topAccentClass = isCancelled
-    ? 'before:bg-[#8B857B]'
-    : isRoomA
-      ? 'before:bg-[#A7C72A]'
-      : 'before:bg-[#FF6E49]';
+  const topAccentClass =
+    isCancelled || isExpired
+      ? 'before:bg-[#8B857B]'
+      : isDepositHold
+        ? 'before:bg-[#D97706]'
+        : isRoomA
+          ? 'before:bg-[#A7C72A]'
+          : 'before:bg-[#FF6E49]';
 
   const baseCardClass =
     'relative isolate flex w-full min-w-0 cursor-pointer overflow-hidden border text-left outline-none transition-[box-shadow,transform] duration-150 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[3px] hover:-translate-y-px hover:shadow-[0_8px_18px_-12px_rgba(21,21,21,0.6)] focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8BAD12] active:translate-y-0';

@@ -7685,6 +7685,1424 @@ async function runTests() {
   );
   console.log('✓ Gate 2 Owner-reviewed legacy identity link, one-to-one lock, audit immutability & RBAC passed');
 
+  // =========================================================================
+  // PHASE 2 — OFFER REVISIONS & DEPOSIT HOLD ENGINE EMULATOR RULES SUITE
+  // =========================================================================
+  await clearDb();
+  await seedProfilesAndConfig();
+  await adminSetDoc('systemOperations/factoryReset', {
+    schemaVersion: 1,
+    operationId: '',
+    status: 'idle',
+    deletedCounts: {},
+    totalDeletedCount: 0,
+    version: 1,
+    updatedAt: SERVER_TS,
+    updatedByUid: 'owner-1',
+  });
+  await adminSetDoc('clientAccounts/client-matched-1', {
+    schemaVersion: 1,
+    uid: 'client-matched-1',
+    role: 'client',
+    status: 'active',
+    customerId: 'cust_p2_matched',
+    profileSource: 'linked_customer',
+    email: 'matched@gmail.com',
+    displayName: 'Raka Matched',
+    updatedAt: SERVER_TS,
+    createdAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc('clientAccounts/client-attacker-1', {
+    schemaVersion: 1,
+    uid: 'client-attacker-1',
+    role: 'client',
+    status: 'active',
+    customerId: 'cust_p2_attacker',
+    profileSource: 'linked_customer',
+    email: 'attacker@gmail.com',
+    displayName: 'Attacker Client',
+    updatedAt: SERVER_TS,
+    createdAt: SERVER_TS,
+    version: 1,
+  });
+  await adminSetDoc('customers/cust_p2_matched', {
+    displayName: 'Raka Matched',
+    normalizedName: 'raka matched',
+    phoneDisplay: '+62 812-3456-0001',
+    phoneNormalized: '+6281234560001',
+    nameAliases: [],
+    previousPhones: [],
+    status: 'active',
+    mergedIntoCustomerId: null,
+    historyCustomerIds: ['cust_p2_matched'],
+    bookingCount: 1,
+    firstBookingDate: '2026-12-20',
+    lastBookingDate: '2026-12-20',
+    notes: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  });
+  const basePortalRequestFields = {
+    schemaVersion: 1,
+    requestReference: 'REQ-P2OFFER1',
+    requestType: 'studio_booking',
+    status: 'in_review',
+    statusReason: '',
+    customerName: 'Raka Matched',
+    bandName: 'Gema Band',
+    contactPhone: '+6281234560001',
+    publicServiceId: 'rehearsal',
+    serviceLabelSnapshot: 'Rehearsal',
+    requestedRoomId: 'room-a',
+    preferredDate: '2026-12-26',
+    preferredStartMinute: 600,
+    preferredDurationMinutes: 780,
+    targetDeadline: null,
+    notes: 'Butuh studio 13 jam',
+    privacyConsent: true,
+    consentVersion: 'v1',
+    source: 'client_portal',
+    clientUid: 'client-matched-1',
+    customerId: 'cust_p2_matched',
+    serviceOptionId: 'rehearsal-regular',
+    serviceOptionName: 'Reguler',
+    pricingVersion: 2,
+    assignedStaffUid: 'staff-1',
+    assignedStaffName: 'Studio Staff',
+    lastCommunicationAt: null,
+    lastCommunicationType: '',
+    lastCommunicationStatus: '',
+    linkedBookingId: null,
+    confirmedBookingSnapshot: null,
+    confirmedAt: null,
+    confirmedByUid: '',
+    appCheckState: 'unconfigured',
+    createdAt: SERVER_TS,
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  };
+  await adminSetDoc('publicBookingRequests/req_p2_offer', basePortalRequestFields);
+
+  const futureOfferExp = new Date(Date.now() + 48 * 3_600_000).toISOString();
+  const buildOfferFields = ({
+    offerId,
+    offerNumber,
+    revisionNumber,
+    offerMode = 'quote_only',
+    status = 'sent',
+    expiresIso = futureOfferExp,
+  }) => ({
+    schemaVersion: 1,
+    offerId,
+    offerNumber,
+    revisionNumber,
+    requestId: 'req_p2_offer',
+    clientUid: 'client-matched-1',
+    customerId: 'cust_p2_matched',
+    offerMode,
+    provisionalBookingId: null,
+    scheduleSnapshot: {
+      studioId: 'room-a',
+      studioName: 'Room A — Live Room',
+      date: '2026-12-26',
+      startMinute: 600,
+      endMinute: 1380,
+      durationMinutes: 780,
+      timeZone: 'Asia/Jakarta',
+    },
+    serviceSnapshot: {
+      serviceTypeId: 'rehearsal',
+      serviceTypeName: 'Rehearsal',
+      serviceOptionId: 'rehearsal-regular',
+      serviceOptionName: 'Reguler',
+      pricingMode: 'hourly',
+      pricingSettingsVersion: 2,
+    },
+    financialSnapshot: {
+      unitRate: 100000,
+      subtotal: 1300000,
+      discountAmount: 0,
+      automaticDiscount: null,
+      totalAmount: 1300000,
+    },
+    depositPolicySnapshot: {
+      type: 'fixed',
+      fixedAmount: 100000,
+      percentage: 0,
+      minimumDepositAmount: 100000,
+      calculationBase: 'total_amount',
+      policySource: 'default',
+      policyVersion: 1,
+    },
+    holdDeadline: null,
+    balanceDuePolicy: { trigger: 'before_session', offsetHoursBeforeStart: 2, dueDate: '2026-12-26' },
+    offerExpiresAt: { _ts: expiresIso },
+    staffNoteToClient: 'Penawaran sesi 13 jam',
+    status,
+    supersededByOfferId: null,
+    respondedAt: null,
+    respondedByUid: '',
+    responseReason: '',
+    withdrawalOrExpiryReason: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  });
+
+  // 2A. deposit_hold_offer MUST fail closed under Section 3 ADR in Firestore Rules
+  const blockedOfferCreate = await userRequest(
+    'PATCH',
+    '/publicBookingRequests/req_p2_offer/offers/off_p2_blocked',
+    TOKEN_STAFF,
+    {
+      fields: toFsFields(
+        buildOfferFields({
+          offerId: 'off_p2_blocked',
+          offerNumber: 'OFF-01',
+          revisionNumber: 1,
+          offerMode: 'deposit_hold_offer',
+        }),
+      ),
+    },
+  );
+  assert.equal(blockedOfferCreate.status, 403, 'deposit_hold_offer creation is fail-closed in firestore.rules');
+
+  // 2B. Staff sends quote_only OFF-01 atomically + updates parent request to offer_sent
+  const sendOff1Res = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer/offers/off_p2_01`,
+          fields: toFsFields(
+            buildOfferFields({ offerId: 'off_p2_01', offerNumber: 'OFF-01', revisionNumber: 1 }),
+          ),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer`,
+          fields: toFsFields({
+            ...basePortalRequestFields,
+            status: 'offer_sent',
+            activeOfferId: 'off_p2_01',
+            activeOfferSummary: {
+              offerId: 'off_p2_01',
+              offerNumber: 'OFF-01',
+              revisionNumber: 1,
+              mode: 'quote_only',
+              totalAmount: 1300000,
+              minimumDepositAmount: 100000,
+              holdExpiresAt: null,
+              offerExpiresAt: { _ts: futureOfferExp },
+              status: 'sent',
+            },
+            version: 2,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer/activities/act_p2_off1`,
+          fields: toFsFields({
+            eventType: 'offer_sent',
+            fromStatus: 'in_review',
+            toStatus: 'offer_sent',
+            linkedBookingId: null,
+            note: 'Sent OFF-01',
+            actorUid: 'staff-1',
+            actorName: 'Studio Staff',
+            createdAt: SERVER_TS,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(sendOff1Res.status, 200, `Staff send quote_only OFF-01 failed: ${JSON.stringify(sendOff1Res.body)}`);
+
+  // 2C. OD-13 atomic supersede: sending OFF-02 marks OFF-01 superseded
+  const reqAfterOff1 = {
+    ...basePortalRequestFields,
+    status: 'offer_sent',
+    activeOfferId: 'off_p2_01',
+    activeOfferSummary: {
+      offerId: 'off_p2_01',
+      offerNumber: 'OFF-01',
+      revisionNumber: 1,
+      mode: 'quote_only',
+      totalAmount: 1300000,
+      minimumDepositAmount: 100000,
+      holdExpiresAt: null,
+      offerExpiresAt: { _ts: futureOfferExp },
+      status: 'sent',
+    },
+    version: 2,
+  };
+  const sendOff2Res = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer/offers/off_p2_01`,
+          fields: toFsFields({
+            ...buildOfferFields({
+              offerId: 'off_p2_01',
+              offerNumber: 'OFF-01',
+              revisionNumber: 1,
+              status: 'superseded',
+            }),
+            supersededByOfferId: 'off_p2_02',
+            withdrawalOrExpiryReason: 'Digantikan oleh OFF-02',
+            version: 2,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer/offers/off_p2_02`,
+          fields: toFsFields(
+            buildOfferFields({ offerId: 'off_p2_02', offerNumber: 'OFF-02', revisionNumber: 2 }),
+          ),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer`,
+          fields: toFsFields({
+            ...reqAfterOff1,
+            activeOfferId: 'off_p2_02',
+            activeOfferSummary: {
+              offerId: 'off_p2_02',
+              offerNumber: 'OFF-02',
+              revisionNumber: 2,
+              mode: 'quote_only',
+              totalAmount: 1300000,
+              minimumDepositAmount: 100000,
+              holdExpiresAt: null,
+              offerExpiresAt: { _ts: futureOfferExp },
+              status: 'sent',
+            },
+            version: 3,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(sendOff2Res.status, 200, `Staff supersede OFF-01 -> OFF-02 failed: ${JSON.stringify(sendOff2Res.body)}`);
+
+  // 2D. Superseded OFF-01 accept blocked, attacker blocked, expired Offer accept blocked, direct canonical writes blocked
+  const staleAcceptRes = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer/offers/off_p2_01`,
+          fields: toFsFields({
+            status: 'accepted',
+            respondedByUid: 'client-matched-1',
+            responseReason: 'Coba setujui offer lama',
+            updatedByUid: 'client-matched-1',
+            version: 3,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['status', 'respondedAt', 'respondedByUid', 'responseReason', 'updatedAt', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [
+          { fieldPath: 'respondedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(staleAcceptRes.status, 403, 'Client cannot accept superseded Offer revision');
+  assert.equal(
+    (await userRequest('GET', '/publicBookingRequests/req_p2_offer/offers/off_p2_02', TOKEN_CLIENT_ATTACKER)).status,
+    403,
+    'Cross-client read of Offer is denied',
+  );
+  assert.equal(
+    (await userRequest('PATCH', '/bookings/bkg_client_forged', TOKEN_CLIENT_MATCHED, {
+      fields: toFsFields({ bookingId: 'bkg_client_forged' }),
+    })).status,
+    403,
+    'Client cannot write canonical bookings',
+  );
+  assert.equal(
+    (await userRequest('PATCH', '/bookingSlots/2026-12-26__room-a__600', TOKEN_CLIENT_MATCHED, {
+      fields: toFsFields({ bookingId: 'bkg_client_forged' }),
+    })).status,
+    403,
+    'Client cannot write bookingSlots',
+  );
+
+  await adminSetDoc(
+    'publicBookingRequests/req_p2_offer/offers/off_p2_expired',
+    buildOfferFields({
+      offerId: 'off_p2_expired',
+      offerNumber: 'OFF-99',
+      revisionNumber: 99,
+      expiresIso: '2020-01-01T00:00:00.000Z',
+    }),
+  );
+  const expiredClientAccept = await userRequest('PATCH', '/publicBookingRequests/req_p2_offer/offers/off_p2_expired', TOKEN_CLIENT_MATCHED, {
+    fields: toFsFields({
+      status: 'accepted',
+      respondedByUid: 'client-matched-1',
+      responseReason: 'Coba setujui offer kedaluwarsa',
+      updatedByUid: 'client-matched-1',
+      version: 2,
+    }),
+  });
+  assert.equal(expiredClientAccept.status, 403, 'Client cannot accept Offer past offerExpiresAt');
+
+  // 2E. Client rejects OFF-02 -> Staff sends OFF-03 -> Client accepts OFF-03 cleanly
+  const reqAfterOff2 = {
+    ...reqAfterOff1,
+    activeOfferId: 'off_p2_02',
+    activeOfferSummary: {
+      offerId: 'off_p2_02',
+      offerNumber: 'OFF-02',
+      revisionNumber: 2,
+      mode: 'quote_only',
+      totalAmount: 1300000,
+      minimumDepositAmount: 100000,
+      holdExpiresAt: null,
+      offerExpiresAt: { _ts: futureOfferExp },
+      status: 'sent',
+    },
+    version: 3,
+  };
+  const off2Fields = buildOfferFields({ offerId: 'off_p2_02', offerNumber: 'OFF-02', revisionNumber: 2 });
+  const rejectOff2Res = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer/offers/off_p2_02`,
+          fields: toFsFields({
+            ...off2Fields,
+            status: 'rejected',
+            respondedByUid: 'client-matched-1',
+            responseReason: 'Bisa kurang sedikit harganya?',
+            updatedByUid: 'client-matched-1',
+            version: 2,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['status', 'respondedAt', 'respondedByUid', 'responseReason', 'updatedAt', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [
+          { fieldPath: 'respondedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer`,
+          fields: toFsFields({
+            ...reqAfterOff2,
+            status: 'in_review',
+            activeOfferSummary: { ...reqAfterOff2.activeOfferSummary, status: 'rejected' },
+            updatedByUid: 'client-matched-1',
+            version: 4,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['status', 'activeOfferSummary', 'updatedAt', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer/activities/act_p2_client_rej`,
+          fields: toFsFields({
+            eventType: 'offer_rejected',
+            fromStatus: 'offer_sent',
+            toStatus: 'in_review',
+            linkedBookingId: null,
+            note: 'Client menolak OFF-02',
+            actorUid: 'client-matched-1',
+            actorName: 'Raka Matched',
+            createdAt: SERVER_TS,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(rejectOff2Res.status, 200, `Client reject OFF-02 failed: ${JSON.stringify(rejectOff2Res.body)}`);
+
+  const reqAfterReject = {
+    ...reqAfterOff2,
+    status: 'in_review',
+    activeOfferSummary: { ...reqAfterOff2.activeOfferSummary, status: 'rejected' },
+    updatedByUid: 'client-matched-1',
+    version: 4,
+  };
+  const sendOff3Res = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer/offers/off_p2_03`,
+          fields: toFsFields(
+            buildOfferFields({ offerId: 'off_p2_03', offerNumber: 'OFF-03', revisionNumber: 3 }),
+          ),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer`,
+          fields: toFsFields({
+            ...reqAfterReject,
+            status: 'offer_sent',
+            activeOfferId: 'off_p2_03',
+            activeOfferSummary: {
+              offerId: 'off_p2_03',
+              offerNumber: 'OFF-03',
+              revisionNumber: 3,
+              mode: 'quote_only',
+              totalAmount: 1300000,
+              minimumDepositAmount: 100000,
+              holdExpiresAt: null,
+              offerExpiresAt: { _ts: futureOfferExp },
+              status: 'sent',
+            },
+            updatedByUid: 'staff-1',
+            version: 5,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(sendOff3Res.status, 200, `Staff send OFF-03 failed: ${JSON.stringify(sendOff3Res.body)}`);
+
+  const off3Fields = buildOfferFields({ offerId: 'off_p2_03', offerNumber: 'OFF-03', revisionNumber: 3 });
+  const reqAfterOff3Send = {
+    ...reqAfterReject,
+    status: 'offer_sent',
+    activeOfferId: 'off_p2_03',
+    activeOfferSummary: {
+      offerId: 'off_p2_03',
+      offerNumber: 'OFF-03',
+      revisionNumber: 3,
+      mode: 'quote_only',
+      totalAmount: 1300000,
+      minimumDepositAmount: 100000,
+      holdExpiresAt: null,
+      offerExpiresAt: { _ts: futureOfferExp },
+      status: 'sent',
+    },
+    updatedByUid: 'staff-1',
+    version: 5,
+  };
+  const acceptOff3Res = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer/offers/off_p2_03`,
+          fields: toFsFields({
+            ...off3Fields,
+            status: 'accepted',
+            respondedByUid: 'client-matched-1',
+            responseReason: 'Siap, kami ambil OFF-03',
+            updatedByUid: 'client-matched-1',
+            version: 2,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['status', 'respondedAt', 'respondedByUid', 'responseReason', 'updatedAt', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [
+          { fieldPath: 'respondedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer`,
+          fields: toFsFields({
+            ...reqAfterOff3Send,
+            status: 'accepted',
+            activeOfferSummary: { ...reqAfterOff3Send.activeOfferSummary, status: 'accepted' },
+            updatedByUid: 'client-matched-1',
+            version: 6,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['status', 'activeOfferSummary', 'updatedAt', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer/activities/act_p2_client_acc`,
+          fields: toFsFields({
+            eventType: 'offer_accepted',
+            fromStatus: 'offer_sent',
+            toStatus: 'accepted',
+            linkedBookingId: null,
+            note: 'Client menyetujui OFF-03',
+            actorUid: 'client-matched-1',
+            actorName: 'Raka Matched',
+            createdAt: SERVER_TS,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(acceptOff3Res.status, 200, `Client accept OFF-03 failed: ${JSON.stringify(acceptOff3Res.body)}`);
+
+  // 2F. 13-hour (= 26 slots!) Deposit Hold Create transaction + Request Conversion budget test
+  const holdExpIso = new Date(Date.now() + 24 * 3_600_000).toISOString();
+  const holdSlots26 = Array.from({ length: 26 }, (_, idx) => {
+    const slotMin = 600 + idx * 30;
+    return {
+      update: {
+        name: `${DB_ROOT}/bookingSlots/2026-12-26__room-a__${slotMin}`,
+        fields: toFsFields({
+          bookingId: 'bkg_p2_13h',
+          date: '2026-12-26',
+          studioId: 'room-a',
+          slotStartMinute: slotMin,
+          createdAt: SERVER_TS,
+        }),
+      },
+      currentDocument: { exists: false },
+    };
+  });
+  const base13hBooking = {
+    schemaVersion: 2,
+    customerId: 'cust_p2_matched',
+    clientUid: 'client-matched-1',
+    source: 'client_portal',
+    sourceRequestId: 'req_p2_offer',
+    acceptedOfferId: 'off_p2_03',
+    invoiceId: 'inv_bkg_p2_13h',
+    customerName: 'Raka Matched',
+    phone: '081234560001',
+    phoneNormalized: '+6281234560001',
+    bandName: 'Gema Band',
+    studioId: 'room-a',
+    serviceTypeId: 'rehearsal',
+    serviceTypeName: 'Rehearsal',
+    serviceOptionId: 'rehearsal-regular',
+    serviceOptionName: 'Reguler',
+    deliveryMode: 'studio',
+    pricingMode: 'hourly',
+    pricingSettingsVersion: 2,
+    serviceId: 'rehearsal',
+    serviceLabel: 'Rehearsal',
+    packageId: '',
+    packageLabel: '',
+    recordingTypeId: '',
+    recordingTypeLabel: '',
+    date: '2026-12-26',
+    startMinute: 600,
+    durationMinutes: 780,
+    endMinute: 1380,
+    timeZone: 'Asia/Jakarta',
+    unitRate: 100000,
+    subtotal: 1300000,
+    discountAmount: 0,
+    totalAmount: 1300000,
+    automaticDiscount: null,
+    commissionSnapshot: null,
+    initialPaymentStatus: 'unpaid',
+    initialPaidAmount: 0,
+    paymentMethod: '',
+    reservationStatus: 'deposit_hold',
+    sessionStatus: 'pending_confirmation',
+    depositPolicySnapshot: {
+      type: 'fixed',
+      fixedAmount: 100000,
+      percentage: 0,
+      minimumDepositAmount: 100000,
+      calculationBase: 'total_amount',
+      policySource: 'default',
+      policyVersion: 1,
+    },
+    minimumDepositAmount: 100000,
+    depositStatus: 'awaiting_deposit',
+    depositIntegrityAlert: false,
+    balanceDuePolicy: { trigger: 'before_session', offsetHoursBeforeStart: 2, dueDate: '2026-12-26' },
+    holdExpiresAt: { _ts: holdExpIso },
+    holdExtensionCount: 0,
+    holdLastExtendedAt: null,
+    holdLastExtendedByUid: '',
+    holdLastExtensionReason: '',
+    expiredAt: null,
+    expiredByUid: '',
+    expiryReason: '',
+    restoredAt: null,
+    restoredByUid: '',
+    restorationReason: '',
+    confirmedAt: null,
+    confirmedByUid: '',
+    confirmationSource: '',
+    confirmationOverrideReason: '',
+    cancelledAt: null,
+    cancelledByUid: '',
+    cancellationType: '',
+    cancellationReason: '',
+    checkedInAt: null,
+    checkedInByUid: '',
+    actualStartedAt: null,
+    actualCompletedAt: null,
+    notes: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  };
+  const base13hInvoice = {
+    invoiceNumber: '37MS-20261226-P2HOLD13H001',
+    bookingId: 'bkg_p2_13h',
+    customerId: 'cust_p2_matched',
+    clientUid: 'client-matched-1',
+    invoiceStatus: 'issued',
+    currency: 'IDR',
+    clientPaymentEvidenceRequired: true,
+    customerSnapshot: { name: 'Raka Matched', phone: '+6281234560001', bandName: 'Gema Band' },
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      studioId: 'room-a',
+      bookingDate: '2026-12-26',
+      startMinute: 600,
+      endMinute: 1380,
+      durationMinutes: 780,
+    },
+    financialSnapshot: { subtotal: 1300000, discountAmount: 0, totalAmount: 1300000 },
+    amountPaid: 0,
+    balanceDue: 1300000,
+    paymentStatus: 'unpaid',
+    targetType: 'booking',
+    depositPolicySnapshot: base13hBooking.depositPolicySnapshot,
+    minimumDepositAmount: 100000,
+    depositStatus: 'awaiting_deposit',
+    balanceDuePolicy: base13hBooking.balanceDuePolicy,
+    invoiceDate: SERVER_TS,
+    dueDate: '2026-12-26',
+    lastPaymentTransactionId: null,
+    voidReason: '',
+    createdAt: SERVER_TS,
+    createdByUid: 'staff-1',
+    updatedAt: SERVER_TS,
+    updatedByUid: 'staff-1',
+    version: 1,
+  };
+  const base13hClientReservation = {
+    schemaVersion: 2,
+    bookingId: 'bkg_p2_13h',
+    bookingReference: 'BKG-P2-13H-01',
+    customerId: 'cust_p2_matched',
+    clientUid: 'client-matched-1',
+    sourceRequestId: 'req_p2_offer',
+    acceptedOfferId: 'off_p2_03',
+    invoiceId: 'inv_bkg_p2_13h',
+    studioId: 'room-a',
+    studioName: 'Room A — Live Room',
+    serviceTypeName: 'Rehearsal',
+    serviceOptionName: 'Reguler',
+    date: '2026-12-26',
+    startMinute: 600,
+    endMinute: 1380,
+    durationMinutes: 780,
+    timeZone: 'Asia/Jakarta',
+    reservationStatus: 'deposit_hold',
+    sessionStatus: 'pending_confirmation',
+    holdExpiresAt: { _ts: holdExpIso },
+    effectiveTotalAmount: 1300000,
+    minimumDepositAmount: 100000,
+    depositStatus: 'awaiting_deposit',
+    paymentStatus: 'unpaid',
+    version: 1,
+  };
+  const reqAfterOff3Acc = {
+    ...reqAfterOff3Send,
+    status: 'accepted',
+    activeOfferSummary: { ...reqAfterOff3Send.activeOfferSummary, status: 'accepted' },
+    updatedByUid: 'client-matched-1',
+    version: 6,
+  };
+  const create13hHoldRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_p2_13h`,
+          fields: toFsFields(base13hBooking),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicAvailability/bkg_p2_13h`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            date: '2026-12-26',
+            studioId: 'room-a',
+            startMinute: 600,
+            endMinute: 1380,
+            updatedAt: SERVER_TS,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+      ...holdSlots26,
+      {
+        update: {
+          name: `${DB_ROOT}/bookingEvents/evt_p2_13h`,
+          fields: toFsFields({
+            bookingId: 'bkg_p2_13h',
+            eventType: 'hold_created',
+            actorUid: 'staff-1',
+            createdAt: SERVER_TS,
+            previousValue: null,
+            newValue: { reservationStatus: 'deposit_hold', sessionStatus: 'pending_confirmation' },
+            note: '13h Deposit Hold created from OFF-03',
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p2_13h`,
+          fields: toFsFields(base13hInvoice),
+        },
+        updateTransforms: [
+          { fieldPath: 'invoiceDate', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/bkg_p2_13h`,
+          fields: toFsFields(base13hClientReservation),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/publicBookingRequests/req_p2_offer`,
+          fields: toFsFields({
+            ...reqAfterOff3Acc,
+            status: 'confirmed',
+            linkedBookingId: 'bkg_p2_13h',
+            acceptedOfferId: 'off_p2_03',
+            confirmedBookingSnapshot: {
+              bookingId: 'bkg_p2_13h',
+              bookingReference: 'BKG-P2-13H-01',
+              studioId: 'room-a',
+              studioName: 'Room A — Live Room',
+              serviceTypeName: 'Rehearsal',
+              serviceOptionName: 'Reguler',
+              date: '2026-12-26',
+              startMinute: 600,
+              endMinute: 1380,
+              durationMinutes: 780,
+            },
+            confirmedByUid: 'staff-1',
+            convertedByUid: 'staff-1',
+            updatedByUid: 'staff-1',
+            version: 7,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'confirmedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'convertedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(create13hHoldRes.status, 200, `13h (=26 slots) Deposit Hold transaction exceeded budget or failed: ${JSON.stringify(create13hHoldRes.body)}`);
+
+  // 2G. Cannot check_in / start while pending_confirmation / deposit_hold; Client cannot extend hold; Staff can extend
+  const blockedCheckIn = await userRequest('PATCH', '/bookings/bkg_p2_13h', TOKEN_STAFF, {
+    fields: toFsFields({
+      ...base13hBooking,
+      checkedInAt: SERVER_TS,
+      checkedInByUid: 'staff-1',
+      version: 2,
+    }),
+  });
+  assert.equal(blockedCheckIn.status, 403, 'Cannot check-in while Deposit Hold / pending_confirmation');
+
+  const clientExtendAttempt = await userRequest('PATCH', '/bookings/bkg_p2_13h', TOKEN_CLIENT_MATCHED, {
+    fields: toFsFields({
+      ...base13hBooking,
+      holdExtensionCount: 1,
+      version: 2,
+    }),
+  });
+  assert.equal(clientExtendAttempt.status, 403, 'Client cannot extend Deposit Hold (OD-08)');
+
+  const extendedExpIso = new Date(Date.now() + 36 * 3_600_000).toISOString();
+  const staffExtendRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_p2_13h`,
+          fields: toFsFields({
+            ...base13hBooking,
+            holdExpiresAt: { _ts: extendedExpIso },
+            holdExtensionCount: 1,
+            holdLastExtendedByUid: 'staff-1',
+            holdLastExtensionReason: 'Client minta waktu transfer besok pagi',
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateMask: {
+          fieldPaths: [
+            'holdExpiresAt', 'holdExtensionCount', 'holdLastExtendedAt',
+            'holdLastExtendedByUid', 'holdLastExtensionReason',
+            'updatedAt', 'updatedByUid', 'version',
+          ],
+        },
+        updateTransforms: [
+          { fieldPath: 'holdLastExtendedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(staffExtendRes.status, 200, `Staff hold extend failed: ${JSON.stringify(staffExtendRes.body)}`);
+
+  // 2H. OD-09 Pending-Evidence Shield: client creates pending_review evidence + lock -> blocks BOTH hold expiry & invoice void
+  const clientSubmitEvRes = await userRequest('POST', ':commit', TOKEN_CLIENT_MATCHED, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_p2_shield`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_p2_13h',
+            invoiceNumber: '37MS-20261226-P2HOLD13H001',
+            bookingId: 'bkg_p2_13h',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            evidenceSource: 'client_portal',
+            status: 'pending_review',
+            claimedAmount: 100000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-12-15',
+            referenceNumber: 'TRF-P2-1',
+            evidence: {
+              provider: 'cloudinary',
+              cloudName: 'demo',
+              cloudinaryPublicId: 'evidence/p2_1',
+              cloudinaryAssetId: 'asset_p2_1',
+              secureUrl: 'https://res.cloudinary.com/demo/image/upload/v1/evidence/p2_1.jpg',
+              resourceType: 'image',
+              format: 'jpg',
+              width: 800,
+              height: 600,
+              bytes: 120000,
+            },
+            submittedByUid: 'client-matched-1',
+            reviewedAt: null,
+            reviewedByUid: '',
+            rejectionReason: '',
+            verifiedAmount: null,
+            linkedTransactionId: null,
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'submittedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidenceLocks/inv_bkg_p2_13h`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_p2_13h',
+            bookingId: 'bkg_p2_13h',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            pendingEvidenceIds: ['ev_p2_shield'],
+            pendingCount: 1,
+            updatedByUid: 'client-matched-1',
+            version: 1,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(clientSubmitEvRes.status, 200, `Client evidence + lock submit failed: ${JSON.stringify(clientSubmitEvRes.body)}`);
+
+  // Attempt void while pending lock active -> MUST DENY 403
+  const lockedVoidRes = await userRequest('PATCH', '/invoices/inv_bkg_p2_13h', TOKEN_STAFF, {
+    fields: toFsFields({
+      ...base13hInvoice,
+      invoiceStatus: 'void',
+      voidReason: 'Mencoba void saat ada bukti pending',
+      updatedByUid: 'staff-1',
+      version: 2,
+    }),
+  });
+  assert.equal(lockedVoidRes.status, 403, 'OD-09: Invoice void blocked while pending_review lock exists');
+
+  // Attempt manual hold expiry while pending lock active -> MUST DENY 403
+  const bookingExtended = {
+    ...base13hBooking,
+    holdExpiresAt: { _ts: extendedExpIso },
+    holdExtensionCount: 1,
+    holdLastExtendedAt: SERVER_TS,
+    holdLastExtendedByUid: 'staff-1',
+    holdLastExtensionReason: 'Client minta waktu transfer besok pagi',
+    version: 2,
+  };
+  const lockedExpireRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_p2_13h`,
+          fields: toFsFields({
+            ...bookingExtended,
+            reservationStatus: 'expired',
+            sessionStatus: 'cancelled',
+            expiredByUid: 'staff-1',
+            expiryReason: 'Coba expire paksa',
+            updatedByUid: 'staff-1',
+            version: 3,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['reservationStatus', 'sessionStatus', 'expiredAt', 'expiredByUid', 'expiryReason', 'updatedAt', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [
+          { fieldPath: 'expiredAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(lockedExpireRes.status, 403, 'OD-09: Hold expiry blocked while pending_review lock exists');
+
+  // Staff rejects pending evidence + decrements lock to 0
+  const evShieldDocRes = await userRequest('GET', '/paymentEvidence/ev_p2_shield', TOKEN_STAFF);
+  assert.equal(evShieldDocRes.status, 200, 'Staff can read ev_p2_shield');
+  const evShieldTs = { _ts: evShieldDocRes.body.fields.submittedAt.timestampValue };
+  const clearLockRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidence/ev_p2_shield`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_p2_13h',
+            invoiceNumber: '37MS-20261226-P2HOLD13H001',
+            bookingId: 'bkg_p2_13h',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            evidenceSource: 'client_portal',
+            status: 'rejected',
+            claimedAmount: 100000,
+            paymentMethod: 'transfer',
+            claimedPaidAt: '2026-12-15',
+            referenceNumber: 'TRF-P2-1',
+            evidence: {
+              provider: 'cloudinary',
+              cloudName: 'demo',
+              cloudinaryPublicId: 'evidence/p2_1',
+              cloudinaryAssetId: 'asset_p2_1',
+              secureUrl: 'https://res.cloudinary.com/demo/image/upload/v1/evidence/p2_1.jpg',
+              resourceType: 'image',
+              format: 'jpg',
+              width: 800,
+              height: 600,
+              bytes: 120000,
+            },
+            submittedByUid: 'client-matched-1',
+            submittedAt: evShieldTs,
+            reviewedByUid: 'staff-1',
+            rejectionReason: 'Bukti transfer buram tidak terbaca',
+            verifiedAmount: null,
+            linkedTransactionId: null,
+            createdAt: evShieldTs,
+            version: 2,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'reviewedAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/paymentEvidenceLocks/inv_bkg_p2_13h`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            invoiceId: 'inv_bkg_p2_13h',
+            bookingId: 'bkg_p2_13h',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            pendingEvidenceIds: [],
+            pendingCount: 0,
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+    ],
+  });
+  assert.equal(clearLockRes.status, 200, `Rejecting evidence & unlocking lock failed: ${JSON.stringify(clearLockRes.body)}`);
+
+  // 2I. Manual Hold Expiry (unpaid -> voids invoice + releases 26 slots + updates clientReservations) + Restore (OD-10)
+  const slotDeletes26 = Array.from({ length: 26 }, (_, idx) => ({
+    delete: `${DB_ROOT}/bookingSlots/2026-12-26__room-a__${600 + idx * 30}`,
+  }));
+  const expireUnpaidRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_p2_13h`,
+          fields: toFsFields({
+            ...bookingExtended,
+            reservationStatus: 'expired',
+            sessionStatus: 'cancelled',
+            expiredByUid: 'staff-1',
+            expiryReason: 'Batas waktu Deposit Hold 24 jam berakhir',
+            updatedByUid: 'staff-1',
+            version: 3,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['reservationStatus', 'sessionStatus', 'expiredAt', 'expiredByUid', 'expiryReason', 'updatedAt', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [
+          { fieldPath: 'expiredAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p2_13h`,
+          fields: toFsFields({
+            invoiceStatus: 'void',
+            voidReason: 'Batas waktu Deposit Hold 24 jam berakhir',
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['invoiceStatus', 'voidReason', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/bkg_p2_13h`,
+          fields: toFsFields({
+            reservationStatus: 'expired',
+            sessionStatus: 'cancelled',
+            holdExpiresAt: { _ts: extendedExpIso },
+            version: 3,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['reservationStatus', 'sessionStatus', 'holdExpiresAt', 'version'],
+        },
+        updateTransforms: [
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      { delete: `${DB_ROOT}/publicAvailability/bkg_p2_13h` },
+      ...slotDeletes26,
+    ],
+  });
+  assert.equal(expireUnpaidRes.status, 200, `Manual unpaid Hold expiry failed: ${JSON.stringify(expireUnpaidRes.body)}`);
+
+  // Expired booking cannot acquire slot without restoring first
+  const reLockExpiredAttempt = await userRequest('PATCH', '/bookingSlots/2026-12-26__room-a__600', TOKEN_STAFF, {
+    fields: toFsFields({
+      bookingId: 'bkg_p2_13h',
+      date: '2026-12-26',
+      studioId: 'room-a',
+      slotStartMinute: 600,
+      createdAt: SERVER_TS,
+    }),
+  });
+  assert.equal(reLockExpiredAttempt.status, 403, 'Expired booking cannot acquire bookingSlots without explicit restore');
+
+  // Restore Expired Reservation (re-acquires slot + unvoids invoice + restores hold atomically)
+  const bookingExpired = {
+    ...bookingExtended,
+    reservationStatus: 'expired',
+    sessionStatus: 'cancelled',
+    expiredAt: SERVER_TS,
+    expiredByUid: 'staff-1',
+    expiryReason: 'Batas waktu Deposit Hold 24 jam berakhir',
+    version: 3,
+  };
+  const invoiceVoided = {
+    ...base13hInvoice,
+    invoiceStatus: 'void',
+    voidReason: 'Batas waktu Deposit Hold 24 jam berakhir',
+    version: 2,
+  };
+  const restoreExpIso = new Date(Date.now() + 12 * 3_600_000).toISOString();
+  const restoreHoldRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_p2_13h`,
+          fields: toFsFields({
+            ...bookingExpired,
+            reservationStatus: 'deposit_hold',
+            sessionStatus: 'pending_confirmation',
+            holdExpiresAt: { _ts: restoreExpIso },
+            restoredByUid: 'staff-1',
+            restorationReason: 'Slot kosong dan client konfirmasi DP segera',
+            updatedByUid: 'staff-1',
+            version: 4,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['reservationStatus', 'sessionStatus', 'holdExpiresAt', 'restoredAt', 'restoredByUid', 'restorationReason', 'updatedAt', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [
+          { fieldPath: 'restoredAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/invoices/inv_bkg_p2_13h`,
+          fields: toFsFields({
+            invoiceStatus: 'issued',
+            voidReason: '',
+            updatedByUid: 'staff-1',
+            version: 3,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['invoiceStatus', 'voidReason', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [{ fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' }],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/clientReservations/bkg_p2_13h`,
+          fields: toFsFields({
+            reservationStatus: 'deposit_hold',
+            sessionStatus: 'pending_confirmation',
+            holdExpiresAt: { _ts: restoreExpIso },
+            version: 4,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['reservationStatus', 'sessionStatus', 'holdExpiresAt', 'version'],
+        },
+        updateTransforms: [
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/bookingSlots/2026-12-26__room-a__600`,
+          fields: toFsFields({
+            bookingId: 'bkg_p2_13h',
+            date: '2026-12-26',
+            studioId: 'room-a',
+            slotStartMinute: 600,
+            createdAt: SERVER_TS,
+          }),
+        },
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(restoreHoldRes.status, 200, `Restore expired reservation + unvoid invoice failed: ${JSON.stringify(restoreHoldRes.body)}`);
+
+  // 2J. Paid expired hold creates refundCases/{refundId} & RBAC (Client read own, Attacker denied, immutable updates)
+  const paidHoldSeed = {
+    ...base13hBooking,
+    date: '2026-12-27',
+    startMinute: 600,
+    durationMinutes: 120,
+    endMinute: 720,
+    subtotal: 200000,
+    totalAmount: 200000,
+    initialPaymentStatus: 'partial',
+    initialPaidAmount: 50000,
+    paymentMethod: 'cash',
+    depositStatus: 'partial_below_minimum',
+    invoiceId: 'inv_bkg_p2_paid',
+  };
+  await adminSetDoc('bookings/bkg_p2_paid', paidHoldSeed);
+  await adminSetDoc('invoices/inv_bkg_p2_paid', {
+    ...base13hInvoice,
+    invoiceNumber: '37MS-20261227-P2PAIDHOLD01',
+    bookingId: 'bkg_p2_paid',
+    bookingSnapshot: {
+      serviceTypeName: 'Rehearsal',
+      serviceOptionName: 'Reguler',
+      studioId: 'room-a',
+      bookingDate: '2026-12-27',
+      startMinute: 600,
+      endMinute: 720,
+      durationMinutes: 120,
+    },
+    financialSnapshot: { subtotal: 200000, discountAmount: 0, totalAmount: 200000 },
+    amountPaid: 50000,
+    balanceDue: 150000,
+    paymentStatus: 'partial',
+    depositStatus: 'partial_below_minimum',
+  });
+  const paidExpireWithRefundRes = await userRequest('POST', ':commit', TOKEN_STAFF, {
+    writes: [
+      {
+        update: {
+          name: `${DB_ROOT}/bookings/bkg_p2_paid`,
+          fields: toFsFields({
+            ...paidHoldSeed,
+            reservationStatus: 'expired',
+            sessionStatus: 'cancelled',
+            expiredByUid: 'staff-1',
+            expiryReason: 'Sisa DP tidak dilengkapi hingga batas hold',
+            updatedByUid: 'staff-1',
+            version: 2,
+          }),
+        },
+        updateMask: {
+          fieldPaths: ['reservationStatus', 'sessionStatus', 'expiredAt', 'expiredByUid', 'expiryReason', 'updatedAt', 'updatedByUid', 'version'],
+        },
+        updateTransforms: [
+          { fieldPath: 'expiredAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: true },
+      },
+      {
+        update: {
+          name: `${DB_ROOT}/refundCases/ref_bkg_p2_paid_expired`,
+          fields: toFsFields({
+            schemaVersion: 1,
+            refundId: 'ref_bkg_p2_paid_expired',
+            targetType: 'booking',
+            bookingId: 'bkg_p2_paid',
+            projectId: null,
+            invoiceId: 'inv_bkg_p2_paid',
+            customerId: 'cust_p2_matched',
+            clientUid: 'client-matched-1',
+            triggerCategory: 'hold_expired_partial_paid',
+            sourcePaymentTransactionIds: [],
+            maxRefundableAmount: 50000,
+            requestedAmount: 50000,
+            approvedAmount: null,
+            forfeitedAmount: 0,
+            resolutionMethod: null,
+            status: 'under_review',
+            requestReason: 'Sisa DP tidak dilengkapi hingga batas hold',
+            decisionReason: '',
+            creditRemainingAmount: 0,
+            settlementInfo: null,
+            reviewedByUid: '',
+            reviewedAt: null,
+            createdByUid: 'staff-1',
+            updatedByUid: 'staff-1',
+            version: 1,
+          }),
+        },
+        updateTransforms: [
+          { fieldPath: 'createdAt', setToServerValue: 'REQUEST_TIME' },
+          { fieldPath: 'updatedAt', setToServerValue: 'REQUEST_TIME' },
+        ],
+        currentDocument: { exists: false },
+      },
+    ],
+  });
+  assert.equal(paidExpireWithRefundRes.status, 200, `Paid hold expiry + refundCases handoff create failed: ${JSON.stringify(paidExpireWithRefundRes.body)}`);
+
+  assert.equal(
+    (await userRequest('GET', '/refundCases/ref_bkg_p2_paid_expired', TOKEN_CLIENT_MATCHED)).status,
+    200,
+    'Client owner can read own refundCases document',
+  );
+  assert.equal(
+    (await userRequest('GET', '/refundCases/ref_bkg_p2_paid_expired', TOKEN_CLIENT_ATTACKER)).status,
+    403,
+    'Attacker client cannot read another client refundCases document',
+  );
+  assert.equal(
+    (await userRequest('PATCH', '/refundCases/ref_bkg_p2_paid_expired', TOKEN_STAFF, {
+      fields: toFsFields({ status: 'approved', version: 2 }),
+    })).status,
+    403,
+    'Refund settlement updates stay locked until Phase 4',
+  );
+  console.log('✓ Phase 2 Offer Revisions (quote_only/OD-13/ADR), 13h=26-slot Deposit Hold, OD-09 Shield, OD-10 Restore & refundCases RBAC passed');
+
   if (aggregateAssertionMode && assertionFailures.length > 0) {
     printAggregateAssertionSummary();
     process.exitCode = 1;

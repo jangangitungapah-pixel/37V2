@@ -146,6 +146,41 @@ export function useDashboardData({
     };
   }, [periodBounds.periodStart, periodBounds.periodEnd, periodRangeKey]);
 
+  // 1C. Active Deposit Hold Bookings for Overdue Alerts (Staff & Owner)
+  const [depositHoldsState, setDepositHoldsState] = useState({
+    key: '',
+    holds: [],
+    error: null,
+  });
+
+  useEffect(() => {
+    const adapter = getBookingRepositoryAdapter();
+    if (typeof adapter.subscribeDepositHoldBookings !== 'function') {
+      return undefined;
+    }
+    const currentKey = todayRangeKey;
+    const unsubscribe = adapter.subscribeDepositHoldBookings({
+      maxLimit: 100,
+      onData: ({ holds }) => {
+        setDepositHoldsState({
+          key: currentKey,
+          holds: holds || [],
+          error: null,
+        });
+      },
+      onError: (err) => {
+        setDepositHoldsState((prev) => ({
+          ...prev,
+          key: currentKey,
+          error: err?.message || null,
+        }));
+      },
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, [todayRangeKey]);
+
   // 2A. Today's Booking Date Invoices (Staff & Owner)
   const [todayInvoicesState, setTodayInvoicesState] = useState({
     key: '',
@@ -432,6 +467,11 @@ export function useDashboardData({
     [todayBookingsState.key, todayBookingsState.bookings, todayRangeKey],
   );
 
+  const depositHoldBookings = useMemo(
+    () => (depositHoldsState.key === todayRangeKey ? depositHoldsState.holds : []),
+    [depositHoldsState.key, depositHoldsState.holds, todayRangeKey],
+  );
+
   const periodBookings = useMemo(
     () => (periodBookingsState.key === periodRangeKey ? periodBookingsState.bookings : []),
     [periodBookingsState.key, periodBookingsState.bookings, periodRangeKey],
@@ -502,6 +542,7 @@ export function useDashboardData({
       buildNeedsAttentionItems({
         invoices: allLoadedInvoices,
         todayBookings,
+        depositHoldBookings,
         activePayables: ownerPayables,
         commissionReviewSummary,
         inventoryItems,
@@ -510,10 +551,12 @@ export function useDashboardData({
         isOwner,
         todayIso,
         currentMinuteOfDay: greetingInfo.minuteOfDay,
+        now,
       }),
     [
       allLoadedInvoices,
       todayBookings,
+      depositHoldBookings,
       ownerPayables,
       commissionReviewSummary,
       inventoryItems,
@@ -522,6 +565,7 @@ export function useDashboardData({
       isOwner,
       todayIso,
       greetingInfo.minuteOfDay,
+      now,
     ],
   );
 

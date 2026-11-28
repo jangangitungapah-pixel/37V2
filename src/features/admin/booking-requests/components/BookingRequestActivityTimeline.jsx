@@ -46,6 +46,15 @@ function getStatusLabel(status) {
   return BOOKING_REQUEST_STATUS_META[status]?.shortLabel || status || '—';
 }
 
+const OFFER_ACTIVITY_TITLES = {
+  offer_sent: 'Offer penawaran dikirim',
+  offer_revised: 'Revisi Offer dikirim',
+  offer_accepted: 'Offer disetujui Client',
+  offer_rejected: 'Offer ditolak Client',
+  offer_withdrawn: 'Offer ditarik oleh Staff',
+  offer_expired: 'Offer ditandai kedaluwarsa',
+};
+
 export function BookingRequestActivityTimeline({ activities = [], communications = [] }) {
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [expandedMessageIds, setExpandedMessageIds] = useState([]);
@@ -57,20 +66,23 @@ export function BookingRequestActivityTimeline({ activities = [], communications
       const isConfirmed = act.eventType === 'booking_confirmed';
       const isAssigned = act.eventType === 'staff_assigned';
       const isStatusChanged = act.eventType === 'status_changed';
+      const offerTitle = OFFER_ACTIVITY_TITLES[act.eventType] || '';
 
       items.push({
         id: `act-${act.id}`,
         kind: 'activity',
-        category: isConfirmed ? 'BOOKING' : isAssigned ? 'ASSIGNMENT' : 'STATUS',
+        category: isConfirmed ? 'BOOKING' : isAssigned ? 'ASSIGNMENT' : offerTitle ? 'OFFER' : 'STATUS',
         timestampMs: getTimestampMillis(act.createdAt),
         timestampIso: act.createdAtIso,
-        title: isConfirmed
-          ? 'Booking dikonfirmasi'
-          : isAssigned
-            ? 'Penanggung jawab diperbarui'
-            : isStatusChanged && (act.fromStatus || act.toStatus)
-              ? `${getStatusLabel(act.fromStatus)} → ${getStatusLabel(act.toStatus)}`
-              : 'Aktivitas request',
+        title: offerTitle
+          ? offerTitle
+          : isConfirmed
+            ? 'Booking dikonfirmasi'
+            : isAssigned
+              ? 'Penanggung jawab diperbarui'
+              : isStatusChanged && (act.fromStatus || act.toStatus)
+                ? `${getStatusLabel(act.fromStatus)} → ${getStatusLabel(act.toStatus)}`
+                : 'Aktivitas request',
         note: act.note,
         actor: act.actorName || 'Tim Studio',
         eventType: act.eventType,

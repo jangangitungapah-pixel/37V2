@@ -423,28 +423,68 @@ export function isBookingNoShowEligible(booking, now = new Date()) {
   return safeNow.getTime() >= scheduledStartMs + NO_SHOW_GRACE_MINUTES * 60_000;
 }
 
+export function normalizeBookingReservationStatus(booking) {
+  if (!booking || typeof booking !== 'object') return 'confirmed';
+  const explicit = String(booking.reservationStatus || '').trim();
+  if (explicit) return explicit;
+  if (booking.sessionStatus === BOOKING_SESSION_STATUS.CANCELLED) return 'cancelled';
+  return 'confirmed';
+}
+
+export function isBookingHoldOverdue(booking, now = new Date()) {
+  if (!booking || normalizeBookingReservationStatus(booking) !== 'deposit_hold') return false;
+  if (!booking.holdExpiresAt) return false;
+  const exp = booking.holdExpiresAt;
+  const expMs =
+    typeof exp?.toMillis === 'function'
+      ? exp.toMillis()
+      : typeof exp?.seconds === 'number'
+        ? exp.seconds * 1000
+        : exp instanceof Date
+          ? exp.getTime()
+          : Date.parse(String(exp));
+  if (!Number.isFinite(expMs)) return false;
+  const nowMs = now instanceof Date && !Number.isNaN(now.getTime()) ? now.getTime() : Date.now();
+  return nowMs > expMs;
+}
+
 /**
- * Evaluates which session lifecycle actions are currently allowed for a booking.
+ * Evaluates which session and hold lifecycle actions are currently allowed for a booking.
  */
 export function getBookingLifecycleCapabilities(booking, now = new Date()) {
   if (!booking) {
     return {
+      reservationStatus: 'confirmed',
+      isDepositHold: false,
+      isExpired: false,
+      isOverdueHold: false,
       canCheckIn: false,
       canStart: false,
       canComplete: false,
       canMarkNoShow: false,
       canCancel: false,
       canEditOrReschedule: false,
+      canExtendHold: false,
+      canExpireHold: false,
+      canConfirmHold: false,
+      canRestoreHold: false,
       noShowReason: 'Booking tidak ditemukan.',
     };
   }
 
+  const reservationStatus = normalizeBookingReservationStatus(booking);
   const status = booking.sessionStatus || BOOKING_SESSION_STATUS.UPCOMING;
+  const isDepositHold = reservationStatus === 'deposit_hold';
+  const isExpired = reservationStatus === 'expired';
+  const isOverdueHold = isBookingHoldOverdue(booking, now);
   const hasCheckedIn = Boolean(booking.checkedInAt);
-  const noShowEligible = isBookingNoShowEligible(booking, now);
+  const isReservationConfirmed = reservationStatus === 'confirmed';
+  const noShowEligible = isReservationConfirmed && isBookingNoShowEligible(booking, now);
 
   let noShowReason = '';
-  if (status !== BOOKING_SESSION_STATUS.UPCOMING) {
+  if (!isReservationConfirmed || status === BOOKING_SESSION_STATUS.PENDING_CONFIRMATION) {
+    noShowReason = 'Booking masih berstatus Deposit Hold dan belum terkonfirmasi.';
+  } else if (status !== BOOKING_SESSION_STATUS.UPCOMING) {
     noShowReason = 'No Show hanya berlaku untuk booking dengan status Upcoming.';
   } else if (hasCheckedIn) {
     noShowReason = 'Customer sudah melakukan check-in sehingga tidak dapat ditandai No Show.';
@@ -453,14 +493,27 @@ export function getBookingLifecycleCapabilities(booking, now = new Date()) {
   }
 
   return {
-    canCheckIn: status === BOOKING_SESSION_STATUS.UPCOMING && !hasCheckedIn,
-    canStart: status === BOOKING_SESSION_STATUS.UPCOMING,
-    canComplete: status === BOOKING_SESSION_STATUS.IN_PROGRESS,
+    reservationStatus,
+    isDepositHold,
+    isExpired,
+    isOverdueHold,
+    canCheckIn: isReservationConfirmed && status === BOOKING_SESSION_STATUS.UPCOMING && !hasCheckedIn,
+    canStart: isReservationConfirmed && status === BOOKING_SESSION_STATUS.UPCOMING,
+    canComplete: isReservationConfirmed && status === BOOKING_SESSION_STATUS.IN_PROGRESS,
     canMarkNoShow: noShowEligible,
     canCancel:
-      status === BOOKING_SESSION_STATUS.UPCOMING || status === BOOKING_SESSION_STATUS.IN_PROGRESS,
+      (isDepositHold && status === BOOKING_SESSION_STATUS.PENDING_CONFIRMATION) ||
+      status === BOOKING_SESSION_STATUS.UPCOMING ||
+      status === BOOKING_SESSION_STATUS.IN_PROGRESS,
     canEditOrReschedule:
-      status === BOOKING_SESSION_STATUS.UPCOMING || status === BOOKING_SESSION_STATUS.IN_PROGRESS,
+      !isExpired &&
+      (status === BOOKING_SESSION_STATUS.PENDING_CONFIRMATION ||
+        status === BOOKING_SESSION_STATUS.UPCOMING ||
+        status === BOOKING_SESSION_STATUS.IN_PROGRESS),
+    canExtendHold: isDepositHold,
+    canExpireHold: isDepositHold,
+    canConfirmHold: isDepositHold,
+    canRestoreHold: isExpired,
     noShowReason,
   };
 }

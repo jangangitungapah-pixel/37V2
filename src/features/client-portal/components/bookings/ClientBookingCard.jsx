@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   CalendarDays,
   ChevronDown,
   ChevronUp,
   Clock3,
+  ExternalLink,
   FileText,
   MapPin,
   MessageCircle,
   Music2,
 } from 'lucide-react';
+import { Link } from 'react-router';
 
 import {
   formatDurationMinutes,
@@ -19,6 +22,10 @@ import {
   formatIndonesianTimestamp,
 } from '@/features/admin/calendar/utils/calendar-date';
 import { AdminStatusBadge } from '@/features/admin/design-system';
+import { formatClientRupiah } from '@/features/client-portal/billing/utils/client-billing-utils';
+import { CLIENT_PORTAL_ROUTES } from '@/features/client-portal/config/client-portal-config';
+
+import { ClientOfferReviewCard } from './ClientOfferReviewCard';
 
 function buildClientWhatsAppHref({ whatsappNumber, studioName, referenceCode, serviceTitle }) {
   const digits = String(whatsappNumber || '').replace(/\D/g, '');
@@ -33,7 +40,12 @@ function buildClientWhatsAppHref({ whatsappNumber, studioName, referenceCode, se
  * Customer-safe Spatial Ambient card displaying one booking or inquiry belonging to
  * the authenticated Client Portal user. Never exposes internal UIDs or commission data.
  */
-export function ClientBookingCard({ record, whatsappNumber = '', studioName = '37 Music Studio' }) {
+export function ClientBookingCard({
+  record,
+  whatsappNumber = '',
+  studioName = '37 Music Studio',
+  now = undefined,
+}) {
   const [showDetails, setShowDetails] = useState(false);
 
   const view = record?._view || {};
@@ -179,6 +191,50 @@ export function ClientBookingCard({ record, whatsappNumber = '', studioName = '3
           </div>
         </div>
       )}
+
+      {/* Provisional Deposit Hold Status Banner (OD-07/OD-08: No client hold-extension control) */}
+      {record.clientReservation?.reservationStatus === 'deposit_hold' ? (
+        <div
+          data-testid={`client-deposit-hold-banner-${record.id}`}
+          className="mt-3.5 space-y-2 rounded-xl border border-amber-400/50 bg-[#FEF4DD] p-3 text-xs text-[#6A3B00]"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 font-bold">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>Provisional Deposit Hold — Payment Required to Confirm</span>
+            </span>
+            {Number.isInteger(record.clientReservation.minimumDepositAmount) &&
+            record.clientReservation.minimumDepositAmount > 0 ? (
+              <span className="font-mono font-bold text-[#151515]">
+                Min. Deposit: {formatClientRupiah(record.clientReservation.minimumDepositAmount)}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <span>
+              {record.clientReservation.holdExpiresAt
+                ? `Hold deadline: ${formatIndonesianTimestamp(record.clientReservation.holdExpiresAt)}`
+                : 'Complete your deposit proof upload before deadline.'}
+            </span>
+            {record.clientReservation.invoiceId ? (
+              <Link
+                to={`${CLIENT_PORTAL_ROUTES.INVOICES}?invoiceId=${encodeURIComponent(record.clientReservation.invoiceId)}`}
+                className="inline-flex items-center gap-1 font-bold text-[#151515] underline hover:text-[#B92B0C]"
+              >
+                <span>Open Invoice &amp; Pay Deposit</span>
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Commercial Quote Offer Review Card (Client Portal requests with Offers) */}
+      {!record.clientReservation &&
+      (record.activeOfferId || record.activeOfferSummary || record.status === 'offer_sent') ? (
+        <ClientOfferReviewCard request={record} now={now} />
+      ) : null}
 
       {/* Status note + Expandable Details / WhatsApp Action */}
       <div className="mt-3 flex flex-col gap-2.5 border-t border-[#151515]/[0.06] pt-3 sm:flex-row sm:items-center sm:justify-between">

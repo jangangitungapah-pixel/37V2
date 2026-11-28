@@ -3,8 +3,9 @@
 **Project:** 37 Music Studio / 37V2  
 **Repository:** <https://github.com/jangangitungapah-pixel/37V2>  
 **Branch:** feature/phase-1-core-domain-identity-policy-foundation  
-**Status:** Phase 1 REMEDIATED LOCALLY (Gate 3 `verify:phase1` PASS `4/4`, uncommitted over `0256e79179b305f444dba380c172104eb8419690`) — NOT ACCEPTED UNTIL OWNER ACCEPTANCE — PHASE 2 BLOCKED
+**Status:** OWNER-ACCEPTED ON `2026-11-28` (`2762923ea6de93345058b97012951555f1a354f2`) — PHASE 2 AUTHORIZED LOCALLY (PRODUCTION DEPLOY & BACKFILL NOT PERFORMED) — See `docs/handoffs/PHASE-1-OWNER-ACCEPTANCE-RECORD.md`  
 **Previous branch tip:** 0256e79179b305f444dba380c172104eb8419690
+**Historical Gate 3 snapshot prior to acceptance:** Phase 1 REMEDIATED LOCALLY (Gate 3 `verify:phase1` PASS `4/4`, uncommitted over `0256e79179b305f444dba380c172104eb8419690`)
 **Owner-approved architecture:** Phase 0 decisions AD-01..AD-08 and detailed decisions OD-01..OD-14.
 
 ---
@@ -64,7 +65,7 @@ Phase 0 architecture freeze is complete. Phase 1 implementation is committed on 
 
 It did **not** implement the full Offer, deposit-hold, payment, refund, change-request or Mix & Master project lifecycle. Those belong to later phases.
 
-Phase 1 Gate 3 remediation was subsequently implemented and verified PASS locally (`npm run verify:phase1`: ESLint exit `0`, Vitest `29/29` files / `250/250` tests exit `0`, Firestore Rules Emulator exit `0`, Vite build exit `0` — see `docs/architecture/PHASE-1-GATE-3-TRANSACTION-PROJECTION-AUDIT.md`). **Phase 1 remains not accepted until Owner acceptance is explicitly recorded; Phase 2 remains blocked until Owner acceptance.**
+Phase 1 Gate 3 remediation was subsequently implemented and verified PASS locally (`npm run verify:phase1`: ESLint exit `0`, Vitest `29/29` files / `250/250` tests exit `0`, Firestore Rules Emulator exit `0`, Vite build exit `0` — see `docs/architecture/PHASE-1-GATE-3-TRANSACTION-PROJECTION-AUDIT.md`). On `2026-11-28`, the Owner explicitly accepted Phase 1 at commit `2762923ea6de93345058b97012951555f1a354f2` (`docs/handoffs/PHASE-1-OWNER-ACCEPTANCE-RECORD.md`) and authorized local Phase 2 implementation on `feature/phase-2-offer-revisions-deposit-hold-engine`. Production Firebase deployment and production `clientReservations` backfill remain NOT PERFORMED.
 
 ## 5. First remediation priorities
 

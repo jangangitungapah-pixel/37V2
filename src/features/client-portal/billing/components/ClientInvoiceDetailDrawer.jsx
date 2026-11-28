@@ -310,6 +310,27 @@ export function ClientInvoiceDetailDrawer({
                       </div>
                     </dl>
 
+                    {Number.isInteger(invoice.minimumDepositAmount) &&
+                    invoice.minimumDepositAmount > 0 &&
+                    invoice.invoiceStatus === INVOICE_STATUS.ISSUED &&
+                    invoice.amountPaid < invoice.minimumDepositAmount ? (
+                      <div
+                        data-testid="client-invoice-deposit-gap-banner"
+                        className="mt-3 rounded-xl border border-amber-400/50 bg-[#FEF4DD] px-3 py-2.5 text-xs text-[#6A3B00]"
+                      >
+                        <p className="font-bold">
+                          Deposit Requirement: {formatClientRupiah(invoice.minimumDepositAmount)}
+                        </p>
+                        <p className="mt-0.5 leading-relaxed">
+                          Verified Paid: <strong>{formatClientRupiah(invoice.amountPaid)}</strong>.{' '}
+                          <strong>
+                            Pay {formatClientRupiah(Math.max(0, invoice.minimumDepositAmount - invoice.amountPaid))} more
+                          </strong>{' '}
+                          to confirm your booking (uploaded proofs count only after staff verification).
+                        </p>
+                      </div>
+                    ) : null}
+
                     {statusDisplay.isSettled ? (
                       <div
                         data-testid="client-invoice-paid-banner"

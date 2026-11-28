@@ -219,7 +219,60 @@ export const PAYMENT_METHOD_OPTIONS = [
   { id: 'other', label: 'Other', description: 'Metode pembayaran lainnya' },
 ];
 
+export const RESERVATION_STATUS = {
+  DEPOSIT_HOLD: 'deposit_hold',
+  CONFIRMED: 'confirmed',
+  EXPIRED: 'expired',
+  CANCELLED: 'cancelled',
+};
+
+export const RESERVATION_STATUS_META = {
+  [RESERVATION_STATUS.DEPOSIT_HOLD]: {
+    id: RESERVATION_STATUS.DEPOSIT_HOLD,
+    label: 'Deposit Hold',
+    indoLabel: 'Menunggu DP (Hold)',
+    badgeClass: 'bg-[#FEF4DD] text-[#8A4B08] border-amber-500/35',
+    dotClass: 'bg-amber-500',
+  },
+  [RESERVATION_STATUS.CONFIRMED]: {
+    id: RESERVATION_STATUS.CONFIRMED,
+    label: 'Confirmed',
+    indoLabel: 'Terkonfirmasi',
+    badgeClass: 'bg-[#EDF8C2] text-[#243300] border-[#8BAD12]/35',
+    dotClass: 'bg-[#658800]',
+  },
+  [RESERVATION_STATUS.EXPIRED]: {
+    id: RESERVATION_STATUS.EXPIRED,
+    label: 'Expired',
+    indoLabel: 'Hold Kedaluwarsa',
+    badgeClass: 'bg-[#FFEDE8] text-[#B92B0C] border-[#FF4B22]/30',
+    dotClass: 'bg-[#FF4B22]',
+  },
+  [RESERVATION_STATUS.CANCELLED]: {
+    id: RESERVATION_STATUS.CANCELLED,
+    label: 'Cancelled',
+    indoLabel: 'Dibatalkan',
+    badgeClass: 'bg-[#151515]/[0.05] text-[#666159] border-[#151515]/12',
+    dotClass: 'bg-[#8B857B]',
+  },
+};
+
+export const CONFIRMATION_SOURCES = {
+  DEPOSIT_VERIFIED: 'deposit_verified',
+  NO_DEPOSIT_POLICY: 'no_deposit_policy',
+  STAFF_OVERRIDE: 'staff_override',
+  LEGACY_CONFIRMED: 'legacy_confirmed',
+};
+
+export const CANCELLATION_TYPES = {
+  CLIENT_CANCEL: 'client_cancel',
+  STUDIO_CANCEL: 'studio_cancel',
+  HOLD_EXPIRED: 'hold_expired',
+  NO_SHOW: 'no_show',
+};
+
 export const BOOKING_SESSION_STATUS = {
+  PENDING_CONFIRMATION: 'pending_confirmation',
   UPCOMING: 'upcoming',
   IN_PROGRESS: 'in_progress',
   COMPLETED: 'completed',
@@ -228,6 +281,13 @@ export const BOOKING_SESSION_STATUS = {
 };
 
 export const SESSION_STATUS_META = {
+  [BOOKING_SESSION_STATUS.PENDING_CONFIRMATION]: {
+    id: BOOKING_SESSION_STATUS.PENDING_CONFIRMATION,
+    label: 'Pending Confirmation',
+    indoLabel: 'Menunggu Konfirmasi DP',
+    badgeClass: 'bg-[#FEF4DD] text-[#8A4B08] border-amber-500/35',
+    dotClass: 'bg-amber-500',
+  },
   [BOOKING_SESSION_STATUS.UPCOMING]: {
     id: BOOKING_SESSION_STATUS.UPCOMING,
     label: 'Upcoming',
@@ -274,6 +334,12 @@ export const BOOKING_EVENT_TYPES = {
   COMPLETED: 'session_completed',
   NO_SHOW: 'session_no_show',
   CANCELLED: 'booking_cancelled',
+  HOLD_CREATED: 'hold_created',
+  HOLD_EXTENDED: 'hold_extended',
+  HOLD_EXPIRED: 'hold_expired',
+  RESERVATION_CONFIRMED: 'reservation_confirmed',
+  RESERVATION_RESTORED: 'reservation_restored_from_expiry',
+  LATE_PAYMENT_REFUND_CASE: 'late_payment_routed_to_refund',
 };
 
 export const BOOKING_EVENT_LABELS = {
@@ -285,6 +351,12 @@ export const BOOKING_EVENT_LABELS = {
   [BOOKING_EVENT_TYPES.COMPLETED]: 'Sesi selesai',
   [BOOKING_EVENT_TYPES.NO_SHOW]: 'Ditandai No Show',
   [BOOKING_EVENT_TYPES.CANCELLED]: 'Booking dibatalkan',
+  [BOOKING_EVENT_TYPES.HOLD_CREATED]: 'Deposit Hold dibuat',
+  [BOOKING_EVENT_TYPES.HOLD_EXTENDED]: 'Masa hold diperpanjang',
+  [BOOKING_EVENT_TYPES.HOLD_EXPIRED]: 'Hold kedaluwarsa (manual expiry)',
+  [BOOKING_EVENT_TYPES.RESERVATION_CONFIRMED]: 'Reservasi terkonfirmasi',
+  [BOOKING_EVENT_TYPES.RESERVATION_RESTORED]: 'Hold dipulihkan dari expired',
+  [BOOKING_EVENT_TYPES.LATE_PAYMENT_REFUND_CASE]: 'Pembayaran terlambat diarahkan ke Refund Case',
 };
 
 /**
@@ -336,6 +408,12 @@ export function getInitialPaymentStatusMeta(status) {
   return (
     INITIAL_PAYMENT_STATUS_OPTIONS.find((item) => item.id === status) ||
     INITIAL_PAYMENT_STATUS_OPTIONS[0]
+  );
+}
+
+export function getReservationStatusMeta(status) {
+  return (
+    RESERVATION_STATUS_META[status] || RESERVATION_STATUS_META[RESERVATION_STATUS.CONFIRMED]
   );
 }
 

@@ -41,6 +41,8 @@ import {
 export function isBookingOccupyingPublicRoom(booking) {
   if (!booking || typeof booking !== 'object') return false;
   if (
+    booking.reservationStatus === 'expired' ||
+    booking.reservationStatus === 'cancelled' ||
     booking.sessionStatus === BOOKING_SESSION_STATUS.CANCELLED ||
     booking.sessionStatus === BOOKING_SESSION_STATUS.NO_SHOW
   ) {
